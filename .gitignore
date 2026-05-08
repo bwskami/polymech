@@ -1,0 +1,8 @@
+### Gradle ###
+/run-data/
+/run/
+/gradle/
+/.idea/
+/build/
+/.gradle/
+/src/generated/resources/.cache/

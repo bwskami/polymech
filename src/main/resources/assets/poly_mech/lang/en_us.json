@@ -1,0 +1,13 @@
+{
+  "itemGroup.poly_mech": "Example Mod Tab",
+  "block.poly_mech.example_block": "Example Block",
+  "item.poly_mech.example_item": "Example Item",
+
+  "poly_mech.configuration.title": "Poly mech Configs",
+  "poly_mech.configuration.section.poly_mech.common.toml": "Poly mech Configs",
+  "poly_mech.configuration.section.poly_mech.common.toml.title": "Poly mech Configs",
+  "poly_mech.configuration.items": "Item List",
+  "poly_mech.configuration.logDirtBlock": "Log Dirt Block",
+  "poly_mech.configuration.magicNumberIntroduction": "Magic Number Text",
+  "poly_mech.configuration.magicNumber": "Magic Number"
+}
