@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    {
+      "item": "poly_mech:test_raw"
+    },
+    {
+      "item": "minecraft:stone"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "poly_mech:test_ore"
+  }
+}

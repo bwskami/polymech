@@ -1,0 +1,9 @@
+{
+  "block.poly_mech.coke_oven_brick": "焦炉砖",
+  "item.poly_mech.steel_ingot": "钢锭",
+  "item.poly_mech.test_item1": "测试物品1",
+  "item.poly_mech.test_item2": "测试物品2",
+  "item.poly_mech.test_item3": "测试物品3",
+  "itemGroup.block_tab": "Ploy Mech:方块",
+  "itemGroup.material_tab": "Ploy Mech:材料"
+}

@@ -1,5 +1,8 @@
 package com.mss.polymech;
 
+import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.item.ModCreativeModeTabs;
+import com.mss.polymech.item.ModItems;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -29,6 +32,9 @@ public class Polymech {
     public Polymech(IEventBus modEventBus, ModContainer modContainer) {
         // Register the commonSetup method for modloading
         modEventBus.addListener(this::commonSetup);
+        ModItems.register(modEventBus);
+        ModBlocks.register(modEventBus);
+        ModCreativeModeTabs.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in.
         // Note that this is necessary if and only if we want *this* class (Polymech) to respond directly to events.

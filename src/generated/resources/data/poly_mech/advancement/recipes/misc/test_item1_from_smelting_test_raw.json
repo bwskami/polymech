@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_test_raw": {
+      "conditions": {
+        "items": [
+          {
+            "items": "poly_mech:test_raw"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "poly_mech:test_item1_from_smelting_test_raw"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_test_raw"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "poly_mech:test_item1_from_smelting_test_raw"
+    ]
+  }
+}

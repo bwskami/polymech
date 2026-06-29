@@ -1,0 +1,43 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_stone": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:stone"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_test_raw": {
+      "conditions": {
+        "items": [
+          {
+            "items": "poly_mech:test_raw"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "poly_mech:test_ore"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_test_raw",
+      "has_stone"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "poly_mech:test_ore"
+    ]
+  }
+}

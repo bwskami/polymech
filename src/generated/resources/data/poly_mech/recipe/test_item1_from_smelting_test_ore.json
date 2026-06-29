@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.1,
+  "group": "test",
+  "ingredient": {
+    "item": "poly_mech:test_ore"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:test_item1"
+  }
+}

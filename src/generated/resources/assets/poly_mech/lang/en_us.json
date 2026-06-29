@@ -1,0 +1,11 @@
+{
+  "block.poly_mech.coke_oven_brick": "Coke Oven Brick",
+  "block.poly_mech.test_ore": "Test Ore",
+  "item.poly_mech.steel_ingot": "Steel Ingot",
+  "item.poly_mech.test_item1": "Test Item 1",
+  "item.poly_mech.test_item2": "Test Item 2",
+  "item.poly_mech.test_item3": "Test Item 3",
+  "item.poly_mech.test_raw": "Test Raw",
+  "itemGroup.block_tab": "Ploy Mech:Block",
+  "itemGroup.material_tab": "Ploy Mech:Material"
+}
