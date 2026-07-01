@@ -1,0 +1,36 @@
+{
+  "items": {
+    "test_ingot": {
+      "colors": ["#ffdd4141", "#ff0695ff", "#ff00ff9a"]
+    },
+    "aluminium_ingot": {
+      "colors": ["#ff87ceeb", "#e55fa3d6", "#abffffff"]
+    },
+    "nickel_ingot": {
+      "colors": ["#ffBCB896", "#fe906d9f", "#e8fffc9e"]
+    },
+    "tin_ingot": {
+      "colors": ["#ffDAE9EE", "#ff55709f", "#abfffcf5"]
+    },
+    "zinc_ingot": {
+      "colors": ["#ffa2ddc2", "#ff858834", "#e8f2fff9"]
+    },
+
+
+    "brass_ingot": {
+      "colors": ["#ffffce49", "#e5bc3f00", "#abfffcf5"]
+    },
+    "bronze_ingot": {
+      "colors": ["#fff08040", "#e5c05020", "#abffd840"]
+    },
+    "ivar_ingot": {
+      "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"]
+    },
+    "cupronickel_ingot": {
+      "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"]
+    },
+    "stainless_steel_ingot": {
+      "colors": ["#ffCDD7E4", "#db9b75c1", "#fffdfbff"]
+    }
+  }
+}

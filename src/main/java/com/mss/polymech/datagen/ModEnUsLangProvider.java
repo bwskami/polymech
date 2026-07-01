@@ -17,6 +17,9 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModItems.TEST_ITEM1.get(), "Test Item 1");
         add(ModItems.TEST_ITEM2.get(), "Test Item 2");
         add(ModItems.TEST_ITEM3.get(), "Test Item 3");
+        add(ModItems.TEST_INGOT.get(), "Test Ingot");
+        add(ModItems.BRASS_INGOT.get(), "Brass Ingot");
+        add(ModItems.BRONZE_INGOT.get(), "Bronze Ingot");
         add(ModItems.TEST_RAW.get(), "Test Raw");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");

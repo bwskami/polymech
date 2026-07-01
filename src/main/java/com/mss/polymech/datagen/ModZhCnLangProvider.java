@@ -17,8 +17,11 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add(ModItems.TEST_ITEM1.get(), "测试物品1");
         add(ModItems.TEST_ITEM2.get(), "测试物品2");
         add(ModItems.TEST_ITEM3.get(), "测试物品3");
+        add(ModItems.TEST_INGOT.get(), "测试锭");
+        add(ModItems.TEST_RAW.get(), "测试粗矿");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
+        add(ModBlocks.TEST_ORE.get(), "测试原矿");
 
         add("itemGroup.material_tab", "Ploy Mech:材料");
         add("itemGroup.block_tab", "Ploy Mech:方块");

@@ -20,7 +20,20 @@ public class ModCreativeModeTabs {
                     .icon(() -> new ItemStack(ModItems.STEEL_INGOT.get()))
                     .title(Component.translatable("itemGroup.material_tab"))
                     .displayItems((parameters, output) -> {
+                        //这一行以下写锭（单质）
+                        output.accept(ModItems.TEST_INGOT);
                         output.accept(ModItems.STEEL_INGOT);
+                        output.accept(ModItems.ALUMINIUM_INGOT);
+                        output.accept(ModItems.NICKEL_INGOT);
+                        output.accept(ModItems.TIN_INGOT);
+                        output.accept(ModItems.ZINC_INGOT);
+                        //这一行以下写锭（合金）
+                        output.accept(ModItems.BRASS_INGOT);
+                        output.accept(ModItems.BRONZE_INGOT);
+                        output.accept(ModItems.IVAR_INGOT);
+                        output.accept(ModItems.CUPRONICKEL_INGOT);
+                        output.accept(ModItems.STAINLESS_STEEL_INGOT);
+
                     }).build());
     public static final Supplier<CreativeModeTab> BLOCK_TAB =
             CREATIVE_MODE_TABS.register("block_tab", () -> CreativeModeTab.builder()
