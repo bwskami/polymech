@@ -1,11 +1,13 @@
 package com.mss.polymech.block;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.block.entity.FluidTankBlock;
 import com.mss.polymech.item.ModItems;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SoundType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -21,6 +23,12 @@ public class ModBlocks {
     public static final DeferredBlock<Block> TEST_ORE =
             registerBlocks("test_ore", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
                     .requiresCorrectToolForDrops()));
+    public static final DeferredBlock<FluidTankBlock> FLUID_TANK =
+            registerBlocks("fluid_tank", () -> new FluidTankBlock(Block.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
 
     private static <T extends Block> void registerBlockItems(String name, DeferredBlock<T> block) {
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));

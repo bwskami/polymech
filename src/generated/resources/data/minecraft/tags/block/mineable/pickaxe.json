@@ -1,6 +1,7 @@
 {
   "values": [
     "poly_mech:coke_oven_brick",
-    "poly_mech:test_ore"
+    "poly_mech:test_ore",
+    "poly_mech:fluid_tank"
   ]
 }

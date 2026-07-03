@@ -1,8 +1,10 @@
 package com.mss.polymech;
 
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.menu.ModMenuTypes;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -34,6 +36,8 @@ public class Polymech {
         modEventBus.addListener(this::commonSetup);
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+        ModBlockEntities.register(modEventBus);
+        ModMenuTypes.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in.

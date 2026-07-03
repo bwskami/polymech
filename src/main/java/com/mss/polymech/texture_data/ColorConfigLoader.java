@@ -69,11 +69,11 @@ public class ColorConfigLoader {
     }
 
     public static Integer[] getColors(Item item) {
-        Integer[] colors = COLOR_CACHE.get(item);
-        if (colors == null) {
-            Polymech.LOGGER.debug("No colors found for item: {}", BuiltInRegistries.ITEM.getKey(item));
-        }
-        return colors;
+        return COLOR_CACHE.get(item);
+    }
+
+    public static Item[] getConfiguredItems() {
+        return COLOR_CACHE.keySet().toArray(new Item[0]);
     }
 
     public static void reload() {

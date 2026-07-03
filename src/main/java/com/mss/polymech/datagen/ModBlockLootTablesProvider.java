@@ -30,6 +30,7 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
     protected void generate() {
         dropSelf(ModBlocks.COKE_OVEN_BRICK.get());
         add(ModBlocks.TEST_ORE.get(), block -> createCopperOreLikeDrops(ModBlocks.TEST_ORE.get(), ModItems.TEST_RAW.get(), 2.0F, 6.0F));
+        dropSelf(ModBlocks.FLUID_TANK.get());
     }
 
     protected LootTable.Builder createCopperOreLikeDrops(Block block, Item item, float min, float max) {

@@ -41,6 +41,7 @@ public class ModCreativeModeTabs {
                     .title(Component.translatable("itemGroup.block_tab"))
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.COKE_OVEN_BRICK.get());
+                        output.accept(ModBlocks.FLUID_TANK.get());
                     }).build());
     public static void register(IEventBus eventBus) {
         CREATIVE_MODE_TABS.register(eventBus);

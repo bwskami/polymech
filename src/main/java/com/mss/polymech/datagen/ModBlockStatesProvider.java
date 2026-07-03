@@ -14,5 +14,6 @@ public class ModBlockStatesProvider extends BlockStateProvider {
     protected void registerStatesAndModels() {
         simpleBlockWithItem(ModBlocks.COKE_OVEN_BRICK.get(), cubeAll(ModBlocks.COKE_OVEN_BRICK.get()));
         simpleBlockWithItem(ModBlocks.TEST_ORE.get(), cubeAll(ModBlocks.TEST_ORE.get()));
+        simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
     }
 }

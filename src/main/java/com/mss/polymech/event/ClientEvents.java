@@ -31,5 +31,4 @@ public class ClientEvents {
                 .map(entry -> entry.get())
                 .toArray(Item[]::new));
     }
-
 }

@@ -24,6 +24,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.TEST_ORE.get(), "Test Ore");
+        add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
 
         add("itemGroup.material_tab", "Ploy Mech:Material");
         add("itemGroup.block_tab", "Ploy Mech:Block");
