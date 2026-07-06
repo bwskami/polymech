@@ -42,7 +42,20 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.COKE_OVEN_BRICK.get());
                         output.accept(ModBlocks.FLUID_TANK.get());
+                        output.accept(ModBlocks.PIPE.get());
+                        output.accept(ModBlocks.SMALL_PIPE.get());
+                        output.accept(ModBlocks.BIG_PIPE.get());
+                        output.accept(ModBlocks.HUGE_PIPE.get());
                     }).build());
+
+    public static final Supplier<CreativeModeTab> TOOL_TAB =
+            CREATIVE_MODE_TABS.register("tool_tab", () -> CreativeModeTab.builder()
+                    .icon(() -> new ItemStack(ModItems.WRENCH.get()))
+                    .title(Component.translatable("itemGroup.tool_tab"))
+                    .displayItems((parameters, output) -> {
+                        output.accept(ModItems.WRENCH.get());
+                    }).build());
+
     public static void register(IEventBus eventBus) {
         CREATIVE_MODE_TABS.register(eventBus);
     }

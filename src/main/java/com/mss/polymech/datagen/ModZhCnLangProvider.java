@@ -22,8 +22,14 @@ public class ModZhCnLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.TEST_ORE.get(), "测试原矿");
+        add(ModBlocks.FLUID_TANK.get(), "流体储罐");
+        add(ModBlocks.PIPE.get(), "管道");
+        add(ModBlocks.SMALL_PIPE.get(), "小型管道");
+        add(ModBlocks.BIG_PIPE.get(), "大型管道");
+        add(ModBlocks.HUGE_PIPE.get(), "巨型管道");
 
         add("itemGroup.material_tab", "Ploy Mech:材料");
         add("itemGroup.block_tab", "Ploy Mech:方块");
+        add("itemGroup.tool_tab", "Ploy Mech:工具");
     }
 }

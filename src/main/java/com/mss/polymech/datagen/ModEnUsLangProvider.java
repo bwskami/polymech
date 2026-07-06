@@ -21,12 +21,18 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModItems.BRASS_INGOT.get(), "Brass Ingot");
         add(ModItems.BRONZE_INGOT.get(), "Bronze Ingot");
         add(ModItems.TEST_RAW.get(), "Test Raw");
+        add(ModItems.WRENCH.get(), "Wrench");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.TEST_ORE.get(), "Test Ore");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
+        add(ModBlocks.PIPE.get(), "Pipe");
+        add(ModBlocks.SMALL_PIPE.get(), "Small Pipe");
+        add(ModBlocks.BIG_PIPE.get(), "Big Pipe");
+        add(ModBlocks.HUGE_PIPE.get(), "Huge Pipe");
 
         add("itemGroup.material_tab", "Ploy Mech:Material");
         add("itemGroup.block_tab", "Ploy Mech:Block");
+        add("itemGroup.tool_tab", "Ploy Mech:Tool");
     }
 }

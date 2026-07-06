@@ -1,5 +1,10 @@
 {
+  "block.poly_mech.big_pipe": "大型管道",
   "block.poly_mech.coke_oven_brick": "焦炉砖",
+  "block.poly_mech.fluid_tank": "流体储罐",
+  "block.poly_mech.huge_pipe": "巨型管道",
+  "block.poly_mech.pipe": "管道",
+  "block.poly_mech.small_pipe": "小型管道",
   "block.poly_mech.test_ore": "测试原矿",
   "item.poly_mech.steel_ingot": "钢锭",
   "item.poly_mech.test_ingot": "测试锭",
@@ -8,5 +13,6 @@
   "item.poly_mech.test_item3": "测试物品3",
   "item.poly_mech.test_raw": "测试粗矿",
   "itemGroup.block_tab": "Ploy Mech:方块",
-  "itemGroup.material_tab": "Ploy Mech:材料"
+  "itemGroup.material_tab": "Ploy Mech:材料",
+  "itemGroup.tool_tab": "Ploy Mech:工具"
 }

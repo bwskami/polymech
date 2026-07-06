@@ -29,18 +29,43 @@ public class ModBlocks {
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
+    public static final DeferredBlock<PipeBlock> PIPE =
+            registerBlocks("pipe", () -> new PipeBlock(Block.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+    public static final DeferredBlock<PipeBlock> SMALL_PIPE =
+            registerBlocks("small_pipe", () -> new PipeBlock(Block.Properties.of()
+                    .strength(2.0F, 4.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+    public static final DeferredBlock<PipeBlock> BIG_PIPE =
+            registerBlocks("big_pipe", () -> new PipeBlock(Block.Properties.of()
+                    .strength(4.0F, 8.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+    public static final DeferredBlock<PipeBlock> HUGE_PIPE =
+            registerBlocks("huge_pipe", () -> new PipeBlock(Block.Properties.of()
+                    .strength(5.0F, 10.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
 
     private static <T extends Block> void registerBlockItems(String name, DeferredBlock<T> block) {
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
     }
 
-    private static  <T extends Block> DeferredBlock<T> registerBlocks(String name, Supplier<T> block) {
+    private static <T extends Block> DeferredBlock<T> registerBlocks(String name, Supplier<T> block) {
         DeferredBlock<T> blocks = BLOCKS.register(name, block);
         registerBlockItems(name, blocks);
         return blocks;
     }
 
-    public static void register (IEventBus eventBus) {
+    public static void register(IEventBus eventBus) {
         BLOCKS.register(eventBus);
+
     }
 }

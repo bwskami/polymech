@@ -45,7 +45,12 @@ public class ModItems {
     public static final DeferredItem<Item> TEST_RAW =
             ITEMS.register("test_raw", () -> new Item(new Item.Properties()));
 
-    public static  void register(IEventBus eventBus) {
+    //这一行以下写工具
+    public static final DeferredItem<WrenchItem> WRENCH =
+            ITEMS.register("wrench", () -> new WrenchItem(new Item.Properties()
+                    .stacksTo(1)));
+
+    public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
     }
 }

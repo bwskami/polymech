@@ -35,7 +35,8 @@ public class ModItemModelsProvider extends ItemModelProvider {
             "test_item1",
             "test_item2",
             "test_item3",
-            "test_raw"
+            "test_raw",
+            "wrench"
             // 在这里列出所有需要独立纹理的普通物品
     };
     private boolean isNormalItem(String path) {
