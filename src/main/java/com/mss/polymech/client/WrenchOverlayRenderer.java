@@ -22,18 +22,23 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RenderHighlightEvent;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class WrenchOverlayRenderer {
 
-    private static final float OFFSET = 0.01F;
+    private static final float OFFSET = 0.05F;
     private static final float LINE_WIDTH = 0.02F;
     private static final int LINE_COLOR = 0xFFFFFFFF;
 
     @SubscribeEvent
-    public static void onRenderHighlight(RenderHighlightEvent.Block event) {
+    public static void onRenderLevelStage(RenderLevelStageEvent event) {
+        // 在所有方块渲染完成后才绘制九宫格
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+            return;
+        }
+
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return;
@@ -51,10 +56,12 @@ public class WrenchOverlayRenderer {
         if (!(state.getBlock() instanceof PipeBlock)) return;
 
         Direction face = blockHitResult.getDirection();
-        event.setCanceled(true);
 
         PoseStack poseStack = event.getPoseStack();
+        
+        // 禁用深度测试，确保九宫格在最上层
         RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
         RenderSystem.disableCull();
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
@@ -62,9 +69,9 @@ public class WrenchOverlayRenderer {
 
         poseStack.pushPose();
         poseStack.translate(
-                (double) pos.getX() - event.getCamera().getPosition().x(),
-                (double) pos.getY() - event.getCamera().getPosition().y(),
-                (double) pos.getZ() - event.getCamera().getPosition().z()
+                (double) pos.getX() - mc.gameRenderer.getMainCamera().getPosition().x(),
+                (double) pos.getY() - mc.gameRenderer.getMainCamera().getPosition().y(),
+                (double) pos.getZ() - mc.gameRenderer.getMainCamera().getPosition().z()
         );
 
         Matrix4f matrix = poseStack.last().pose();
@@ -73,6 +80,9 @@ public class WrenchOverlayRenderer {
         renderGrid(matrix, face, axes);
 
         poseStack.popPose();
+        
+        // 恢复状态
+        RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.enableCull();
     }

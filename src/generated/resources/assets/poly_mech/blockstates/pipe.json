@@ -2,12 +2,12 @@
   "multipart": [
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_core"
+        "model": "poly_mech:block/pipes/template_pipe_core"
       }
     },
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_arm"
+        "model": "poly_mech:block/pipes/template_pipe_arm"
       },
       "when": {
         "north": "true"
@@ -15,7 +15,7 @@
     },
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_arm",
+        "model": "poly_mech:block/pipes/template_pipe_arm",
         "y": 180
       },
       "when": {
@@ -24,7 +24,7 @@
     },
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_arm",
+        "model": "poly_mech:block/pipes/template_pipe_arm",
         "y": 90
       },
       "when": {
@@ -33,7 +33,7 @@
     },
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_arm",
+        "model": "poly_mech:block/pipes/template_pipe_arm",
         "y": 270
       },
       "when": {
@@ -42,7 +42,7 @@
     },
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_arm",
+        "model": "poly_mech:block/pipes/template_pipe_arm",
         "x": 270
       },
       "when": {
@@ -51,7 +51,7 @@
     },
     {
       "apply": {
-        "model": "poly_mech:block/pipes/pipe_arm",
+        "model": "poly_mech:block/pipes/template_pipe_arm",
         "x": 90
       },
       "when": {

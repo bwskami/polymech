@@ -6,6 +6,7 @@ import com.mss.polymech.network.PipePlacementPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
@@ -23,7 +24,11 @@ public class PipeInputHandler {
         Player player = mc.player;
         if (player == null) return;
         
-        if (!player.getMainHandItem().is(ModBlocks.PIPE.asItem())) {
+        // 获取当前手持的管道类型
+        Item heldItem = player.getMainHandItem().getItem();
+        String pipeType = getPipeType(heldItem);
+        
+        if (pipeType == null) {
             PipePreviewRenderer.clearStartPos();
             return;
         }
@@ -43,13 +48,30 @@ public class PipeInputHandler {
         
         if (PipePreviewRenderer.getStartPos() == null) {
             // 第一次右键：设置A点
-            PipePreviewRenderer.setStartPos(targetPos);
+            PipePreviewRenderer.setStartPos(targetPos, pipeType);
         } else {
             // 第二次右键：确认B点，发送铺设请求
             BlockPos startPos = PipePreviewRenderer.getStartPos();
-            PacketDistributor.sendToServer(new PipePlacementPacket(startPos, targetPos));
+            String startPipeType = PipePreviewRenderer.getStartPipeType();
+            
+            // 确保A点和B点的管道类型一致
+            if (startPipeType.equals(pipeType)) {
+                PacketDistributor.sendToServer(new PipePlacementPacket(startPos, targetPos, pipeType));
+            }
+            
             PipePreviewRenderer.clearStartPos();
         }
+    }
+    
+    /**
+     * 根据物品获取管道类型
+     */
+    private static String getPipeType(Item item) {
+        if (item == ModBlocks.PIPE.asItem()) return "pipe";
+        if (item == ModBlocks.SMALL_PIPE.asItem()) return "small_pipe";
+        if (item == ModBlocks.BIG_PIPE.asItem()) return "big_pipe";
+        if (item == ModBlocks.HUGE_PIPE.asItem()) return "huge_pipe";
+        return null;
     }
     
     /**

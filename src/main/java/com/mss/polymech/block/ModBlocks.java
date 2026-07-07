@@ -34,25 +34,35 @@ public class ModBlocks {
                     .strength(3.0F, 6.0F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
-                    .noOcclusion()));
+                    .noOcclusion(),
+                    PipeBlock.PipeSize.NORMAL));
+
     public static final DeferredBlock<PipeBlock> SMALL_PIPE =
-            registerBlocks("small_pipe", () -> new PipeBlock(Block.Properties.of()
-                    .strength(2.0F, 4.0F)
-                    .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()
-                    .noOcclusion()));
+            registerBlocks("small_pipe", () -> new PipeBlock(
+                    Block.Properties.of()
+                            .strength(2.0F, 4.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion(),
+                    PipeBlock.PipeSize.SMALL));
+
     public static final DeferredBlock<PipeBlock> BIG_PIPE =
-            registerBlocks("big_pipe", () -> new PipeBlock(Block.Properties.of()
-                    .strength(4.0F, 8.0F)
-                    .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()
-                    .noOcclusion()));
+            registerBlocks("big_pipe", () -> new PipeBlock(
+                    Block.Properties.of()
+                            .strength(4.0F, 8.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion(),
+                    PipeBlock.PipeSize.BIG));
+
     public static final DeferredBlock<PipeBlock> HUGE_PIPE =
-            registerBlocks("huge_pipe", () -> new PipeBlock(Block.Properties.of()
-                    .strength(5.0F, 10.0F)
-                    .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()
-                    .noOcclusion()));
+            registerBlocks("huge_pipe", () -> new PipeBlock(
+                    Block.Properties.of()
+                            .strength(5.0F, 10.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion(),
+                    PipeBlock.PipeSize.HUGE));
 
     private static <T extends Block> void registerBlockItems(String name, DeferredBlock<T> block) {
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));

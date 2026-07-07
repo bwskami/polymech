@@ -14,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.api.distmarker.Dist;
@@ -28,25 +29,31 @@ import java.util.List;
 public class PipePreviewRenderer {
     
     private static BlockPos startPos = null;
+    private static String startPipeType = null;
     
-    // 颜色常量
+    // 不同管道类型的颜色配置
     private static final int COLOR_A_POINT = 0xFF00FF00;   // 绿色 - A点
     private static final int COLOR_B_POINT = 0xFFFF0000;   // 红色 - B点
-    private static final int COLOR_PATH = 0xFFFFFF00;      // 黄色 - 路径
     
     // 线条宽度（方块单位）
     private static final float LINE_WIDTH = 0.06F;
     
-    public static void setStartPos(BlockPos pos) {
+    public static void setStartPos(BlockPos pos, String pipeType) {
         startPos = pos;
+        startPipeType = pipeType;
     }
     
     public static BlockPos getStartPos() {
         return startPos;
     }
     
+    public static String getStartPipeType() {
+        return startPipeType;
+    }
+    
     public static void clearStartPos() {
         startPos = null;
+        startPipeType = null;
     }
     
     @SubscribeEvent
@@ -55,7 +62,11 @@ public class PipePreviewRenderer {
         Player player = mc.player;
         if (player == null) return;
         
-        if (!player.getMainHandItem().is(ModBlocks.PIPE.asItem())) {
+        // 获取当前手持的管道类型
+        Item heldItem = player.getMainHandItem().getItem();
+        String pipeType = getPipeType(heldItem);
+        
+        if (pipeType == null) {
             return;
         }
         
@@ -75,6 +86,9 @@ public class PipePreviewRenderer {
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.disableCull();  // 禁用背面剔除，确保所有面都可见
         
+        // 根据管道类型选择路径颜色
+        int pathColor = getPathColor(pipeType);
+        
         if (startPos != null) {
             // A点已选定，显示A点、B点和路径
             List<BlockPos> path = PipePathCalculator.calculatePath(startPos, targetPos);
@@ -82,7 +96,7 @@ public class PipePreviewRenderer {
             // 渲染A点（绿色）
             renderBlockOutline(poseStack, event, startPos, COLOR_A_POINT);
             
-            // 渲染路径（黄色）和B点（红色）
+            // 渲染路径和B点
             if (!path.isEmpty()) {
                 for (int i = 0; i < path.size(); i++) {
                     BlockPos pos = path.get(i);
@@ -92,8 +106,8 @@ public class PipePreviewRenderer {
                         // B点用红色
                         renderBlockOutline(poseStack, event, pos, COLOR_B_POINT);
                     } else {
-                        // 中间路径用黄色
-                        renderBlockOutline(poseStack, event, pos, COLOR_PATH);
+                        // 中间路径用管道类型对应的颜色
+                        renderBlockOutline(poseStack, event, pos, pathColor);
                     }
                 }
             }
@@ -104,6 +118,30 @@ public class PipePreviewRenderer {
         
         RenderSystem.enableCull();  // 恢复背面剔除
         RenderSystem.enableDepthTest();
+    }
+    
+    /**
+     * 根据管道类型获取路径颜色
+     */
+    private static int getPathColor(String pipeType) {
+        return switch (pipeType) {
+            case "pipe" -> 0xFFFFFF00;      // 黄色 - 普通管道
+            case "small_pipe" -> 0xFF00FFFF; // 青色 - 小管道
+            case "big_pipe" -> 0xFFFF00FF;   // 品红 - 大管道
+            case "huge_pipe" -> 0xFF0080FF;  // 橙色 - 超大管道
+            default -> 0xFFFFFF00;
+        };
+    }
+    
+    /**
+     * 根据物品获取管道类型
+     */
+    private static String getPipeType(Item item) {
+        if (item == ModBlocks.PIPE.asItem()) return "pipe";
+        if (item == ModBlocks.SMALL_PIPE.asItem()) return "small_pipe";
+        if (item == ModBlocks.BIG_PIPE.asItem()) return "big_pipe";
+        if (item == ModBlocks.HUGE_PIPE.asItem()) return "huge_pipe";
+        return null;
     }
     
     /**

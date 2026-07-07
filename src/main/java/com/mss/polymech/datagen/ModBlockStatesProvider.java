@@ -26,29 +26,29 @@ public class ModBlockStatesProvider extends BlockStateProvider {
         simpleBlockWithItem(ModBlocks.TEST_ORE.get(), cubeAll(ModBlocks.TEST_ORE.get()));
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
 
-        ModelFile pipeCore = models().getExistingFile(modLoc("block/pipes/pipe_core"));
-        ModelFile pipeArm = models().getExistingFile(modLoc("block/pipes/pipe_arm"));
+        ModelFile pipeCore = models().getExistingFile(modLoc("block/pipes/template_pipe_core"));
+        ModelFile pipeArm = models().getExistingFile(modLoc("block/pipes/template_pipe_arm"));
         
         generatePipeMultipart(ModBlocks.PIPE.get(), pipeCore, pipeArm);
         
         simpleBlockItem(ModBlocks.PIPE.get(), pipeCore);
 
-        ModelFile smallPipeCore = models().getExistingFile(modLoc("block/pipes/small_pipe_core"));
-        ModelFile smallPipeArm = models().getExistingFile(modLoc("block/pipes/small_pipe_arm"));
+        ModelFile smallPipeCore = models().getExistingFile(modLoc("block/pipes/template_small_pipe_core"));
+        ModelFile smallPipeArm = models().getExistingFile(modLoc("block/pipes/template_small_pipe_arm"));
         
         generatePipeMultipart(ModBlocks.SMALL_PIPE.get(), smallPipeCore, smallPipeArm);
         
         simpleBlockItem(ModBlocks.SMALL_PIPE.get(), smallPipeCore);
 
-        ModelFile bigPipeCore = models().getExistingFile(modLoc("block/pipes/big_pipe_core"));
-        ModelFile bigPipeArm = models().getExistingFile(modLoc("block/pipes/big_pipe_arm"));
+        ModelFile bigPipeCore = models().getExistingFile(modLoc("block/pipes/template_big_pipe_core"));
+        ModelFile bigPipeArm = models().getExistingFile(modLoc("block/pipes/template_big_pipe_arm"));
         
         generatePipeMultipart(ModBlocks.BIG_PIPE.get(), bigPipeCore, bigPipeArm);
         
         simpleBlockItem(ModBlocks.BIG_PIPE.get(), bigPipeCore);
 
-        ModelFile hugePipeCore = models().getExistingFile(modLoc("block/pipes/huge_pipe_core"));
-        ModelFile hugePipeArm = models().getExistingFile(modLoc("block/pipes/huge_pipe_arm"));
+        ModelFile hugePipeCore = models().getExistingFile(modLoc("block/pipes/template_huge_pipe_core"));
+        ModelFile hugePipeArm = models().getExistingFile(modLoc("block/pipes/template_huge_pipe_arm"));
         
         generatePipeMultipart(ModBlocks.HUGE_PIPE.get(), hugePipeCore, hugePipeArm);
         
