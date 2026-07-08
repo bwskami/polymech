@@ -1,50 +1,61 @@
 {
 	"format_version": "1.9.0",
+	"credit": "Made with Blockbench",
 	"texture_size": [32, 32],
 	"textures": {
-		"layer0": "poly_mech:block/pipes/material_sets/huge_pipe_arm",
-		"layer1": "poly_mech:block/pipes/material_sets/huge_pipe_arm_secondary",
+		"layer0": "poly_mech:block/pipes/material_sets/huge_pipe",
+		"layer1": "poly_mech:block/pipes/material_sets/huge_pipe_secondary",
+		"layer2": "poly_mech:block/pipes/material_sets/huge_pipe_overlay",
 		"particle": "#layer0"
 	},
 	"elements": [
 		{
 			"from": [3, 3, 0],
 			"to": [13, 13, 3],
-			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 0]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 2]},
 			"faces": {
-				"north": {"uv": [1.5, 1.5, 6.5, 6.5], "texture": "#layer0", "tintindex": 0},
-				"east": {"uv": [0, 1.5, 1.5, 6.5], "texture": "#layer0", "tintindex": 0},
-				"south": {"uv": [8, 1.5, 13, 6.5], "texture": "#layer0", "tintindex": 0},
-				"west": {"uv": [6.5, 1.5, 8, 6.5], "texture": "#layer0", "tintindex": 0},
-				"up": {"uv": [6.5, 1.5, 1.5, 0], "texture": "#layer0", "tintindex": 0},
-				"down": {"uv": [11.5, 0, 6.5, 1.5], "texture": "#layer0", "tintindex": 0}
+				"north": {"uv": [8, 0, 12.5, 4.5], "texture": "#layer0", "tintindex": 0},
+				"east": {"uv": [6.5, 1.5, 8, 6.5], "texture": "#layer0", "tintindex": 0},
+				"south": {"uv": [8, 0, 12.5, 4.5], "texture": "#layer0", "tintindex": 0},
+				"west": {"uv": [0, 1.5, 1.5, 6.5], "texture": "#layer0", "tintindex": 0},
+				"up": {"uv": [1.5, 0, 6.5, 1.5], "texture": "#layer0", "tintindex": 0},
+				"down": {"uv": [1.5, 6.5, 6.5, 8], "texture": "#layer0", "tintindex": 0}
 			}
 		},
 		{
 			"from": [3, 3, 0],
 			"to": [13, 13, 3],
-			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 0]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 2]},
 			"faces": {
-				"north": {"uv": [1.5, 1.5, 6.5, 6.5], "texture": "#layer1", "tintindex": 1},
-				"east": {"uv": [0, 1.5, 1.5, 6.5], "texture": "#layer1", "tintindex": 1},
-				"south": {"uv": [8, 1.5, 13, 6.5], "texture": "#layer1", "tintindex": 1},
-				"west": {"uv": [6.5, 1.5, 8, 6.5], "texture": "#layer1", "tintindex": 1},
-				"up": {"uv": [6.5, 1.5, 1.5, 0], "texture": "#layer1", "tintindex": 1},
-				"down": {"uv": [11.5, 0, 6.5, 1.5], "texture": "#layer1", "tintindex": 1}
+				"north": {"uv": [8, 0, 12.5, 4.5], "texture": "#layer1", "tintindex": 1},
+				"east": {"uv": [6.5, 1.5, 8, 6.5], "texture": "#layer1", "tintindex": 1},
+				"south": {"uv": [8, 0, 12.5, 4.5], "texture": "#layer1", "tintindex": 1},
+				"west": {"uv": [0, 1.5, 1.5, 6.5], "texture": "#layer1", "tintindex": 1},
+				"up": {"uv": [1.5, 0, 6.5, 1.5], "texture": "#layer1", "tintindex": 1},
+				"down": {"uv": [1.5, 6.5, 6.5, 8], "texture": "#layer1", "tintindex": 1}
 			}
 		},
 		{
 			"from": [3, 3, 0],
 			"to": [13, 13, 3],
-			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 0]},
+			"rotation": {"angle": 0, "axis": "y", "origin": [7, 7, 2]},
 			"faces": {
-				"north": {"uv": [1.5, 1.5, 6.5, 6.5], "texture": "#layer2", "tintindex": 2},
-				"east": {"uv": [0, 1.5, 1.5, 6.5], "texture": "#layer2", "tintindex": 2},
-				"south": {"uv": [8, 1.5, 13, 6.5], "texture": "#layer2", "tintindex": 2},
-				"west": {"uv": [6.5, 1.5, 8, 6.5], "texture": "#layer2", "tintindex": 2},
-				"up": {"uv": [6.5, 1.5, 1.5, 0], "texture": "#layer2", "tintindex": 2},
-				"down": {"uv": [11.5, 0, 6.5, 1.5], "texture": "#layer2", "tintindex": 2}
+				"north": {"uv": [8, 0, 12.5, 4.5], "texture": "#layer2", "tintindex": 2},
+				"east": {"uv": [6.5, 1.5, 8, 6.5], "texture": "#layer2", "tintindex": 2},
+				"south": {"uv": [8, 0, 12.5, 4.5], "texture": "#layer2", "tintindex": 2},
+				"west": {"uv": [0, 1.5, 1.5, 6.5], "texture": "#layer2", "tintindex": 2},
+				"up": {"uv": [1.5, 0, 6.5, 1.5], "texture": "#layer2", "tintindex": 2},
+				"down": {"uv": [1.5, 6.5, 6.5, 8], "texture": "#layer2", "tintindex": 2}
 			}
+		}
+	],
+	"groups": [
+		{
+			"name": "arm_north",
+			"origin": [8, 8, 8],
+			"scope": 0,
+			"color": 0,
+			"children": [0, 1, 2]
 		}
 	]
 }
