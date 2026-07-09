@@ -37,6 +37,21 @@
     "pipe": "stainless_steel_block",
     "small_pipe": "stainless_steel_block",
     "big_pipe": "stainless_steel_block",
-    "huge_pipe": "stainless_steel_block"
+    "huge_pipe": "stainless_steel_block",
+
+    "bronze_pipe": "bronze_block",
+    "bronze_small_pipe": "bronze_block",
+    "bronze_big_pipe": "bronze_block",
+    "bronze_huge_pipe": "bronze_block",
+
+    "stainless_steel_pipe": "stainless_steel_block",
+    "stainless_steel_small_pipe": "stainless_steel_block",
+    "stainless_steel_big_pipe": "stainless_steel_block",
+    "stainless_steel_huge_pipe": "stainless_steel_block",
+
+    "brass_pipe": "brass_block",
+    "brass_small_pipe": "brass_block",
+    "brass_big_pipe": "brass_block",
+    "brass_huge_pipe": "brass_block"
   }
 }

@@ -12,6 +12,26 @@ public enum ItemLayerTemplates {
             "item/material_sets/alloy_ingot/alloy_ingot",
                     "item/material_sets/alloy_ingot/alloy_ingot_secondary",
                     "item/material_sets/alloy_ingot/alloy_ingot_overlay"
+    ),
+    PIPE_ITEM(
+            "item/material_sets/pipe_item/pipe_item",
+            "item/material_sets/pipe_item/pipe_item_secondary",
+            "item/material_sets/pipe_item/pipe_item_overlay"
+    ),
+    SMALL_PIPE_ITEM(
+            "item/material_sets/pipe_item/small_pipe_item",
+            "item/material_sets/pipe_item/small_pipe_item_secondary",
+            "item/material_sets/pipe_item/small_pipe_item_overlay"
+    ),
+    BIG_PIPE_ITEM(
+            "item/material_sets/pipe_item/big_pipe_item",
+            "item/material_sets/pipe_item/big_pipe_item_secondary",
+            "item/material_sets/pipe_item/big_pipe_item_overlay"
+    ),
+    HUGE_PIPE_ITEM(
+            "item/material_sets/pipe_item/huge_pipe_item",
+            "item/material_sets/pipe_item/huge_pipe_item_secondary",
+            "item/material_sets/pipe_item/huge_pipe_item_overlay"
     );
 
 

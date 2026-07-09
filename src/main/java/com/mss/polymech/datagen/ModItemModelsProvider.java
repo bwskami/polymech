@@ -13,22 +13,41 @@ import net.neoforged.neoforge.common.data.ExistingFileHelper;
 import java.util.Map;
 
 public class ModItemModelsProvider extends ItemModelProvider {
-    private static final Map<String, ItemLayerTemplates> ITEM_TYPE_OVERRIDES = Map.of(
-            //这一行以下写锭（单质）
-            "test_ingot", ItemLayerTemplates.INGOT,
-            "aluminium_ingot", ItemLayerTemplates.INGOT,
-            "nickel_ingot", ItemLayerTemplates.INGOT,
-            "tin_ingot", ItemLayerTemplates.INGOT,
-            "zinc_ingot", ItemLayerTemplates.INGOT,
-            //这一行以下写锭（合金）
-            "brass_ingot", ItemLayerTemplates.ALLOY,
-            "bronze_ingot", ItemLayerTemplates.ALLOY,
-            "ivar_ingot", ItemLayerTemplates.ALLOY,
-            "cupronickel_ingot", ItemLayerTemplates.ALLOY,
-            "stainless_steel_ingot", ItemLayerTemplates.ALLOY
-            // 后续新增染色物品在此添加，例如：
-            // "gold_ingot", ItemLayerTemplates.INGOT,
-            // "diamond_gear", ItemLayerTemplates.GEAR
+    private static final Map<String, ItemLayerTemplates> ITEM_TYPE_OVERRIDES = Map.ofEntries(
+            Map.entry("test_ingot", ItemLayerTemplates.INGOT),
+            Map.entry("aluminium_ingot", ItemLayerTemplates.INGOT),
+            Map.entry("nickel_ingot", ItemLayerTemplates.INGOT),
+            Map.entry("tin_ingot", ItemLayerTemplates.INGOT),
+            Map.entry("zinc_ingot", ItemLayerTemplates.INGOT),
+            Map.entry("brass_ingot", ItemLayerTemplates.ALLOY),
+            Map.entry("bronze_ingot", ItemLayerTemplates.ALLOY),
+            Map.entry("ivar_ingot", ItemLayerTemplates.ALLOY),
+            Map.entry("cupronickel_ingot", ItemLayerTemplates.ALLOY),
+            Map.entry("stainless_steel_ingot", ItemLayerTemplates.ALLOY),
+            
+            // 普通管道物品
+            Map.entry("pipe", ItemLayerTemplates.PIPE_ITEM),
+            Map.entry("small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
+            Map.entry("big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
+            Map.entry("huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM),
+            
+            // 青铜管道物品
+            Map.entry("bronze_pipe", ItemLayerTemplates.PIPE_ITEM),
+            Map.entry("bronze_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
+            Map.entry("bronze_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
+            Map.entry("bronze_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM),
+            
+            // 不锈钢管道物品
+            Map.entry("stainless_steel_pipe", ItemLayerTemplates.PIPE_ITEM),
+            Map.entry("stainless_steel_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
+            Map.entry("stainless_steel_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
+            Map.entry("stainless_steel_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM),
+            
+            // 黄铜管道物品
+            Map.entry("brass_pipe", ItemLayerTemplates.PIPE_ITEM),
+            Map.entry("brass_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
+            Map.entry("brass_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
+            Map.entry("brass_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM)
     );
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",

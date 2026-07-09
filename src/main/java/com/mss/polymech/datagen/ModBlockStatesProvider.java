@@ -2,7 +2,6 @@ package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
-import com.mss.polymech.block.PipeBlock;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.PackOutput;
 import net.minecraft.world.level.block.Block;
@@ -26,51 +25,35 @@ public class ModBlockStatesProvider extends BlockStateProvider {
         simpleBlockWithItem(ModBlocks.TEST_ORE.get(), cubeAll(ModBlocks.TEST_ORE.get()));
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
 
-        ModelFile pipeCore = models().getExistingFile(modLoc("block/pipes/template_pipe_core"));
-        ModelFile pipeArm = models().getExistingFile(modLoc("block/pipes/template_pipe_arm"));
+        // 普通管道（铁/钢）
+        generatePipeBlockState(ModBlocks.PIPE.get(), "template_pipe");
+        generatePipeBlockState(ModBlocks.SMALL_PIPE.get(), "template_small_pipe");
+        generatePipeBlockState(ModBlocks.BIG_PIPE.get(), "template_big_pipe");
+        generatePipeBlockState(ModBlocks.HUGE_PIPE.get(), "template_huge_pipe");
         
-        generatePipeMultipart(ModBlocks.PIPE.get(), pipeCore, pipeArm);
+        // 青铜管道 - 复用 template 模型
+        generatePipeBlockState(ModBlocks.BRONZE_PIPE.get(), "template_pipe");
+        generatePipeBlockState(ModBlocks.BRONZE_SMALL_PIPE.get(), "template_small_pipe");
+        generatePipeBlockState(ModBlocks.BRONZE_BIG_PIPE.get(), "template_big_pipe");
+        generatePipeBlockState(ModBlocks.BRONZE_HUGE_PIPE.get(), "template_huge_pipe");
         
-        simpleBlockItem(ModBlocks.PIPE.get(), pipeCore);
-
-        ModelFile smallPipeCore = models().getExistingFile(modLoc("block/pipes/template_small_pipe_core"));
-        ModelFile smallPipeArm = models().getExistingFile(modLoc("block/pipes/template_small_pipe_arm"));
+        // 不锈钢管道 - 复用 template 模型
+        generatePipeBlockState(ModBlocks.STAINLESS_STEEL_PIPE.get(), "template_pipe");
+        generatePipeBlockState(ModBlocks.STAINLESS_STEEL_SMALL_PIPE.get(), "template_small_pipe");
+        generatePipeBlockState(ModBlocks.STAINLESS_STEEL_BIG_PIPE.get(), "template_big_pipe");
+        generatePipeBlockState(ModBlocks.STAINLESS_STEEL_HUGE_PIPE.get(), "template_huge_pipe");
         
-        generatePipeMultipart(ModBlocks.SMALL_PIPE.get(), smallPipeCore, smallPipeArm);
-        
-        simpleBlockItem(ModBlocks.SMALL_PIPE.get(), smallPipeCore);
-
-        ModelFile bigPipeCore = models().getExistingFile(modLoc("block/pipes/template_big_pipe_core"));
-        ModelFile bigPipeArm = models().getExistingFile(modLoc("block/pipes/template_big_pipe_arm"));
-        
-        generatePipeMultipart(ModBlocks.BIG_PIPE.get(), bigPipeCore, bigPipeArm);
-        
-        simpleBlockItem(ModBlocks.BIG_PIPE.get(), bigPipeCore);
-
-        ModelFile hugePipeCore = models().getExistingFile(modLoc("block/pipes/template_huge_pipe_core"));
-        ModelFile hugePipeArm = models().getExistingFile(modLoc("block/pipes/template_huge_pipe_arm"));
-        
-        generatePipeMultipart(ModBlocks.HUGE_PIPE.get(), hugePipeCore, hugePipeArm);
-        
-        simpleBlockItem(ModBlocks.HUGE_PIPE.get(), hugePipeCore);
+        // 黄铜管道 - 复用 template 模型
+        generatePipeBlockState(ModBlocks.BRASS_PIPE.get(), "template_pipe");
+        generatePipeBlockState(ModBlocks.BRASS_SMALL_PIPE.get(), "template_small_pipe");
+        generatePipeBlockState(ModBlocks.BRASS_BIG_PIPE.get(), "template_big_pipe");
+        generatePipeBlockState(ModBlocks.BRASS_HUGE_PIPE.get(), "template_huge_pipe");
     }
     
-    private void generatePipeMultipart(Block block, ModelFile core, ModelFile arm) {
-        var builder = getMultipartBuilder(block);
+    private void generatePipeBlockState(Block block, String modelName) {
+        ModelFile pipeModel = models().getExistingFile(modLoc("block/pipes/" + modelName));
         
-        builder.part().modelFile(core).addModel().end();
+        simpleBlock(block, pipeModel);
         
-        builder.part().modelFile(arm).rotationY(0).addModel()
-                .condition(PipeBlock.NORTH, true).end();
-        builder.part().modelFile(arm).rotationY(180).addModel()
-                .condition(PipeBlock.SOUTH, true).end();
-        builder.part().modelFile(arm).rotationY(90).addModel()
-                .condition(PipeBlock.EAST, true).end();
-        builder.part().modelFile(arm).rotationY(270).addModel()
-                .condition(PipeBlock.WEST, true).end();
-        builder.part().modelFile(arm).rotationX(270).addModel()
-                .condition(PipeBlock.UP, true).end();
-        builder.part().modelFile(arm).rotationX(90).addModel()
-                .condition(PipeBlock.DOWN, true).end();
     }
 }

@@ -42,10 +42,36 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.COKE_OVEN_BRICK.get());
                         output.accept(ModBlocks.FLUID_TANK.get());
+                    }).build());
+
+    public static final Supplier<CreativeModeTab> PIPE_TAB =
+            CREATIVE_MODE_TABS.register("pipe_tab", () -> CreativeModeTab.builder()
+                    .icon(() -> new ItemStack(ModBlocks.PIPE.get()))
+                    .title(Component.translatable("itemGroup.pipe_tab"))
+                    .displayItems((parameters, output) -> {
+                        // 普通管道（铁/钢）
                         output.accept(ModBlocks.PIPE.get());
                         output.accept(ModBlocks.SMALL_PIPE.get());
                         output.accept(ModBlocks.BIG_PIPE.get());
                         output.accept(ModBlocks.HUGE_PIPE.get());
+
+                        // 青铜管道
+                        output.accept(ModBlocks.BRONZE_PIPE.get());
+                        output.accept(ModBlocks.BRONZE_SMALL_PIPE.get());
+                        output.accept(ModBlocks.BRONZE_BIG_PIPE.get());
+                        output.accept(ModBlocks.BRONZE_HUGE_PIPE.get());
+
+                        // 不锈钢管道
+                        output.accept(ModBlocks.STAINLESS_STEEL_PIPE.get());
+                        output.accept(ModBlocks.STAINLESS_STEEL_SMALL_PIPE.get());
+                        output.accept(ModBlocks.STAINLESS_STEEL_BIG_PIPE.get());
+                        output.accept(ModBlocks.STAINLESS_STEEL_HUGE_PIPE.get());
+
+                        // 黄铜管道
+                        output.accept(ModBlocks.BRASS_PIPE.get());
+                        output.accept(ModBlocks.BRASS_SMALL_PIPE.get());
+                        output.accept(ModBlocks.BRASS_BIG_PIPE.get());
+                        output.accept(ModBlocks.BRASS_HUGE_PIPE.get());
                     }).build());
 
     public static final Supplier<CreativeModeTab> TOOL_TAB =

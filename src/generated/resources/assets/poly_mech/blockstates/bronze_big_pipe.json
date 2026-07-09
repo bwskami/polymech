@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "poly_mech:block/pipes/template_big_pipe"
+    }
+  }
+}

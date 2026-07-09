@@ -1,6 +1,7 @@
 package com.mss.polymech;
 
 import com.mss.polymech.client.gui.FluidTankScreen;
+import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.menu.ModMenuTypes;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
@@ -9,6 +10,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
@@ -32,5 +34,10 @@ public class PolymechClient {
     @SubscribeEvent
     static void onRegisterMenuScreens(RegisterMenuScreensEvent event) {
         event.register(ModMenuTypes.FLUID_TANK_MENU.get(), FluidTankScreen::new);
+    }
+
+    @SubscribeEvent
+    static void onRegisterGeometryLoaders(ModelEvent.RegisterGeometryLoaders event) {
+        event.register(PipeModelLoader.ID, PipeModelLoader.INSTANCE);
     }
 }
