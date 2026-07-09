@@ -1,5 +1,6 @@
 package com.mss.polymech.datagen;
 
+import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.item.ModItems;
 import net.minecraft.core.Holder;
@@ -18,7 +19,6 @@ import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
 
-import java.util.Locale;
 import java.util.Set;
 
 public class ModBlockLootTablesProvider extends BlockLootSubProvider {
@@ -29,7 +29,13 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
     @Override
     protected void generate() {
         dropSelf(ModBlocks.COKE_OVEN_BRICK.get());
-        add(ModBlocks.TEST_ORE.get(), block -> createCopperOreLikeDrops(ModBlocks.TEST_ORE.get(), ModItems.TEST_RAW.get(), 2.0F, 6.0F));
+        
+        // 使用数据驱动API获取TEST_RAW物品
+        var testRawItem = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, "test");
+        if (testRawItem != null) {
+            add(ModBlocks.TEST_ORE.get(), block -> createCopperOreLikeDrops(ModBlocks.TEST_ORE.get(), testRawItem.get(), 2.0F, 6.0F));
+        }
+        
         dropSelf(ModBlocks.FLUID_TANK.get());
         
         for (var pipe : ModBlocks.PIPE_BLOCKS) {
@@ -48,11 +54,7 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
                                 .apply(ApplyBonusCount.addOreBonusCount(registryLookup.getOrThrow(Enchantments.FORTUNE)))
                 )
         );
-
-
     }
-
-
 
     @Override
     protected Iterable<Block> getKnownBlocks() {

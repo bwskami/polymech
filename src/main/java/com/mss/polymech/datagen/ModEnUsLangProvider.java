@@ -1,6 +1,9 @@
 package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.item.ItemTagPrefix;
+import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.PipeBlock;
@@ -15,14 +18,32 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
     @Override
     protected void addTranslations() {
-        add(ModItems.STEEL_INGOT.get(), "Steel Ingot");
-        add(ModItems.TEST_ITEM1.get(), "Test Item 1");
-        add(ModItems.TEST_ITEM2.get(), "Test Item 2");
-        add(ModItems.TEST_ITEM3.get(), "Test Item 3");
-        add(ModItems.TEST_INGOT.get(), "Test Ingot");
-        add(ModItems.BRASS_INGOT.get(), "Brass Ingot");
-        add(ModItems.BRONZE_INGOT.get(), "Bronze Ingot");
-        add(ModItems.TEST_RAW.get(), "Test Raw");
+        // 数据驱动的材料物品翻译
+        for (String materialName : MaterialRegistry.getMaterialNames()) {
+            // 锭
+            var ingotItem = ModItems.getMaterialItem(ModItemTypes.INGOT, materialName);
+            if (ingotItem != null) {
+                String displayName = formatMaterialName(materialName) + " Ingot";
+                add(ingotItem.get(), displayName);
+            }
+            
+            // 粗矿（仅test材料有）
+            if ("test".equals(materialName)) {
+                var rawItem = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, materialName);
+                if (rawItem != null) {
+                    add(rawItem.get(), "Test Raw");
+                }
+            }
+        }
+        
+        // 测试物品
+        for (int i = 1; i <= 3; i++) {
+            var testItem = ModItems.getMaterialItem(ModItemTypes.TEST_ITEM, String.valueOf(i));
+            if (testItem != null) {
+                add(testItem.get(), "Test Item " + i);
+            }
+        }
+        
         add(ModItems.WRENCH.get(), "Wrench");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
@@ -42,6 +63,20 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("itemGroup.block_tab", "Ploy Mech:Block");
         add("itemGroup.pipe_tab", "Ploy Mech:Pipes");
         add("itemGroup.tool_tab", "Ploy Mech:Tool");
+    }
+
+    private String formatMaterialName(String name) {
+        StringBuilder result = new StringBuilder();
+        boolean capitalizeNext = true;
+        for (char c : name.toCharArray()) {
+            if (c == '_') {
+                capitalizeNext = true;
+            } else {
+                result.append(capitalizeNext ? Character.toUpperCase(c) : c);
+                capitalizeNext = false;
+            }
+        }
+        return result.toString();
     }
 
     private String buildDisplayName(PipeMaterial material, PipeBlock.PipeSize size) {

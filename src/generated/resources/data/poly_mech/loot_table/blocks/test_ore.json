@@ -49,7 +49,7 @@
                   "function": "minecraft:explosion_decay"
                 }
               ],
-              "name": "poly_mech:test_raw"
+              "name": "poly_mech:raw_test"
             }
           ]
         }

@@ -1,13 +1,12 @@
 package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.item.ModItems;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.data.PackOutput;
 import net.minecraft.data.recipes.*;
-import net.minecraft.world.entity.vehicle.Minecart;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.ItemLike;
@@ -24,8 +23,15 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
 
     @Override
     protected void buildRecipes(RecipeOutput recipeOutput) {
-        oreSmelting(recipeOutput, TEST_ITEM1, RecipeCategory.MISC, ModItems.TEST_ITEM1, 0.1f, 200, "test");
-        oreBlasting(recipeOutput, TEST_ITEM1, RecipeCategory.MISC, ModItems.TEST_ITEM1, 0.1f, 200, "test");
+        // 使用数据驱动API获取物品
+        var testItem1 = ModItems.getMaterialItem(ModItemTypes.TEST_ITEM, "1");
+        var testRaw = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, "test");
+        
+        if (testItem1 != null && testRaw != null) {
+            List<ItemLike> testIngredients = List.of(testRaw.get(), ModBlocks.TEST_ORE.get());
+            oreSmelting(recipeOutput, testIngredients, RecipeCategory.MISC, testItem1.get(), 0.1f, 200, "test");
+            oreBlasting(recipeOutput, testIngredients, RecipeCategory.MISC, testItem1.get(), 0.1f, 200, "test");
+        }
 
         ShapedRecipeBuilder.shaped(RecipeCategory.BUILDING_BLOCKS, ModBlocks.COKE_OVEN_BRICK)
                 .pattern("###")
@@ -40,17 +46,16 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
                 .define('#', Items.BEETROOT)
                 .unlockedBy(getHasName(Items.BEETROOT), has(Items.BEETROOT))
                 .save(recipeOutput, Polymech.MOD_ID + ":" + "sugar_from_beetroot");
-                //如果涉及原版相关物品合成但没有声明命名空间，则会顶替掉原版配方
 
-        ShapelessRecipeBuilder.shapeless(RecipeCategory.BUILDING_BLOCKS, ModBlocks.TEST_ORE)
-                .requires(ModItems.TEST_RAW)
-                .requires(Blocks.STONE)
-                .unlockedBy(getHasName(ModItems.TEST_RAW), has(ModItems.TEST_RAW))
-                .unlockedBy(getHasName(Blocks.STONE), has(Blocks.STONE))
-                .save(recipeOutput);
+        if (testRaw != null) {
+            ShapelessRecipeBuilder.shapeless(RecipeCategory.BUILDING_BLOCKS, ModBlocks.TEST_ORE)
+                    .requires(testRaw.get())
+                    .requires(Blocks.STONE)
+                    .unlockedBy(getHasName(testRaw.get()), has(testRaw.get()))
+                    .unlockedBy(getHasName(Blocks.STONE), has(Blocks.STONE))
+                    .save(recipeOutput);
+        }
     }
-
-    public static final List<ItemLike> TEST_ITEM1 = List.of(ModItems.TEST_RAW, ModBlocks.TEST_ORE);
 
     protected static void oreSmelting(
             RecipeOutput recipeOutput, List<ItemLike> ingredients, RecipeCategory category, ItemLike result, float experience, int cookingTime, String group
@@ -105,6 +110,4 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
                     .save(recipeOutput, Polymech.MOD_ID + ":" + getItemName(result) + suffix + "_" + getItemName(itemlike));
         }
     }
-
-
 }

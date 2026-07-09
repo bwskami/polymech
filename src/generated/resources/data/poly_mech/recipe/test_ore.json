@@ -3,7 +3,7 @@
   "category": "building",
   "ingredients": [
     {
-      "item": "poly_mech:test_raw"
+      "item": "poly_mech:raw_test"
     },
     {
       "item": "minecraft:stone"

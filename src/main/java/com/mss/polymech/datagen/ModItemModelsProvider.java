@@ -75,12 +75,6 @@ public class ModItemModelsProvider extends ItemModelProvider {
 
     @Override
     protected void registerModels() {
-        //basicItem(ModItems.STEEL_INGOT.get());
-        //basicItem(ModItems.TEST_ITEM1.get());
-        //basicItem(ModItems.TEST_ITEM2.get());
-        //basicItem(ModItems.TEST_ITEM3.get());
-        //basicItem(ModItems.TEST_INGOT.get());
-        //basicItem(ModItems.TEST_RAW.get());
         for (var entry : ModItems.ITEMS.getEntries()) {
             Item item = entry.get();
             ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);

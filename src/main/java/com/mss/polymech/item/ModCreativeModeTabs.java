@@ -1,6 +1,8 @@
 package com.mss.polymech.item;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.PipeBlock;
@@ -11,32 +13,40 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-import java.util.Scanner;
 import java.util.function.Supplier;
 
 public class ModCreativeModeTabs {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Polymech.MOD_ID);
+    
     public static final Supplier<CreativeModeTab> MATERIAL_TAB =
             CREATIVE_MODE_TABS.register("material_tab", () -> CreativeModeTab.builder()
-                    .icon(() -> new ItemStack(ModItems.STEEL_INGOT.get()))
+                    .icon(() -> new ItemStack(ModItems.getMaterialItem(ModItemTypes.INGOT, "steel").get()))
                     .title(Component.translatable("itemGroup.material_tab"))
                     .displayItems((parameters, output) -> {
-                        //这一行以下写锭（单质）
-                        output.accept(ModItems.TEST_INGOT);
-                        output.accept(ModItems.STEEL_INGOT);
-                        output.accept(ModItems.ALUMINIUM_INGOT);
-                        output.accept(ModItems.NICKEL_INGOT);
-                        output.accept(ModItems.TIN_INGOT);
-                        output.accept(ModItems.ZINC_INGOT);
-                        //这一行以下写锭（合金）
-                        output.accept(ModItems.BRASS_INGOT);
-                        output.accept(ModItems.BRONZE_INGOT);
-                        output.accept(ModItems.IVAR_INGOT);
-                        output.accept(ModItems.CUPRONICKEL_INGOT);
-                        output.accept(ModItems.STAINLESS_STEEL_INGOT);
-
+                        // 数据驱动：遍历所有材料的锭
+                        for (String materialName : MaterialRegistry.getMaterialNames()) {
+                            var ingotItem = ModItems.getMaterialItem(ModItemTypes.INGOT, materialName);
+                            if (ingotItem != null) {
+                                output.accept(ingotItem.get());
+                            }
+                        }
+                        
+                        // 添加测试物品
+                        for (int i = 1; i <= 3; i++) {
+                            var testItem = ModItems.getMaterialItem(ModItemTypes.TEST_ITEM, String.valueOf(i));
+                            if (testItem != null) {
+                                output.accept(testItem.get());
+                            }
+                        }
+                        
+                        // 添加粗矿
+                        var rawItem = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, "test");
+                        if (rawItem != null) {
+                            output.accept(rawItem.get());
+                        }
                     }).build());
+    
     public static final Supplier<CreativeModeTab> BLOCK_TAB =
             CREATIVE_MODE_TABS.register("block_tab", () -> CreativeModeTab.builder()
                     .icon(() -> new ItemStack(ModBlocks.COKE_OVEN_BRICK.get()))
