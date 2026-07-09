@@ -1,6 +1,8 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "poly_mech:item/steel_ingot"
+    "layer0": "poly_mech:item/material_sets/ingot/ingot",
+    "layer1": "poly_mech:item/material_sets/ingot/ingot_secondary",
+    "layer2": "poly_mech:item/material_sets/ingot/ingot_overlay"
   }
 }

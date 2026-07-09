@@ -23,15 +23,6 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
 
     @Override
     protected void buildRecipes(RecipeOutput recipeOutput) {
-        // 使用数据驱动API获取物品
-        var testItem1 = ModItems.getMaterialItem(ModItemTypes.TEST_ITEM, "1");
-        var testRaw = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, "test");
-        
-        if (testItem1 != null && testRaw != null) {
-            List<ItemLike> testIngredients = List.of(testRaw.get(), ModBlocks.TEST_ORE.get());
-            oreSmelting(recipeOutput, testIngredients, RecipeCategory.MISC, testItem1.get(), 0.1f, 200, "test");
-            oreBlasting(recipeOutput, testIngredients, RecipeCategory.MISC, testItem1.get(), 0.1f, 200, "test");
-        }
 
         ShapedRecipeBuilder.shaped(RecipeCategory.BUILDING_BLOCKS, ModBlocks.COKE_OVEN_BRICK)
                 .pattern("###")
@@ -47,14 +38,6 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
                 .unlockedBy(getHasName(Items.BEETROOT), has(Items.BEETROOT))
                 .save(recipeOutput, Polymech.MOD_ID + ":" + "sugar_from_beetroot");
 
-        if (testRaw != null) {
-            ShapelessRecipeBuilder.shapeless(RecipeCategory.BUILDING_BLOCKS, ModBlocks.TEST_ORE)
-                    .requires(testRaw.get())
-                    .requires(Blocks.STONE)
-                    .unlockedBy(getHasName(testRaw.get()), has(testRaw.get()))
-                    .unlockedBy(getHasName(Blocks.STONE), has(Blocks.STONE))
-                    .save(recipeOutput);
-        }
     }
 
     protected static void oreSmelting(

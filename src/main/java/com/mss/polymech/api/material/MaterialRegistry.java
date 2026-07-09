@@ -49,11 +49,6 @@ public class MaterialRegistry {
         MATERIAL_NAMES.add("cupronickel");     // 白铜（铜镍合金）
         MATERIAL_NAMES.add("stainless_steel"); // 不锈钢
         
-        // ========== 测试材料 ==========
-        MATERIAL_NAMES.add("test");            // 测试材料
-        MATERIAL_NAMES.add("test1");           // 测试材料1
-        MATERIAL_NAMES.add("test2");           // 测试材料2
-        MATERIAL_NAMES.add("test3");           // 测试材料3
     }
 
     /*

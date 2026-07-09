@@ -17,7 +17,6 @@ public class ModBlockStatesProvider extends BlockStateProvider {
     @Override
     protected void registerStatesAndModels() {
         simpleBlockWithItem(ModBlocks.COKE_OVEN_BRICK.get(), cubeAll(ModBlocks.COKE_OVEN_BRICK.get()));
-        simpleBlockWithItem(ModBlocks.TEST_ORE.get(), cubeAll(ModBlocks.TEST_ORE.get()));
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {

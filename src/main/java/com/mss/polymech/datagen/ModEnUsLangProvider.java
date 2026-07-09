@@ -27,27 +27,97 @@ public class ModEnUsLangProvider extends LanguageProvider {
                 add(ingotItem.get(), displayName);
             }
             
-            // 粗矿（仅test材料有）
-            if ("test".equals(materialName)) {
-                var rawItem = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, materialName);
-                if (rawItem != null) {
-                    add(rawItem.get(), "Test Raw");
-                }
+            // 合金锭 这个的翻译成锭就好了，是不是合金锭只需要开发者知道就可以了
+            var alloyIngotItem = ModItems.getMaterialItem(ModItemTypes.ALLOY_INGOT, materialName);
+            if (alloyIngotItem != null) {
+                String displayName = formatMaterialName(materialName) + " Ingot";
+                add(alloyIngotItem.get(), displayName);
             }
+            
+            // 粒
+            var nuggetItem = ModItems.getMaterialItem(ModItemTypes.NUGGET, materialName);
+            if (nuggetItem != null) {
+                String displayName = formatMaterialName(materialName) + " Nugget";
+                add(nuggetItem.get(), displayName);
+            }
+            
+            // 粉
+            var dustItem = ModItems.getMaterialItem(ModItemTypes.DUST, materialName);
+            if (dustItem != null) {
+                String displayName = formatMaterialName(materialName) + " Dust";
+                add(dustItem.get(), displayName);
+            }
+            
+            // 板
+            var plateItem = ModItems.getMaterialItem(ModItemTypes.PLATE, materialName);
+            if (plateItem != null) {
+                String displayName = formatMaterialName(materialName) + " Plate";
+                add(plateItem.get(), displayName);
+            }
+            
+            // 箔
+            var foilItem = ModItems.getMaterialItem(ModItemTypes.FOIL, materialName);
+            if (foilItem != null) {
+                String displayName = formatMaterialName(materialName) + " Foil";
+                add(foilItem.get(), displayName);
+            }
+            
+            // 杆
+            var stickItem = ModItems.getMaterialItem(ModItemTypes.STICK, materialName);
+            if (stickItem != null) {
+                String displayName = formatMaterialName(materialName) + " Stick";
+                add(stickItem.get(), displayName);
+            }
+            
+            // 齿轮
+            var gearItem = ModItems.getMaterialItem(ModItemTypes.GEAR, materialName);
+            if (gearItem != null) {
+                String displayName = formatMaterialName(materialName) + " Gear";
+                add(gearItem.get(), displayName);
+            }
+            
+            // 小齿轮
+            var smallGearItem = ModItems.getMaterialItem(ModItemTypes.SMALL_GEAR, materialName);
+            if (smallGearItem != null) {
+                String displayName = formatMaterialName(materialName) + " Small Gear";
+                add(smallGearItem.get(), displayName);
+            }
+            
+            // 弹簧
+            var springItem = ModItems.getMaterialItem(ModItemTypes.SPRING, materialName);
+            if (springItem != null) {
+                String displayName = formatMaterialName(materialName) + " Spring";
+                add(springItem.get(), displayName);
+            }
+            
+            // 螺丝
+            var screwItem = ModItems.getMaterialItem(ModItemTypes.SCREW, materialName);
+            if (screwItem != null) {
+                String displayName = formatMaterialName(materialName) + " Screw";
+                add(screwItem.get(), displayName);
+            }
+            
+            // 螺栓
+            var boltItem = ModItems.getMaterialItem(ModItemTypes.BOLT, materialName);
+            if (boltItem != null) {
+                String displayName = formatMaterialName(materialName) + " Bolt";
+                add(boltItem.get(), displayName);
+            }
+            
+            // 环
+            var ringItem = ModItems.getMaterialItem(ModItemTypes.RING, materialName);
+            if (ringItem != null) {
+                String displayName = formatMaterialName(materialName) + " Ring";
+                add(ringItem.get(), displayName);
+            }
+
         }
         
-        // 测试物品
-        for (int i = 1; i <= 3; i++) {
-            var testItem = ModItems.getMaterialItem(ModItemTypes.TEST_ITEM, String.valueOf(i));
-            if (testItem != null) {
-                add(testItem.get(), "Test Item " + i);
-            }
-        }
+
         
         add(ModItems.WRENCH.get(), "Wrench");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
-        add(ModBlocks.TEST_ORE.get(), "Test Ore");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {

@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /*
  * 模组物品类型定义类，集中管理所有物品标签前缀。
@@ -21,7 +22,7 @@ import java.util.List;
  *     ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "plate"),
  *     "%s_plate",
  *     "%s Plate"
- * ));
+ * ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
  * 
  * // 2. 在MaterialRegistry中添加支持的材料
  * // 3. 物品会自动生成并注册
@@ -33,11 +34,21 @@ import java.util.List;
 public class ModItemTypes {
     /* 存储所有已注册的物品前缀列表 */
     private static final List<ItemTagPrefix> ALL_PREFIXES = new ArrayList<>();
+    
+    /* 单质金属材料列表 */
+    private static final Set<String> PURE_METALS = Set.of(
+        "steel", "aluminium", "nickel", "tin", "zinc"
+    );
+    
+    /* 合金材料列表 */
+    private static final Set<String> ALLOYS = Set.of(
+        "brass", "bronze", "ivar", "cupronickel", "stainless_steel"
+    );
 
     /*
-     * 锭类型物品前缀。
+     * 锭类型物品前缀（仅适用于单质金属）。
      * <p>
-     * 生成格式：{material}_ingot，如steel_ingot、brass_ingot
+     * 生成格式：{material}_ingot，如steel_ingot、aluminium_ingot
      * 本地化格式：{Material} Ingot，如Steel Ingot
      * </p>
      */
@@ -45,33 +56,166 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "ingot"),
         "%s_ingot",
         "%s Ingot"
-    ));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(PURE_METALS::contains));
 
     /*
-     * 粗矿类型物品前缀。
+     * 合金锭类型物品前缀（仅适用于合金）。
      * <p>
-     * 生成格式：raw_{material}，如raw_test
-     * 本地化格式：Raw {Material}，如Raw Test
+     * 生成格式：{material}_alloy_ingot，如brass_alloy_ingot、bronze_alloy_ingot
+     * 本地化格式：{Material} Alloy Ingot，如Brass Alloy Ingot
      * </p>
      */
-    public static final ItemTagPrefix RAW_ORE = register(new ItemTagPrefix(
-        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "raw_ore"),
-        "raw_%s",
-        "Raw %s"
-    ));
+    public static final ItemTagPrefix ALLOY_INGOT = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "alloy_ingot"),
+        "%s_alloy_ingot",
+        "%s Alloy Ingot"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ALLOYS::contains));
 
     /*
-     * 测试物品类型前缀（仅用于开发测试）。
+     * 粒类型物品前缀。
      * <p>
-     * 生成格式：test_item{number}，如test_item1、test_item2
-     * 本地化格式：Test Item {Number}，如Test Item 1
+     * 生成格式：{material}_nugget，如steel_nugget
+     * 本地化格式：{Material} Nugget，如Steel Nugget
      * </p>
      */
-    public static final ItemTagPrefix TEST_ITEM = register(new ItemTagPrefix(
-        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "test_item"),
-        "test_item%s",
-        "Test Item %s"
-    ));
+    public static final ItemTagPrefix NUGGET = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "nugget"),
+        "%s_nugget",
+        "%s Nugget"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 粉类型物品前缀。
+     * <p>
+     * 生成格式：{material}_dust，如steel_dust
+     * 本地化格式：{Material} Dust，如Steel Dust
+     * </p>
+     */
+    public static final ItemTagPrefix DUST = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "dust"),
+        "%s_dust",
+        "%s Dust"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 板类型物品前缀。
+     * <p>
+     * 生成格式：{material}_plate，如steel_plate
+     * 本地化格式：{Material} Plate，如Steel Plate
+     * </p>
+     */
+    public static final ItemTagPrefix PLATE = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "ingot_plate"),
+        "%s_plate",
+        "%s Plate"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 箔类型物品前缀。
+     * <p>
+     * 生成格式：{material}_foil，如steel_foil
+     * 本地化格式：{Material} Foil，如Steel Foil
+     * </p>
+     */
+    public static final ItemTagPrefix FOIL = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "foil"),
+        "%s_foil",
+        "%s Foil"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 杆类型物品前缀。
+     * <p>
+     * 生成格式：{material}_stick，如steel_stick
+     * 本地化格式：{Material} Stick，如Steel Stick
+     * </p>
+     */
+    public static final ItemTagPrefix STICK = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "stick"),
+        "%s_stick",
+        "%s Stick"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 齿轮类型物品前缀。
+     * <p>
+     * 生成格式：{material}_gear，如steel_gear
+     * 本地化格式：{Material} Gear，如Steel Gear
+     * </p>
+     */
+    public static final ItemTagPrefix GEAR = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "gear"),
+        "%s_gear",
+        "%s Gear"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 小齿轮类型物品前缀。
+     * <p>
+     * 生成格式：{material}_small_gear，如steel_small_gear
+     * 本地化格式：{Material} Small Gear，如Steel Small Gear
+     * </p>
+     */
+    public static final ItemTagPrefix SMALL_GEAR = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "small_gear"),
+        "%s_small_gear",
+        "%s Small Gear"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 弹簧类型物品前缀。
+     * <p>
+     * 生成格式：{material}_spring，如steel_spring
+     * 本地化格式：{Material} Spring，如Steel Spring
+     * </p>
+     */
+    public static final ItemTagPrefix SPRING = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "spring"),
+        "%s_spring",
+        "%s Spring"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 螺丝类型物品前缀。
+     * <p>
+     * 生成格式：{material}_screw，如steel_screw
+     * 本地化格式：{Material} Screw，如Steel Screw
+     * </p>
+     */
+    public static final ItemTagPrefix SCREW = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "screw"),
+        "%s_screw",
+        "%s Screw"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 螺栓类型物品前缀。
+     * <p>
+     * 生成格式：{material}_bolt，如steel_bolt
+     * 本地化格式：{Material} Bolt，如Steel Bolt
+     * </p>
+     */
+    public static final ItemTagPrefix BOLT = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "bolt"),
+        "%s_bolt",
+        "%s Bolt"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 环类型物品前缀。
+     * <p>
+     * 生成格式：{material}_ring，如steel_ring
+     * 本地化格式：{Material} Ring，如Steel Ring
+     * </p>
+     */
+    public static final ItemTagPrefix RING = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "ring"),
+        "%s_ring",
+        "%s Ring"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
 
     /*
      * 注册物品前缀到全局列表。

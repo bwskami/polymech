@@ -30,12 +30,6 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
     protected void generate() {
         dropSelf(ModBlocks.COKE_OVEN_BRICK.get());
         
-        // 使用数据驱动API获取TEST_RAW物品
-        var testRawItem = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, "test");
-        if (testRawItem != null) {
-            add(ModBlocks.TEST_ORE.get(), block -> createCopperOreLikeDrops(ModBlocks.TEST_ORE.get(), testRawItem.get(), 2.0F, 6.0F));
-        }
-        
         dropSelf(ModBlocks.FLUID_TANK.get());
         
         for (var pipe : ModBlocks.PIPE_BLOCKS) {

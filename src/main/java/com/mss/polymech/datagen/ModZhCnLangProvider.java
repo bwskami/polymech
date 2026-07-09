@@ -57,25 +57,84 @@ public class ModZhCnLangProvider extends LanguageProvider {
                 add(ingotItem.get(), zhName + "锭");
             }
             
-            // 粗矿（仅test材料有）
-            if ("test".equals(materialName)) {
-                var rawItem = ModItems.getMaterialItem(ModItemTypes.RAW_ORE, materialName);
-                if (rawItem != null) {
-                    add(rawItem.get(), "测试粗矿");
-                }
+            // 合金锭 这个的翻译成锭就好了，是不是合金锭只需要开发者知道就可以了
+            var alloyIngotItem = ModItems.getMaterialItem(ModItemTypes.ALLOY_INGOT, materialName);
+            if (alloyIngotItem != null) {
+                add(alloyIngotItem.get(), zhName + "锭");
             }
+            
+            // 粒
+            var nuggetItem = ModItems.getMaterialItem(ModItemTypes.NUGGET, materialName);
+            if (nuggetItem != null) {
+                add(nuggetItem.get(), zhName + "粒");
+            }
+            
+            // 粉
+            var dustItem = ModItems.getMaterialItem(ModItemTypes.DUST, materialName);
+            if (dustItem != null) {
+                add(dustItem.get(), zhName + "粉");
+            }
+            
+            // 板
+            var plateItem = ModItems.getMaterialItem(ModItemTypes.PLATE, materialName);
+            if (plateItem != null) {
+                add(plateItem.get(), zhName + "板");
+            }
+            
+            // 箔
+            var foilItem = ModItems.getMaterialItem(ModItemTypes.FOIL, materialName);
+            if (foilItem != null) {
+                add(foilItem.get(), zhName + "箔");
+            }
+            
+            // 杆
+            var stickItem = ModItems.getMaterialItem(ModItemTypes.STICK, materialName);
+            if (stickItem != null) {
+                add(stickItem.get(), zhName + "杆");
+            }
+            
+            // 齿轮
+            var gearItem = ModItems.getMaterialItem(ModItemTypes.GEAR, materialName);
+            if (gearItem != null) {
+                add(gearItem.get(), zhName + "齿轮");
+            }
+            
+            // 小齿轮
+            var smallGearItem = ModItems.getMaterialItem(ModItemTypes.SMALL_GEAR, materialName);
+            if (smallGearItem != null) {
+                add(smallGearItem.get(), zhName + "小齿轮");
+            }
+            
+            // 弹簧
+            var springItem = ModItems.getMaterialItem(ModItemTypes.SPRING, materialName);
+            if (springItem != null) {
+                add(springItem.get(), zhName + "弹簧");
+            }
+            
+            // 螺丝
+            var screwItem = ModItems.getMaterialItem(ModItemTypes.SCREW, materialName);
+            if (screwItem != null) {
+                add(screwItem.get(), zhName + "螺丝");
+            }
+            
+            // 螺栓
+            var boltItem = ModItems.getMaterialItem(ModItemTypes.BOLT, materialName);
+            if (boltItem != null) {
+                add(boltItem.get(), zhName + "螺栓");
+            }
+            
+            // 环
+            var ringItem = ModItems.getMaterialItem(ModItemTypes.RING, materialName);
+            if (ringItem != null) {
+                add(ringItem.get(), zhName + "环");
+            }
+            
+
         }
         
-        // 测试物品
-        for (int i = 1; i <= 3; i++) {
-            var testItem = ModItems.getMaterialItem(ModItemTypes.TEST_ITEM, String.valueOf(i));
-            if (testItem != null) {
-                add(testItem.get(), "测试物品" + i);
-            }
-        }
+
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
-        add(ModBlocks.TEST_ORE.get(), "测试原矿");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {

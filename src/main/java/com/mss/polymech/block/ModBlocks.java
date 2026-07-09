@@ -56,11 +56,6 @@ public class ModBlocks {
             registerBlocks("coke_oven_brick", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
                     .requiresCorrectToolForDrops()));
     
-    /* 测试矿石方块，用于开发测试 */
-    public static final DeferredBlock<Block> TEST_ORE =
-            registerBlocks("test_ore", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
-                    .requiresCorrectToolForDrops()));
-    
     /* 流体储罐方块，用于存储流体 */
     public static final DeferredBlock<FluidTankBlock> FLUID_TANK =
             registerBlocks("fluid_tank", () -> new FluidTankBlock(Block.Properties.of()

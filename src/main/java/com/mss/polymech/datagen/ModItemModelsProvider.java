@@ -1,6 +1,9 @@
 package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.item.ItemTagPrefix;
+import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.texture_data.ItemLayerTemplates;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -10,51 +13,69 @@ import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ModItemModelsProvider extends ItemModelProvider {
-    private static final Map<String, ItemLayerTemplates> ITEM_TYPE_OVERRIDES = Map.ofEntries(
-            Map.entry("test_ingot", ItemLayerTemplates.INGOT),
-            Map.entry("aluminium_ingot", ItemLayerTemplates.INGOT),
-            Map.entry("nickel_ingot", ItemLayerTemplates.INGOT),
-            Map.entry("tin_ingot", ItemLayerTemplates.INGOT),
-            Map.entry("zinc_ingot", ItemLayerTemplates.INGOT),
-            Map.entry("brass_ingot", ItemLayerTemplates.ALLOY),
-            Map.entry("bronze_ingot", ItemLayerTemplates.ALLOY),
-            Map.entry("ivar_ingot", ItemLayerTemplates.ALLOY),
-            Map.entry("cupronickel_ingot", ItemLayerTemplates.ALLOY),
-            Map.entry("stainless_steel_ingot", ItemLayerTemplates.ALLOY),
-            
-            // 普通管道物品
-            Map.entry("pipe", ItemLayerTemplates.PIPE_ITEM),
-            Map.entry("small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
-            Map.entry("big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
-            Map.entry("huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM),
-            
-            // 青铜管道物品
-            Map.entry("bronze_pipe", ItemLayerTemplates.PIPE_ITEM),
-            Map.entry("bronze_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
-            Map.entry("bronze_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
-            Map.entry("bronze_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM),
-            
-            // 不锈钢管道物品
-            Map.entry("stainless_steel_pipe", ItemLayerTemplates.PIPE_ITEM),
-            Map.entry("stainless_steel_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
-            Map.entry("stainless_steel_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
-            Map.entry("stainless_steel_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM),
-            
-            // 黄铜管道物品
-            Map.entry("brass_pipe", ItemLayerTemplates.PIPE_ITEM),
-            Map.entry("brass_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM),
-            Map.entry("brass_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM),
-            Map.entry("brass_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM)
-    );
+    private static final Map<String, ItemLayerTemplates> ITEM_TYPE_OVERRIDES = new HashMap<>();
+    
+    static {
+        // 初始化物品类型映射
+        for (String materialName : MaterialRegistry.getMaterialNames()) {
+            // 锭
+            ITEM_TYPE_OVERRIDES.put(materialName + "_ingot", ItemLayerTemplates.INGOT);
+            // 合金锭
+            ITEM_TYPE_OVERRIDES.put(materialName + "_alloy_ingot", ItemLayerTemplates.ALLOY);
+            // 粒
+            ITEM_TYPE_OVERRIDES.put(materialName + "_nugget", ItemLayerTemplates.NUGGET);
+            // 粉
+            ITEM_TYPE_OVERRIDES.put(materialName + "_dust", ItemLayerTemplates.DUST);
+            // 板
+            ITEM_TYPE_OVERRIDES.put(materialName + "_plate", ItemLayerTemplates.PLATE);
+            // 箔
+            ITEM_TYPE_OVERRIDES.put(materialName + "_foil", ItemLayerTemplates.FOIL);
+            // 杆
+            ITEM_TYPE_OVERRIDES.put(materialName + "_stick", ItemLayerTemplates.STICK);
+            // 齿轮
+            ITEM_TYPE_OVERRIDES.put(materialName + "_gear", ItemLayerTemplates.GEAR);
+            // 小齿轮
+            ITEM_TYPE_OVERRIDES.put(materialName + "_small_gear", ItemLayerTemplates.SMALL_GEAR);
+            // 弹簧
+            ITEM_TYPE_OVERRIDES.put(materialName + "_spring", ItemLayerTemplates.SPRING);
+            // 螺丝
+            ITEM_TYPE_OVERRIDES.put(materialName + "_screw", ItemLayerTemplates.SCREW);
+            // 螺栓
+            ITEM_TYPE_OVERRIDES.put(materialName + "_bolt", ItemLayerTemplates.BOLT);
+            // 环
+            ITEM_TYPE_OVERRIDES.put(materialName + "_ring", ItemLayerTemplates.RING);
+        }
+        
+        // 管道物品
+        ITEM_TYPE_OVERRIDES.put("pipe", ItemLayerTemplates.PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
+        
+        // 青铜管道物品
+        ITEM_TYPE_OVERRIDES.put("bronze_pipe", ItemLayerTemplates.PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("bronze_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("bronze_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("bronze_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
+        
+        // 不锈钢管道物品
+        ITEM_TYPE_OVERRIDES.put("stainless_steel_pipe", ItemLayerTemplates.PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("stainless_steel_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("stainless_steel_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("stainless_steel_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
+        
+        // 黄铜管道物品
+        ITEM_TYPE_OVERRIDES.put("brass_pipe", ItemLayerTemplates.PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("brass_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("brass_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
+        ITEM_TYPE_OVERRIDES.put("brass_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
+    }
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",
-            "test_item1",
-            "test_item2",
-            "test_item3",
-            "test_raw",
             "wrench"
             // 在这里列出所有需要独立纹理的普通物品
     };

@@ -19,7 +19,6 @@ public class ModBlockTagsProvider extends BlockTagsProvider {
     protected void addTags(HolderLookup.Provider provider) {
         tag(BlockTags.MINEABLE_WITH_PICKAXE)
                 .add(ModBlocks.COKE_OVEN_BRICK.get())
-                .add(ModBlocks.TEST_ORE.get())
                 .add(ModBlocks.FLUID_TANK.get());
 
     }

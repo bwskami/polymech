@@ -14,7 +14,6 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
 
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,16 +21,16 @@ import java.util.Map;
 public class ColorConfigLoader {
     private static final Gson GSON = new Gson();
     
-    // 材质定义：材质名 -> 颜色数组
+    /* 材质定义：材质名 -> 颜色数组 */
     private static final Map<String, Integer[]> MATERIAL_COLORS = new HashMap<>();
     
-    // 物品到材质的映射：物品ID -> 材质名
+    /* 物品到材质的映射：物品ID -> 材质名（手动配置） */
     private static final Map<Item, String> ITEM_MATERIAL_MAP = new HashMap<>();
     
-    // 方块到材质的映射：方块ID -> 材质名
+    /* 方块到材质的映射：方块ID -> 材质名（手动配置） */
     private static final Map<Block, String> BLOCK_MATERIAL_MAP = new HashMap<>();
     
-    // 缓存：物品/方块 -> 最终颜色数组（用于快速查找）
+    /* 缓存：物品/方块 -> 最终颜色数组（用于快速查找） */
     private static final Map<Item, Integer[]> ITEM_COLOR_CACHE = new HashMap<>();
     private static final Map<Block, Integer[]> BLOCK_COLOR_CACHE = new HashMap<>();
     
@@ -63,7 +62,7 @@ public class ColorConfigLoader {
                 }
             }
 
-            // 2. 加载物品材质映射
+            // 2. 加载物品材质映射（手动配置优先）
             if (root.has("item_materials")) {
                 JsonObject itemMaterialsObj = root.getAsJsonObject("item_materials");
                 for (var entry : itemMaterialsObj.entrySet()) {
@@ -87,7 +86,7 @@ public class ColorConfigLoader {
                 }
             }
 
-            // 3. 加载方块材质映射
+            // 3. 加载方块材质映射（手动配置优先）
             if (root.has("block_materials")) {
                 JsonObject blockMaterialsObj = root.getAsJsonObject("block_materials");
                 for (var entry : blockMaterialsObj.entrySet()) {
@@ -158,12 +157,132 @@ public class ColorConfigLoader {
         return colors;
     }
 
+    /*
+     * 获取物品的颜色数组。
+     * <p>
+     * 首先检查手动配置的映射，如果没有则尝试自动推断。
+     * 自动推断逻辑：从物品ID中提取材料名（如 steel_ingot -> steel），
+     * 然后查找对应的材质颜色。
+     * </p>
+     * 
+     * @param item 物品实例
+     * @return 颜色数组，如果找不到则返回null
+     */
     public static Integer[] getColors(Item item) {
-        return ITEM_COLOR_CACHE.get(item);
+        // 1. 首先检查缓存（手动配置）
+        Integer[] cached = ITEM_COLOR_CACHE.get(item);
+        if (cached != null) {
+            return cached;
+        }
+        
+        // 2. 尝试自动推断
+        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+        if (itemId != null && itemId.getNamespace().equals(Polymech.MOD_ID)) {
+            String path = itemId.getPath();
+            
+            // 尝试从物品ID中提取材料名
+            // 例如：steel_ingot -> steel, brass_alloy_ingot -> brass
+            String materialName = extractMaterialName(path);
+            if (materialName != null && MATERIAL_COLORS.containsKey(materialName)) {
+                Integer[] colors = MATERIAL_COLORS.get(materialName);
+                // 缓存自动推断的结果
+                ITEM_COLOR_CACHE.put(item, colors);
+                Polymech.LOGGER.debug("Auto-inferred color for item {}: material={}", path, materialName);
+                return colors;
+            }
+        }
+        
+        return null;
     }
 
+    /*
+     * 获取方块的颜色数组。
+     * <p>
+     * 首先检查手动配置的映射，如果没有则尝试自动推断。
+     * </p>
+     * 
+     * @param block 方块实例
+     * @return 颜色数组，如果找不到则返回null
+     */
     public static Integer[] getColors(Block block) {
-        return BLOCK_COLOR_CACHE.get(block);
+        // 1. 首先检查缓存（手动配置）
+        Integer[] cached = BLOCK_COLOR_CACHE.get(block);
+        if (cached != null) {
+            return cached;
+        }
+        
+        // 2. 尝试自动推断
+        ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(block);
+        if (blockId != null && blockId.getNamespace().equals(Polymech.MOD_ID)) {
+            String path = blockId.getPath();
+            
+            // 尝试从方块ID中提取材料名
+            String materialName = extractMaterialName(path);
+            if (materialName != null && MATERIAL_COLORS.containsKey(materialName)) {
+                Integer[] colors = MATERIAL_COLORS.get(materialName);
+                // 缓存自动推断的结果
+                BLOCK_COLOR_CACHE.put(block, colors);
+                Polymech.LOGGER.debug("Auto-inferred color for block {}: material={}", path, materialName);
+                return colors;
+            }
+        }
+        
+        return null;
+    }
+
+    /*
+     * 从物品/方块ID路径中提取材料名。
+     * <p>
+     * 支持的格式：
+     * - {material}_ingot -> material
+     * - {material}_alloy_ingot -> material
+     * - {material}_dust -> material
+     * - {material}_plate -> material
+     * - {material}_nugget -> material
+     * - raw_{material} -> material
+     * - {material}_pipe -> material
+     * </p>
+     * 
+     * @param path 物品/方块ID的路径部分
+     * @return 材料名，如果无法提取则返回null
+     */
+    private static String extractMaterialName(String path) {
+        // 处理 raw_ 前缀
+        if (path.startsWith("raw_")) {
+            String material = path.substring(4);
+            if (MATERIAL_COLORS.containsKey(material)) {
+                return material;
+            }
+        }
+        
+        // 处理 _alloy_ingot 后缀
+        if (path.endsWith("_alloy_ingot")) {
+            String material = path.substring(0, path.length() - 12);
+            if (MATERIAL_COLORS.containsKey(material)) {
+                return material;
+            }
+        }
+        
+        // 处理常见后缀
+        String[] suffixes = {"_ingot", "_dust", "_plate", "_nugget", "_stick", "_gear", 
+                            "_small_gear", "_spring", "_screw", "_bolt", "_ring", "_foil",
+                            "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe"};
+        
+        for (String suffix : suffixes) {
+            if (path.endsWith(suffix)) {
+                String material = path.substring(0, path.length() - suffix.length());
+                if (MATERIAL_COLORS.containsKey(material)) {
+                    return material;
+                }
+            }
+        }
+        
+        // 尝试直接匹配（用于像 "steel" 这样的简单名称）
+        if (MATERIAL_COLORS.containsKey(path)) {
+            return path;
+        }
+        
+        return null;
     }
 
     public static Item[] getConfiguredItems() {
