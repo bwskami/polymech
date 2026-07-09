@@ -32,29 +32,9 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
         add(ModBlocks.TEST_ORE.get(), block -> createCopperOreLikeDrops(ModBlocks.TEST_ORE.get(), ModItems.TEST_RAW.get(), 2.0F, 6.0F));
         dropSelf(ModBlocks.FLUID_TANK.get());
         
-        // 普通管道（铁/钢）
-        dropSelf(ModBlocks.PIPE.get());
-        dropSelf(ModBlocks.SMALL_PIPE.get());
-        dropSelf(ModBlocks.BIG_PIPE.get());
-        dropSelf(ModBlocks.HUGE_PIPE.get());
-        
-        // 青铜管道
-        dropSelf(ModBlocks.BRONZE_PIPE.get());
-        dropSelf(ModBlocks.BRONZE_SMALL_PIPE.get());
-        dropSelf(ModBlocks.BRONZE_BIG_PIPE.get());
-        dropSelf(ModBlocks.BRONZE_HUGE_PIPE.get());
-        
-        // 不锈钢管道
-        dropSelf(ModBlocks.STAINLESS_STEEL_PIPE.get());
-        dropSelf(ModBlocks.STAINLESS_STEEL_SMALL_PIPE.get());
-        dropSelf(ModBlocks.STAINLESS_STEEL_BIG_PIPE.get());
-        dropSelf(ModBlocks.STAINLESS_STEEL_HUGE_PIPE.get());
-        
-        // 黄铜管道
-        dropSelf(ModBlocks.BRASS_PIPE.get());
-        dropSelf(ModBlocks.BRASS_SMALL_PIPE.get());
-        dropSelf(ModBlocks.BRASS_BIG_PIPE.get());
-        dropSelf(ModBlocks.BRASS_HUGE_PIPE.get());
+        for (var pipe : ModBlocks.PIPE_BLOCKS) {
+            dropSelf(pipe.get());
+        }
     }
 
     protected LootTable.Builder createCopperOreLikeDrops(Block block, Item item, float min, float max) {

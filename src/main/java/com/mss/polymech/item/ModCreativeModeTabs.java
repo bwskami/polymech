@@ -2,6 +2,8 @@ package com.mss.polymech.item;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.api.material.PipeMaterial;
+import com.mss.polymech.block.PipeBlock;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -46,32 +48,12 @@ public class ModCreativeModeTabs {
 
     public static final Supplier<CreativeModeTab> PIPE_TAB =
             CREATIVE_MODE_TABS.register("pipe_tab", () -> CreativeModeTab.builder()
-                    .icon(() -> new ItemStack(ModBlocks.PIPE.get()))
+                    .icon(() -> new ItemStack(ModBlocks.getPipe(PipeMaterial.IRON, PipeBlock.PipeSize.NORMAL).get()))
                     .title(Component.translatable("itemGroup.pipe_tab"))
                     .displayItems((parameters, output) -> {
-                        // 普通管道（铁/钢）
-                        output.accept(ModBlocks.PIPE.get());
-                        output.accept(ModBlocks.SMALL_PIPE.get());
-                        output.accept(ModBlocks.BIG_PIPE.get());
-                        output.accept(ModBlocks.HUGE_PIPE.get());
-
-                        // 青铜管道
-                        output.accept(ModBlocks.BRONZE_PIPE.get());
-                        output.accept(ModBlocks.BRONZE_SMALL_PIPE.get());
-                        output.accept(ModBlocks.BRONZE_BIG_PIPE.get());
-                        output.accept(ModBlocks.BRONZE_HUGE_PIPE.get());
-
-                        // 不锈钢管道
-                        output.accept(ModBlocks.STAINLESS_STEEL_PIPE.get());
-                        output.accept(ModBlocks.STAINLESS_STEEL_SMALL_PIPE.get());
-                        output.accept(ModBlocks.STAINLESS_STEEL_BIG_PIPE.get());
-                        output.accept(ModBlocks.STAINLESS_STEEL_HUGE_PIPE.get());
-
-                        // 黄铜管道
-                        output.accept(ModBlocks.BRASS_PIPE.get());
-                        output.accept(ModBlocks.BRASS_SMALL_PIPE.get());
-                        output.accept(ModBlocks.BRASS_BIG_PIPE.get());
-                        output.accept(ModBlocks.BRASS_HUGE_PIPE.get());
+                        for (var pipe : ModBlocks.PIPE_BLOCKS) {
+                            output.accept(pipe.get());
+                        }
                     }).build());
 
     public static final Supplier<CreativeModeTab> TOOL_TAB =

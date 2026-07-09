@@ -2,7 +2,10 @@ package com.mss.polymech.client;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.network.PipePlacementPacket;
+import com.mss.polymech.util.PipePathCalculator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
@@ -24,53 +27,61 @@ public class PipeInputHandler {
         Player player = mc.player;
         if (player == null) return;
         
-        // 获取当前手持的管道类型
         Item heldItem = player.getMainHandItem().getItem();
-        String pipeType = getPipeType(heldItem);
+        PipeIdentifier pipeId = getPipeId(heldItem);
         
-        if (pipeType == null) {
+        if (pipeId == null) {
             PipePreviewRenderer.clearStartPos();
             return;
         }
         
-        // 只处理右键点击 (button 1 = 右键)
         if (event.getAction() != 1) return;
         if (event.getButton() != 1) return;
         
-        // Shift + 右键跳过（用于普通放置）
         if (player.isShiftKeyDown()) return;
         
         HitResult hitResult = mc.hitResult;
         if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
         
-        // 计算应该放置管道的位置
         BlockPos targetPos = getPlacementPosition(blockHitResult);
         
         if (PipePreviewRenderer.getStartPos() == null) {
-            // 第一次右键：设置A点
-            PipePreviewRenderer.setStartPos(targetPos, pipeType);
+            PipePreviewRenderer.setStartPos(targetPos, pipeId);
         } else {
-            // 第二次右键：确认B点，发送铺设请求
             BlockPos startPos = PipePreviewRenderer.getStartPos();
-            String startPipeType = PipePreviewRenderer.getStartPipeType();
+            PipeIdentifier startPipeId = PipePreviewRenderer.getStartPipeId();
             
-            // 确保A点和B点的管道类型一致
-            if (startPipeType.equals(pipeType)) {
-                PacketDistributor.sendToServer(new PipePlacementPacket(startPos, targetPos, pipeType));
+            if (startPipeId.equals(pipeId)) {
+                int available = player.isCreative() ? Integer.MAX_VALUE : player.getMainHandItem().getCount();
+                
+                java.util.List<BlockPos> path = PipePathCalculator.calculatePath(startPos, targetPos);
+                int emptyCount = 0;
+                for (BlockPos pos : path) {
+                    if (mc.level != null && mc.level.isEmptyBlock(pos)) {
+                        emptyCount++;
+                    }
+                }
+                
+                if (emptyCount <= available) {
+                    PacketDistributor.sendToServer(new PipePlacementPacket(
+                            startPos, targetPos,
+                            pipeId.material().getName(),
+                            pipeId.size().getName()));
+                }
             }
             
             PipePreviewRenderer.clearStartPos();
         }
     }
     
-    /**
-     * 根据物品获取管道类型
-     */
-    private static String getPipeType(Item item) {
-        if (item == ModBlocks.PIPE.asItem()) return "pipe";
-        if (item == ModBlocks.SMALL_PIPE.asItem()) return "small_pipe";
-        if (item == ModBlocks.BIG_PIPE.asItem()) return "big_pipe";
-        if (item == ModBlocks.HUGE_PIPE.asItem()) return "huge_pipe";
+    private static PipeIdentifier getPipeId(Item item) {
+        for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
+            for (var sizeEntry : materialEntry.getValue().entrySet()) {
+                if (item == sizeEntry.getValue().get().asItem()) {
+                    return new PipeIdentifier(materialEntry.getKey(), sizeEntry.getKey());
+                }
+            }
+        }
         return null;
     }
     

@@ -1,10 +1,13 @@
 package com.mss.polymech.network;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.util.PipePathCalculator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
@@ -16,7 +19,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 import java.util.List;
 
-public record PipePlacementPacket(BlockPos start, BlockPos end, String pipeType) implements CustomPacketPayload {
+public record PipePlacementPacket(BlockPos start, BlockPos end, String materialName, String sizeName) implements CustomPacketPayload {
     
     public static final CustomPacketPayload.Type<PipePlacementPacket> TYPE = 
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "pipe_placement"));
@@ -25,7 +28,8 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String pipeType)
             StreamCodec.composite(
                     BlockPos.STREAM_CODEC, PipePlacementPacket::start,
                     BlockPos.STREAM_CODEC, PipePlacementPacket::end,
-                    net.minecraft.network.codec.ByteBufCodecs.STRING_UTF8, PipePlacementPacket::pipeType,
+                    ByteBufCodecs.STRING_UTF8, PipePlacementPacket::materialName,
+                    ByteBufCodecs.STRING_UTF8, PipePlacementPacket::sizeName,
                     PipePlacementPacket::new
             );
     
@@ -40,18 +44,22 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String pipeType)
             Level level = player.level();
             
             List<BlockPos> path = PipePathCalculator.calculatePath(packet.start(), packet.end());
-            
             if (path.isEmpty()) return;
             
-            // 根据管道类型获取对应的方块和物品
-            var pipeBlock = getPipeBlock(packet.pipeType());
-            var pipeItem = getPipeItem(packet.pipeType());
+            PipeMaterial material = resolveMaterial(packet.materialName());
+            PipeBlock.PipeSize size = resolveSize(packet.sizeName());
+            
+            var pipeBlock = ModBlocks.getPipe(material, size).get();
+            var pipeItem = pipeBlock.asItem();
             
             ItemStack heldItem = player.getMainHandItem();
             if (!heldItem.is(pipeItem)) return;
             
+            int available = player.isCreative() ? Integer.MAX_VALUE : heldItem.getCount();
+            
             int placedCount = 0;
             for (BlockPos pos : path) {
+                if (placedCount >= available) break;
                 if (level.isEmptyBlock(pos)) {
                     level.setBlock(pos, pipeBlock.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_IMMEDIATE);
                     placedCount++;
@@ -64,23 +72,17 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String pipeType)
         });
     }
     
-    private static net.minecraft.world.level.block.Block getPipeBlock(String pipeType) {
-        return switch (pipeType) {
-            case "pipe" -> ModBlocks.PIPE.get();
-            case "small_pipe" -> ModBlocks.SMALL_PIPE.get();
-            case "big_pipe" -> ModBlocks.BIG_PIPE.get();
-            case "huge_pipe" -> ModBlocks.HUGE_PIPE.get();
-            default -> ModBlocks.PIPE.get();
-        };
+    private static PipeMaterial resolveMaterial(String name) {
+        for (PipeMaterial m : PipeMaterial.values()) {
+            if (m.getName().equals(name)) return m;
+        }
+        return PipeMaterial.IRON;
     }
     
-    private static net.minecraft.world.item.Item getPipeItem(String pipeType) {
-        return switch (pipeType) {
-            case "pipe" -> ModBlocks.PIPE.asItem();
-            case "small_pipe" -> ModBlocks.SMALL_PIPE.asItem();
-            case "big_pipe" -> ModBlocks.BIG_PIPE.asItem();
-            case "huge_pipe" -> ModBlocks.HUGE_PIPE.asItem();
-            default -> ModBlocks.PIPE.asItem();
-        };
+    private static PipeBlock.PipeSize resolveSize(String name) {
+        for (PipeBlock.PipeSize s : PipeBlock.PipeSize.values()) {
+            if (s.getName().equals(name)) return s;
+        }
+        return PipeBlock.PipeSize.NORMAL;
     }
 }

@@ -1,8 +1,10 @@
 package com.mss.polymech.block;
 
+import com.mss.polymech.api.pipenet.IMaterialPipeType;
 import com.mss.polymech.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
@@ -25,12 +27,15 @@ public class PipeBlock extends Block {
     public static final BooleanProperty DOWN = BooleanProperty.create("down");
 
     // 管道尺寸枚举
-    public enum PipeSize {
-        SMALL(6, 4),   // core从6开始，宽度4（6-10）
-        NORMAL(5, 6),  // core从5开始，宽度6（5-11）
-        BIG(4, 8),     // core从4开始，宽度8（4-12）
-        HUGE(3, 10);   // core从3开始，宽度10（3-13）
+    public enum PipeSize implements IMaterialPipeType {
+        SMALL("small_pipe", 6, 4),
+        NORMAL("pipe", 5, 6),
+        BIG("big_pipe", 4, 8),
+        HUGE("huge_pipe", 3, 10);
 
+        public static final ResourceLocation TYPE_ID = ResourceLocation.fromNamespaceAndPath("poly_mech", "fluid_pipe");
+
+        private final String name;
         private final int start;
         private final int width;
         private final int end;
@@ -42,24 +47,34 @@ public class PipeBlock extends Block {
         private final VoxelShape upArm;
         private final VoxelShape downArm;
 
-        PipeSize(int start, int width) {
+        PipeSize(String name, int start, int width) {
+            this.name = name;
             this.start = start;
             this.width = width;
             this.end = start + width;
-            
-            // 计算臂的长度（从core边缘到方块边界）
-            int armLength = start; // 臂从core边缘延伸到方块边界
-            
-            // Core shape
+
             this.coreShape = Block.box(start, start, start, end, end, end);
-            
-            // Arm shapes (连接面到core)
             this.northArm = Block.box(start, start, 0, end, end, start);
             this.southArm = Block.box(start, start, end, end, end, 16);
             this.eastArm = Block.box(end, start, start, 16, end, end);
             this.westArm = Block.box(0, start, start, start, end, end);
             this.upArm = Block.box(start, end, start, end, 16, end);
             this.downArm = Block.box(start, 0, start, end, start, end);
+        }
+
+        @Override
+        public float getThickness() {
+            return width / 16f;
+        }
+
+        @Override
+        public ResourceLocation type() {
+            return TYPE_ID;
+        }
+
+        @Override
+        public String getName() {
+            return name;
         }
 
         public VoxelShape getCoreShape() { return coreShape; }
