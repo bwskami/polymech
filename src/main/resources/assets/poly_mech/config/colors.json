@@ -11,12 +11,12 @@
     "cupronickel": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
     "stainless_steel": { "colors": ["#ffCDD7E4", "#ff9b75c1", "#fffdfbff"] },
 
-    "aluminium_block": { "colors": ["#ff87ceeb", "#e55fa3d6", "#abffffff"] },
+    "aluminium_block": { "colors": ["#ff87ceeb", "#ff5fa3d6", "#abffffff"] },
     "nickel_block": { "colors": ["#ffBCB896", "#fe906d9f", "#e8fffc9e"] },
     "tin_block": { "colors": ["#ffDAE9EE", "#ff55709f", "#abfffcf5"] },
     "zinc_block": { "colors": ["#ffa2ddc2", "#ff858834", "#e8f2fff9"] },
-    "brass_block": { "colors": ["#ffffce49", "#e5bc3f00", "#abfffcf5"] },
-    "bronze_block": { "colors": ["#fff08040", "#e5c05020", "#abffd840"] },
+    "brass_block": { "colors": ["#ffffce49", "#ffbc3f00", "#ffEEE4CD"] },
+    "bronze_block": { "colors": ["#fff08040", "#ffc05020", "#ffE1C865"] },
     "ivar_block": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
     "cupronickel_block": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
     "stainless_steel_block": { "colors": ["#ffCDD7E4", "#ffEFE6F7", "#ffF0E7F9"] }
