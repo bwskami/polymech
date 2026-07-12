@@ -18,6 +18,11 @@ public class ModBlockEntities {
                     BlockEntityType.Builder.of(FluidTankBlockEntity::new,
                             ModBlocks.FLUID_TANK.get()).build(null));
 
+    public static final Supplier<BlockEntityType<ConveyorBlockEntity>> CONVEYOR =
+            BLOCK_ENTITIES.register("conveyor", () ->
+                    BlockEntityType.Builder.of(ConveyorBlockEntity::new,
+                            ModBlocks.CONVEYOR.get()).build(null));
+
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);
     }

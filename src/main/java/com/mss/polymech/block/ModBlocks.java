@@ -64,6 +64,14 @@ public class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
 
+    /* 传送带方块，用于移动物品 */
+    public static final DeferredBlock<ConveyorBlock> CONVEYOR =
+            registerBlocks("conveyor", () -> new ConveyorBlock(Block.Properties.of()
+                    .strength(2.0F, 3.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+
     // ========== 管道方块：数据驱动批量注册 ==========
     
     /* 内部管道查找表（构建期间使用） */

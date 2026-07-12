@@ -1,6 +1,7 @@
 package com.mss.polymech;
 
 import com.mss.polymech.client.gui.FluidTankScreen;
+import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.menu.ModMenuTypes;
 import net.minecraft.client.Minecraft;
@@ -39,5 +40,6 @@ public class PolymechClient {
     @SubscribeEvent
     static void onRegisterGeometryLoaders(ModelEvent.RegisterGeometryLoaders event) {
         event.register(PipeModelLoader.ID, PipeModelLoader.INSTANCE);
+        event.register(ConveyorModelLoader.ID, ConveyorModelLoader.INSTANCE);
     }
 }

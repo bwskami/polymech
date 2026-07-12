@@ -43,7 +43,14 @@ public class PipeInputHandler {
         HitResult hitResult = mc.hitResult;
         if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
         
+        BlockPos clickedPos = blockHitResult.getBlockPos();
+        if (mc.level.isEmptyBlock(clickedPos)) return;
+        
         BlockPos targetPos = getPlacementPosition(blockHitResult);
+        
+        if (!PipePreviewRenderer.hasAdjacentSupport(mc.level, targetPos)) {
+            return;
+        }
         
         if (PipePreviewRenderer.getStartPos() == null) {
             PipePreviewRenderer.setStartPos(targetPos, pipeId);

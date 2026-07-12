@@ -31,6 +31,8 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
         dropSelf(ModBlocks.COKE_OVEN_BRICK.get());
         
         dropSelf(ModBlocks.FLUID_TANK.get());
+
+        dropSelf(ModBlocks.CONVEYOR.get());
         
         for (var pipe : ModBlocks.PIPE_BLOCKS) {
             dropSelf(pipe.get());

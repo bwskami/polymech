@@ -15,6 +15,7 @@ import com.mss.polymech.util.PipePathCalculator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.phys.BlockHitResult;
@@ -78,7 +79,14 @@ public class PipePreviewRenderer {
         HitResult hitResult = mc.hitResult;
         if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
         
+        BlockPos clickedPos = blockHitResult.getBlockPos();
+        if (mc.level.isEmptyBlock(clickedPos)) return;
+        
         BlockPos targetPos = getPlacementPosition(blockHitResult);
+        
+        if (!hasAdjacentSupport(mc.level, targetPos)) {
+            return;
+        }
         
         int available = player.isCreative() ? Integer.MAX_VALUE : player.getMainHandItem().getCount();
 
@@ -150,6 +158,16 @@ public class PipePreviewRenderer {
     private static BlockPos getPlacementPosition(BlockHitResult hitResult) {
         BlockPos pos = hitResult.getBlockPos();
         return pos.relative(hitResult.getDirection());
+    }
+
+    public static boolean hasAdjacentSupport(net.minecraft.world.level.Level level, BlockPos pos) {
+        if (level == null) return false;
+        for (Direction dir : Direction.values()) {
+            if (!level.isEmptyBlock(pos.relative(dir))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void renderBlockOutline(PoseStack poseStack, net.minecraft.client.Camera camera, BlockPos pos, int color) {
@@ -239,7 +257,7 @@ public class PipePreviewRenderer {
         // 绘制第一个Quad的反向面（确保双面可见）
         buf.addVertex(matrix, x1 + p1x, y1 + p1y, z1 + p1z).setColor(r, g, b, a);
         buf.addVertex(matrix, x1 - p1x, y1 - p1y, z1 - p1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 - p1x, y2 - p1y, z2 - p1z).setColor(r, g, b, a);
+        buf.addVertex(matrix, x2 - p1x, y2 - p1y, z2 - p2z).setColor(r, g, b, a);
         buf.addVertex(matrix, x2 + p1x, y2 + p1y, z2 + p1z).setColor(r, g, b, a);
 
         // 绘制第二个Quad（双面）
