@@ -4,8 +4,8 @@
 	"texture_size": [32, 32],
 	"textures": {
 		"2": "poly_mech:block/conveyor_belt/conveyor_belt",
-		"3": "poly_mech:block/conveyor_belt/conveyor_belt_animator",
-		"particle": "poly_mech:block/conveyor_belt/conveyor_belt_animator"
+		"3": "poly_mech:block/conveyor_belt/conveyor_belt_animator_up",
+		"particle": "poly_mech:block/conveyor_belt/conveyor_belt_animator_up"
 	},
 	"elements": [
 		{
@@ -38,8 +38,8 @@
 		},
 		{
 			"name": "left",
-			"from": [-0.2, 26.8, 1.9],
-			"to": [2.2, 31.2, 25.2],
+			"from": [-0.1, 26.9, 1],
+			"to": [2.1, 31.1, 25.1],
 			"rotation": {"angle": 45, "axis": "x", "origin": [-1, 27, -14]},
 			"faces": {
 				"north": {"uv": [5.5, 2, 5, 3], "texture": "#2"},
@@ -52,8 +52,8 @@
 		},
 		{
 			"name": "right",
-			"from": [13.8, 26.8, 1.9],
-			"to": [16.2, 31.2, 25.2],
+			"from": [13.9, 26.9, 1],
+			"to": [16.1, 31.1, 25.1],
 			"rotation": {"angle": 45, "axis": "x", "origin": [12, 27, -14]},
 			"faces": {
 				"north": {"uv": [5, 2, 5.5, 3], "texture": "#2"},

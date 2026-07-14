@@ -9,6 +9,8 @@ import net.minecraft.client.resources.model.ModelState;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.model.geometry.IGeometryBakingContext;
 import net.neoforged.neoforge.client.model.geometry.IUnbakedGeometry;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.function.Function;
 
@@ -41,7 +43,19 @@ public class UnbakedConveyorModel implements IUnbakedGeometry<UnbakedConveyorMod
         BakedModel leftRail = baker.bake(leftRailModel, modelState, spriteGetter);
         BakedModel rightRail = baker.bake(rightRailModel, modelState, spriteGetter);
         BakedModel up = upModel != null ? baker.bake(upModel, modelState, spriteGetter) : null;
-        BakedModel down = downModel != null ? baker.bake(downModel, modelState, spriteGetter) : null;
+
+        BakedModel down = null;
+        if (downModel != null) {
+            ModelState rotatedState = new ModelState() {
+                @Override
+                public com.mojang.math.Transformation getRotation() {
+                    Quaternionf rot180Y = new Quaternionf().rotationAxis((float) Math.PI, new Vector3f(0, 1, 0));
+                    return modelState.getRotation().compose(new com.mojang.math.Transformation(null, rot180Y, null, null));
+                }
+            };
+            down = baker.bake(downModel, rotatedState, spriteGetter);
+        }
+
         return new BakedConveyorModel(center, leftRail, rightRail, up, down);
     }
 
