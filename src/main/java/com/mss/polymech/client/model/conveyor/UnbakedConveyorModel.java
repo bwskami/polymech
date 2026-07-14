@@ -16,11 +16,21 @@ public class UnbakedConveyorModel implements IUnbakedGeometry<UnbakedConveyorMod
     private final ResourceLocation centerModel;
     private final ResourceLocation leftRailModel;
     private final ResourceLocation rightRailModel;
+    private final ResourceLocation upModel;
+    private final ResourceLocation downModel;
 
     public UnbakedConveyorModel(ResourceLocation centerModel, ResourceLocation leftRailModel, ResourceLocation rightRailModel) {
+        this(centerModel, leftRailModel, rightRailModel, null, null);
+    }
+
+    public UnbakedConveyorModel(ResourceLocation centerModel, ResourceLocation leftRailModel, 
+                                 ResourceLocation rightRailModel, ResourceLocation upModel, 
+                                 ResourceLocation downModel) {
         this.centerModel = centerModel;
         this.leftRailModel = leftRailModel;
         this.rightRailModel = rightRailModel;
+        this.upModel = upModel;
+        this.downModel = downModel;
     }
 
     @Override
@@ -30,7 +40,9 @@ public class UnbakedConveyorModel implements IUnbakedGeometry<UnbakedConveyorMod
         BakedModel center = baker.bake(centerModel, modelState, spriteGetter);
         BakedModel leftRail = baker.bake(leftRailModel, modelState, spriteGetter);
         BakedModel rightRail = baker.bake(rightRailModel, modelState, spriteGetter);
-        return new BakedConveyorModel(center, leftRail, rightRail);
+        BakedModel up = upModel != null ? baker.bake(upModel, modelState, spriteGetter) : null;
+        BakedModel down = downModel != null ? baker.bake(downModel, modelState, spriteGetter) : null;
+        return new BakedConveyorModel(center, leftRail, rightRail, up, down);
     }
 
     @Override

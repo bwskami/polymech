@@ -2,5 +2,7 @@
     "loader": "poly_mech:conveyor",
     "center": "poly_mech:block/conveyor_belt/conveyor_belt_core",
     "left_rail": "poly_mech:block/conveyor_belt/conveyor_belt_left",
-    "right_rail": "poly_mech:block/conveyor_belt/conveyor_belt_right"
+    "right_rail": "poly_mech:block/conveyor_belt/conveyor_belt_right",
+    "up": "poly_mech:block/conveyor_belt/conveyor_belt_up",
+    "down": "poly_mech:block/conveyor_belt/conveyor_belt_down"
 }

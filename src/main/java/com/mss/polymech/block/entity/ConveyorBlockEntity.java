@@ -1,6 +1,7 @@
 package com.mss.polymech.block.entity;
 
 import com.mss.polymech.block.ConveyorBlock;
+import com.mss.polymech.block.ConveyorType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -52,13 +53,22 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     private void moveItems(Level level, BlockPos pos, BlockState state) {
         Direction facing = state.getValue(ConveyorBlock.FACING);
-        BlockPos targetPos = pos.relative(facing);
+        ConveyorType type = state.getValue(ConveyorBlock.TYPE);
+        
+        BlockPos targetPos;
+        
+        if (type == ConveyorType.UP) {
+            targetPos = pos.relative(facing).above();
+        } else if (type == ConveyorType.DOWN) {
+            targetPos = pos.relative(facing).below();
+        } else {
+            targetPos = pos.relative(facing);
+        }
 
         for (int i = 0; i < itemHandler.getSlots(); i++) {
             ItemStack stack = itemHandler.getStackInSlot(i);
             if (stack.isEmpty()) continue;
 
-            // 尝试输出到相邻容器
             IItemHandler targetHandler = level.getCapability(
                     Capabilities.ItemHandler.BLOCK, targetPos, facing.getOpposite());
 
@@ -71,7 +81,6 @@ public class ConveyorBlockEntity extends BlockEntity {
                 itemHandler.setStackInSlot(i, remainder);
             }
 
-            // 传递给下一个传送带
             if (level.getBlockState(targetPos).getBlock() instanceof ConveyorBlock) {
                 BlockEntity targetBE = level.getBlockEntity(targetPos);
                 if (targetBE instanceof ConveyorBlockEntity targetConveyor) {

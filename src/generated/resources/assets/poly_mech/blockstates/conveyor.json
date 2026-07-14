@@ -1,17 +1,47 @@
 {
   "variants": {
-    "facing=east": {
+    "facing=east,type=down": {
       "model": "poly_mech:block/conveyor_belt/conveyor_belt",
       "y": 90
     },
-    "facing=north": {
+    "facing=east,type=horizontal": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt",
+      "y": 90
+    },
+    "facing=east,type=up": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt",
+      "y": 90
+    },
+    "facing=north,type=down": {
       "model": "poly_mech:block/conveyor_belt/conveyor_belt"
     },
-    "facing=south": {
+    "facing=north,type=horizontal": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt"
+    },
+    "facing=north,type=up": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt"
+    },
+    "facing=south,type=down": {
       "model": "poly_mech:block/conveyor_belt/conveyor_belt",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,type=horizontal": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt",
+      "y": 180
+    },
+    "facing=south,type=up": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt",
+      "y": 180
+    },
+    "facing=west,type=down": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt",
+      "y": 270
+    },
+    "facing=west,type=horizontal": {
+      "model": "poly_mech:block/conveyor_belt/conveyor_belt",
+      "y": 270
+    },
+    "facing=west,type=up": {
       "model": "poly_mech:block/conveyor_belt/conveyor_belt",
       "y": 270
     }

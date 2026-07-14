@@ -20,6 +20,8 @@ public class ConveyorModelLoader implements IGeometryLoader<UnbakedConveyorModel
                 GsonHelper.getAsString(json, "left_rail", "poly_mech:block/conveyor_belt/conveyor_belt_left"));
         ResourceLocation rightRail = ResourceLocation.parse(
                 GsonHelper.getAsString(json, "right_rail", "poly_mech:block/conveyor_belt/conveyor_belt_right"));
-        return new UnbakedConveyorModel(center, leftRail, rightRail);
+        ResourceLocation up = json.has("up") ? ResourceLocation.parse(GsonHelper.getAsString(json, "up")) : null;
+        ResourceLocation down = json.has("down") ? ResourceLocation.parse(GsonHelper.getAsString(json, "down")) : null;
+        return new UnbakedConveyorModel(center, leftRail, rightRail, up, down);
     }
 }
