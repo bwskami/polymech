@@ -7,8 +7,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -176,6 +174,13 @@ public class ConveyorBlock extends BaseEntityBlock {
 
     @Override
     public void stepOn(Level level, BlockPos pos, BlockState state, Entity entity) {
+        // 只吸收掉落物（ItemEntity），不移动实体
+        if (entity instanceof net.minecraft.world.entity.item.ItemEntity itemEntity) {
+            if (level.isClientSide()) return;
+            if (level.getBlockEntity(pos) instanceof ConveyorBlockEntity be) {
+                be.absorbItemEntity(itemEntity);
+            }
+        }
     }
 
     @Nullable
@@ -239,7 +244,7 @@ public class ConveyorBlock extends BaseEntityBlock {
         BlockState backAboveState = level.getBlockState(backAbove);
         if (backAboveState.getBlock() instanceof ConveyorBlock
                 && backAboveState.getValue(FACING) == facing
-                && backAboveState.getValue(TYPE) == ConveyorType.HORIZONTAL) {
+                && backAboveState.getValue(TYPE) != ConveyorType.UP) {
             return ConveyorType.DOWN;
         }
 
