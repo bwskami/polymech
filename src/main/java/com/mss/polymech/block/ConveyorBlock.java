@@ -28,6 +28,11 @@ import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
 import org.jetbrains.annotations.Nullable;
 
 public class ConveyorBlock extends BaseEntityBlock {
@@ -171,24 +176,44 @@ public class ConveyorBlock extends BaseEntityBlock {
 
     @Override
     public void stepOn(Level level, BlockPos pos, BlockState state, Entity entity) {
-        if (entity instanceof ItemEntity || entity instanceof LivingEntity) {
-            Direction facing = state.getValue(FACING);
-            double speed = entity instanceof ItemEntity ? 0.05 : 0.03;
-            entity.setDeltaMovement(
-                    entity.getDeltaMovement().x + facing.getStepX() * speed,
-                    entity.getDeltaMovement().y,
-                    entity.getDeltaMovement().z + facing.getStepZ() * speed
-            );
-        }
     }
 
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        if (level instanceof ServerLevel) {
-            return createTickerHelper(type, ModBlockEntities.CONVEYOR.get(), ConveyorBlockEntity::serverTick);
+        return createTickerHelper(type, ModBlockEntities.CONVEYOR.get(), ConveyorBlockEntity::tick);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos,
+                                                Player player, BlockHitResult hitResult) {
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
-        return null;
+
+        if (!(level.getBlockEntity(pos) instanceof ConveyorBlockEntity be)) {
+            return InteractionResult.PASS;
+        }
+
+        if (player.getItemInHand(InteractionHand.MAIN_HAND).isEmpty()) {
+            ItemStack picked = be.removeLastItem();
+            if (!picked.isEmpty()) {
+                player.setItemInHand(InteractionHand.MAIN_HAND, picked);
+                return InteractionResult.CONSUME;
+            }
+        }
+
+        ItemStack held = player.getItemInHand(InteractionHand.MAIN_HAND);
+        if (!held.isEmpty()) {
+            if (be.addTransportedItem(held)) {
+                if (!player.isCreative()) {
+                    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                }
+                return InteractionResult.CONSUME;
+            }
+        }
+
+        return InteractionResult.PASS;
     }
 
     // ========== 核心更新逻辑 ==========
@@ -205,14 +230,16 @@ public class ConveyorBlock extends BaseEntityBlock {
         BlockPos frontAbove = pos.relative(facing).above();
         BlockState frontAboveState = level.getBlockState(frontAbove);
         if (frontAboveState.getBlock() instanceof ConveyorBlock
-                && frontAboveState.getValue(FACING) == facing) {
+                && frontAboveState.getValue(FACING) == facing
+                && frontAboveState.getValue(TYPE) != ConveyorType.DOWN) {
             return ConveyorType.UP;
         }
 
         BlockPos backAbove = pos.relative(facing.getOpposite()).above();
         BlockState backAboveState = level.getBlockState(backAbove);
         if (backAboveState.getBlock() instanceof ConveyorBlock
-                && backAboveState.getValue(FACING) == facing) {
+                && backAboveState.getValue(FACING) == facing
+                && backAboveState.getValue(TYPE) == ConveyorType.HORIZONTAL) {
             return ConveyorType.DOWN;
         }
 

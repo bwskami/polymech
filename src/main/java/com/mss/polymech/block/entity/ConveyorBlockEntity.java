@@ -6,111 +6,183 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 public class ConveyorBlockEntity extends BlockEntity {
-    // 传送带上最多容纳 8 个物品
-    private static final int SLOT_COUNT = 8;
+    private static final int MAX_ITEMS = 8;
+    private static final double SPEED = 0.02;
 
-    // 物品存储
-    private final ItemStackHandler itemHandler = new ItemStackHandler(SLOT_COUNT) {
-        @Override
-        protected void onContentsChanged(int slot) {
-            setChanged();
-            if (level instanceof ServerLevel serverLevel) {
-                serverLevel.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
-            }
-        }
-    };
-
-    private int tickCounter = 0;
+    private final List<TransportedItem> transportedItems = new ArrayList<>();
 
     public ConveyorBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.CONVEYOR.get(), pos, state);
     }
 
-    // 服务端 tick 逻辑
-    public static void serverTick(Level level, BlockPos pos, BlockState state, ConveyorBlockEntity be) {
-        be.tickCounter++;
-
-        // 每 10 tick 移动一次物品
-        if (be.tickCounter % 10 == 0) {
-            be.moveItems(level, pos, state);
-        }
+    public boolean addTransportedItem(ItemStack stack) {
+        return addTransportedItem(stack, 0.0);
     }
 
-    private void moveItems(Level level, BlockPos pos, BlockState state) {
+    public boolean addTransportedItem(ItemStack stack, double startProgress) {
+        if (transportedItems.size() >= MAX_ITEMS) return false;
+        transportedItems.add(new TransportedItem(stack.copy(), startProgress));
+        setChanged();
+        syncToClient();
+        return true;
+    }
+
+    public ItemStack removeLastItem() {
+        if (transportedItems.isEmpty()) return ItemStack.EMPTY;
+        TransportedItem removed = transportedItems.remove(transportedItems.size() - 1);
+        setChanged();
+        syncToClient();
+        return removed.stack.copy();
+    }
+
+    public List<TransportedItem> getTransportedItems() {
+        return transportedItems;
+    }
+
+    public static void tick(Level level, BlockPos pos, BlockState state, ConveyorBlockEntity be) {
+        if (level == null) return;
+        if (be.transportedItems.isEmpty()) return;
+
         Direction facing = state.getValue(ConveyorBlock.FACING);
         ConveyorType type = state.getValue(ConveyorBlock.TYPE);
-        
-        BlockPos targetPos;
-        
-        if (type == ConveyorType.UP) {
-            targetPos = pos.relative(facing).above();
-        } else if (type == ConveyorType.DOWN) {
-            targetPos = pos.relative(facing).below();
-        } else {
-            targetPos = pos.relative(facing);
-        }
 
-        for (int i = 0; i < itemHandler.getSlots(); i++) {
-            ItemStack stack = itemHandler.getStackInSlot(i);
-            if (stack.isEmpty()) continue;
+        Iterator<TransportedItem> iter = be.transportedItems.iterator();
+        while (iter.hasNext()) {
+            TransportedItem item = iter.next();
+            item.progress += SPEED;
 
-            IItemHandler targetHandler = level.getCapability(
-                    Capabilities.ItemHandler.BLOCK, targetPos, facing.getOpposite());
+            if (item.progress >= 1.0) {
+                if (!level.isClientSide()) {
+                    BlockPos targetPos = pos.relative(facing);
+                    if (type == ConveyorType.UP) {
+                        targetPos = pos.relative(facing).above();
+                    } else if (type == ConveyorType.DOWN) {
+                        targetPos = pos.relative(facing).below();
+                    }
 
-            if (targetHandler != null) {
-                ItemStack remainder = ItemHandlerHelper.insertItemStacked(targetHandler, stack, false);
-                if (remainder.isEmpty()) {
-                    itemHandler.setStackInSlot(i, ItemStack.EMPTY);
-                    continue;
-                }
-                itemHandler.setStackInSlot(i, remainder);
-            }
+                    boolean transferred = false;
 
-            if (level.getBlockState(targetPos).getBlock() instanceof ConveyorBlock) {
-                BlockEntity targetBE = level.getBlockEntity(targetPos);
-                if (targetBE instanceof ConveyorBlockEntity targetConveyor) {
-                    for (int j = 0; j < targetConveyor.itemHandler.getSlots(); j++) {
-                        if (targetConveyor.itemHandler.getStackInSlot(j).isEmpty()) {
-                            targetConveyor.itemHandler.setStackInSlot(j, stack.copy());
-                            itemHandler.setStackInSlot(i, ItemStack.EMPTY);
-                            targetConveyor.setChanged();
-                            break;
+                    IItemHandler handler = level.getCapability(
+                            Capabilities.ItemHandler.BLOCK, targetPos, facing.getOpposite());
+                    if (handler != null) {
+                        ItemStack remainder = insertItem(handler, item.stack);
+                        if (remainder.isEmpty()) {
+                            transferred = true;
+                        } else {
+                            item.stack = remainder;
                         }
                     }
+
+                    if (!transferred) {
+                        BlockState targetBlockState = level.getBlockState(targetPos);
+                        if (targetBlockState.getBlock() instanceof ConveyorBlock) {
+                            BlockEntity targetBE = level.getBlockEntity(targetPos);
+                            if (targetBE instanceof ConveyorBlockEntity targetConveyor) {
+                                Direction targetFacing = targetBlockState.getValue(ConveyorBlock.FACING);
+                                double startProgress = (facing == targetFacing) ? 0.0 : 0.5;
+                                if (targetConveyor.addTransportedItem(item.stack, startProgress)) {
+                                    transferred = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!transferred) {
+                        BlockPos belowTarget = targetPos.below();
+                        BlockState belowState = level.getBlockState(belowTarget);
+                        if (belowState.getBlock() instanceof ConveyorBlock) {
+                            BlockEntity belowBE = level.getBlockEntity(belowTarget);
+                            if (belowBE instanceof ConveyorBlockEntity belowConveyor) {
+                                Direction belowFacing = belowState.getValue(ConveyorBlock.FACING);
+                                double startProgress = (facing == belowFacing) ? 0.0 : 0.5;
+                                if (belowConveyor.addTransportedItem(item.stack, startProgress)) {
+                                    transferred = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!transferred) {
+                        Vec3 dropPos = getWorldPosition(pos, facing, type, 1.0);
+                        ItemEntity dropped = new ItemEntity(level,
+                                dropPos.x, dropPos.y, dropPos.z,
+                                item.stack.copy());
+                        dropped.setDeltaMovement(
+                                facing.getStepX() * 0.15,
+                                -0.1,
+                                facing.getStepZ() * 0.15);
+                        level.addFreshEntity(dropped);
+                        transferred = true;
+                    }
+
+                    if (transferred) {
+                        iter.remove();
+                        be.setChanged();
+                        be.syncToClient();
+                    }
+                } else {
+                    item.progress = 0.999;
+                }
+            }
+        }
+
+        for (int i = 0; i < be.transportedItems.size(); i++) {
+            TransportedItem item = be.transportedItems.get(i);
+            if (i > 0) {
+                TransportedItem prev = be.transportedItems.get(i - 1);
+                if (item.progress > prev.progress - 0.15) {
+                    item.progress = prev.progress - 0.15;
                 }
             }
         }
     }
 
-    // 从上方接收物品（供漏斗等使用）
-    public boolean insertItem(ItemStack stack) {
-        for (int i = 0; i < itemHandler.getSlots(); i++) {
-            if (itemHandler.getStackInSlot(i).isEmpty()) {
-                itemHandler.setStackInSlot(i, stack.copy());
-                setChanged();
-                return true;
-            }
+    private static ItemStack insertItem(IItemHandler handler, ItemStack stack) {
+        ItemStack remaining = stack.copy();
+        for (int i = 0; i < handler.getSlots(); i++) {
+            remaining = handler.insertItem(i, remaining, false);
+            if (remaining.isEmpty()) return ItemStack.EMPTY;
         }
-        return false;
+        return remaining;
     }
 
-    public IItemHandler getItemHandler() {
-        return itemHandler;
+    public static Vec3 getWorldPosition(BlockPos pos, Direction facing, ConveyorType type, double progress) {
+        double x = pos.getX() + 0.5 + facing.getStepX() * (progress - 0.5);
+        double z = pos.getZ() + 0.5 + facing.getStepZ() * (progress - 0.5);
+        double y = pos.getY() + 0.25;
+        if (type == ConveyorType.UP) {
+            y += progress * 1.0;
+        } else if (type == ConveyorType.DOWN) {
+            y += (1.0 - progress) * 1.0;
+        }
+        return new Vec3(x, y, z);
+    }
+
+    private void syncToClient() {
+        if (level instanceof ServerLevel serverLevel) {
+            serverLevel.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
+        }
     }
 
     // ==================== NBT 同步 ====================
@@ -118,32 +190,58 @@ public class ConveyorBlockEntity extends BlockEntity {
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
-        tag.put("Items", itemHandler.serializeNBT(registries));
+        ListTag list = new ListTag();
+        for (TransportedItem item : transportedItems) {
+            CompoundTag itemTag = new CompoundTag();
+            itemTag.put("Item", item.stack.save(registries));
+            itemTag.putDouble("Progress", item.progress);
+            list.add(itemTag);
+        }
+        tag.put("TransportedItems", list);
     }
 
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        itemHandler.deserializeNBT(registries, tag.getCompound("Items"));
+        transportedItems.clear();
+        ListTag list = tag.getList("TransportedItems", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag itemTag = list.getCompound(i);
+            ItemStack stack = ItemStack.parse(registries, itemTag.getCompound("Item")).orElse(ItemStack.EMPTY);
+            double progress = itemTag.getDouble("Progress");
+            if (!stack.isEmpty()) {
+                transportedItems.add(new TransportedItem(stack, progress));
+            }
+        }
     }
 
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
         CompoundTag tag = super.getUpdateTag(registries);
-        tag.put("Items", itemHandler.serializeNBT(registries));
+        saveAdditional(tag, registries);
         return tag;
     }
 
     @Override
     public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
-        if (tag.contains("Items")) {
-            itemHandler.deserializeNBT(registries, tag.getCompound("Items"));
-        }
+        loadAdditional(tag, registries);
     }
 
     @Nullable
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
+    }
+
+    // ==================== 运输物品数据 ====================
+
+    public static class TransportedItem {
+        public ItemStack stack;
+        public double progress;
+
+        public TransportedItem(ItemStack stack, double progress) {
+            this.stack = stack;
+            this.progress = progress;
+        }
     }
 }
