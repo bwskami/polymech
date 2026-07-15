@@ -1,9 +1,9 @@
 package com.mss.polymech.block.entity;
 
 import com.mss.polymech.block.ConveyorBlock;
+import com.mss.polymech.block.ConveyorSpec;
 import com.mss.polymech.block.ConveyorType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
@@ -14,7 +14,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -22,103 +21,103 @@ import java.util.List;
 /**
  * 传送带方块实体。
  * <p>
- * 职责剥离后仅作为委托层，实际物流逻辑由 {@link ConveyorItemHandler} 处理。
- * 负责：生命周期管理、NBT同步、网络同步、方法委托。
+ * 桥梁角色：服务端执行运输逻辑，客户端向渲染器提供视觉进度数据。
+ * 自身不做复杂运算。
  * </p>
  */
 public class ConveyorBlockEntity extends BlockEntity {
     private final ConveyorItemHandler itemHandler;
 
     public ConveyorBlockEntity(BlockPos pos, BlockState state) {
-        super(ModBlockEntities.CONVEYOR.get(), pos, state);
-        this.itemHandler = new ConveyorItemHandler(this);
+        this(pos, state, ConveyorSpec.DEFAULT);
     }
 
-    // ========== 委托方法 ==========
+    public ConveyorBlockEntity(BlockPos pos, BlockState state, ConveyorSpec spec) {
+        super(ModBlockEntities.CONVEYOR.get(), pos, state);
+        this.itemHandler = new ConveyorItemHandler(this, spec);
+    }
 
-    /**
-     * 添加物品到传送带（起始进度 0.0）。
-     */
+    /** 添加物品到传送带（默认从入口开始）。 */
     public boolean addTransportedItem(ItemStack stack) {
         return itemHandler.addItem(stack);
     }
 
-    /**
-     * 添加物品到传送带，指定起始进度。
-     */
+    /** 添加物品到传送带，指定起始进度。 */
     public boolean addTransportedItem(ItemStack stack, double startProgress) {
         return itemHandler.addItem(stack, startProgress);
     }
 
-    /**
-     * 移除并返回队列末尾的物品。
-     */
+    /** 移除入口物品（最新放入）。 */
     public ItemStack removeLastItem() {
         return itemHandler.removeLastItem();
     }
 
-    /**
-     * 吸收传送带上的掉落物实体。
-     */
-    public boolean absorbItemEntity(net.minecraft.world.entity.item.ItemEntity itemEntity) {
-        return itemHandler.absorbItemEntity(itemEntity);
+    /** 吸收掉落物。 */
+    public boolean absorbItemEntity(net.minecraft.world.entity.item.ItemEntity entity) {
+        return itemHandler.absorbItemEntity(entity);
     }
 
-    /**
-     * @return 当前所有运输物品的不可修改视图
-     */
-    public List<TransportedItem> getTransportedItems() {
-        return itemHandler.getItems();
+    /** @return 当前缓冲队列（索引 0 = 入口，末尾 = 出口） */
+    public List<ItemStack> getBufferContents() {
+        return itemHandler.getContents();
+    }
+
+    /** @return 当前传送带规格 */
+    public ConveyorSpec getSpec() {
+        return itemHandler.getSpec();
+    }
+
+    /** @return 指定索引物品的计时器值（渲染器用） */
+    public int getTimer(int index) {
+        return itemHandler.getTimer(index);
     }
 
     // ========== Tick ==========
 
-    /**
-     * 传送带 tick 方法，由 {@link ConveyorBlock} 注册。
-     */
     public static void tick(Level level, BlockPos pos, BlockState state, ConveyorBlockEntity be) {
-        be.itemHandler.tick();
+        if (level.isClientSide()) {
+            be.clientTick();
+        } else {
+            be.itemHandler.tick();
+        }
     }
 
-    // ========== 工具方法 ==========
+    /**
+     * 客户端 tick：独立推进 timer，实现平滑视觉动画。
+     * 服务端同步到来时会通过 load() 覆盖 timers，消除偏差。
+     */
+    private void clientTick() {
+        if (level == null) return;
+        // 不修改 itemHandler 的 timers（由服务端管理），而是在本地额外维护一个克隆
+        // 但为了简洁，我们直接让 timer 在客户端也自增，服务端同步时覆盖纠正
+        // 只要 block update 频率高于肉眼可察觉的偏差，效果就没问题
+        itemHandler.tickClient();
+    }
+
+    // ========== 视觉进度计算 ===========
 
     /**
-     * 根据进度计算物品在世界中的渲染位置。
+     * 计算指定索引物品的视觉进度 (0.0 ~ 1.0)。
      * <p>
-     * 供 {@link com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer} 和
-     * {@link ConveyorItemHandler} 使用。
+     * 进度直接基于该物品的计时器，与在队列中的索引无关。
+     * 物品放入时 timer=0 → progress=0（入口），
+     * timer = slotCount × ticksPerSlot → progress=1.0（出口，正好被输出）。
      * </p>
-     *
-     * @param pos      方块位置
-     * @param facing   传送带朝向
-     * @param type     传送带类型
-     * @param progress 进度 (0.0 ~ 1.0)
-     * @return 世界坐标
      */
-    public static Vec3 getWorldPosition(BlockPos pos, Direction facing, ConveyorType type, double progress) {
-        double x = pos.getX() + 0.5 + facing.getStepX() * (progress - 0.5);
-        double z = pos.getZ() + 0.5 + facing.getStepZ() * (progress - 0.5);
-        double y = pos.getY() + 0.25;
-        if (type == ConveyorType.UP) {
-            y += progress * 1.0;
-        } else if (type == ConveyorType.DOWN) {
-            y += (1.0 - progress) * 1.0;
-        }
-        return new Vec3(x, y, z);
+    public double getVisualProgress(int index) {
+        int totalTicks = itemHandler.getSpec().slotCount() * itemHandler.getSpec().ticksPerSlot();
+        return Math.min((double) itemHandler.getTimer(index) / totalTicks, 1.0);
     }
 
     // ========== 网络同步 ==========
 
-    /**
-     * 向客户端发送方块更新数据包。
-     */
     public void syncToClient() {
         if (level instanceof ServerLevel serverLevel) {
             serverLevel.sendBlockUpdated(getBlockPos(), getBlockState(), getBlockState(), 3);
         }
     }
 
-    // ==================== NBT 同步 ====================
+    // ========== NBT ==========
 
     @Override
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {

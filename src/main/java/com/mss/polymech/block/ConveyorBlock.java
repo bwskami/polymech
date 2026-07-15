@@ -210,9 +210,12 @@ public class ConveyorBlock extends BaseEntityBlock {
 
         ItemStack held = player.getItemInHand(InteractionHand.MAIN_HAND);
         if (!held.isEmpty()) {
-            if (be.addTransportedItem(held)) {
+            // 每次只放1个物品到传送带上，减少手中的堆叠
+            ItemStack single = held.copyWithCount(1);
+            if (be.addTransportedItem(single)) {
                 if (!player.isCreative()) {
-                    player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                    held.shrink(1);
+                    player.setItemInHand(InteractionHand.MAIN_HAND, held);
                 }
                 return InteractionResult.CONSUME;
             }
@@ -224,31 +227,60 @@ public class ConveyorBlock extends BaseEntityBlock {
     // ========== 核心更新逻辑 ==========
 
     /**
-     * 计算当前方块应有的类型。
-     * 上坡：检查前方上方（低处的自己看到前上方有传送带 → UP）
-     * 下坡：检查后方上方（低处的自己看到后上方有传送带 → DOWN）
-     * 始终只修改低处的传送带。
+     * 计算当前方块应有的类型（上下坡自动判定）。
+     * <p>
+     * 上坡条件：前方上方有同向传送带 + 前方同层是完整非传送带方块（支撑物）
+     * 下坡条件：后方上方有同向传送带 + 后方同层是完整非传送带方块（支撑物）
+     * </p>
+     * <p>
+     * 支撑物检测避免了上下两层平行传送带之间误连接。
+     * 例如，两层平行传送带同向运输时，中间隔着一层空气，不会形成上下坡。
+     * </p>
+     *
+     * <pre>
+     * 示例布局（A=空气 B=水平传送带 C=上下坡 D=支撑物）：
+     *   AAA     层 y+1
+     *   ABA     层 y+1
+     *   CDA     层 y
+     *   C 因为 D 是完整方块支撑 → 上坡到 B
+     * </pre>
      */
     private static ConveyorType calculateNewType(Level level, BlockPos pos, BlockState state) {
         Direction facing = state.getValue(FACING);
 
-        BlockPos frontAbove = pos.relative(facing).above();
+        // UP 检测：前方上方有传送带 + 前方同层有完整方块支撑
+        BlockPos front = pos.relative(facing);
+        BlockPos frontAbove = front.above();
         BlockState frontAboveState = level.getBlockState(frontAbove);
         if (frontAboveState.getBlock() instanceof ConveyorBlock
                 && frontAboveState.getValue(FACING) == facing
-                && frontAboveState.getValue(TYPE) != ConveyorType.DOWN) {
+                && frontAboveState.getValue(TYPE) != ConveyorType.DOWN
+                && isSolidSupport(level, front)) {
             return ConveyorType.UP;
         }
 
-        BlockPos backAbove = pos.relative(facing.getOpposite()).above();
+        // DOWN 检测：后方上方有传送带 + 后方同层有完整方块支撑
+        BlockPos back = pos.relative(facing.getOpposite());
+        BlockPos backAbove = back.above();
         BlockState backAboveState = level.getBlockState(backAbove);
         if (backAboveState.getBlock() instanceof ConveyorBlock
                 && backAboveState.getValue(FACING) == facing
-                && backAboveState.getValue(TYPE) != ConveyorType.UP) {
+                && backAboveState.getValue(TYPE) != ConveyorType.UP
+                && isSolidSupport(level, back)) {
             return ConveyorType.DOWN;
         }
 
         return ConveyorType.HORIZONTAL;
+    }
+
+    /**
+     * 检查指定位置是否为完整方块支撑物。
+     * 要求：不是传送带，且碰撞箱完整覆盖整个方块。
+     */
+    private static boolean isSolidSupport(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        return !(state.getBlock() instanceof ConveyorBlock)
+                && state.isCollisionShapeFullBlock(level, pos);
     }
 
     private static void refreshSelfState(Level level, BlockPos pos, BlockState state) {
