@@ -6,6 +6,7 @@ import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.menu.ModMenuTypes;
+import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -128,6 +129,11 @@ public class Polymech {
                 PipePlacementPacket.TYPE,
                 PipePlacementPacket.STREAM_CODEC,
                 PipePlacementPacket::handle
+        );
+        registrar.playToServer(
+                ConveyorPlacementPacket.TYPE,
+                ConveyorPlacementPacket.STREAM_CODEC,
+                ConveyorPlacementPacket::handle
         );
     }
 

@@ -4,6 +4,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.item.PipeItem;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -66,7 +67,7 @@ public class ModBlocks {
 
     /* 传送带方块，用于移动物品 */
     public static final DeferredBlock<ConveyorBlock> CONVEYOR =
-            registerBlocks("conveyor", () -> new ConveyorBlock(Block.Properties.of()
+            registerConveyor("conveyor", () -> new ConveyorBlock(Block.Properties.of()
                     .strength(2.0F, 3.0F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
@@ -182,6 +183,22 @@ public class ModBlocks {
         DeferredBlock<PipeBlock> pipe = BLOCKS.register(name, block);
         ModItems.ITEMS.register(name, () -> new PipeItem(pipe.get(), new Item.Properties()));
         return pipe;
+    }
+
+    /*
+     * 注册传送带方块及其特殊物品。
+     * <p>
+     * 传送带使用ConveyorItem而非普通BlockItem，以支持右键连续铺设功能。
+     * </p>
+     *
+     * @param name 方块注册名称
+     * @param block 传送带方块供应商
+     * @return 注册的传送带方块引用
+     */
+    private static DeferredBlock<ConveyorBlock> registerConveyor(String name, Supplier<ConveyorBlock> block) {
+        DeferredBlock<ConveyorBlock> conveyor = BLOCKS.register(name, block);
+        ModItems.ITEMS.register(name, () -> new ConveyorItem(conveyor.get(), new Item.Properties()));
+        return conveyor;
     }
 
     /*
