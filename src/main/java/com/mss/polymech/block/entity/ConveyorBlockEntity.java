@@ -365,10 +365,7 @@ public class ConveyorBlockEntity extends BlockEntity {
      */
     @Nullable
     public IItemHandler getItemHandler(@Nullable Direction side) {
-        if (side == Direction.DOWN || side == Direction.UP) {
-            return itemHandler;
-        }
-        return null;
+        return itemHandler;
     }
 
     /**
@@ -384,8 +381,7 @@ public class ConveyorBlockEntity extends BlockEntity {
 
         @Override
         public @NotNull ItemStack getStackInSlot(int slot) {
-            // 获取终点处物品
-            ConveyorItemEntity item = findItemAtEnd();
+            ConveyorItemEntity item = findAnyItem();
             return item != null ? item.getItem().copy() : ItemStack.EMPTY;
         }
 
@@ -416,7 +412,7 @@ public class ConveyorBlockEntity extends BlockEntity {
         public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
             if (level == null || level.isClientSide()) return ItemStack.EMPTY;
 
-            ConveyorItemEntity item = findItemAtEnd();
+            ConveyorItemEntity item = findAnyItem();
             if (item == null) return ItemStack.EMPTY;
 
             ItemStack extracted = item.getItem().copy();
@@ -448,18 +444,16 @@ public class ConveyorBlockEntity extends BlockEntity {
         }
 
         /**
-         * 找到传送带终点附近的物品（progress >= 0.9）。
-         * 下方漏斗只有接近终点时才能提取。
+         * 找到传送带上的任意物品（下方漏斗提取时不限进度）。
          */
         @Nullable
-        private ConveyorItemEntity findItemAtEnd() {
+        private ConveyorItemEntity findAnyItem() {
             if (level == null) return null;
             AABB scanBox = buildItemScanBox(worldPosition);
             List<ConveyorItemEntity> items = level.getEntitiesOfClass(
                     ConveyorItemEntity.class, scanBox,
                     item -> item.isAlive()
                             && item.getConveyorPos().equals(worldPosition)
-                            && item.getProgress() >= 0.9F
             );
             return items.isEmpty() ? null : items.getFirst();
         }
