@@ -280,6 +280,9 @@ public class ConveyorBlock extends BaseEntityBlock {
     public void onRemove(BlockState state, Level level, BlockPos pos,
                          BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
+            // 弹出传送带上的所有物品
+            ejectConveyorItems(level, pos);
+
             super.onRemove(state, level, pos, newState, movedByPiston);
             refreshNeighbors(level, pos, state);
             if (level.isClientSide()) {
@@ -291,6 +294,18 @@ public class ConveyorBlock extends BaseEntityBlock {
                     }
                 }
             }
+        }
+    }
+
+    private static void ejectConveyorItems(Level level, BlockPos pos) {
+        if (level.isClientSide()) return;
+        AABB scanBox = buildScanBox(pos);
+        List<ConveyorItemEntity> items = level.getEntitiesOfClass(
+                ConveyorItemEntity.class, scanBox,
+                item -> item.isAlive() && item.getConveyorPos().equals(pos)
+        );
+        for (ConveyorItemEntity item : items) {
+            item.ejectAsItemEntity();
         }
     }
 
