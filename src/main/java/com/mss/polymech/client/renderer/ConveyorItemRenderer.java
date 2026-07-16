@@ -43,7 +43,7 @@ public class ConveyorItemRenderer extends EntityRenderer<ConveyorItemEntity> {
         // 位置由 Entity 每 tick setPos 维护，渲染器自动 partialTick 插值
         // 此处只处理旋转和缩放
 
-        float spinAngle = (entity.tickCount * 6.0F + partialTick * 6.0F) % 360.0F;
+        float spinAngle = (entity.tickCount * 3.0F + partialTick * 3.0F) % 360.0F;
 
         poseStack.pushPose();
         BakedModel model = itemRenderer.getModel(stack, entity.level(), null, 0);

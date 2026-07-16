@@ -197,7 +197,9 @@ public class ConveyorItemEntity extends Entity {
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        // 不设位置，只由 tick() 驱动位置更新，防止两路冲突抽动
+        if (key == DATA_PROGRESS || key == DATA_CONVEYOR_POS) {
+            updatePosition();
+        }
     }
 
     // ========== NBT ==========

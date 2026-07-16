@@ -6,8 +6,12 @@ import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.menu.ModMenuTypes;
+import com.mss.polymech.block.entity.ConveyorBlockEntity;
+import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.slf4j.Logger;
@@ -83,6 +87,9 @@ public class Polymech {
         // 注册网络数据包处理器
         modEventBus.addListener(this::registerPayloads);
 
+        // 注册能力（漏斗交互）
+        modEventBus.addListener(this::registerCapabilities);
+
         // 注册NeoForge事件总线（用于服务器事件等）
         // 注意：只有当此类包含@SubscribeEvent注解的方法时才需要此行
         NeoForge.EVENT_BUS.register(this);
@@ -134,6 +141,14 @@ public class Polymech {
                 ConveyorPlacementPacket.TYPE,
                 ConveyorPlacementPacket.STREAM_CODEC,
                 ConveyorPlacementPacket::handle
+        );
+    }
+
+    private void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerBlockEntity(
+                Capabilities.ItemHandler.BLOCK,
+                ModBlockEntities.CONVEYOR.get(),
+                ConveyorBlockEntity::getItemHandler
         );
     }
 
