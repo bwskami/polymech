@@ -1,5 +1,6 @@
 package com.mss.polymech.item;
 
+import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.PipeBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -8,6 +9,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.Vec3;
@@ -22,6 +24,11 @@ public class WrenchItem extends Item {
         Level level = context.getLevel();
         BlockPos pos = context.getClickedPos();
         BlockState state = level.getBlockState(pos);
+
+        // 扳手旋转传送带朝向
+        if (state.getBlock() instanceof ConveyorBlock) {
+            return handleConveyor(level, pos, state, context);
+        }
 
         if (!(state.getBlock() instanceof PipeBlock)) {
             return InteractionResult.PASS;
@@ -135,5 +142,44 @@ public class WrenchItem extends Item {
             default -> throw new IllegalArgumentException();
         }
         return new Direction[]{right, up};
+    }
+
+    // ========== 传送带朝向旋转 ==========
+
+    private static InteractionResult handleConveyor(Level level, BlockPos pos, BlockState state, UseOnContext context) {
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
+        }
+
+        Direction currentFacing = state.getValue(ConveyorBlock.FACING);
+        Direction newFacing = currentFacing.getClockWise();
+
+        BlockState newState = state.setValue(ConveyorBlock.FACING, newFacing);
+        level.setBlock(pos, newState, Block.UPDATE_ALL);
+
+        // 刷新所有相关传送带（包括对角位置，上下坡依赖对角传送带判定）
+        for (Direction dir : Direction.values()) {
+            BlockPos neighborPos = pos.relative(dir);
+            if (level.getBlockState(neighborPos).getBlock() instanceof ConveyorBlock) {
+                level.neighborChanged(neighborPos, state.getBlock(), pos);
+            }
+        }
+        // 对角线位置（上坡/下坡依赖 frontAbove / backAbove 判定）
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos diagAbove = pos.relative(dir).above();
+            if (level.getBlockState(diagAbove).getBlock() instanceof ConveyorBlock) {
+                level.neighborChanged(diagAbove, state.getBlock(), pos);
+            }
+            BlockPos diagBelow = pos.relative(dir).below();
+            if (level.getBlockState(diagBelow).getBlock() instanceof ConveyorBlock) {
+                level.neighborChanged(diagBelow, state.getBlock(), pos);
+            }
+        }
+
+        Player player = context.getPlayer();
+        if (player != null) {
+            player.swing(context.getHand());
+        }
+        return InteractionResult.CONSUME;
     }
 }

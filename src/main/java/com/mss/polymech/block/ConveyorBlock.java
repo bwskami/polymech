@@ -374,7 +374,20 @@ public class ConveyorBlock extends BaseEntityBlock {
         return ItemInteractionResult.SUCCESS;
     }
 
+    /** 禁止放入传送带的物品类型（可扩展） */
+    private static final java.util.Set<Class<?>> INSERT_BLACKLIST = java.util.Set.of(
+            com.mss.polymech.item.ConveyorItem.class,
+            com.mss.polymech.item.WrenchItem.class
+    );
+
     private static ItemInteractionResult insertItem(Level level, BlockPos pos, Player player, ItemStack stack) {
+        // 黑名单物品禁止放入传送带
+        for (Class<?> clazz : INSERT_BLACKLIST) {
+            if (clazz.isInstance(stack.getItem())) {
+                return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+            }
+        }
+
         AABB scanBox = buildScanBox(pos);
         List<ConveyorItemEntity> items = level.getEntitiesOfClass(ConveyorItemEntity.class, scanBox,
                 item -> item.isAlive() && item.getConveyorPos().equals(pos));
