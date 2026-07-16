@@ -51,30 +51,34 @@ public class BakedConveyorModel extends BakedModelWrapper<BakedModel> {
                                               @Nullable RenderType renderType) {
         List<BakedQuad> quads = new ArrayList<>();
 
-        ConveyorType type = extraData.has(CONVEYOR_TYPE) ? extraData.get(CONVEYOR_TYPE) : ConveyorType.HORIZONTAL;
+        if (extraData.has(CONVEYOR_TYPE)) {
+            ConveyorType type = extraData.get(CONVEYOR_TYPE);
 
-        switch (type) {
-            case UP -> {
-                if (upModel != null) {
-                    quads.addAll(upModel.getQuads(state, side, rand, extraData, renderType));
+            switch (type) {
+                case UP -> {
+                    if (upModel != null) {
+                        quads.addAll(upModel.getQuads(state, side, rand, extraData, renderType));
+                    }
                 }
-            }
-            case DOWN -> {
-                if (downModel != null) {
-                    quads.addAll(downModel.getQuads(state, side, rand, extraData, renderType));
+                case DOWN -> {
+                    if (downModel != null) {
+                        quads.addAll(downModel.getQuads(state, side, rand, extraData, renderType));
+                    }
                 }
-            }
-            default -> {
-                quads.addAll(centerModel.getQuads(state, side, rand, extraData, renderType));
+                default -> {
+                    quads.addAll(centerModel.getQuads(state, side, rand, extraData, renderType));
 
-                boolean leftFed = extraData.has(LEFT_INPUT) && Boolean.TRUE.equals(extraData.get(LEFT_INPUT));
-                boolean rightFed = extraData.has(RIGHT_INPUT) && Boolean.TRUE.equals(extraData.get(RIGHT_INPUT));
+                    if (extraData.has(LEFT_INPUT) && extraData.has(RIGHT_INPUT)) {
+                        boolean leftFed = Boolean.TRUE.equals(extraData.get(LEFT_INPUT));
+                        boolean rightFed = Boolean.TRUE.equals(extraData.get(RIGHT_INPUT));
 
-                if (!leftFed) {
-                    quads.addAll(leftRailModel.getQuads(state, side, rand, extraData, renderType));
-                }
-                if (!rightFed) {
-                    quads.addAll(rightRailModel.getQuads(state, side, rand, extraData, renderType));
+                        if (!leftFed) {
+                            quads.addAll(leftRailModel.getQuads(state, side, rand, extraData, renderType));
+                        }
+                        if (!rightFed) {
+                            quads.addAll(rightRailModel.getQuads(state, side, rand, extraData, renderType));
+                        }
+                    }
                 }
             }
         }

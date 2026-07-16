@@ -4,10 +4,7 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.gui.FluidTankScreen;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
-import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
 import com.mss.polymech.menu.ModMenuTypes;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -30,7 +27,6 @@ public class PolymechClient {
 
     @SubscribeEvent
     static void onClientSetup(FMLClientSetupEvent event) {
-        BlockEntityRenderers.register(ModBlockEntities.CONVEYOR.get(), ConveyorBlockEntityRenderer::new);
     }
 
     @SubscribeEvent
