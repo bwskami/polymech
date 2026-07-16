@@ -21,8 +21,9 @@ import org.jetbrains.annotations.NotNull;
 /**
  * 传送带物品实体。
  * <p>
- * 该实体看起来像掉落物，但不受原版掉落物的物理、消失、碰撞机制影响。
- * 位置完全由传送带 BlockEntity 控制，沿传送带表面移动。
+ * 位置完全在 ConveyorBlockEntity 的 tick 中通过 setProgress 驱动。
+ * 服务端调用 setPos 更新位置并同步给客户端；
+ * 客户端渲染器根据 conveyorPos + progress 直接计算精确渲染位置。
  * </p>
  */
 public class ConveyorItemEntity extends Entity {
@@ -36,7 +37,9 @@ public class ConveyorItemEntity extends Entity {
     private static final EntityDataAccessor<Float> DATA_PROGRESS =
             SynchedEntityData.defineId(ConveyorItemEntity.class, EntityDataSerializers.FLOAT);
 
-    /** 相对传送带表面的 Y 偏移（用于微调显示高度） */
+    /** 用于渲染器计算的目标位置缓存 */
+    public double renderX, renderY, renderZ;
+
     private float heightOffset = 0.0F;
 
     public ConveyorItemEntity(EntityType<?> type, Level level) {
@@ -53,8 +56,6 @@ public class ConveyorItemEntity extends Entity {
         this.setItem(stack);
         updatePosition();
     }
-
-    // ========== 工厂方法 ==========
 
     public static ConveyorItemEntity create(Level level, BlockPos conveyorPos, ItemStack stack) {
         return new ConveyorItemEntity(level, conveyorPos, stack);
@@ -77,12 +78,11 @@ public class ConveyorItemEntity extends Entity {
         return getEntityData().get(DATA_ITEM);
     }
 
-    // ========== 右键交互：玩家直接右键物品实体即可拾取 ==========
+    // ========== 右键交互 ==========
 
     @Override
     public InteractionResult interact(Player player, InteractionHand hand) {
         if (level().isClientSide()) return InteractionResult.SUCCESS;
-
         ItemStack stack = getItem();
         if (!stack.isEmpty()) {
             player.getInventory().placeItemBackInInventory(stack.copy());
@@ -105,69 +105,69 @@ public class ConveyorItemEntity extends Entity {
         return getEntityData().get(DATA_PROGRESS);
     }
 
-    /**
-     * 设置进度并更新世界坐标位置。
-     */
     public void setProgress(float progress) {
         progress = Math.max(0.0F, Math.min(1.0F, progress));
         getEntityData().set(DATA_PROGRESS, progress);
         updatePosition();
     }
 
-    /**
-     * 根据当前所在传送带的状态，计算并更新世界坐标。
-     */
-    public void updatePosition() {
-        if (level() == null) return;
-
+    /** 计算目标位置（供服务端设位置和渲染器使用） */
+    public double[] computePosition() {
         BlockPos conveyorPos = getConveyorPos();
         float progress = getProgress();
-
         BlockState state = level().getBlockState(conveyorPos);
-        if (!(state.getBlock() instanceof ConveyorBlock)) return;
-
+        if (!(state.getBlock() instanceof ConveyorBlock)) {
+            return new double[]{getX(), getY(), getZ()};
+        }
         Direction facing = state.getValue(ConveyorBlock.FACING);
         ConveyorType type = state.getValue(ConveyorBlock.TYPE);
-
         double x = conveyorPos.getX() + 0.5 + facing.getStepX() * (progress - 0.5);
         double z = conveyorPos.getZ() + 0.5 + facing.getStepZ() * (progress - 0.5);
-        // 表面高度计算（物品直接放在表面上）：
-        // HORIZONTAL: 始终在 4/16
-        // UP:        从 4/16 上升到 20/16（= 1格 + 4/16），行程 1 整格
-        // DOWN:      从 20/16 下降到 4/16，行程 1 整格
         double y = switch (type) {
             case UP -> conveyorPos.getY() + (4.0 + 16.0 * progress) / 16.0;
             case DOWN -> conveyorPos.getY() + (20.0 - 16.0 * progress) / 16.0;
             default -> conveyorPos.getY() + 4.0 / 16.0;
         };
-
-        this.setPos(x, y, z);
+        return new double[]{x, y, z};
     }
 
     /**
-     * 将此实体转换为原版掉落物并移除自身。
+     * 更新位置。
+     * 客户端：setPosRaw 不重置 xOld，super.tick() 中的 baseTick() 已在每次 tick 开头保存。
+     * 服务端：setPos 发送位置数据包给客户端同步。
      */
+    public void updatePosition() {
+        if (level() == null) return;
+        double[] pos = computePosition();
+        this.renderX = pos[0];
+        this.renderY = pos[1];
+        this.renderZ = pos[2];
+
+        if (level().isClientSide()) {
+            // setPosRaw 保留 xOld，baseTick 已在 tick 开头保存 xOld
+            this.setPosRaw(pos[0], pos[1], pos[2]);
+            this.setBoundingBox(this.makeBoundingBox());
+        } else {
+            this.setPos(pos[0], pos[1], pos[2]);
+        }
+    }
+
+    // ========== 吐出 ==========
+
     public void ejectAsItemEntity() {
         if (level().isClientSide()) return;
-
         BlockPos conveyorPos = getConveyorPos();
         BlockState state = level().getBlockState(conveyorPos);
         Direction facing = state.getBlock() instanceof ConveyorBlock
-                ? state.getValue(ConveyorBlock.FACING)
-                : Direction.NORTH;
+                ? state.getValue(ConveyorBlock.FACING) : Direction.NORTH;
 
         double ejectX = conveyorPos.getX() + 0.5 + facing.getStepX() * 0.6;
         double ejectZ = conveyorPos.getZ() + 0.5 + facing.getStepZ() * 0.6;
         double ejectY = conveyorPos.getY() + 4.0 / 16.0 + 0.3;
 
         var itemEntity = new net.minecraft.world.entity.item.ItemEntity(level(), ejectX, ejectY, ejectZ, getItem());
-        itemEntity.setDeltaMovement(
-                facing.getStepX() * 0.15,
-                0.2,
-                facing.getStepZ() * 0.15
-        );
+        itemEntity.setDeltaMovement(facing.getStepX() * 0.15, 0.2, facing.getStepZ() * 0.15);
         itemEntity.setPickUpDelay(10);
-
         level().addFreshEntity(itemEntity);
         this.discard();
     }
@@ -176,34 +176,28 @@ public class ConveyorItemEntity extends Entity {
 
     @Override
     public void tick() {
-        if (this.tickCount > 0 && this.tickCount % 20 == 0) {
+        super.tick();
+        // 客户端每 tick 更新位置，super.tick() 中的 baseTick() 已保存 xOld/yOld/zOld
+        if (level().isClientSide() && this.tickCount > 0) {
             updatePosition();
         }
     }
 
     @Override
-    public boolean isPickable() {
-        return true;
-    }
+    public boolean isPickable() { return true; }
 
     @Override
-    public boolean canBeCollidedWith() {
-        return false;
-    }
+    public boolean canBeCollidedWith() { return false; }
 
     @Override
-    public boolean isAttackable() {
-        return false;
-    }
+    public boolean isAttackable() { return false; }
 
     // ========== 网络同步 ==========
 
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        if (key == DATA_PROGRESS || key == DATA_CONVEYOR_POS) {
-            updatePosition();
-        }
+        // 不设位置，只由 tick() 驱动位置更新，防止两路冲突抽动
     }
 
     // ========== NBT ==========
@@ -211,17 +205,12 @@ public class ConveyorItemEntity extends Entity {
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         if (tag.contains("ConveyorX")) {
-            setConveyorPos(new BlockPos(
-                    tag.getInt("ConveyorX"),
-                    tag.getInt("ConveyorY"),
-                    tag.getInt("ConveyorZ")
-            ));
+            setConveyorPos(new BlockPos(tag.getInt("ConveyorX"), tag.getInt("ConveyorY"), tag.getInt("ConveyorZ")));
         }
         this.setProgress(tag.getFloat("Progress"));
         this.heightOffset = tag.getFloat("HeightOffset");
         if (tag.contains("Item")) {
-            CompoundTag itemTag = tag.getCompound("Item");
-            setItem(ItemStack.parseOptional(this.registryAccess(), itemTag));
+            setItem(ItemStack.parseOptional(this.registryAccess(), tag.getCompound("Item")));
         }
     }
 
@@ -239,17 +228,11 @@ public class ConveyorItemEntity extends Entity {
     // ========== Entity 基础 ==========
 
     @Override
-    public boolean shouldRenderAtSqrDistance(double distance) {
-        return distance < 256.0;
-    }
+    public boolean shouldRenderAtSqrDistance(double distance) { return distance < 256.0; }
 
     @Override
-    public boolean shouldShowName() {
-        return false;
-    }
+    public boolean shouldShowName() { return false; }
 
     @Override
-    protected @NotNull MovementEmission getMovementEmission() {
-        return MovementEmission.NONE;
-    }
+    protected @NotNull MovementEmission getMovementEmission() { return MovementEmission.NONE; }
 }

@@ -24,9 +24,9 @@ public class ModEntities {
     public static final Supplier<EntityType<ConveyorItemEntity>> CONVEYOR_ITEM =
             ENTITIES.register("conveyor_item", () ->
                     EntityType.Builder.<ConveyorItemEntity>of(ConveyorItemEntity::new, MobCategory.MISC)
-                            .sized(0.8F, 0.3F)  // 水平0.8格宽，方便鼠标瞄准点击
+                            .sized(0.8F, 0.3F)
                             .clientTrackingRange(10)
-                            .updateInterval(2)
+                            .updateInterval(1)  // 每 tick 同步，提高平滑度
                             .build("conveyor_item")
             );
 
