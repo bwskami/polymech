@@ -4,6 +4,7 @@ import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.network.PipePlacementPacket;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -73,6 +74,7 @@ public class Polymech {
         // 注册游戏内容
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+        ModEntities.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModMenuTypes.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);

@@ -3,9 +3,14 @@ package com.mss.polymech.block;
 import com.mojang.serialization.MapCodec;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
+import com.mss.polymech.entity.ConveyorItemEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -21,11 +26,15 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class ConveyorBlock extends BaseEntityBlock {
     public static final MapCodec<ConveyorBlock> CODEC = simpleCodec(ConveyorBlock::new);
@@ -174,29 +183,9 @@ public class ConveyorBlock extends BaseEntityBlock {
 
     // ========== 核心更新逻辑 ==========
 
-    /**
-     * 计算当前方块应有的类型（上下坡自动判定）。
-     * <p>
-     * 上坡条件：前方上方有同向传送带 + 前方同层是完整非传送带方块（支撑物）
-     * 下坡条件：后方上方有同向传送带 + 后方同层是完整非传送带方块（支撑物）
-     * </p>
-     * <p>
-     * 支撑物检测避免了上下两层平行传送带之间误连接。
-     * 例如，两层平行传送带同向运输时，中间隔着一层空气，不会形成上下坡。
-     * </p>
-     *
-     * <pre>
-     * 示例布局（A=空气 B=水平传送带 C=上下坡 D=支撑物）：
-     *   AAA     层 y+1
-     *   ABA     层 y+1
-     *   CDA     层 y
-     *   C 因为 D 是完整方块支撑 → 上坡到 B
-     * </pre>
-     */
     private static ConveyorType calculateNewType(Level level, BlockPos pos, BlockState state) {
         Direction facing = state.getValue(FACING);
 
-        // UP 检测：前方上方有传送带 + 前方同层有完整方块支撑
         BlockPos front = pos.relative(facing);
         BlockPos frontAbove = front.above();
         BlockState frontAboveState = level.getBlockState(frontAbove);
@@ -207,7 +196,6 @@ public class ConveyorBlock extends BaseEntityBlock {
             return ConveyorType.UP;
         }
 
-        // DOWN 检测：后方上方有传送带 + 后方同层有完整方块支撑
         BlockPos back = pos.relative(facing.getOpposite());
         BlockPos backAbove = back.above();
         BlockState backAboveState = level.getBlockState(backAbove);
@@ -221,10 +209,6 @@ public class ConveyorBlock extends BaseEntityBlock {
         return ConveyorType.HORIZONTAL;
     }
 
-    /**
-     * 检查指定位置是否为完整方块支撑物。
-     * 要求：不是传送带，且碰撞箱完整覆盖整个方块。
-     */
     private static boolean isSolidSupport(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         return !(state.getBlock() instanceof ConveyorBlock)
@@ -240,12 +224,6 @@ public class ConveyorBlock extends BaseEntityBlock {
         }
     }
 
-    /**
-     * 刷新所有可能受当前方块影响的传送带：
-     * 1. 六个方向的邻居
-     * 2. 前方下方（该传送带检查前方上方时可能依赖自己 → UP）
-     * 3. 后方下方（该传送带检查后方上方时可能依赖自己 → DOWN）
-     */
     private static void refreshNeighbors(Level level, BlockPos pos, BlockState state) {
         if (level.isClientSide()) return;
         for (Direction dir : Direction.values()) {
@@ -284,8 +262,8 @@ public class ConveyorBlock extends BaseEntityBlock {
     public void onPlace(BlockState state, Level level, BlockPos pos,
                         BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
-        refreshSelfState(level, pos, state);          // 自己更新
-        refreshNeighbors(level, pos, state);          // 刷新可能受影响的邻居
+        refreshSelfState(level, pos, state);
+        refreshNeighbors(level, pos, state);
         if (level.isClientSide()) {
             level.getModelDataManager().requestRefresh(level.getBlockEntity(pos));
             for (Direction dir : Direction.Plane.HORIZONTAL) {
@@ -303,7 +281,7 @@ public class ConveyorBlock extends BaseEntityBlock {
                          BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock())) {
             super.onRemove(state, level, pos, newState, movedByPiston);
-            refreshNeighbors(level, pos, state);      // 移除时刷新周围
+            refreshNeighbors(level, pos, state);
             if (level.isClientSide()) {
                 for (Direction dir : Direction.Plane.HORIZONTAL) {
                     BlockPos neighborPos = pos.relative(dir);
@@ -316,9 +294,89 @@ public class ConveyorBlock extends BaseEntityBlock {
         }
     }
 
+    // ========== 右键交互：放入/取出物品 ==========
+
     @Override
-    public BlockState updateShape(BlockState state, Direction facing, BlockState neighborState,
-                                  LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
-        return super.updateShape(state, facing, neighborState, level, pos, neighborPos);
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
+                                               BlockPos pos, Player player, InteractionHand hand,
+                                               BlockHitResult hitResult) {
+        if (level.isClientSide()) {
+            return ItemInteractionResult.SUCCESS;
+        }
+
+        // 空手：取出鼠标瞄准的物品（离命中点最近的）
+        if (stack.isEmpty()) {
+            return pickupItem(level, pos, player, hitResult);
+        }
+
+        // 手持物品：放入传送带
+        return insertItem(level, pos, player, stack);
+    }
+
+    private static AABB buildScanBox(BlockPos pos) {
+        return new AABB(
+                pos.getX() - 0.1, pos.getY() + 4.0 / 16.0 - 0.1, pos.getZ() - 0.1,
+                pos.getX() + 1.1, pos.getY() + 1.0 + 0.3, pos.getZ() + 1.1
+        );
+    }
+
+    private static ItemInteractionResult pickupItem(Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        AABB scanBox = buildScanBox(pos);
+        List<ConveyorItemEntity> items = level.getEntitiesOfClass(ConveyorItemEntity.class, scanBox,
+                item -> item.isAlive() && item.getConveyorPos().equals(pos));
+
+        if (items.isEmpty()) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+
+        // 优先取瞄准点附近的物品（判定范围 0.8 格，足够宽松）
+        double hitX = hitResult.getLocation().x;
+        double hitZ = hitResult.getLocation().z;
+        ConveyorItemEntity target = null;
+        double closestDist = 0.8; // 最大有效距离
+
+        for (ConveyorItemEntity item : items) {
+            double dx = item.getX() - hitX;
+            double dz = item.getZ() - hitZ;
+            double dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < closestDist) {
+                closestDist = dist;
+                target = item;
+            }
+        }
+
+        // 瞄准点附近没有物品，退回到取第一个
+        if (target == null) {
+            target = items.getFirst();
+        }
+
+        ItemStack result = target.getItem();
+        if (!result.isEmpty()) {
+            player.getInventory().placeItemBackInInventory(result.copy());
+            target.discard();
+        }
+
+        return ItemInteractionResult.SUCCESS;
+    }
+
+    private static ItemInteractionResult insertItem(Level level, BlockPos pos, Player player, ItemStack stack) {
+        AABB scanBox = buildScanBox(pos);
+        List<ConveyorItemEntity> items = level.getEntitiesOfClass(ConveyorItemEntity.class, scanBox,
+                item -> item.isAlive() && item.getConveyorPos().equals(pos));
+
+        // 起点附近已有物品则不允许放入
+        for (ConveyorItemEntity item : items) {
+            if (item.getProgress() < 0.4F) {
+                return ItemInteractionResult.FAIL;
+            }
+        }
+
+        ItemStack toInsert = stack.split(1);
+        if (!toInsert.isEmpty()) {
+            ConveyorItemEntity conveyorItem = ConveyorItemEntity.create(level, pos, toInsert);
+            level.addFreshEntity(conveyorItem);
+        }
+
+        return ItemInteractionResult.SUCCESS;
     }
 }
