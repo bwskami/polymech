@@ -106,12 +106,16 @@ public class ConveyorBlockEntity extends BlockEntity {
     // ========== 拾取 ==========
 
     private void tryPickupItems(Level level, BlockPos pos, ConveyorType type) {
+        // 拾取范围覆盖整个方块高度（上下坡表面可从 y+0.25 到 y+1.25）
         AABB pickupBox = new AABB(
                 pos.getX() + 0.5 - PICKUP_RADIUS, pos.getY() + 0.02, pos.getZ() + 0.5 - PICKUP_RADIUS,
                 pos.getX() + 0.5 + PICKUP_RADIUS, pos.getY() + 1.3, pos.getZ() + 0.5 + PICKUP_RADIUS
         );
 
+        // 检查传送带上已有物品的最近进度
         float minProgress = getMinProgressOnBelt(level, pos, type);
+
+        // 只有起点附近空闲才放入
         if (minProgress < 0.4F) return;
 
         List<ItemEntity> items = level.getEntitiesOfClass(ItemEntity.class, pickupBox,
@@ -129,7 +133,8 @@ public class ConveyorBlockEntity extends BlockEntity {
 
             level.addFreshEntity(conveyorItem);
             managedItems.add(conveyorItem.getUUID());
-            break;
+            break; // 每 tick 只放一个
+
         }
     }
 
@@ -148,6 +153,17 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     // ========== 驱动 ==========
 
+    /**
+     * 驱动传送带上的物品前进。
+     * <p>
+     * 物品到达终点后，根据所在传送带的类型寻找下一个传送带：
+     * <ul>
+     *   <li><b>HORIZONTAL</b> → 前方同层 {@code pos.relative(facing)}</li>
+     *   <li><b>UP</b> → 前方上层 {@code pos.relative(facing).above()}</li>
+     *   <li><b>DOWN</b> → 前方同层 或 前方下层 {@code pos.relative(facing).below()}</li>
+     * </ul>
+     * </p>
+     */
     private void driveItems(Level level, BlockPos pos, BlockState state,
                             Direction facing, ConveyorType type) {
         AABB scanBox = buildItemScanBox(pos);
@@ -159,6 +175,7 @@ public class ConveyorBlockEntity extends BlockEntity {
         for (ConveyorItemEntity item : items) {
             float newProgress = item.getProgress() + PROGRESS_PER_TICK;
 
+            // 确认该物品属于本传送带
             if (!managedItems.contains(item.getUUID())) {
                 managedItems.add(item.getUUID());
             }
@@ -184,6 +201,7 @@ public class ConveyorBlockEntity extends BlockEntity {
                     float startProgress = isSideEntry ? 0.5F : 0.0F;
 
                     if (isPositionOccupied(level, nextPos, startProgress)) {
+                        // 目标被占用，固定在终点前 1 像素处，不震荡
                         item.setProgress(0.99F);
                         continue;
                     }
@@ -196,12 +214,18 @@ public class ConveyorBlockEntity extends BlockEntity {
                     managedItems.remove(item.getUUID());
                 }
             } else {
+                // 检查同传送带前方是否有物品阻塞，保持 0.4 间距排队
                 float clamped = getClampedProgress(level, pos, item, newProgress);
                 item.setProgress(clamped);
             }
         }
     }
 
+    /**
+     * 根据当前传送带的类型和朝向，查找下一个合适的传送带位置。
+     *
+     * @return 下一个传送带的位置，如果没有则返回 null
+     */
     @Nullable
     private static BlockPos findNextConveyor(Level level, BlockPos pos, Direction facing, ConveyorType type) {
         return switch (type) {
@@ -212,6 +236,8 @@ public class ConveyorBlockEntity extends BlockEntity {
     }
 
     private static BlockPos findNextFromUp(Level level, BlockPos pos, Direction facing) {
+        // 上坡终点 y = pos.y + 1.0，同层前方是固体支撑（自动判定规则）
+        // 唯一有效路径：前方上层（对角线）
         BlockPos upper = pos.relative(facing).above();
         BlockState upperState = level.getBlockState(upper);
         if (upperState.getBlock() instanceof ConveyorBlock
@@ -223,40 +249,58 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     private static BlockPos findNextFromDown(Level level, BlockPos pos, Direction facing) {
         BlockPos front = pos.relative(facing);
+
+        // 同层前方：只接受水平/上坡（高度 pos.y+0.25 ≈ pos.y+0.25 匹配）
         BlockState frontState = level.getBlockState(front);
         if (frontState.getBlock() instanceof ConveyorBlock
                 && frontState.getValue(ConveyorBlock.FACING) == facing
                 && frontState.getValue(ConveyorBlock.TYPE) != ConveyorType.DOWN) {
             return front;
         }
+
+        // 前方下层：对角线下行
         BlockPos lower = front.below();
         BlockState lowerState = level.getBlockState(lower);
         if (lowerState.getBlock() instanceof ConveyorBlock
                 && lowerState.getValue(ConveyorBlock.FACING) == facing) {
             return lower;
         }
+
         return null;
     }
 
     private static BlockPos findNextFromHorizontal(Level level, BlockPos pos, Direction facing) {
         BlockPos front = pos.relative(facing);
+
+        // 1. 同层前方同朝向（水平链，或转上坡/下坡）
         BlockState frontState = level.getBlockState(front);
         if (frontState.getBlock() instanceof ConveyorBlock
                 && frontState.getValue(ConveyorBlock.FACING) == facing) {
             return front;
         }
+
+        // 2. 前方下层同朝向（水平→下坡）
         BlockPos frontBelow = front.below();
         BlockState frontBelowState = level.getBlockState(frontBelow);
         if (frontBelowState.getBlock() instanceof ConveyorBlock
                 && frontBelowState.getValue(ConveyorBlock.FACING) == facing) {
             return frontBelow;
         }
+
+        // 3. 前方任意传送带（侧向馈入 - 左右侧传送带输送过来）
         if (frontState.getBlock() instanceof ConveyorBlock) {
             return front;
         }
+
         return null;
     }
 
+    /**
+     * 检查目标传送带入口区域是否已被占用。
+     * 直连（起点进入）：检查 0.0~0.3 是否有物品
+     * 侧入（中间进入）：检查 0.0~0.6 是否有物品（覆盖从起点到入口的范围）
+     * 被占用则当前物品必须等待，避免插队。
+     */
     private static boolean isPositionOccupied(Level level, BlockPos pos, float startProgress) {
         AABB scanBox = buildItemScanBox(pos);
         float checkMax = startProgress >= 0.5F ? 0.6F : 0.3F;
@@ -270,6 +314,9 @@ public class ConveyorBlockEntity extends BlockEntity {
         return !items.isEmpty();
     }
 
+    /**
+     * 限制物品前进，保持与前方物品 0.4 的间距。
+     */
     private static float getClampedProgress(Level level, BlockPos pos, ConveyorItemEntity current, float newProgress) {
         AABB scanBox = buildItemScanBox(pos);
         float nearestAhead = 1.5F;
@@ -297,6 +344,10 @@ public class ConveyorBlockEntity extends BlockEntity {
     // ========== 扫描范围 ==========
 
     private static AABB buildItemScanBox(BlockPos pos) {
+        // 完整覆盖整个方块 + 上下各延伸一小段
+        // 下坡对角线链：下层下坡起点 y = (pos.y-1) + 1.0 = pos.y
+        // 上坡对角线链：上层上坡起点 y = (pos.y+1) + 0.25 = pos.y + 1.25
+        // 需要覆盖从 pos.y 到 pos.y + 1.25
         return new AABB(
                 pos.getX() - 0.1, pos.getY() - 0.1, pos.getZ() - 0.1,
                 pos.getX() + 1.1, pos.getY() + 1.5, pos.getZ() + 1.1
@@ -365,7 +416,10 @@ public class ConveyorBlockEntity extends BlockEntity {
      */
     @Nullable
     public IItemHandler getItemHandler(@Nullable Direction side) {
-        return itemHandler;
+        if (side == Direction.DOWN || side == Direction.UP) {
+            return itemHandler;
+        }
+        return null;
     }
 
     /**
@@ -381,7 +435,8 @@ public class ConveyorBlockEntity extends BlockEntity {
 
         @Override
         public @NotNull ItemStack getStackInSlot(int slot) {
-            ConveyorItemEntity item = findAnyItem();
+            // 获取终点处物品
+            ConveyorItemEntity item = findItemAtEnd();
             return item != null ? item.getItem().copy() : ItemStack.EMPTY;
         }
 
@@ -412,7 +467,7 @@ public class ConveyorBlockEntity extends BlockEntity {
         public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
             if (level == null || level.isClientSide()) return ItemStack.EMPTY;
 
-            ConveyorItemEntity item = findAnyItem();
+            ConveyorItemEntity item = findItemAtEnd();
             if (item == null) return ItemStack.EMPTY;
 
             ItemStack extracted = item.getItem().copy();
@@ -444,16 +499,18 @@ public class ConveyorBlockEntity extends BlockEntity {
         }
 
         /**
-         * 找到传送带上的任意物品（下方漏斗提取时不限进度）。
+         * 找到传送带终点附近的物品（progress >= 0.9）。
+         * 下方漏斗只有接近终点时才能提取。
          */
         @Nullable
-        private ConveyorItemEntity findAnyItem() {
+        private ConveyorItemEntity findItemAtEnd() {
             if (level == null) return null;
             AABB scanBox = buildItemScanBox(worldPosition);
             List<ConveyorItemEntity> items = level.getEntitiesOfClass(
                     ConveyorItemEntity.class, scanBox,
                     item -> item.isAlive()
                             && item.getConveyorPos().equals(worldPosition)
+                            && item.getProgress() >= 0.9F
             );
             return items.isEmpty() ? null : items.getFirst();
         }
@@ -462,7 +519,7 @@ public class ConveyorBlockEntity extends BlockEntity {
     // ========== 容器交互（传送带→前方容器） ==========
 
     private static boolean tryInsertIntoContainer(Level level, BlockPos pos, Direction facing,
-                                                   ConveyorItemEntity item) {
+                                                  ConveyorItemEntity item) {
         BlockPos containerPos = pos.relative(facing);
 
         BlockEntity be = level.getBlockEntity(containerPos);
