@@ -29,6 +29,7 @@ sourceSets.main.resources {
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
     maven { url = "https://maven.firstdark.dev/snapshots" }
+    maven { url = "https://maven.firstdark.dev/releases" }
 }
 
 base {
