@@ -1,108 +1,47 @@
 package com.mss.polymech.client.gui;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
+import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
+import com.lowdragmc.lowdraglib2.gui.ui.UI;
+import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.mss.polymech.Polymech;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
-public class MultiblockSelectionScreen extends Screen {
-    private static final ResourceLocation BACKGROUND_TEXTURE = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/multiblock_selection.png");
-
-    private static final int GUI_WIDTH = 256;
-    private static final int GUI_HEIGHT = 200;
+public class MultiblockSelectionScreen extends ModularUIScreen {
 
     public MultiblockSelectionScreen() {
-        super(Component.translatable("gui.poly_mech.multiblock_selection.title"));
+        super(createModularUI(), Component.translatable("gui.poly_mech.multiblock_selection.title"));
     }
 
-    @Override
-    protected void init() {
-        super.init();
+    private static ModularUI createModularUI() {
+        var root = new UIElement();
+        root.layout(l -> l.width(256).paddingAll(16).gapAll(8));
+        root.addClass("panel_bg");
 
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
+        root.addChildren(
+                new Label().setText(Component.translatable("gui.poly_mech.multiblock_selection.title")),
 
-        // 添加一些示例按钮，代表不同的多方块机器
-        int buttonWidth = 200;
-        int buttonHeight = 20;
-        int spacing = 25;
+                new Button().setText(Component.translatable("gui.poly_mech.multiblock_selection.large_chemical_reactor"))
+                        .setOnClick(e -> selectMachine("large_chemical_reactor")),
+                new Button().setText(Component.translatable("gui.poly_mech.multiblock_selection.implosion_compressor"))
+                        .setOnClick(e -> selectMachine("implosion_compressor")),
+                new Button().setText(Component.translatable("gui.poly_mech.multiblock_selection.pyrolyze_oven"))
+                        .setOnClick(e -> selectMachine("pyrolyze_oven")),
 
-        // 添加一个示例多方块机器选择按钮
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("gui.poly_mech.multiblock_selection.large_chemical_reactor"),
-                button -> selectMultiblockMachine("large_chemical_reactor"))
-                .pos(centerX - buttonWidth / 2, centerY - 50)
-                .size(buttonWidth, buttonHeight)
-                .build());
+                new UIElement().layout(l -> l.height(8)),
 
-        // 添加另一个示例按钮
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("gui.poly_mech.multiblock_selection.implosion_compressor"),
-                button -> selectMultiblockMachine("implosion_compressor"))
-                .pos(centerX - buttonWidth / 2, centerY - 50 + spacing)
-                .size(buttonWidth, buttonHeight)
-                .build());
-
-        // 添加第三个示例按钮
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("gui.poly_mech.multiblock_selection.pyrolyze_oven"),
-                button -> selectMultiblockMachine("pyrolyze_oven"))
-                .pos(centerX - buttonWidth / 2, centerY - 50 + spacing * 2)
-                .size(buttonWidth, buttonHeight)
-                .build());
-
-        // 添加关闭按钮
-        this.addRenderableWidget(Button.builder(
-                Component.translatable("gui.poly_mech.multiblock_selection.close"),
-                button -> onClose())
-                .pos(centerX - buttonWidth / 2, centerY - 50 + spacing * 4)
-                .size(buttonWidth, buttonHeight)
-                .build());
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
-        super.render(guiGraphics, mouseX, mouseY, partialTicks);
-
-        int centerX = this.width / 2;
-        int titleY = this.height / 2 - 80;
-
-        // 渲染标题
-        guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("gui.poly_mech.multiblock_selection.title"),
-                centerX,
-                titleY,
-                0xFFFFFF
+                new Button().setText(Component.translatable("gui.poly_mech.multiblock_selection.close"))
+                        .setOnClick(e -> Minecraft.getInstance().setScreen(null))
         );
 
-        // 绘制背景边框
-        int guiX = centerX - GUI_WIDTH / 2;
-        int guiY = this.height / 2 - GUI_HEIGHT / 2;
-        renderGuiBackground(guiGraphics, guiX, guiY);
+        return ModularUI.of(UI.of(root));
     }
 
-    private void renderGuiBackground(GuiGraphics guiGraphics, int x, int y) {
-        RenderSystem.enableBlend();
-        // 绘制半透明背景
-        guiGraphics.fillGradient(x, y, x + GUI_WIDTH, y + GUI_HEIGHT, 0xC0101010, 0xD0101010);
-        RenderSystem.disableBlend();
-    }
-
-    private void selectMultiblockMachine(String machineType) {
-        // 这里将会发送消息到服务器，告诉它玩家选择了哪个多方块机器
+    private static void selectMachine(String machineType) {
         Polymech.LOGGER.info("Selected multiblock machine: {}", machineType);
-
-        // 关闭GUI
-        onClose();
-    }
-
-    @Override
-    public void onClose() {
-        this.minecraft.setScreen(null);
+        Minecraft.getInstance().setScreen(null);
     }
 }
