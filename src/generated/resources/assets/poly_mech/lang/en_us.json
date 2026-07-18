@@ -17,6 +17,11 @@
   "block.poly_mech.stainless_steel_huge_pipe": "Stainless Steel Huge Pipe",
   "block.poly_mech.stainless_steel_pipe": "Stainless Steel Pipe",
   "block.poly_mech.stainless_steel_small_pipe": "Stainless Steel Small Pipe",
+  "gui.poly_mech.multiblock_selection.close": "Close",
+  "gui.poly_mech.multiblock_selection.implosion_compressor": "Implosion Compressor",
+  "gui.poly_mech.multiblock_selection.large_chemical_reactor": "Large Chemical Reactor",
+  "gui.poly_mech.multiblock_selection.pyrolyze_oven": "Pyrolyze Oven",
+  "gui.poly_mech.multiblock_selection.title": "Multiblock Machine Selection",
   "item.poly_mech.aluminium_bolt": "Aluminium Bolt",
   "item.poly_mech.aluminium_dust": "Aluminium Dust",
   "item.poly_mech.aluminium_foil": "Aluminium Foil",
@@ -29,6 +34,7 @@
   "item.poly_mech.aluminium_small_gear": "Aluminium Small Gear",
   "item.poly_mech.aluminium_spring": "Aluminium Spring",
   "item.poly_mech.aluminium_stick": "Aluminium Stick",
+  "item.poly_mech.blueprint": "Blueprint",
   "item.poly_mech.brass_alloy_ingot": "Brass Ingot",
   "item.poly_mech.brass_bolt": "Brass Bolt",
   "item.poly_mech.brass_dust": "Brass Dust",
@@ -141,5 +147,6 @@
   "itemGroup.block_tab": "Ploy Mech:Block",
   "itemGroup.material_tab": "Ploy Mech:Material",
   "itemGroup.pipe_tab": "Ploy Mech:Pipes",
-  "itemGroup.tool_tab": "Ploy Mech:Tool"
+  "itemGroup.tool_tab": "Ploy Mech:Tool",
+  "key.poly_mech.open_multiblock_menu": "Open Multiblock Selection Menu"
 }

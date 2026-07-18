@@ -16,6 +16,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
@@ -24,12 +25,17 @@ import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 public class PolymechClient {
     public PolymechClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
-        
-
     }
 
     @SubscribeEvent
     static void onClientSetup(FMLClientSetupEvent event) {
+    }
+
+    @SubscribeEvent
+    static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
+        // 注册蓝图工具的快捷键
+        com.mss.polymech.client.BlueprintInputHandler.OPEN_MULTIBLOCK_MENU_KEY.getKey();
+        event.register(com.mss.polymech.client.BlueprintInputHandler.OPEN_MULTIBLOCK_MENU_KEY);
     }
 
     @SubscribeEvent

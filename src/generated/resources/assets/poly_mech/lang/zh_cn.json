@@ -17,6 +17,11 @@
   "block.poly_mech.stainless_steel_huge_pipe": "不锈钢巨型管道",
   "block.poly_mech.stainless_steel_pipe": "不锈钢管道",
   "block.poly_mech.stainless_steel_small_pipe": "不锈钢小型管道",
+  "gui.poly_mech.multiblock_selection.close": "关闭",
+  "gui.poly_mech.multiblock_selection.implosion_compressor": "内爆压缩机",
+  "gui.poly_mech.multiblock_selection.large_chemical_reactor": "大型化学反应釜",
+  "gui.poly_mech.multiblock_selection.pyrolyze_oven": "热解炉",
+  "gui.poly_mech.multiblock_selection.title": "多方块机器选择",
   "item.poly_mech.aluminium_bolt": "铝螺栓",
   "item.poly_mech.aluminium_dust": "铝粉",
   "item.poly_mech.aluminium_foil": "铝箔",
@@ -29,6 +34,7 @@
   "item.poly_mech.aluminium_small_gear": "铝小齿轮",
   "item.poly_mech.aluminium_spring": "铝弹簧",
   "item.poly_mech.aluminium_stick": "铝杆",
+  "item.poly_mech.blueprint": "蓝图",
   "item.poly_mech.brass_alloy_ingot": "黄铜锭",
   "item.poly_mech.brass_bolt": "黄铜螺栓",
   "item.poly_mech.brass_dust": "黄铜粉",
@@ -125,6 +131,7 @@
   "item.poly_mech.tin_small_gear": "锡小齿轮",
   "item.poly_mech.tin_spring": "锡弹簧",
   "item.poly_mech.tin_stick": "锡杆",
+  "item.poly_mech.wrench": "扳手",
   "item.poly_mech.zinc_bolt": "锌螺栓",
   "item.poly_mech.zinc_dust": "锌粉",
   "item.poly_mech.zinc_foil": "锌箔",
@@ -140,5 +147,6 @@
   "itemGroup.block_tab": "Ploy Mech:方块",
   "itemGroup.material_tab": "Ploy Mech:材料",
   "itemGroup.pipe_tab": "Ploy Mech:管道",
-  "itemGroup.tool_tab": "Ploy Mech:工具"
+  "itemGroup.tool_tab": "Ploy Mech:工具",
+  "key.poly_mech.open_multiblock_menu": "打开多方块选择菜单"
 }

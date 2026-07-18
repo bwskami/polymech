@@ -69,6 +69,15 @@ public class ModItems {
             ITEMS.register("wrench", () -> new WrenchItem(new Item.Properties()
                     .stacksTo(1)));
 
+    /*
+     * 蓝图工具，用于建造多方块机器。
+     * <p>
+     * 最大堆叠数为1，用于打开多方块机器建造菜单。
+     * </p>
+     */
+    public static final DeferredItem<BlueprintToolItem> BLUEPRINT =
+            ITEMS.register("blueprint", () -> new BlueprintToolItem(new Item.Properties()));
+
     // ========== 材料物品：数据驱动批量注册 ==========
     
     /*

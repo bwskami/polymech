@@ -131,11 +131,24 @@ public class ModZhCnLangProvider extends LanguageProvider {
             
 
         }
-        
 
+        add(ModItems.WRENCH.get(), "扳手");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
+        
+        // 添加蓝图工具的翻译
+        add(ModItems.BLUEPRINT.get(), "蓝图");
+        
+        // 添加多方块机器选择界面的翻译
+        add("gui.poly_mech.multiblock_selection.title", "多方块机器选择");
+        add("gui.poly_mech.multiblock_selection.large_chemical_reactor", "大型化学反应釜");
+        add("gui.poly_mech.multiblock_selection.implosion_compressor", "内爆压缩机");
+        add("gui.poly_mech.multiblock_selection.pyrolyze_oven", "热解炉");
+        add("gui.poly_mech.multiblock_selection.close", "关闭");
+        
+        // 添加快捷键的翻译
+        add("key.poly_mech.open_multiblock_menu", "打开多方块选择菜单");
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             PipeMaterial material = materialEntry.getKey();

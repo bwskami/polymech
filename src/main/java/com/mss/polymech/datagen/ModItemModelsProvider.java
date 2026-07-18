@@ -76,7 +76,8 @@ public class ModItemModelsProvider extends ItemModelProvider {
     }
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",
-            "wrench"
+            "wrench",
+            "blueprint"
             // 在这里列出所有需要独立纹理的普通物品
     };
     private boolean isNormalItem(String path) {

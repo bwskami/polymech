@@ -116,6 +116,19 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
         
         add(ModItems.WRENCH.get(), "Wrench");
+        
+        // 添加蓝图工具的翻译
+        add(ModItems.BLUEPRINT.get(), "Blueprint");
+        
+        // 添加多方块机器选择界面的翻译
+        add("gui.poly_mech.multiblock_selection.title", "Multiblock Machine Selection");
+        add("gui.poly_mech.multiblock_selection.large_chemical_reactor", "Large Chemical Reactor");
+        add("gui.poly_mech.multiblock_selection.implosion_compressor", "Implosion Compressor");
+        add("gui.poly_mech.multiblock_selection.pyrolyze_oven", "Pyrolyze Oven");
+        add("gui.poly_mech.multiblock_selection.close", "Close");
+        
+        // 添加快捷键的翻译
+        add("key.poly_mech.open_multiblock_menu", "Open Multiblock Selection Menu");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
