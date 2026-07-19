@@ -2,6 +2,7 @@ package com.mss.polymech.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mss.polymech.Polymech;
+import com.mss.polymech.client.gui.screen.MultiblockSelectionScreen;
 import com.mss.polymech.item.BlueprintToolItem;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -40,6 +41,6 @@ public class BlueprintInputHandler {
 
     private static void openMultiblockSelectionMenu(Minecraft mc) {
         // 打开多方块机器选择GUI
-        mc.execute(() -> mc.setScreen(new com.mss.polymech.client.gui.MultiblockSelectionScreen()));
+        mc.execute(() -> mc.setScreen(new MultiblockSelectionScreen()));
     }
 }

@@ -1,4 +1,4 @@
-package com.mss.polymech.client.gui;
+package com.mss.polymech.client.gui.screen;
 
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
@@ -6,6 +6,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.mss.polymech.Polymech;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -37,7 +38,7 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
                         .setOnClick(e -> Minecraft.getInstance().setScreen(null))
         );
 
-        return ModularUI.of(UI.of(root));
+        return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)));
     }
 
     private static void selectMachine(String machineType) {
