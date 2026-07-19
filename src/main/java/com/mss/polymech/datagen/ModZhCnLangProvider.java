@@ -142,11 +142,35 @@ public class ModZhCnLangProvider extends LanguageProvider {
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "多方块机器选择");
-        add("gui.poly_mech.multiblock_selection.large_chemical_reactor", "大型化学反应釜");
-        add("gui.poly_mech.multiblock_selection.implosion_compressor", "内爆压缩机");
-        add("gui.poly_mech.multiblock_selection.pyrolyze_oven", "热解炉");
-        add("gui.poly_mech.multiblock_selection.close", "关闭");
-        
+        add("gui.poly_mech.multiblock_selection.close", "←");
+        add("gui.poly_mech.multiblock_selection.category_info", "分类: %s (%d 台机器)");
+        add("gui.poly_mech.multiblock_selection.header_label", "当前分类模式: %s | 选中: %s");
+        add("gui.poly_mech.classify.by_voltage", "按电压分");
+        add("gui.poly_mech.classify.by_type", "按类型分");
+        add("gui.poly_mech.classify.mode_voltage", "按电压");
+        add("gui.poly_mech.classify.mode_type", "按类型");
+        add("gui.poly_mech.tier.lv", "LV");
+        add("gui.poly_mech.tier.mv", "MV");
+        add("gui.poly_mech.tier.hv", "HV");
+        add("gui.poly_mech.tier.ev", "EV");
+        add("gui.poly_mech.tier.iv", "IV");
+        add("gui.poly_mech.tier.luv", "LuV");
+        add("gui.poly_mech.tier.zpm", "ZPM");
+        add("gui.poly_mech.tier.uv", "UV");
+        add("gui.poly_mech.tier.uhv", "UHV");
+        add("gui.poly_mech.type.chemical", "化学反应");
+        add("gui.poly_mech.type.compression", "压缩");
+        add("gui.poly_mech.type.heat", "热处理");
+        add("gui.poly_mech.type.assembly", "组装");
+        add("gui.poly_mech.type.recycling", "回收");
+        add("gui.poly_mech.machine.large_chemical_reactor", "大型化学反应釜");
+        add("gui.poly_mech.machine.implosion_compressor", "内爆压缩机");
+        add("gui.poly_mech.machine.pyrolyze_oven", "热解炉");
+        add("gui.poly_mech.machine.electric_blast_furnace", "电力高炉");
+        add("gui.poly_mech.machine.vacuum_freezer", "真空冷冻机");
+        add("gui.poly_mech.machine.assembly_line", "装配线");
+        add("gui.poly_mech.machine.recycler", "回收机");
+
         // 添加快捷键的翻译
         add("key.poly_mech.open_multiblock_menu", "打开多方块选择菜单");
 

@@ -122,11 +122,35 @@ public class ModEnUsLangProvider extends LanguageProvider {
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "Multiblock Machine Selection");
-        add("gui.poly_mech.multiblock_selection.large_chemical_reactor", "Large Chemical Reactor");
-        add("gui.poly_mech.multiblock_selection.implosion_compressor", "Implosion Compressor");
-        add("gui.poly_mech.multiblock_selection.pyrolyze_oven", "Pyrolyze Oven");
-        add("gui.poly_mech.multiblock_selection.close", "Close");
-        
+        add("gui.poly_mech.multiblock_selection.close", "←");
+        add("gui.poly_mech.multiblock_selection.category_info", "Category: %s (%d machines)");
+        add("gui.poly_mech.multiblock_selection.header_label", "Mode: %s | Selected: %s");
+        add("gui.poly_mech.classify.by_voltage", "By Voltage");
+        add("gui.poly_mech.classify.by_type", "By Type");
+        add("gui.poly_mech.classify.mode_voltage", "By Voltage");
+        add("gui.poly_mech.classify.mode_type", "By Type");
+        add("gui.poly_mech.tier.lv", "LV");
+        add("gui.poly_mech.tier.mv", "MV");
+        add("gui.poly_mech.tier.hv", "HV");
+        add("gui.poly_mech.tier.ev", "EV");
+        add("gui.poly_mech.tier.iv", "IV");
+        add("gui.poly_mech.tier.luv", "LuV");
+        add("gui.poly_mech.tier.zpm", "ZPM");
+        add("gui.poly_mech.tier.uv", "UV");
+        add("gui.poly_mech.tier.uhv", "UHV");
+        add("gui.poly_mech.type.chemical", "Chemical");
+        add("gui.poly_mech.type.compression", "Compression");
+        add("gui.poly_mech.type.heat", "Heat Treatment");
+        add("gui.poly_mech.type.assembly", "Assembly");
+        add("gui.poly_mech.type.recycling", "Recycling");
+        add("gui.poly_mech.machine.large_chemical_reactor", "Large Chemical Reactor");
+        add("gui.poly_mech.machine.implosion_compressor", "Implosion Compressor");
+        add("gui.poly_mech.machine.pyrolyze_oven", "Pyrolyze Oven");
+        add("gui.poly_mech.machine.electric_blast_furnace", "Electric Blast Furnace");
+        add("gui.poly_mech.machine.vacuum_freezer", "Vacuum Freezer");
+        add("gui.poly_mech.machine.assembly_line", "Assembly Line");
+        add("gui.poly_mech.machine.recycler", "Recycler");
+
         // 添加快捷键的翻译
         add("key.poly_mech.open_multiblock_menu", "Open Multiblock Selection Menu");
 
