@@ -3,67 +3,74 @@ package com.mss.polymech.block.large.impl;
 import com.mojang.serialization.MapCodec;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.entity.large.HorizontalSteamBoilerBlockEntity;
-import com.mss.polymech.block.large.LargeBlock;
-import com.mss.polymech.block.large.LargeBlockPlaceholder;
+import com.mss.polymech.block.large.AbstractMultiblockMachine;
+import com.mss.polymech.block.large.MultiblockPlaceholder;
+import com.mss.polymech.block.large.MultiblockStructure;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-public class HorizontalSteamBoilerBlock extends LargeBlock {
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * 水平蒸汽锅炉 - 多方块机器示例实现
+ */
+public class HorizontalSteamBoilerBlock extends AbstractMultiblockMachine {
     public static final MapCodec<HorizontalSteamBoilerBlock> CODEC = simpleCodec(HorizontalSteamBoilerBlock::new);
-
-    private static final VoxelShape SHAPE_NORTH_SOUTH = Shapes.or(
-        box(-8, 0, -24, 24, 32, 24)
-    );
-
-    private static final VoxelShape SHAPE_EAST_WEST = Shapes.or(
-        box(-8, 0, -8, 40, 32, 24)
-    );
 
     public HorizontalSteamBoilerBlock(Properties properties) {
         super(properties);
     }
 
     @Override
-    protected MapCodec<? extends HorizontalSteamBoilerBlock> codec() {
+    protected MapCodec<? extends AbstractMultiblockMachine> codec() {
         return CODEC;
     }
 
     @Override
-    protected BlockPos[] getExtensionPositions(BlockPos centerPos, Direction facing) {
-        return switch (facing) {
-            case NORTH -> new BlockPos[]{centerPos.north(), centerPos.north(2), centerPos.north(3)};
-            case SOUTH -> new BlockPos[]{centerPos.south(), centerPos.south(2), centerPos.south(3)};
-            case WEST -> new BlockPos[]{centerPos.west(), centerPos.west(2), centerPos.west(3)};
-            case EAST -> new BlockPos[]{centerPos.east(), centerPos.east(2), centerPos.east(3)};
-            default -> new BlockPos[]{centerPos.north(), centerPos.north(2), centerPos.north(3)};
-        };
+    protected MultiblockStructure createStructure(Direction facing) {
+        Set<BlockPos> positions = new HashSet<>();
+        positions.add(BlockPos.ZERO); // 核心位置
+
+        // 根据朝向定义扩展部分
+        switch (facing) {
+            case NORTH:
+                positions.add(new BlockPos(0, 0, -1));
+                positions.add(new BlockPos(0, 0, -2));
+                positions.add(new BlockPos(0, 0, -3));
+                break;
+            case SOUTH:
+                positions.add(new BlockPos(0, 0, 1));
+                positions.add(new BlockPos(0, 0, 2));
+                positions.add(new BlockPos(0, 0, 3));
+                break;
+            case WEST:
+                positions.add(new BlockPos(-1, 0, 0));
+                positions.add(new BlockPos(-2, 0, 0));
+                positions.add(new BlockPos(-3, 0, 0));
+                break;
+            case EAST:
+                positions.add(new BlockPos(1, 0, 0));
+                positions.add(new BlockPos(2, 0, 0));
+                positions.add(new BlockPos(3, 0, 0));
+                break;
+        }
+
+        return new MultiblockStructure(positions, facing);
     }
 
     @Override
     protected BlockState getPlaceholderState(BlockState originalState) {
         return ModBlocks.LARGE_BLOCK_PLACEHOLDER.get().defaultBlockState()
-            .setValue(LargeBlockPlaceholder.FACING, originalState.getValue(FACING));
+            .setValue(MultiblockPlaceholder.FACING, originalState.getValue(FACING));
     }
 
     @Override
     protected boolean isPlaceholderBlock(BlockState state) {
-        return state.getBlock() instanceof LargeBlockPlaceholder;
-    }
-
-    @Override
-    protected VoxelShape getLargeBlockShape(BlockState state, BlockPos pos) {
-        Direction facing = state.getValue(FACING);
-        if (facing == Direction.NORTH || facing == Direction.SOUTH) {
-            return SHAPE_NORTH_SOUTH;
-        }
-        return SHAPE_EAST_WEST;
+        return state.getBlock() instanceof MultiblockPlaceholder;
     }
 
     @Override

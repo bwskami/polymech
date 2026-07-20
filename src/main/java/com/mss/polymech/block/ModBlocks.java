@@ -3,7 +3,7 @@ package com.mss.polymech.block;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
-import com.mss.polymech.block.large.LargeBlockPlaceholder;
+import com.mss.polymech.block.large.MultiblockPlaceholder;
 import com.mss.polymech.block.large.impl.HorizontalSteamBoilerBlock;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.ConveyorItem;
@@ -84,8 +84,8 @@ public class ModBlocks {
                     .noOcclusion()));
 
     /* 大型方块占位方块 */
-    public static final DeferredBlock<LargeBlockPlaceholder> LARGE_BLOCK_PLACEHOLDER =
-            BLOCKS.register("large_block_placeholder", LargeBlockPlaceholder::new);
+    public static final DeferredBlock<MultiblockPlaceholder> LARGE_BLOCK_PLACEHOLDER =
+            registerBlocks("large_block_placeholder", () -> new MultiblockPlaceholder());
 
     // ========== 管道方块：数据驱动批量注册 ==========
     
