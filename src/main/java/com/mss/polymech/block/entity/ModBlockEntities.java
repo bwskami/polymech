@@ -2,7 +2,6 @@ package com.mss.polymech.block.entity;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
-import com.mss.polymech.block.entity.large.HorizontalSteamBoilerBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
@@ -23,11 +22,6 @@ public class ModBlockEntities {
             BLOCK_ENTITIES.register("conveyor", () ->
                     BlockEntityType.Builder.of(ConveyorBlockEntity::new,
                             ModBlocks.CONVEYOR.get()).build(null));
-
-    public static final Supplier<BlockEntityType<HorizontalSteamBoilerBlockEntity>> HORIZONTAL_STEAM_BOILER =
-            BLOCK_ENTITIES.register("horizontal_steam_boiler", () ->
-                    BlockEntityType.Builder.of(HorizontalSteamBoilerBlockEntity::new,
-                            ModBlocks.HORIZONTAL_STEAM_BOILER.get()).build(null));
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);

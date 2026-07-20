@@ -3,8 +3,7 @@ package com.mss.polymech.block;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
-import com.mss.polymech.block.large.MultiblockPlaceholder;
-import com.mss.polymech.block.large.impl.HorizontalSteamBoilerBlock;
+
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.item.PipeItem;
@@ -74,18 +73,6 @@ public class ModBlocks {
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
-
-    /* 卧式蒸汽锅炉，大型方块 */
-    public static final DeferredBlock<HorizontalSteamBoilerBlock> HORIZONTAL_STEAM_BOILER =
-            registerBlocks("horizontal_steam_boiler", () -> new HorizontalSteamBoilerBlock(Block.Properties.of()
-                    .mapColor(net.minecraft.world.level.material.MapColor.METAL)
-                    .strength(3.0f, 6.0f)
-                    .requiresCorrectToolForDrops()
-                    .noOcclusion()));
-
-    /* 大型方块占位方块 */
-    public static final DeferredBlock<MultiblockPlaceholder> LARGE_BLOCK_PLACEHOLDER =
-            registerBlocks("large_block_placeholder", () -> new MultiblockPlaceholder());
 
     // ========== 管道方块：数据驱动批量注册 ==========
     
