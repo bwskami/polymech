@@ -33,7 +33,9 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
         dropSelf(ModBlocks.FLUID_TANK.get());
 
         dropSelf(ModBlocks.CONVEYOR.get());
-        
+
+        dropSelf(ModBlocks.HORIZONTAL_STEAM_BOILER.get());
+
         for (var pipe : ModBlocks.PIPE_BLOCKS) {
             dropSelf(pipe.get());
         }
@@ -54,6 +56,9 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
 
     @Override
     protected Iterable<Block> getKnownBlocks() {
-        return ModBlocks.BLOCKS.getEntries().stream().map(Holder::value)::iterator;
+        return ModBlocks.BLOCKS.getEntries().stream()
+                .map(Holder::value)
+                .filter(block -> block != ModBlocks.LARGE_BLOCK_PLACEHOLDER.get())
+                .toList();
     }
 }

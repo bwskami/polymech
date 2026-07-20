@@ -4,6 +4,7 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorItemRenderer;
+import com.mss.polymech.client.renderer.HorizontalSteamBoilerRenderer;
 import com.mss.polymech.entity.ModEntities;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -44,5 +45,6 @@ public class PolymechClient {
     @SubscribeEvent
     static void onRegisterEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.CONVEYOR_ITEM.get(), ConveyorItemRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.HORIZONTAL_STEAM_BOILER.get(), HorizontalSteamBoilerRenderer::new);
     }
 }

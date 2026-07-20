@@ -23,6 +23,7 @@ public class ModBlockStatesProvider extends BlockStateProvider {
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
 
         generateConveyorBlockState();
+        generateGeckoLibBlockState();
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             for (var sizeEntry : materialEntry.getValue().entrySet()) {
@@ -30,6 +31,14 @@ public class ModBlockStatesProvider extends BlockStateProvider {
                 generatePipeBlockState(sizeEntry.getValue().get(), templateName);
             }
         }
+    }
+
+    private void generateGeckoLibBlockState() {
+        ModelFile emptyModel = models().getBuilder("block/empty")
+                .texture("particle", modLoc("block/horizontal_steam_boiler"));
+
+        simpleBlock(ModBlocks.HORIZONTAL_STEAM_BOILER.get(), emptyModel);
+        simpleBlock(ModBlocks.LARGE_BLOCK_PLACEHOLDER.get(), emptyModel);
     }
 
     private void generateConveyorBlockState() {
