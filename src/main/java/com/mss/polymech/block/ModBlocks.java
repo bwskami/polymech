@@ -4,6 +4,9 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
 
+import com.mss.polymech.block.entity.large.HorizontalSteamBoilerBlock;
+import com.mss.polymech.block.entity.large.LargeBlockPlaceholder;
+
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.item.PipeItem;
@@ -73,6 +76,14 @@ public class ModBlocks {
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
+
+    /* 水平蒸汽锅炉 - 大型机器方块 */
+    public static final DeferredBlock<HorizontalSteamBoilerBlock> HORIZONTAL_STEAM_BOILER =
+            registerBlocks("horizontal_steam_boiler", () -> new HorizontalSteamBoilerBlock());
+
+    /* 大型方块占位符 - 用于扩展碰撞箱 */
+    public static final DeferredBlock<LargeBlockPlaceholder> LARGE_BLOCK_PLACEHOLDER =
+            BLOCKS.register("large_block_placeholder", () -> new LargeBlockPlaceholder());
 
     // ========== 管道方块：数据驱动批量注册 ==========
     
