@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 public abstract class BaseIOSideBlockEntity extends BlockEntity {
 
-    private BlockPos parentPos;
+    protected BlockPos parentPos;
 
     public BaseIOSideBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
