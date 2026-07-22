@@ -136,6 +136,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
+        add(ModBlocks.HORIZONTAL_STEAM_BOILER.get(), "卧式蒸汽锅炉");
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");
@@ -158,6 +159,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("gui.poly_mech.tier.zpm", "ZPM");
         add("gui.poly_mech.tier.uv", "UV");
         add("gui.poly_mech.tier.uhv", "UHV");
+        add("gui.poly_mech.tier.steam", "蒸汽");
         add("gui.poly_mech.type.chemical", "化学反应");
         add("gui.poly_mech.type.compression", "压缩");
         add("gui.poly_mech.type.heat", "热处理");

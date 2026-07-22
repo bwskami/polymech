@@ -247,7 +247,7 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
 
     private List<String> getCategories() {
         return switch (classifyMode) {
-            case BY_VOLTAGE -> List.of("lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv", "uhv");
+            case BY_VOLTAGE -> List.of("steam", "lv", "mv", "hv", "ev", "iv", "luv", "zpm", "uv", "uhv");
             case BY_TYPE -> List.of("chemical", "compression", "heat", "assembly", "recycling");
         };
     }
@@ -271,6 +271,7 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
 
     private List<MachineData> getAllMachines() {
         return List.of(
+                new MachineData("horizontal_steam_boiler", "block.poly_mech.horizontal_steam_boiler", "steam", "heat"),
                 new MachineData("large_chemical_reactor", "gui.poly_mech.machine.large_chemical_reactor", "mv", "chemical"),
                 new MachineData("implosion_compressor", "gui.poly_mech.machine.implosion_compressor", "hv", "compression"),
                 new MachineData("pyrolyze_oven", "gui.poly_mech.machine.pyrolyze_oven", "lv", "heat"),

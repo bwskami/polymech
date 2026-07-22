@@ -29,11 +29,8 @@ public class BlueprintInputHandler {
     public static void onClientTick(ClientTickEvent.Pre event) {
         Minecraft mc = Minecraft.getInstance();
 
-        // 检查玩家是否持有蓝图工具
-        if (mc.player != null && mc.player.getMainHandItem().getItem() instanceof BlueprintToolItem) {
-            // 检测快捷键是否被按下
-            if (OPEN_MULTIBLOCK_MENU_KEY.consumeClick()) {
-                // 打开多方块机器选择菜单
+        if (OPEN_MULTIBLOCK_MENU_KEY.consumeClick()) {
+            if (mc.player != null && mc.player.getMainHandItem().getItem() instanceof BlueprintToolItem) {
                 openMultiblockSelectionMenu(mc);
             }
         }
