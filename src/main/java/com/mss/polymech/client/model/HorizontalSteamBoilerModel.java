@@ -1,12 +1,11 @@
-package com.mss.polymech.client.model.large;
+package com.mss.polymech.client.model;
 
 import com.mss.polymech.Polymech;
-import com.mss.polymech.block.entity.large.HorizontalSteamBoilerBlockEntity;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import net.minecraft.resources.ResourceLocation;
 import software.bernie.geckolib.model.GeoModel;
 
 public class HorizontalSteamBoilerModel extends GeoModel<HorizontalSteamBoilerBlockEntity> {
-
     @Override
     public ResourceLocation getModelResource(HorizontalSteamBoilerBlockEntity animatable) {
         return ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/horizontal_steam_boiler.geo.json");
@@ -14,7 +13,7 @@ public class HorizontalSteamBoilerModel extends GeoModel<HorizontalSteamBoilerBl
 
     @Override
     public ResourceLocation getTextureResource(HorizontalSteamBoilerBlockEntity animatable) {
-        return ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/horizontal_steam_boiler.png");
+        return ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/horizontal_steam_boiler/horizontal_steam_boiler.png");
     }
 
     @Override

@@ -31,7 +31,7 @@ import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 
 /*
- * Poly Mech模组主类，负责模组的初始化和生命周期管理。
+ * Poly Mech模組主类，负责模组的初始化和生命周期管理。
  * <p>
  * 该类是模组的入口点，由NeoForge在模组加载时自动实例化。
  * 主要职责包括：
@@ -63,14 +63,14 @@ public class Polymech {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     /*
-     * 模组构造函数，由NeoForge在模组加载时调用。
+     * 模組构造函数，由NeoForge在模组加载时调用。
      * <p>
      * FML会自动注入IEventBus和ModContainer参数。
      * 在此处注册所有游戏内容和事件监听器。
      * </p>
      * 
-     * @param modEventBus 模组事件总线，用于注册生命周期事件
-     * @param modContainer 模组容器，用于注册配置等
+     * @param modEventBus 模組事件总线，用于注册生命周期事件
+     * @param modContainer 模組容器，用于注册配置等
      */
     public Polymech(IEventBus modEventBus, ModContainer modContainer) {
         // 注册通用设置事件监听器
@@ -104,7 +104,7 @@ public class Polymech {
     /*
      * 通用设置事件处理器。
      * <p>
-     * 在模组加载的早期阶段执行，用于执行不依赖于客户端/服务端的初始化代码。
+     * 在模組加载的早期阶段执行，用于执行不依赖于客户端/服务端的初始化代码。
      * </p>
      * 
      * @param event 通用设置事件
@@ -150,6 +150,52 @@ public class Polymech {
                 ModBlockEntities.CONVEYOR.get(),
                 ConveyorBlockEntity::getItemHandler
         );
+
+        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+            if (blockEntity instanceof com.mss.polymech.machine.production.FillingUnitBlockEntity be) {
+                if (context == null) return be.getItemStackHandler();
+                net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
+                if (context == facing) return be.getInputHandler();
+                if (context == facing.getOpposite()) return be.getOutputHandler();
+            }
+            return null;
+        }, ModBlocks.FILLING_UNIT.get());
+
+        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+            if (blockEntity instanceof com.mss.polymech.machine.production.FillingUnitSideBlockEntity sideBE) {
+                com.mss.polymech.machine.production.FillingUnitBlockEntity parent = sideBE.getParentBlock();
+                if (parent != null) {
+                    if (context == null) return parent.getItemStackHandler();
+                    net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
+                    if (context == facing) return parent.getInputHandler();
+                    if (context == facing.getOpposite()) return parent.getOutputHandler();
+                }
+            }
+            return null;
+        }, ModBlocks.FILLING_UNIT_SIDE.get());
+
+        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+            if (blockEntity instanceof com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity be) {
+                if (context == null) return be.getItemStackHandler();
+                net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
+                if (context == facing) return be.getInputHandler();
+                if (context == facing.getOpposite()) return be.getOutputHandler();
+            }
+            return null;
+        }, ModBlocks.HORIZONTAL_STEAM_BOILER.get());
+
+        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+            if (blockEntity instanceof com.mss.polymech.machine.production.HorizontalSteamBoilerSideBlockEntity sideBE) {
+                com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity parent = sideBE.getParentBlock();
+                if (parent != null) {
+                    if (context == null) return parent.getItemStackHandler();
+                    net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
+                    if (context == facing) return parent.getInputHandler();
+                    if (context == facing.getOpposite()) return parent.getOutputHandler();
+                }
+            }
+            return null;
+        }, ModBlocks.HORIZONTAL_STEAM_BOILER_SIDE.get());
     }
 
     /*

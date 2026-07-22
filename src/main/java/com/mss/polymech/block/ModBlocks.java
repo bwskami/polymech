@@ -3,13 +3,12 @@ package com.mss.polymech.block;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
+import com.mss.polymech.item.*;
+import com.mss.polymech.machine.production.FillingUnitBlock;
+import com.mss.polymech.machine.production.FillingUnitSideBlock;
 
-import com.mss.polymech.block.entity.large.HorizontalSteamBoilerBlock;
-import com.mss.polymech.block.entity.large.LargeBlockPlaceholder;
-
-import com.mss.polymech.item.ModItems;
-import com.mss.polymech.item.ConveyorItem;
-import com.mss.polymech.item.PipeItem;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlock;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerSideBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -77,13 +76,42 @@ public class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
 
-    /* 水平蒸汽锅炉 - 大型机器方块 */
-    public static final DeferredBlock<HorizontalSteamBoilerBlock> HORIZONTAL_STEAM_BOILER =
-            registerBlocks("horizontal_steam_boiler", () -> new HorizontalSteamBoilerBlock());
 
-    /* 大型方块占位符 - 用于扩展碰撞箱 */
-    public static final DeferredBlock<LargeBlockPlaceholder> LARGE_BLOCK_PLACEHOLDER =
-            BLOCKS.register("large_block_placeholder", () -> new LargeBlockPlaceholder());
+    /* 填充装置 - Endfield风格大型机器 */
+    public static final DeferredBlock<FillingUnitBlock> FILLING_UNIT =
+            registerMachine("filling_unit",
+                    () -> new FillingUnitBlock(Block.Properties.of()
+                            .strength(3.5F, 4.8F)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()
+                            .dynamicShape()),
+                    FillingUnitItem::new);
+
+    /* 填充装置 - 侧面方块 */
+    public static final DeferredBlock<FillingUnitSideBlock> FILLING_UNIT_SIDE =
+            BLOCKS.register("filling_unit_side", () -> new FillingUnitSideBlock(Block.Properties.of()
+                    .strength(3.5F, 4.8F)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()
+                    .dynamicShape()));
+
+    /* 水平蒸汽锅炉 - Endfield风格大型机器 */
+    public static final DeferredBlock<HorizontalSteamBoilerBlock> HORIZONTAL_STEAM_BOILER =
+            registerMachine("horizontal_steam_boiler",
+                    () -> new HorizontalSteamBoilerBlock(Block.Properties.of()
+                            .strength(3.5F, 4.8F)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()
+                            .dynamicShape()),
+                    HorizontalSteamBoilerItem::new);
+
+    /* 水平蒸汽锅炉 - 侧面方块 */
+    public static final DeferredBlock<HorizontalSteamBoilerSideBlock> HORIZONTAL_STEAM_BOILER_SIDE =
+            BLOCKS.register("horizontal_steam_boiler_side", () -> new HorizontalSteamBoilerSideBlock(Block.Properties.of()
+                    .strength(3.5F, 4.8F)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()
+                    .dynamicShape()));
 
     // ========== 管道方块：数据驱动批量注册 ==========
     
@@ -178,6 +206,13 @@ public class ModBlocks {
     private static <T extends Block> DeferredBlock<T> registerBlocks(String name, Supplier<T> block) {
         DeferredBlock<T> blocks = BLOCKS.register(name, block);
         registerBlockItems(name, blocks);
+        return blocks;
+    }
+
+    private static <T extends Block, I extends BlockItem> DeferredBlock<T> registerMachine(
+            String name, Supplier<T> block, java.util.function.BiFunction<T, Item.Properties, I> itemFactory) {
+        DeferredBlock<T> blocks = BLOCKS.register(name, block);
+        ModItems.ITEMS.register(name, () -> itemFactory.apply(blocks.get(), new Item.Properties()));
         return blocks;
     }
 
