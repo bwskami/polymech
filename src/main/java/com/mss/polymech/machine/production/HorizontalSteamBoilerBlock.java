@@ -5,6 +5,7 @@ import com.mss.polymech.machine.BaseMachineBlock;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -103,13 +104,18 @@ public class HorizontalSteamBoilerBlock extends BaseMachineBlock {
         return true;
     }
 
-    private BlockPos[] getSidePositions(BlockState state, BlockPos pos) {
-        Direction facing = state.getValue(FACING);
-        return new BlockPos[]{
-                pos.relative(facing),
-                pos.relative(facing.getOpposite()),
-                pos.relative(facing.getClockWise()),
-                pos.relative(facing.getCounterClockWise()),
+    @Override
+    public Vec3i[] getSideOffsets() {
+        return new Vec3i[]{
+                new Vec3i(0, 3, 0),
+                new Vec3i(0, 3, 2),
+                new Vec3i(0, 4, 2),
+        };
+    }
+    @Override
+    public Vec3i[][] getFillRegions() {
+        return new Vec3i[][]{
+                {new Vec3i(-1, 0, -2), new Vec3i(1, 2, 2)},
         };
     }
 }
