@@ -4,14 +4,13 @@ import com.mss.polymech.client.renderer.item.HorizontalSteamBoilerItemRenderer;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.Block;
+import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoItem;
 import software.bernie.geckolib.animatable.SingletonGeoAnimatable;
 import software.bernie.geckolib.animatable.client.GeoRenderProvider;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.animatable.instance.SingletonAnimatableInstanceCache;
 import software.bernie.geckolib.animation.AnimatableManager;
-import software.bernie.geckolib.animation.AnimationController;
-import software.bernie.geckolib.animation.RawAnimation;
 
 import java.util.function.Consumer;
 
@@ -19,8 +18,8 @@ public class HorizontalSteamBoilerItem extends BlockItem implements GeoItem {
 
     private final AnimatableInstanceCache cache = new SingletonAnimatableInstanceCache(this);
 
-    public HorizontalSteamBoilerItem(Block block, Properties properties) {
-        super(block, properties);
+    public HorizontalSteamBoilerItem(Block block, Properties settings) {
+        super(block, settings);
         SingletonGeoAnimatable.registerSyncedAnimatable(this);
     }
 
@@ -29,19 +28,23 @@ public class HorizontalSteamBoilerItem extends BlockItem implements GeoItem {
         consumer.accept(new GeoRenderProvider() {
             private BlockEntityWithoutLevelRenderer renderer = null;
             @Override
-            public BlockEntityWithoutLevelRenderer getGeoItemRenderer() {
-                if (renderer == null) renderer = new HorizontalSteamBoilerItemRenderer();
-                return renderer;
+            public @Nullable BlockEntityWithoutLevelRenderer getGeoItemRenderer() {
+                if (renderer == null) {
+                    renderer = new HorizontalSteamBoilerItemRenderer();
+                }
+                return this.renderer;
             }
         });
     }
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        controllers.add(new AnimationController<>(this, "controller", 0,
-                state -> state.setAndContinue(RawAnimation.begin().thenLoop("idle"))));
+        // 即使不使用动画，也需要正确注册控制器以避免紫黑块
+        // 这里可以添加一个空的控制器或根据需要添加特定动画
     }
 
     @Override
-    public AnimatableInstanceCache getAnimatableInstanceCache() { return cache; }
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return cache;
+    }
 }
