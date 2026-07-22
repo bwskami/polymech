@@ -23,9 +23,9 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
     private static final int SIDEBAR_WIDTH_PERCENT = 15;
     private static final int HEADER_HEIGHT = 32;
     private static final int TOGGLE_BUTTONS_HEIGHT = 24;
-    private static final int MACHINE_CARD_WIDTH = 80;
-    private static final int MACHINE_CARD_HEIGHT = 96;
-    private static final int MACHINE_PROJECTION_HEIGHT = 64;
+    private static final int MACHINE_CARD_WIDTH = 120;
+    private static final int MACHINE_CARD_HEIGHT = 140;
+    private static final int MACHINE_PROJECTION_HEIGHT = 96;
     private static final int CARD_GAP = 8;
 
     private static final String ID_HEADER_LABEL = "header_label";
