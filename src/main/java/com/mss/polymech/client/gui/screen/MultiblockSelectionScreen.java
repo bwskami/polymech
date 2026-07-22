@@ -5,18 +5,23 @@ import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.mss.polymech.Polymech;
+import com.mss.polymech.block.ModBlocks;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.block.Block;
 
 import java.util.List;
+import java.util.Map;
 
 public class MultiblockSelectionScreen extends ModularUIScreen {
 
@@ -36,8 +41,12 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
     private static final String ID_BTN_TYPE = "btn_type";
 
     private ClassifyMode classifyMode = ClassifyMode.BY_VOLTAGE;
-    private String selectedCategory = "LV";
+    private String selectedCategory = "steam";
     private boolean refreshing = false;
+    
+    private static final Map<String, Block> MACHINE_BLOCK_MAP = Map.of(
+            "horizontal_steam_boiler", ModBlocks.HORIZONTAL_STEAM_BOILER.get()
+    );
 
     public MultiblockSelectionScreen() {
         super(buildUI(), Component.translatable("gui.poly_mech.multiblock_selection.title"));
@@ -214,15 +223,32 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
         card.layout(l -> l.width(MACHINE_CARD_WIDTH).height(MACHINE_CARD_HEIGHT).paddingAll(4).gapColumn(4));
         card.addClass("panel_bg");
 
-        var projection = new UIElement();
-        projection.layout(l -> l.widthPercent(100).height(MACHINE_PROJECTION_HEIGHT));
-        projection.addClass("panel_bg");
+        Block block = MACHINE_BLOCK_MAP.get(machine.id());
+        if (block != null) {
+            var scene = new Scene();
+            var level = Minecraft.getInstance().level;
+            if (level != null) {
+                scene.createScene(level);
+                var dummyWorld = scene.getDummyWorld();
+                if (dummyWorld != null) {
+                    dummyWorld.setBlock(BlockPos.ZERO, block.defaultBlockState(), 3);
+                }
+                scene.setRenderedCore(List.of(BlockPos.ZERO));
+            }
+            scene.layout(l -> l.widthPercent(100).height(MACHINE_PROJECTION_HEIGHT));
+            card.addChild(scene);
+        } else {
+            var projection = new UIElement();
+            projection.layout(l -> l.widthPercent(100).height(MACHINE_PROJECTION_HEIGHT));
+            projection.addClass("panel_bg");
+            card.addChild(projection);
+        }
 
         var name = new Label()
                 .setText(Component.translatable(machine.nameKey()))
                 .layout(l -> l.widthPercent(100));
 
-        card.addChildren(projection, name);
+        card.addChildren(name);
         card.addEventListener(UIEvents.MOUSE_DOWN, e -> {
             Polymech.LOGGER.info("Selected multiblock machine: {} ({})", machine.id(), machine.nameKey());
             Minecraft.getInstance().setScreen(null);
