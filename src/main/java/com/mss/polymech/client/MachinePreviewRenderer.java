@@ -51,42 +51,64 @@ public class MachinePreviewRenderer {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return;
-        if (player.isShiftKeyDown()) return;
-
-        HitResult hitResult = mc.hitResult;
-        if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
-
-        BlockPos clickedPos = blockHitResult.getBlockPos();
-        if (mc.level.isEmptyBlock(clickedPos)) return;
-
-        BlockPos targetPos = clickedPos.relative(blockHitResult.getDirection());
-
-        BaseMachineBlock machineBlock;
-        Direction facing;
-        BlockState previewState;
 
         Item heldItem = player.getMainHandItem().getItem();
+        if (!(heldItem instanceof BlueprintToolItem) && !(heldItem instanceof BlockItem)) {
+            if (BlueprintPreviewState.isActive()) BlueprintPreviewState.exit();
+            return;
+        }
 
         if (heldItem instanceof BlueprintToolItem) {
+            if (BlueprintPreviewState.isActive()) {
+                String machineId = BlueprintPreviewState.getMachineId();
+                if (machineId == null) return;
+                Block block = BaseMachineBlock.getMachineBlock(machineId);
+                if (!(block instanceof BaseMachineBlock machineBlock)) return;
+
+                Direction facing = BlueprintPreviewState.getFacing();
+                BlockPos targetPos = BlueprintPreviewState.getTargetPos();
+                BlockState previewState = machineBlock.defaultBlockState().setValue(BaseMachineBlock.FACING, facing);
+                renderMachinePreview(event, mc, machineBlock, previewState, targetPos);
+                return;
+            }
+
+            if (player.isShiftKeyDown()) return;
+
             String machineId = BlueprintToolItem.getSelectedMachineId();
             if (machineId == null) return;
             Block block = BaseMachineBlock.getMachineBlock(machineId);
             if (!(block instanceof BaseMachineBlock mb)) return;
-            machineBlock = mb;
-            facing = player.getDirection().getOpposite();
-        } else if (heldItem instanceof BlockItem blockItem) {
-            Block block = blockItem.getBlock();
-            if (!(block instanceof BaseMachineBlock mb)) return;
-            machineBlock = mb;
-            facing = blockHitResult.getDirection().getOpposite();
-            if (facing.getAxis().isVertical()) {
-                facing = player.getDirection().getOpposite();
-            }
-        } else {
+
+            HitResult hitResult = mc.hitResult;
+            if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
+            BlockPos clickedPos = blockHitResult.getBlockPos();
+            if (mc.level.isEmptyBlock(clickedPos)) return;
+            BlockPos targetPos = clickedPos.relative(blockHitResult.getDirection());
+            Direction facing = player.getDirection().getOpposite();
+
+            BlockState previewState = mb.defaultBlockState().setValue(BaseMachineBlock.FACING, facing);
+            renderMachinePreview(event, mc, mb, previewState, targetPos);
             return;
         }
 
-        previewState = machineBlock.defaultBlockState().setValue(BaseMachineBlock.FACING, facing);
+        if (player.isShiftKeyDown()) return;
+
+        HitResult hitResult = mc.hitResult;
+        if (!(hitResult instanceof BlockHitResult blockHitResult)) return;
+        BlockPos clickedPos = blockHitResult.getBlockPos();
+        if (mc.level.isEmptyBlock(clickedPos)) return;
+        BlockPos targetPos = clickedPos.relative(blockHitResult.getDirection());
+
+        BlockItem blockItem = (BlockItem) heldItem;
+        Block block = blockItem.getBlock();
+        if (!(block instanceof BaseMachineBlock machineBlock)) return;
+
+        Direction facing = blockHitResult.getDirection().getOpposite();
+        if (facing.getAxis().isVertical()) {
+            facing = player.getDirection().getOpposite();
+        }
+
+        BlockState previewState = machineBlock.defaultBlockState().setValue(BaseMachineBlock.FACING, facing);
         renderMachinePreview(event, mc, machineBlock, previewState, targetPos);
     }
 

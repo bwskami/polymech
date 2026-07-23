@@ -18,6 +18,7 @@ import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.client.event.InputEvent;
 
 @Mod(value = Polymech.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
@@ -32,9 +33,16 @@ public class PolymechClient {
 
     @SubscribeEvent
     static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        // 注册蓝图工具的快捷键
-        com.mss.polymech.client.BlueprintInputHandler.OPEN_MULTIBLOCK_MENU_KEY.getKey();
         event.register(com.mss.polymech.client.BlueprintInputHandler.OPEN_MULTIBLOCK_MENU_KEY);
+        event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CYCLE_MODE_KEY);
+        event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CYCLE_AXIS_KEY);
+    }
+
+    @SubscribeEvent
+    static void onKeyInput(InputEvent.Key event) {
+        if (event.getAction() == 1 && event.getKey() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
+            com.mss.polymech.client.BlueprintInputHandler.handleEscapePressed();
+        }
     }
 
     @SubscribeEvent

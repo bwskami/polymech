@@ -1,5 +1,6 @@
 package com.mss.polymech.item;
 
+import com.mss.polymech.client.BlueprintPreviewState;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.machine.BaseMachineBlock;
 import com.mss.polymech.network.MachinePlacementPacket;
@@ -66,6 +67,10 @@ public class BlueprintToolItem extends Item {
         }
 
         if (level.isClientSide()) {
+            if (BlueprintPreviewState.isActive()) {
+                return InteractionResult.FAIL;
+            }
+
             BlockPos clickedPos = context.getClickedPos();
             Direction clickFace = context.getClickedFace();
 
@@ -75,8 +80,8 @@ public class BlueprintToolItem extends Item {
                 facing = player.getDirection().getOpposite();
             }
 
-            PacketDistributor.sendToServer(new MachinePlacementPacket(targetPos, facing.name(), selectedMachineId));
-            return InteractionResult.SUCCESS;
+            BlueprintPreviewState.enter(targetPos, facing, selectedMachineId);
+            return InteractionResult.FAIL;
         }
 
         return InteractionResult.SUCCESS;

@@ -4,25 +4,49 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.client.gui.screen.MultiblockSelectionScreen;
 import com.mss.polymech.item.BlueprintToolItem;
+import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.network.MachinePlacementPacket;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.settings.KeyConflictContext;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
 
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class BlueprintInputHandler {
 
-    // 创建快捷键映射，用于打开多方块机器选择菜单
     public static final KeyMapping OPEN_MULTIBLOCK_MENU_KEY = new KeyMapping(
-            "key.poly_mech.open_multiblock_menu",           // 键位描述语言键
-            KeyConflictContext.IN_GAME,                     // 键位冲突上下文（在游戏中可用）
-            InputConstants.Type.KEYSYM,                     // 输入类型（键盘按键）
-            GLFW.GLFW_KEY_B,                               // 默认按键（B键）
-            "key.categories.misc"                           // 键位分类
+            "key.poly_mech.open_multiblock_menu",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_B,
+            "key.categories.misc"
+    );
+
+    public static final KeyMapping BLUEPRINT_CYCLE_MODE_KEY = new KeyMapping(
+            "key.poly_mech.blueprint_cycle_mode",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_R,
+            "key.categories.misc"
+    );
+
+    public static final KeyMapping BLUEPRINT_CYCLE_AXIS_KEY = new KeyMapping(
+            "key.poly_mech.blueprint_cycle_axis",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_X,
+            "key.categories.misc"
     );
 
     @SubscribeEvent
@@ -31,13 +55,81 @@ public class BlueprintInputHandler {
 
         if (OPEN_MULTIBLOCK_MENU_KEY.consumeClick()) {
             if (mc.player != null && mc.player.getMainHandItem().getItem() instanceof BlueprintToolItem) {
-                openMultiblockSelectionMenu(mc);
+                if (!BlueprintPreviewState.isActive()) {
+                    openMultiblockSelectionMenu(mc);
+                }
+            }
+        }
+
+        if (BlueprintPreviewState.isActive()) {
+            if (BLUEPRINT_CYCLE_MODE_KEY.consumeClick()) {
+                BlueprintPreviewState.cycleMode();
+            }
+            if (BLUEPRINT_CYCLE_AXIS_KEY.consumeClick()) {
+                if (BlueprintPreviewState.getMode() == BlueprintPreviewState.Mode.XYZ) {
+                    BlueprintPreviewState.cycleAxis();
+                }
             }
         }
     }
 
+    @SubscribeEvent
+    public static void onMouseScroll(InputEvent.MouseScrollingEvent event) {
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (player == null) return;
+        if (!(player.getMainHandItem().getItem() instanceof BlueprintToolItem)) return;
+        if (!BlueprintPreviewState.isActive()) return;
+
+        event.setCanceled(true);
+
+        double delta = event.getScrollDeltaY();
+        int scroll = delta > 0 ? 1 : -1;
+
+        switch (BlueprintPreviewState.getMode()) {
+            case FACING -> {
+                Direction current = BlueprintPreviewState.getFacing();
+                Direction[] horizontals = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
+                int idx = 0;
+                for (int i = 0; i < horizontals.length; i++) {
+                    if (horizontals[i] == current) { idx = i; break; }
+                }
+                idx = (idx + scroll + 4) % 4;
+                BlueprintPreviewState.setFacing(horizontals[idx]);
+            }
+            case XYZ -> BlueprintPreviewState.adjustOffset(scroll);
+            case CONFIRM -> {}
+        }
+    }
+
+    @SubscribeEvent
+    public static void onMouseClick(InputEvent.MouseButton.Pre event) {
+        if (event.getButton() != 1 || event.getAction() != 1) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (player == null) return;
+        if (!(player.getMainHandItem().getItem() instanceof BlueprintToolItem)) return;
+        if (!BlueprintPreviewState.isActive()) return;
+
+        event.setCanceled(true);
+
+        if (BlueprintPreviewState.getMode() == BlueprintPreviewState.Mode.CONFIRM) {
+            String machineId = BlueprintPreviewState.getMachineId();
+            BlockPos targetPos = BlueprintPreviewState.getTargetPos();
+            Direction facing = BlueprintPreviewState.getFacing();
+            PacketDistributor.sendToServer(new MachinePlacementPacket(targetPos, facing.getName().toLowerCase(), machineId));
+            BlueprintPreviewState.exit();
+        }
+    }
+
+    public static void handleEscapePressed() {
+        if (BlueprintPreviewState.isActive()) {
+            BlueprintPreviewState.exit();
+        }
+    }
+
     private static void openMultiblockSelectionMenu(Minecraft mc) {
-        // 打开多方块机器选择GUI
         mc.execute(() -> mc.setScreen(new MultiblockSelectionScreen()));
     }
 }
