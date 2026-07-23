@@ -2,17 +2,13 @@ package com.mss.polymech.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mss.polymech.Polymech;
-import com.mss.polymech.client.gui.screen.MultiblockSelectionScreen;
 import com.mss.polymech.item.BlueprintToolItem;
-import com.mss.polymech.machine.BaseMachineBlock;
 import com.mss.polymech.network.MachinePlacementPacket;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.block.Block;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -25,11 +21,11 @@ import org.lwjgl.glfw.GLFW;
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class BlueprintInputHandler {
 
-    public static final KeyMapping OPEN_MULTIBLOCK_MENU_KEY = new KeyMapping(
-            "key.poly_mech.open_multiblock_menu",
+    public static final KeyMapping BLUEPRINT_CANCEL_KEY = new KeyMapping(
+            "key.poly_mech.blueprint_cancel",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_B,
+            GLFW.GLFW_KEY_G,
             "key.categories.misc"
     );
 
@@ -51,17 +47,12 @@ public class BlueprintInputHandler {
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Pre event) {
-        Minecraft mc = Minecraft.getInstance();
-
-        if (OPEN_MULTIBLOCK_MENU_KEY.consumeClick()) {
-            if (mc.player != null && mc.player.getMainHandItem().getItem() instanceof BlueprintToolItem) {
-                if (!BlueprintPreviewState.isActive()) {
-                    openMultiblockSelectionMenu(mc);
-                }
-            }
-        }
-
         if (BlueprintPreviewState.isActive()) {
+            if (BLUEPRINT_CANCEL_KEY.consumeClick()) {
+                BlueprintPreviewState.exit();
+                BlueprintToolItem.setSelectedMachineId(null);
+                return;
+            }
             if (BLUEPRINT_CYCLE_MODE_KEY.consumeClick()) {
                 BlueprintPreviewState.cycleMode();
             }
@@ -120,16 +111,7 @@ public class BlueprintInputHandler {
             Direction facing = BlueprintPreviewState.getFacing();
             PacketDistributor.sendToServer(new MachinePlacementPacket(targetPos, facing.getName().toLowerCase(), machineId));
             BlueprintPreviewState.exit();
+            BlueprintToolItem.setSelectedMachineId(null);
         }
-    }
-
-    public static void handleEscapePressed() {
-        if (BlueprintPreviewState.isActive()) {
-            BlueprintPreviewState.exit();
-        }
-    }
-
-    private static void openMultiblockSelectionMenu(Minecraft mc) {
-        mc.execute(() -> mc.setScreen(new MultiblockSelectionScreen()));
     }
 }

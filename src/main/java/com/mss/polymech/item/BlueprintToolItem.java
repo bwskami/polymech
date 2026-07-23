@@ -2,8 +2,8 @@ package com.mss.polymech.item;
 
 import com.mss.polymech.client.BlueprintPreviewState;
 import com.mss.polymech.Polymech;
-import com.mss.polymech.machine.BaseMachineBlock;
-import com.mss.polymech.network.MachinePlacementPacket;
+import com.mss.polymech.client.gui.screen.MultiblockSelectionScreen;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -15,9 +15,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemAttributeModifiers;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 public class BlueprintToolItem extends Item {
 
@@ -61,7 +61,7 @@ public class BlueprintToolItem extends Item {
 
         if (selectedMachineId == null) {
             if (level.isClientSide()) {
-                openMultiblockSelectionMenu(player);
+                openMultiblockSelectionMenu();
             }
             return InteractionResult.SUCCESS;
         }
@@ -81,13 +81,21 @@ public class BlueprintToolItem extends Item {
             }
 
             BlueprintPreviewState.enter(targetPos, facing, selectedMachineId);
-            return InteractionResult.FAIL;
         }
 
-        return InteractionResult.SUCCESS;
+        return InteractionResult.FAIL;
     }
 
-    private void openMultiblockSelectionMenu(Player player) {
-        Polymech.LOGGER.info("Opening multiblock selection menu for player: {}", player.getName().getString());
+    @Override
+    public net.minecraft.world.InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+        if (selectedMachineId == null && level.isClientSide()) {
+            openMultiblockSelectionMenu();
+        }
+        return net.minecraft.world.InteractionResultHolder.sidedSuccess(hand == InteractionHand.MAIN_HAND ? player.getItemInHand(hand) : ItemStack.EMPTY, level.isClientSide());
+    }
+
+    private void openMultiblockSelectionMenu() {
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> mc.setScreen(new MultiblockSelectionScreen()));
     }
 }

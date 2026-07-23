@@ -33,16 +33,9 @@ public class PolymechClient {
 
     @SubscribeEvent
     static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
-        event.register(com.mss.polymech.client.BlueprintInputHandler.OPEN_MULTIBLOCK_MENU_KEY);
+        event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CANCEL_KEY);
         event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CYCLE_MODE_KEY);
         event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CYCLE_AXIS_KEY);
-    }
-
-    @SubscribeEvent
-    static void onKeyInput(InputEvent.Key event) {
-        if (event.getAction() == 1 && event.getKey() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
-            com.mss.polymech.client.BlueprintInputHandler.handleEscapePressed();
-        }
     }
 
     @SubscribeEvent

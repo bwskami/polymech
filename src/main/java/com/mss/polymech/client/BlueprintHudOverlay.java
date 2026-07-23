@@ -61,8 +61,8 @@ public class BlueprintHudOverlay {
         }
         String hint1 = "[R] \u5207\u6362\u6a21\u5f0f  [X] \u5207\u6362\u8f74  [\u6eda\u8f6e] \u8c03\u6574";
         String hint2 = BlueprintPreviewState.getMode() == BlueprintPreviewState.Mode.CONFIRM
-                ? "[\u53f3\u952e] \u653e\u7f6e\u673a\u5668  [Esc] \u53d6\u6d88"
-                : "[Esc] \u53d6\u6d88";
+                ? "[\u53f3\u952e] \u653e\u7f6e\u673a\u5668  [G] \u53d6\u6d88"
+                : "[G] \u53d6\u6d88";
 
         int maxWidth = Math.max(
                 Math.max(font.width(line1), font.width(line2)),
