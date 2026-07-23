@@ -120,4 +120,9 @@ public class FillingUnitBlock extends BaseMachineBlock {
     public DeferredBlock<?> getSideBlock() {
         return ModBlocks.FILLING_UNIT_SIDE;
     }
+
+    @Override
+    public BlockEntityType<?> getMachineBlockEntityType() {
+        return ModBlockEntities.FILLING_UNIT.get();
+    }
 }

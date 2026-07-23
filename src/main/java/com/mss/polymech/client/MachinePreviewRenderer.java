@@ -8,18 +8,28 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mss.polymech.Polymech;
-import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.client.model.FillingUnitModel;
+import com.mss.polymech.client.model.HorizontalSteamBoilerModel;
 import com.mss.polymech.item.BlueprintToolItem;
 import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.production.FillingUnitBlockEntity;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -28,6 +38,11 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
+import software.bernie.geckolib.model.GeoModel;
+import software.bernie.geckolib.renderer.GeoBlockRenderer;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class MachinePreviewRenderer {
@@ -41,6 +56,38 @@ public class MachinePreviewRenderer {
 
     private static final float LINE_WIDTH = 0.06F;
     private static final float FACE_ALPHA = 0.25F;
+
+    private static final Map<BlockEntityType<?>, BlockEntity> tempBeCache = new HashMap<>();
+    @SuppressWarnings("rawtypes")
+    private static final Map<BlockEntityType<?>, GeoBlockRenderer> ghostRendererCache = new HashMap<>();
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static GeoBlockRenderer getOrCreateGhostRenderer(BlockEntityType<?> beType, BlockEntity tempBe) {
+        return ghostRendererCache.computeIfAbsent(beType, type -> {
+            BlockEntityRenderer<?> original = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(tempBe);
+            if (!(original instanceof GeoBlockRenderer<?> gbr)) return null;
+            GeoModel<?> origModel = gbr.getGeoModel();
+
+            if (origModel instanceof FillingUnitModel) {
+                var ghostModel = new FillingUnitModel() {
+                    @Override
+                    public RenderType getRenderType(FillingUnitBlockEntity animatable, ResourceLocation texture) {
+                        return RenderType.entityTranslucent(texture);
+                    }
+                };
+                return new GeoBlockRenderer<FillingUnitBlockEntity>(ghostModel) {};
+            } else if (origModel instanceof HorizontalSteamBoilerModel) {
+                var ghostModel = new HorizontalSteamBoilerModel() {
+                    @Override
+                    public RenderType getRenderType(HorizontalSteamBoilerBlockEntity animatable, ResourceLocation texture) {
+                        return RenderType.entityTranslucent(texture);
+                    }
+                };
+                return new GeoBlockRenderer<HorizontalSteamBoilerBlockEntity>(ghostModel) {};
+            }
+            return null;
+        });
+    }
 
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
@@ -120,6 +167,9 @@ public class MachinePreviewRenderer {
         int mainColor = canPlace ? COLOR_MAIN : COLOR_INVALID;
 
         PoseStack poseStack = event.getPoseStack();
+
+        renderGhostModel(poseStack, event.getCamera(), machineBlock, previewState, targetPos);
+
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
         RenderSystem.enableBlend();
@@ -159,6 +209,45 @@ public class MachinePreviewRenderer {
         RenderSystem.depthMask(true);
         RenderSystem.enableCull();
         RenderSystem.enableDepthTest();
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void renderGhostModel(PoseStack poseStack, net.minecraft.client.Camera camera,
+                                          BaseMachineBlock machineBlock, BlockState state, BlockPos pos) {
+        BlockEntityType<?> beType = machineBlock.getMachineBlockEntityType();
+
+        BlockEntity tempBe = tempBeCache.computeIfAbsent(beType, type -> {
+            BlockEntity be = type.create(BlockPos.ZERO, machineBlock.defaultBlockState());
+            if (be != null) be.setBlockState(machineBlock.defaultBlockState());
+            return be;
+        });
+        if (tempBe == null) return;
+        tempBe.setBlockState(state);
+
+        try {
+            GeoBlockRenderer ghostRenderer = getOrCreateGhostRenderer(beType, tempBe);
+            if (ghostRenderer == null) return;
+
+            MultiBufferSource bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
+
+            poseStack.pushPose();
+            poseStack.translate(
+                    (double) pos.getX() - camera.getPosition().x(),
+                    (double) pos.getY() - camera.getPosition().y(),
+                    (double) pos.getZ() - camera.getPosition().z()
+            );
+
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.depthMask(false);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.1F);
+
+            ghostRenderer.render(tempBe, 0, poseStack, bufferSource, 0xF000F0, 0);
+
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            poseStack.popPose();
+        } catch (Exception ignored) {
+        }
     }
 
     private static boolean canPlaceMachine(Minecraft mc, BlockPos mainPos, BlockPos[] sidePositions) {

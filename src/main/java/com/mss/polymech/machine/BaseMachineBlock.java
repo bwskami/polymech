@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -68,6 +69,8 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
     }
 
     public abstract DeferredBlock<?> getSideBlock();
+
+    public abstract BlockEntityType<?> getMachineBlockEntityType();
 
     public abstract Vec3i[] getSideOffsets();
 

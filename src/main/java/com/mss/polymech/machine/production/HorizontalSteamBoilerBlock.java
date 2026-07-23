@@ -125,4 +125,9 @@ public class HorizontalSteamBoilerBlock extends BaseMachineBlock {
     public DeferredBlock<?> getSideBlock() {
         return ModBlocks.HORIZONTAL_STEAM_BOILER_SIDE;
     }
+
+    @Override
+    public BlockEntityType<?> getMachineBlockEntityType() {
+        return ModBlockEntities.HORIZONTAL_STEAM_BOILER.get();
+    }
 }
