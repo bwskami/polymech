@@ -3,10 +3,7 @@ package com.mss.polymech.client.gui.screen;
 import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.Scene;
-import com.lowdragmc.lowdraglib2.gui.ui.elements.ScrollerView;
+import com.lowdragmc.lowdraglib2.gui.ui.elements.*;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
@@ -18,6 +15,7 @@ import dev.vfyjxf.taffy.style.FlexWrap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
 import java.util.List;
@@ -225,18 +223,11 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
 
         Block block = MACHINE_BLOCK_MAP.get(machine.id());
         if (block != null) {
-            var scene = new Scene();
-            var level = Minecraft.getInstance().level;
-            if (level != null) {
-                scene.createScene(level);
-                var dummyWorld = scene.getDummyWorld();
-                if (dummyWorld != null) {
-                    dummyWorld.setBlock(BlockPos.ZERO, block.defaultBlockState(), 3);
-                }
-                scene.setRenderedCore(List.of(BlockPos.ZERO));
-            }
-            scene.layout(l -> l.widthPercent(100).height(MACHINE_PROJECTION_HEIGHT));
-            card.addChild(scene);
+            // 以后专门画图贴上去，现在使用简单的占位元素
+            var projection = new UIElement();
+            projection.layout(l -> l.widthPercent(100).height(MACHINE_PROJECTION_HEIGHT));
+            projection.addClass("panel_bg");
+            card.addChild(projection);
         } else {
             var projection = new UIElement();
             projection.layout(l -> l.widthPercent(100).height(MACHINE_PROJECTION_HEIGHT));
