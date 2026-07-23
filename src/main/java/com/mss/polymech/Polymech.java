@@ -10,6 +10,7 @@ import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
+import com.mss.polymech.network.MachinePlacementPacket;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -33,12 +34,12 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 /*
  * Poly Mech模組主类，负责模组的初始化和生命周期管理。
  * <p>
- * 该类是模组的入口点，由NeoForge在模组加载时自动实例化。
+ * 该类是模組的入口点，由NeoForge在模組加载时自动实例化。
  * 主要职责包括：
  * <ul>
  *   <li>注册所有游戏内容（物品、方块、实体等）</li>
  *   <li>配置网络通信协议</li>
- *   <li>处理模组生命周期事件</li>
+ *   <li>处理模組生命周期事件</li>
  *   <li>注册创造模式标签页</li>
  * </ul>
  * </p>
@@ -56,14 +57,14 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
  */
 @Mod(Polymech.MOD_ID)
 public class Polymech {
-    /** 模组唯一标识符，必须与META-INF/neoforge.mods.toml中的值匹配 */
+    /** 模組唯一标识符，必须与META-INF/neoforge.mods.toml中的值匹配 */
     public static final String MOD_ID = "poly_mech";
     
-    /** 模组日志记录器 */
+    /** 模組日志记录器 */
     public static final Logger LOGGER = LogUtils.getLogger();
 
     /*
-     * 模組构造函数，由NeoForge在模组加载时调用。
+     * 模組构造函数，由NeoForge在模組加载时调用。
      * <p>
      * FML会自动注入IEventBus和ModContainer参数。
      * 在此处注册所有游戏内容和事件监听器。
@@ -97,7 +98,7 @@ public class Polymech {
         // 注册创造模式标签页内容事件
         modEventBus.addListener(this::addCreative);
 
-        // 注册模组配置
+        // 注册模組配置
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
@@ -141,6 +142,11 @@ public class Polymech {
                 ConveyorPlacementPacket.TYPE,
                 ConveyorPlacementPacket.STREAM_CODEC,
                 ConveyorPlacementPacket::handle
+        );
+        registrar.playToServer(
+                MachinePlacementPacket.TYPE,
+                MachinePlacementPacket.STREAM_CODEC,
+                MachinePlacementPacket::handle
         );
     }
 

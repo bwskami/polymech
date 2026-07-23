@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.item.BlueprintToolItem;
 import com.mss.polymech.machine.BaseMachineBlock;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
@@ -50,13 +51,6 @@ public class MachinePreviewRenderer {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return;
-
-        Item heldItem = player.getMainHandItem().getItem();
-        if (!(heldItem instanceof BlockItem blockItem)) return;
-
-        Block block = blockItem.getBlock();
-        if (!(block instanceof BaseMachineBlock machineBlock)) return;
-
         if (player.isShiftKeyDown()) return;
 
         HitResult hitResult = mc.hitResult;
@@ -66,12 +60,38 @@ public class MachinePreviewRenderer {
         if (mc.level.isEmptyBlock(clickedPos)) return;
 
         BlockPos targetPos = clickedPos.relative(blockHitResult.getDirection());
-        Direction facing = blockHitResult.getDirection().getOpposite();
-        if (facing.getAxis().isVertical()) {
+
+        BaseMachineBlock machineBlock;
+        Direction facing;
+        BlockState previewState;
+
+        Item heldItem = player.getMainHandItem().getItem();
+
+        if (heldItem instanceof BlueprintToolItem) {
+            String machineId = BlueprintToolItem.getSelectedMachineId();
+            if (machineId == null) return;
+            Block block = BaseMachineBlock.getMachineBlock(machineId);
+            if (!(block instanceof BaseMachineBlock mb)) return;
+            machineBlock = mb;
             facing = player.getDirection().getOpposite();
+        } else if (heldItem instanceof BlockItem blockItem) {
+            Block block = blockItem.getBlock();
+            if (!(block instanceof BaseMachineBlock mb)) return;
+            machineBlock = mb;
+            facing = blockHitResult.getDirection().getOpposite();
+            if (facing.getAxis().isVertical()) {
+                facing = player.getDirection().getOpposite();
+            }
+        } else {
+            return;
         }
 
-        BlockState previewState = machineBlock.defaultBlockState().setValue(BaseMachineBlock.FACING, facing);
+        previewState = machineBlock.defaultBlockState().setValue(BaseMachineBlock.FACING, facing);
+        renderMachinePreview(event, mc, machineBlock, previewState, targetPos);
+    }
+
+    private static void renderMachinePreview(RenderLevelStageEvent event, Minecraft mc,
+                                              BaseMachineBlock machineBlock, BlockState previewState, BlockPos targetPos) {
         BlockPos[] sidePositions = machineBlock.getSidePositions(previewState, targetPos);
 
         boolean canPlace = canPlaceMachine(mc, targetPos, sidePositions);

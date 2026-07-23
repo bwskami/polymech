@@ -1,6 +1,7 @@
 package com.mss.polymech.machine;
 
 import com.mojang.serialization.MapCodec;
+import com.mss.polymech.block.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -13,16 +14,32 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Supplier;
 
 public abstract class BaseMachineBlock extends BaseEntityBlock {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+
+    private static final Map<String, Supplier<Block>> MACHINE_REGISTRY = new LinkedHashMap<>();
+
+    static {
+        MACHINE_REGISTRY.put("filling_unit", () -> ModBlocks.FILLING_UNIT.get());
+        MACHINE_REGISTRY.put("horizontal_steam_boiler", () -> ModBlocks.HORIZONTAL_STEAM_BOILER.get());
+    }
+
+    @Nullable
+    public static Block getMachineBlock(String machineId) {
+        Supplier<Block> supplier = MACHINE_REGISTRY.get(machineId);
+        return supplier != null ? supplier.get() : null;
+    }
+
+    public static Collection<String> getMachineIds() {
+        return MACHINE_REGISTRY.keySet();
+    }
 
     protected BaseMachineBlock(Properties properties) {
         super(properties);
@@ -49,6 +66,8 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
     public BlockState mirror(BlockState state, Mirror mirror) {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
+
+    public abstract DeferredBlock<?> getSideBlock();
 
     public abstract Vec3i[] getSideOffsets();
 
@@ -87,7 +106,7 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
         return positions.toArray(new BlockPos[0]);
     }
 
-    private static Vec3i rotateVec3i(Vec3i offset, Direction facing) {
+    public static Vec3i rotateVec3i(Vec3i offset, Direction facing) {
         int x = offset.getX();
         int z = offset.getZ();
         return switch (facing) {

@@ -22,6 +22,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import com.mojang.serialization.MapCodec;
 import org.jetbrains.annotations.Nullable;
 
+import net.neoforged.neoforge.registries.DeferredBlock;
+
 public class HorizontalSteamBoilerBlock extends BaseMachineBlock {
 
     private static final MapCodec<HorizontalSteamBoilerBlock> CODEC = simpleCodec(HorizontalSteamBoilerBlock::new);
@@ -117,5 +119,10 @@ public class HorizontalSteamBoilerBlock extends BaseMachineBlock {
         return new Vec3i[][]{
                 {new Vec3i(-1, 0, -2), new Vec3i(1, 2, 2)},
         };
+    }
+
+    @Override
+    public DeferredBlock<?> getSideBlock() {
+        return ModBlocks.HORIZONTAL_STEAM_BOILER_SIDE;
     }
 }

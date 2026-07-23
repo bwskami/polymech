@@ -10,6 +10,8 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.item.BlueprintToolItem;
+import com.mss.polymech.machine.BaseMachineBlock;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.FlexWrap;
 import net.minecraft.client.Minecraft;
@@ -18,6 +20,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,9 +46,18 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
     private String selectedCategory = "steam";
     private boolean refreshing = false;
     
-    private static final Map<String, Block> MACHINE_BLOCK_MAP = Map.of(
-            "horizontal_steam_boiler", ModBlocks.HORIZONTAL_STEAM_BOILER.get()
-    );
+    private static final Map<String, Block> MACHINE_BLOCK_MAP = createMachineBlockMap();
+
+    private static Map<String, Block> createMachineBlockMap() {
+        Map<String, Block> map = new LinkedHashMap<>();
+        for (String id : BaseMachineBlock.getMachineIds()) {
+            Block block = BaseMachineBlock.getMachineBlock(id);
+            if (block != null) {
+                map.put(id, block);
+            }
+        }
+        return Collections.unmodifiableMap(map);
+    }
 
     public MultiblockSelectionScreen() {
         super(buildUI(), Component.translatable("gui.poly_mech.multiblock_selection.title"));
@@ -242,6 +255,7 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
         card.addChildren(name);
         card.addEventListener(UIEvents.MOUSE_DOWN, e -> {
             Polymech.LOGGER.info("Selected multiblock machine: {} ({})", machine.id(), machine.nameKey());
+            BlueprintToolItem.setSelectedMachineId(machine.id());
             Minecraft.getInstance().setScreen(null);
         });
 

@@ -22,6 +22,8 @@ import net.minecraft.world.phys.BlockHitResult;
 import com.mojang.serialization.MapCodec;
 import org.jetbrains.annotations.Nullable;
 
+import net.neoforged.neoforge.registries.DeferredBlock;
+
 public class FillingUnitBlock extends BaseMachineBlock {
 
     private static final MapCodec<FillingUnitBlock> CODEC = simpleCodec(FillingUnitBlock::new);
@@ -112,5 +114,10 @@ public class FillingUnitBlock extends BaseMachineBlock {
                 new Vec3i(0, 0, 1),
                 new Vec3i(0, 0, -1),
         };
+    }
+
+    @Override
+    public DeferredBlock<?> getSideBlock() {
+        return ModBlocks.FILLING_UNIT_SIDE;
     }
 }
