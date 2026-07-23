@@ -164,8 +164,7 @@ public class MachinePreviewRenderer {
         BlockPos[] sidePositions = machineBlock.getSidePositions(previewState, targetPos);
 
         boolean canPlace = canPlaceMachine(mc, targetPos, sidePositions);
-        int mainColor = canPlace ? COLOR_MAIN : COLOR_INVALID;
-
+        
         PoseStack poseStack = event.getPoseStack();
 
         renderGhostModel(poseStack, event.getCamera(), machineBlock, previewState, targetPos);
@@ -177,12 +176,42 @@ public class MachinePreviewRenderer {
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.disableCull();
 
-        renderBlockOutline(poseStack, event.getCamera(), targetPos, mainColor);
+        // 只在主位置被阻挡时渲染红色边框 + 半透明面
+        if (!mc.level.isEmptyBlock(targetPos) && !mc.level.getBlockState(targetPos).canBeReplaced()) {
+            poseStack.pushPose();
+            poseStack.translate(
+                    (double) targetPos.getX() - event.getCamera().getPosition().x(),
+                    (double) targetPos.getY() - event.getCamera().getPosition().y(),
+                    (double) targetPos.getZ() - event.getCamera().getPosition().z()
+            );
+            Matrix4f matrix = poseStack.last().pose();
+            float a = (float) ((COLOR_FILL_INVALID >> 24) & 0xFF) / 255.0F;
+            float r = (float) ((COLOR_FILL_INVALID >> 16) & 0xFF) / 255.0F;
+            float g = (float) ((COLOR_FILL_INVALID >> 8) & 0xFF) / 255.0F;
+            float b = (float) (COLOR_FILL_INVALID & 0xFF) / 255.0F;
+            renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
+            renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, COLOR_INVALID);
+            poseStack.popPose();
+        }
 
+        // 只渲染被阻挡的侧面方块位置（棱 + 半透明面）
         for (BlockPos sidePos : sidePositions) {
-            boolean sideValid = mc.level.isEmptyBlock(sidePos) || mc.level.getBlockState(sidePos).canBeReplaced();
-            int sideColor = sideValid ? COLOR_VALID : COLOR_INVALID;
-            renderBlockOutline(poseStack, event.getCamera(), sidePos, sideColor);
+            if (!mc.level.isEmptyBlock(sidePos) && !mc.level.getBlockState(sidePos).canBeReplaced()) {
+                poseStack.pushPose();
+                poseStack.translate(
+                        (double) sidePos.getX() - event.getCamera().getPosition().x(),
+                        (double) sidePos.getY() - event.getCamera().getPosition().y(),
+                        (double) sidePos.getZ() - event.getCamera().getPosition().z()
+                );
+                Matrix4f matrix = poseStack.last().pose();
+                float a = (float) ((COLOR_FILL_INVALID >> 24) & 0xFF) / 255.0F;
+                float r = (float) ((COLOR_FILL_INVALID >> 16) & 0xFF) / 255.0F;
+                float g = (float) ((COLOR_FILL_INVALID >> 8) & 0xFF) / 255.0F;
+                float b = (float) (COLOR_FILL_INVALID & 0xFF) / 255.0F;
+                renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
+                renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, COLOR_INVALID);
+                poseStack.popPose();
+            }
         }
 
         int boundsMinX = targetPos.getX(), boundsMinY = targetPos.getY(), boundsMinZ = targetPos.getZ();
@@ -197,12 +226,13 @@ public class MachinePreviewRenderer {
         }
         renderBoundsOutline(poseStack, event.getCamera(), boundsMinX, boundsMinY, boundsMinZ, boundsMaxX + 1, boundsMaxY + 1, boundsMaxZ + 1, COLOR_BOUNDS);
 
+        // 只渲染被阻挡的填充区域
         Vec3i[][] fillRegions = machineBlock.getFillRegions();
         if (fillRegions != null) {
             for (Vec3i[] region : fillRegions) {
                 Vec3i min = region[0];
                 Vec3i max = region[1];
-                renderFillRegion(poseStack, event.getCamera(), targetPos, previewState, min, max, canPlace);
+                renderFillRegion(poseStack, event.getCamera(), targetPos, previewState, min, max, false); // 总是传递false，只渲染被阻挡部分
             }
         }
 
@@ -272,13 +302,16 @@ public class MachinePreviewRenderer {
 
         Direction facing = state.getValue(BaseMachineBlock.FACING);
 
-        int fillColor = valid ? COLOR_FILL_VALID : COLOR_FILL_INVALID;
-        int outlineColor = valid ? COLOR_VALID : COLOR_INVALID;
+        // 修改逻辑：总是使用无效颜色，只渲染被阻挡的方块
+        int fillColor = COLOR_FILL_INVALID; // 总是使用红色填充
+        int outlineColor = COLOR_INVALID; // 总是使用红色边框
 
         float a = (float) ((fillColor >> 24) & 0xFF) / 255.0F;
         float r = (float) ((fillColor >> 16) & 0xFF) / 255.0F;
         float g = (float) ((fillColor >> 8) & 0xFF) / 255.0F;
         float b = (float) (fillColor & 0xFF) / 255.0F;
+
+        Minecraft mc = Minecraft.getInstance();
 
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
@@ -286,18 +319,21 @@ public class MachinePreviewRenderer {
                     Vec3i rotated = rotateVec3i(new Vec3i(x, y, z), facing);
                     BlockPos pos = origin.offset(rotated);
 
-                    poseStack.pushPose();
-                    poseStack.translate(
-                            (double) pos.getX() - camera.getPosition().x(),
-                            (double) pos.getY() - camera.getPosition().y(),
-                            (double) pos.getZ() - camera.getPosition().z()
-                    );
+                    // 检查该位置是否被阻挡
+                    if (!mc.level.isEmptyBlock(pos) && !mc.level.getBlockState(pos).canBeReplaced()) {
+                        poseStack.pushPose();
+                        poseStack.translate(
+                                (double) pos.getX() - camera.getPosition().x(),
+                                (double) pos.getY() - camera.getPosition().y(),
+                                (double) pos.getZ() - camera.getPosition().z()
+                        );
 
-                    Matrix4f matrix = poseStack.last().pose();
-                    renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
-                    renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, outlineColor);
+                        Matrix4f matrix = poseStack.last().pose();
+                        renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
+                        renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, outlineColor);
 
-                    poseStack.popPose();
+                        poseStack.popPose();
+                    }
                 }
             }
         }
