@@ -72,7 +72,7 @@ public class MachinePreviewRenderer {
                 var ghostModel = new FillingUnitModel() {
                     @Override
                     public RenderType getRenderType(FillingUnitBlockEntity animatable, ResourceLocation texture) {
-                        return RenderType.entityTranslucent(texture);
+                        return RenderType.entityCutout(texture);
                     }
                 };
                 return new GeoBlockRenderer<FillingUnitBlockEntity>(ghostModel) {};
@@ -80,7 +80,7 @@ public class MachinePreviewRenderer {
                 var ghostModel = new HorizontalSteamBoilerModel() {
                     @Override
                     public RenderType getRenderType(HorizontalSteamBoilerBlockEntity animatable, ResourceLocation texture) {
-                        return RenderType.entityTranslucent(texture);
+                        return RenderType.entityCutout(texture);
                     }
                 };
                 return new GeoBlockRenderer<HorizontalSteamBoilerBlockEntity>(ghostModel) {};
@@ -240,11 +240,9 @@ public class MachinePreviewRenderer {
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.depthMask(false);
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 0.1F);
 
             ghostRenderer.render(tempBe, 0, poseStack, bufferSource, 0xF000F0, 0);
 
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             poseStack.popPose();
         } catch (Exception ignored) {
         }
