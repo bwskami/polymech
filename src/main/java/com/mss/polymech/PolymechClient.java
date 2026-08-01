@@ -61,6 +61,16 @@ public class PolymechClient {
                 modelPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/filling_unit.geo.json");
                 texturePath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/filling_unit.png");
                 animationPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/filling_unit.animation.json");
+            } else if ("gas_turbine_generator".equals(entry.id())) {
+                // 纹理不在 block/ 子目录
+                modelPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/gas_turbine_generator.geo.json");
+                texturePath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gas_turbine_generator/gas_turbine_generator.png");
+                animationPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/gas_turbine_generator.animation.json");
+            } else if ("steam_duplex_mineral_jig".equals(entry.id())) {
+                // 纹理不在 block/ 子目录
+                modelPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/steam_duplex_mineral_jig.geo.json");
+                texturePath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/steam_duplex_mineral_jig/steam_duplex_mineral_jig.png");
+                animationPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/steam_duplex_mineral_jig.animation.json");
             } else {
                 String id = entry.id();
                 modelPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/" + id + ".geo.json");

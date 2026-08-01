@@ -11,10 +11,14 @@ import com.mss.polymech.machine.common.MachineConfig;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MachineRegistrar;
 import com.mss.polymech.machine.production.FillingUnitBlockEntity;
+import com.mss.polymech.machine.production.FlameReverberatoryFurnaceBlockEntity;
+import com.mss.polymech.machine.production.GasTurbineGeneratorBlockEntity;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlock;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import com.mss.polymech.machine.production.BeehiveCokeOvenBlockEntity;
 import com.mss.polymech.machine.production.PrimitiveBlastFurnaceBlockEntity;
+import com.mss.polymech.machine.production.SteamDuplexMineralJigBlockEntity;
+import com.mss.polymech.machine.production.SteamHammerBlockEntity;
 import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
 import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
 import net.minecraft.world.item.BlockItem;
@@ -156,6 +160,52 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamTurbineGeneratorBlockEntity::new)
+                            .build(),
+                    MachineBlockItem::new);
+
+    /* 火焰反射炉 */
+    public static final MachineRegistrar.MachineRegistration FLAME_REVERBERATORY_FURNACE =
+            MachineRegistrar.registerBlock(
+                    MachineConfig.builder("flame_reverberatory_furnace")
+                            .sideOffsets(MachineConfig.crossOffsets())
+                            .blockProperties(machineProps())
+                            .blockEntityFactory(FlameReverberatoryFurnaceBlockEntity::new)
+                            .build(),
+                    MachineBlockItem::new);
+
+    /* 燃气涡轮发电机 */
+    public static final MachineRegistrar.MachineRegistration GAS_TURBINE_GENERATOR =
+            MachineRegistrar.registerBlock(
+                    MachineConfig.builder("gas_turbine_generator")
+                            .sideOffsets(MachineConfig.crossOffsets())
+                            .blockProperties(machineProps())
+                            .blockEntityFactory(GasTurbineGeneratorBlockEntity::new)
+                            .build(),
+                    (block, props) -> new MachineBlockItem(block, props,
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/gas_turbine_generator.geo.json"),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gas_turbine_generator/gas_turbine_generator.png"),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/gas_turbine_generator.animation.json")));
+
+    /* 蒸汽双联矿物跳汰机 */
+    public static final MachineRegistrar.MachineRegistration STEAM_DUPLEX_MINERAL_JIG =
+            MachineRegistrar.registerBlock(
+                    MachineConfig.builder("steam_duplex_mineral_jig")
+                            .sideOffsets(MachineConfig.crossOffsets())
+                            .blockProperties(machineProps())
+                            .blockEntityFactory(SteamDuplexMineralJigBlockEntity::new)
+                            .build(),
+                    (block, props) -> new MachineBlockItem(block, props,
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/steam_duplex_mineral_jig.geo.json"),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/steam_duplex_mineral_jig/steam_duplex_mineral_jig.png"),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/steam_duplex_mineral_jig.animation.json")));
+
+    /* 蒸汽锤 */
+    public static final MachineRegistrar.MachineRegistration STEAM_HAMMER =
+            MachineRegistrar.registerBlock(
+                    MachineConfig.builder("steam_hammer")
+                            .sideOffsets(MachineConfig.crossOffsets())
+                            .blockProperties(machineProps())
+                            .blockEntityFactory(SteamHammerBlockEntity::new)
                             .build(),
                     MachineBlockItem::new);
 

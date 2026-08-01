@@ -59,6 +59,26 @@ public class ModBlockEntities {
                     SteamTurbineGeneratorBlockEntity::new,
                     ModBlocks.STEAM_TURBINE_GENERATOR.mainBlock());
 
+    public static final Supplier<BlockEntityType<FlameReverberatoryFurnaceBlockEntity>> FLAME_REVERBERATORY_FURNACE =
+            MachineRegistrar.registerMainBE("flame_reverberatory_furnace",
+                    FlameReverberatoryFurnaceBlockEntity::new,
+                    ModBlocks.FLAME_REVERBERATORY_FURNACE.mainBlock());
+
+    public static final Supplier<BlockEntityType<GasTurbineGeneratorBlockEntity>> GAS_TURBINE_GENERATOR =
+            MachineRegistrar.registerMainBE("gas_turbine_generator",
+                    GasTurbineGeneratorBlockEntity::new,
+                    ModBlocks.GAS_TURBINE_GENERATOR.mainBlock());
+
+    public static final Supplier<BlockEntityType<SteamDuplexMineralJigBlockEntity>> STEAM_DUPLEX_MINERAL_JIG =
+            MachineRegistrar.registerMainBE("steam_duplex_mineral_jig",
+                    SteamDuplexMineralJigBlockEntity::new,
+                    ModBlocks.STEAM_DUPLEX_MINERAL_JIG.mainBlock());
+
+    public static final Supplier<BlockEntityType<SteamHammerBlockEntity>> STEAM_HAMMER =
+            MachineRegistrar.registerMainBE("steam_hammer",
+                    SteamHammerBlockEntity::new,
+                    ModBlocks.STEAM_HAMMER.mainBlock());
+
     // ========== Phase 2b：自动注册 side BE + side block + 连线 ==========
 
     static {
@@ -68,6 +88,10 @@ public class ModBlockEntities {
         MachineRegistrar.wireMachine(ModBlocks.PRIMITIVE_BLAST_FURNACE, PRIMITIVE_BLAST_FURNACE);
         MachineRegistrar.wireMachine(ModBlocks.STEAM_ROLLER_CRUSHER, STEAM_ROLLER_CRUSHER);
         MachineRegistrar.wireMachine(ModBlocks.STEAM_TURBINE_GENERATOR, STEAM_TURBINE_GENERATOR);
+        MachineRegistrar.wireMachine(ModBlocks.FLAME_REVERBERATORY_FURNACE, FLAME_REVERBERATORY_FURNACE);
+        MachineRegistrar.wireMachine(ModBlocks.GAS_TURBINE_GENERATOR, GAS_TURBINE_GENERATOR);
+        MachineRegistrar.wireMachine(ModBlocks.STEAM_DUPLEX_MINERAL_JIG, STEAM_DUPLEX_MINERAL_JIG);
+        MachineRegistrar.wireMachine(ModBlocks.STEAM_HAMMER, STEAM_HAMMER);
     }
 
     public static void register(IEventBus eventBus) {
