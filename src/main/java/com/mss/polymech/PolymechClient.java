@@ -47,6 +47,7 @@ public class PolymechClient {
     @SubscribeEvent
     static void onRegisterEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.CONVEYOR_ITEM.get(), ConveyorItemRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.FILLING_UNIT.get(), FillingUnitRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.HORIZONTAL_STEAM_BOILER.get(), HorizontalSteamBoilerRenderer::new);
     }
 }

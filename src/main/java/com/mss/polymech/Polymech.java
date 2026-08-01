@@ -5,12 +5,17 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.entity.ModEntities;
+import com.mss.polymech.machine.BaseIOBlockEntity;
+import com.mss.polymech.machine.BaseIOSideBlockEntity;
+import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
+import net.minecraft.core.Direction;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -157,51 +162,37 @@ public class Polymech {
                 ConveyorBlockEntity::getItemHandler
         );
 
-        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
-            if (blockEntity instanceof com.mss.polymech.machine.production.FillingUnitBlockEntity be) {
-                if (context == null) return be.getItemStackHandler();
-                net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
-                if (context == facing) return be.getInputHandler();
-                if (context == facing.getOpposite()) return be.getOutputHandler();
-            }
-            return null;
-        }, ModBlocks.FILLING_UNIT.get());
+        // 通过MachineRegistry统一注册所有大型机器的物品能力
+        for (MachineRegistry.MachineEntry entry : MachineRegistry.getEntries()) {
+            var mainBE = entry.mainBlockEntity();
+            var sideBE = entry.sideBlockEntity();
+            if (mainBE == null || sideBE == null) continue;
 
-        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
-            if (blockEntity instanceof com.mss.polymech.machine.production.FillingUnitSideBlockEntity sideBE) {
-                com.mss.polymech.machine.production.FillingUnitBlockEntity parent = sideBE.getParentBlock();
-                if (parent != null) {
-                    if (context == null) return parent.getItemStackHandler();
-                    net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
-                    if (context == facing) return parent.getInputHandler();
-                    if (context == facing.getOpposite()) return parent.getOutputHandler();
+            // 主方块能力
+            event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+                if (blockEntity instanceof BaseIOBlockEntity be) {
+                    if (context == null) return be.getItemStackHandler();
+                    Direction facing = state.getValue(BaseMachineBlock.FACING);
+                    if (context == facing) return be.getInputHandler();
+                    if (context == facing.getOpposite()) return be.getOutputHandler();
                 }
-            }
-            return null;
-        }, ModBlocks.FILLING_UNIT_SIDE.get());
+                return null;
+            }, entry.mainBlock().get());
 
-        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
-            if (blockEntity instanceof com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity be) {
-                if (context == null) return be.getItemStackHandler();
-                net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
-                if (context == facing) return be.getInputHandler();
-                if (context == facing.getOpposite()) return be.getOutputHandler();
-            }
-            return null;
-        }, ModBlocks.HORIZONTAL_STEAM_BOILER.get());
-
-        event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
-            if (blockEntity instanceof com.mss.polymech.machine.production.HorizontalSteamBoilerSideBlockEntity sideBE) {
-                com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity parent = sideBE.getParentBlock();
-                if (parent != null) {
-                    if (context == null) return parent.getItemStackHandler();
-                    net.minecraft.core.Direction facing = state.getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
-                    if (context == facing) return parent.getInputHandler();
-                    if (context == facing.getOpposite()) return parent.getOutputHandler();
+            // 侧面方块能力（委托给主方块）
+            event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+                if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
+                    var parent = sideEntity.getParentBlock();
+                    if (parent instanceof BaseIOBlockEntity be) {
+                        if (context == null) return be.getItemStackHandler();
+                        Direction facing = state.getValue(BaseMachineBlock.FACING);
+                        if (context == facing) return be.getInputHandler();
+                        if (context == facing.getOpposite()) return be.getOutputHandler();
+                    }
                 }
-            }
-            return null;
-        }, ModBlocks.HORIZONTAL_STEAM_BOILER_SIDE.get());
+                return null;
+            }, entry.sideBlock().get());
+        }
     }
 
     /*

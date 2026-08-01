@@ -4,6 +4,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
 import com.mss.polymech.item.*;
+import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.production.FillingUnitBlock;
 import com.mss.polymech.machine.production.FillingUnitSideBlock;
 
@@ -166,6 +167,18 @@ public class ModBlocks {
         // 创建不可修改的公共视图
         PIPE_TABLE = Collections.unmodifiableMap(PIPE_TABLE_INTERNAL);
         PIPE_BLOCKS = Collections.unmodifiableList(allPipes);
+
+        // ========== 大型机器注册到MachineRegistry ==========
+        MachineRegistry.register(new MachineRegistry.MachineEntry(
+                "filling_unit",
+                () -> FILLING_UNIT.get(),
+                () -> FILLING_UNIT_SIDE.get()
+        ));
+        MachineRegistry.register(new MachineRegistry.MachineEntry(
+                "horizontal_steam_boiler",
+                () -> HORIZONTAL_STEAM_BOILER.get(),
+                () -> HORIZONTAL_STEAM_BOILER_SIDE.get()
+        ));
     }
 
     /*

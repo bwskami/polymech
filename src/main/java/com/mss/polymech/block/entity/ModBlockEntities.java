@@ -2,6 +2,7 @@ package com.mss.polymech.block.entity;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.production.FillingUnitBlockEntity;
 import com.mss.polymech.machine.production.FillingUnitSideBlockEntity;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
@@ -47,6 +48,19 @@ public class ModBlockEntities {
             BLOCK_ENTITIES.register("horizontal_steam_boiler_side", () ->
                     BlockEntityType.Builder.of(HorizontalSteamBoilerSideBlockEntity::new,
                             ModBlocks.HORIZONTAL_STEAM_BOILER_SIDE.get()).build(null));
+
+    // ========== 回填MachineRegistry中的方块实体类型 ==========
+
+    static {
+        MachineRegistry.MachineEntry fillingUnitEntry = MachineRegistry.getEntry("filling_unit");
+        if (fillingUnitEntry != null) {
+            fillingUnitEntry.setBlockEntities(FILLING_UNIT, FILLING_UNIT_SIDE);
+        }
+        MachineRegistry.MachineEntry boilerEntry = MachineRegistry.getEntry("horizontal_steam_boiler");
+        if (boilerEntry != null) {
+            boilerEntry.setBlockEntities(HORIZONTAL_STEAM_BOILER, HORIZONTAL_STEAM_BOILER_SIDE);
+        }
+    }
 
     public static void register(IEventBus eventBus) {
         BLOCK_ENTITIES.register(eventBus);

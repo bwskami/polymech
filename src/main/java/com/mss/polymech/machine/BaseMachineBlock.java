@@ -1,7 +1,7 @@
 package com.mss.polymech.machine;
 
 import com.mojang.serialization.MapCodec;
-import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.machine.common.MachineRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -19,28 +19,61 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.function.Supplier;
 
 public abstract class BaseMachineBlock extends BaseEntityBlock {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
-    private static final Map<String, Supplier<Block>> MACHINE_REGISTRY = new LinkedHashMap<>();
+    /**
+     * 获取主方块对应的侧面方块引用。
+     */
+    public abstract DeferredBlock<?> getSideBlock();
 
-    static {
-        MACHINE_REGISTRY.put("filling_unit", () -> ModBlocks.FILLING_UNIT.get());
-        MACHINE_REGISTRY.put("horizontal_steam_boiler", () -> ModBlocks.HORIZONTAL_STEAM_BOILER.get());
+    /**
+     * 获取主方块实体类型。
+     */
+    public abstract BlockEntityType<?> getMachineBlockEntityType();
+
+    /**
+     * 获取侧面方块实体类型，用于统一的能力注册等场景。
+     */
+    @Nullable
+    public BlockEntityType<?> getSideBlockEntityType() {
+        return null;
     }
 
+    /**
+     * 获取侧面方块相对于主方块的本地坐标偏移数组。
+     */
+    public abstract Vec3i[] getSideOffsets();
+
+    /**
+     * 获取填充区域，返回二维数组，每个元素为{min, max}的Vec3i对。
+     * 默认返回null表示无填充区域。
+     */
+    public Vec3i[][] getFillRegions() {
+        return null;
+    }
+
+    // ========== MachineRegistry 委托 ==========
+
+    /**
+     * 根据机器ID获取对应的主方块实例。
+     */
     @Nullable
     public static Block getMachineBlock(String machineId) {
-        Supplier<Block> supplier = MACHINE_REGISTRY.get(machineId);
-        return supplier != null ? supplier.get() : null;
+        BaseMachineBlock block = MachineRegistry.getMachineBlock(machineId);
+        return block;
     }
 
+    /**
+     * 获取所有已注册的大型机器ID。
+     */
     public static Collection<String> getMachineIds() {
-        return MACHINE_REGISTRY.keySet();
+        return MachineRegistry.getMachineIds();
     }
+
+    // ========== 通用方块行为 ==========
 
     protected BaseMachineBlock(Properties properties) {
         super(properties);
@@ -66,16 +99,6 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
     @Override
     public BlockState mirror(BlockState state, Mirror mirror) {
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
-    }
-
-    public abstract DeferredBlock<?> getSideBlock();
-
-    public abstract BlockEntityType<?> getMachineBlockEntityType();
-
-    public abstract Vec3i[] getSideOffsets();
-
-    public Vec3i[][] getFillRegions() {
-        return null;
     }
 
     public BlockPos[] getSidePositions(BlockState state, BlockPos pos) {
