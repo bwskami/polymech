@@ -4,8 +4,12 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorItemRenderer;
+import com.mss.polymech.client.renderer.BeehiveCokeOvenRenderer;
 import com.mss.polymech.client.renderer.FillingUnitRenderer;
 import com.mss.polymech.client.renderer.HorizontalSteamBoilerRenderer;
+import com.mss.polymech.client.renderer.PrimitiveBlastFurnaceRenderer;
+import com.mss.polymech.client.renderer.SteamRollerCrusherRenderer;
+import com.mss.polymech.client.renderer.SteamTurbineGeneratorRenderer;
 import com.mss.polymech.entity.ModEntities;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -49,5 +53,9 @@ public class PolymechClient {
         event.registerEntityRenderer(ModEntities.CONVEYOR_ITEM.get(), ConveyorItemRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.FILLING_UNIT.get(), FillingUnitRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.HORIZONTAL_STEAM_BOILER.get(), HorizontalSteamBoilerRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.BEEHIVE_COKE_OVEN.get(), BeehiveCokeOvenRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.PRIMITIVE_BLAST_FURNACE.get(), PrimitiveBlastFurnaceRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ROLLER_CRUSHER.get(), SteamRollerCrusherRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.STEAM_TURBINE_GENERATOR.get(), SteamTurbineGeneratorRenderer::new);
     }
 }

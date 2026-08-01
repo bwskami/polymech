@@ -8,13 +8,20 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mss.polymech.Polymech;
+import com.mss.polymech.client.model.BeehiveCokeOvenModel;
 import com.mss.polymech.client.model.FillingUnitModel;
 import com.mss.polymech.client.model.HorizontalSteamBoilerModel;
+import com.mss.polymech.client.model.PrimitiveBlastFurnaceModel;
+import com.mss.polymech.client.model.SteamRollerCrusherModel;
+import com.mss.polymech.client.model.SteamTurbineGeneratorModel;
 import com.mss.polymech.item.BlueprintToolItem;
 import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.production.BeehiveCokeOvenBlockEntity;
 import com.mss.polymech.machine.production.FillingUnitBlockEntity;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
-import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
+import com.mss.polymech.machine.production.PrimitiveBlastFurnaceBlockEntity;
+import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
+import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -84,6 +91,38 @@ public class MachinePreviewRenderer {
                     }
                 };
                 return new GeoBlockRenderer<HorizontalSteamBoilerBlockEntity>(ghostModel) {};
+            } else if (origModel instanceof BeehiveCokeOvenModel) {
+                var ghostModel = new BeehiveCokeOvenModel() {
+                    @Override
+                    public RenderType getRenderType(BeehiveCokeOvenBlockEntity animatable, ResourceLocation texture) {
+                        return RenderType.entityCutout(texture);
+                    }
+                };
+                return new GeoBlockRenderer<BeehiveCokeOvenBlockEntity>(ghostModel) {};
+            } else if (origModel instanceof PrimitiveBlastFurnaceModel) {
+                var ghostModel = new PrimitiveBlastFurnaceModel() {
+                    @Override
+                    public RenderType getRenderType(PrimitiveBlastFurnaceBlockEntity animatable, ResourceLocation texture) {
+                        return RenderType.entityCutout(texture);
+                    }
+                };
+                return new GeoBlockRenderer<PrimitiveBlastFurnaceBlockEntity>(ghostModel) {};
+            } else if (origModel instanceof SteamRollerCrusherModel) {
+                var ghostModel = new SteamRollerCrusherModel() {
+                    @Override
+                    public RenderType getRenderType(SteamRollerCrusherBlockEntity animatable, ResourceLocation texture) {
+                        return RenderType.entityCutout(texture);
+                    }
+                };
+                return new GeoBlockRenderer<SteamRollerCrusherBlockEntity>(ghostModel) {};
+            } else if (origModel instanceof SteamTurbineGeneratorModel) {
+                var ghostModel = new SteamTurbineGeneratorModel() {
+                    @Override
+                    public RenderType getRenderType(SteamTurbineGeneratorBlockEntity animatable, ResourceLocation texture) {
+                        return RenderType.entityCutout(texture);
+                    }
+                };
+                return new GeoBlockRenderer<SteamTurbineGeneratorBlockEntity>(ghostModel) {};
             }
             return null;
         });

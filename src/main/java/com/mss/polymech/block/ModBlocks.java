@@ -7,9 +7,16 @@ import com.mss.polymech.item.*;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.production.FillingUnitBlock;
 import com.mss.polymech.machine.production.FillingUnitSideBlock;
-
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlock;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerSideBlock;
+import com.mss.polymech.machine.production.BeehiveCokeOvenBlock;
+import com.mss.polymech.machine.production.BeehiveCokeOvenSideBlock;
+import com.mss.polymech.machine.production.PrimitiveBlastFurnaceBlock;
+import com.mss.polymech.machine.production.PrimitiveBlastFurnaceSideBlock;
+import com.mss.polymech.machine.production.SteamRollerCrusherBlock;
+import com.mss.polymech.machine.production.SteamRollerCrusherSideBlock;
+import com.mss.polymech.machine.production.SteamTurbineGeneratorBlock;
+import com.mss.polymech.machine.production.SteamTurbineGeneratorSideBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
@@ -114,6 +121,78 @@ public class ModBlocks {
                     .noOcclusion()
                     .dynamicShape()));
 
+    /* 蜂巢焦炉 - 大型机器 */
+    public static final DeferredBlock<BeehiveCokeOvenBlock> BEEHIVE_COKE_OVEN =
+            registerMachine("beehive_coke_oven",
+                    () -> new BeehiveCokeOvenBlock(Block.Properties.of()
+                            .strength(3.5F, 4.8F)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()
+                            .dynamicShape()),
+                    BeehiveCokeOvenItem::new);
+
+    /* 蜂巢焦炉 - 侧面方块 */
+    public static final DeferredBlock<BeehiveCokeOvenSideBlock> BEEHIVE_COKE_OVEN_SIDE =
+            BLOCKS.register("beehive_coke_oven_side", () -> new BeehiveCokeOvenSideBlock(Block.Properties.of()
+                    .strength(3.5F, 4.8F)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()
+                    .dynamicShape()));
+
+    /* 原始高炉 - 大型机器 */
+    public static final DeferredBlock<PrimitiveBlastFurnaceBlock> PRIMITIVE_BLAST_FURNACE =
+            registerMachine("primitive_blast_furnace",
+                    () -> new PrimitiveBlastFurnaceBlock(Block.Properties.of()
+                            .strength(3.5F, 4.8F)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()
+                            .dynamicShape()),
+                    PrimitiveBlastFurnaceItem::new);
+
+    /* 原始高炉 - 侧面方块 */
+    public static final DeferredBlock<PrimitiveBlastFurnaceSideBlock> PRIMITIVE_BLAST_FURNACE_SIDE =
+            BLOCKS.register("primitive_blast_furnace_side", () -> new PrimitiveBlastFurnaceSideBlock(Block.Properties.of()
+                    .strength(3.5F, 4.8F)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()
+                    .dynamicShape()));
+
+    /* 蒸汽辊式破碎机 - 大型机器 */
+    public static final DeferredBlock<SteamRollerCrusherBlock> STEAM_ROLLER_CRUSHER =
+            registerMachine("steam_roller_crusher",
+                    () -> new SteamRollerCrusherBlock(Block.Properties.of()
+                            .strength(3.5F, 4.8F)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()
+                            .dynamicShape()),
+                    SteamRollerCrusherItem::new);
+
+    /* 蒸汽辊式破碎机 - 侧面方块 */
+    public static final DeferredBlock<SteamRollerCrusherSideBlock> STEAM_ROLLER_CRUSHER_SIDE =
+            BLOCKS.register("steam_roller_crusher_side", () -> new SteamRollerCrusherSideBlock(Block.Properties.of()
+                    .strength(3.5F, 4.8F)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()
+                    .dynamicShape()));
+
+    /* 蒸汽涡轮发电机 - 大型机器 */
+    public static final DeferredBlock<SteamTurbineGeneratorBlock> STEAM_TURBINE_GENERATOR =
+            registerMachine("steam_turbine_generator",
+                    () -> new SteamTurbineGeneratorBlock(Block.Properties.of()
+                            .strength(3.5F, 4.8F)
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()
+                            .dynamicShape()),
+                    SteamTurbineGeneratorItem::new);
+
+    /* 蒸汽涡轮发电机 - 侧面方块 */
+    public static final DeferredBlock<SteamTurbineGeneratorSideBlock> STEAM_TURBINE_GENERATOR_SIDE =
+            BLOCKS.register("steam_turbine_generator_side", () -> new SteamTurbineGeneratorSideBlock(Block.Properties.of()
+                    .strength(3.5F, 4.8F)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()
+                    .dynamicShape()));
+
     // ========== 管道方块：数据驱动批量注册 ==========
     
     /* 内部管道查找表（构建期间使用） */
@@ -178,6 +257,26 @@ public class ModBlocks {
                 "horizontal_steam_boiler",
                 () -> HORIZONTAL_STEAM_BOILER.get(),
                 () -> HORIZONTAL_STEAM_BOILER_SIDE.get()
+        ));
+        MachineRegistry.register(new MachineRegistry.MachineEntry(
+                "beehive_coke_oven",
+                () -> BEEHIVE_COKE_OVEN.get(),
+                () -> BEEHIVE_COKE_OVEN_SIDE.get()
+        ));
+        MachineRegistry.register(new MachineRegistry.MachineEntry(
+                "primitive_blast_furnace",
+                () -> PRIMITIVE_BLAST_FURNACE.get(),
+                () -> PRIMITIVE_BLAST_FURNACE_SIDE.get()
+        ));
+        MachineRegistry.register(new MachineRegistry.MachineEntry(
+                "steam_roller_crusher",
+                () -> STEAM_ROLLER_CRUSHER.get(),
+                () -> STEAM_ROLLER_CRUSHER_SIDE.get()
+        ));
+        MachineRegistry.register(new MachineRegistry.MachineEntry(
+                "steam_turbine_generator",
+                () -> STEAM_TURBINE_GENERATOR.get(),
+                () -> STEAM_TURBINE_GENERATOR_SIDE.get()
         ));
     }
 
