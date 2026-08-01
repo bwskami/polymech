@@ -253,13 +253,39 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
                 .layout(l -> l.widthPercent(100));
 
         card.addChildren(name);
+        
+        // 使用鼠标按下事件，通过GLFW检测鼠标按键状态
         card.addEventListener(UIEvents.MOUSE_DOWN, e -> {
-            Polymech.LOGGER.info("Selected multiblock machine: {} ({})", machine.id(), machine.nameKey());
-            BlueprintToolItem.setSelectedMachineId(machine.id());
-            Minecraft.getInstance().setScreen(null);
+            Minecraft mc = Minecraft.getInstance();
+            
+            // 获取窗口句柄
+            long window = mc.getWindow().getWindow();
+            
+            // 检测鼠标按键状态
+            int leftButtonState = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT);
+            int rightButtonState = org.lwjgl.glfw.GLFW.glfwGetMouseButton(window, org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+            
+            if (rightButtonState == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                // 右键点击：打开上下文菜单
+                Polymech.LOGGER.info("Right click - Opening context menu for machine: {} ({})", machine.id(), machine.nameKey());
+                openContextMenu(machine);
+            } else if (leftButtonState == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                // 左键点击：选择机器
+                Polymech.LOGGER.info("Left click - Selected multiblock machine: {} ({})", machine.id(), machine.nameKey());
+                BlueprintToolItem.setSelectedMachineId(machine.id());
+                Minecraft.getInstance().setScreen(null);
+            }
         });
 
         return card;
+    }
+
+    private void openContextMenu(MachineData machine) {
+        // 这里可以创建一个上下文菜单，类似右键菜单
+        Polymech.LOGGER.info("Opening context menu for machine: {} ({})", machine.id(), machine.nameKey());
+        // 暂时显示一个聊天消息作为提示
+        Minecraft.getInstance().player.displayClientMessage(
+            Component.literal("上下文菜单 - 机器: " + Component.translatable(machine.nameKey()).getString()), false);
     }
 
     private Component getCurrentCategoryText() {
