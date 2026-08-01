@@ -1,9 +1,11 @@
 package com.mss.polymech.machine.common;
 
-import com.mss.polymech.machine.BaseIOSideBlockEntity;
+import com.mojang.serialization.MapCodec;
 import com.mss.polymech.machine.BaseIOBlockEntity;
+import com.mss.polymech.machine.BaseIOSideBlockEntity;
 import com.mss.polymech.machine.BaseMachineBlock;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -11,6 +13,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -18,62 +22,84 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
-import software.bernie.geckolib.animatable.GeoBlockEntity;
-
-import java.util.function.Supplier;
 
 /**
- * 大型机器主方块抽象基类，封装主方块通用行为：放置时生成侧面方块、破坏时同步移除、
- * 交互打开GUI、tick驱动工作逻辑以及碰撞/存活检测。
- *
- * @param <T> 主方块实体类型，必须继承 {@link BaseIOBlockEntity} 并实现 {@link GeoBlockEntity}
+ * 大型机器主方块（配置驱动），不再需要子类。
+ * <p>
+ * 所有机器特定的行为（侧面偏移、填充区域、方块实体创建等）
+ * 均通过 {@link MachineConfig} 注入，彻底消除 Block 子类样板代码。
+ * </p>
  */
-public abstract class LargeMachineBlock<T extends BaseIOBlockEntity & GeoBlockEntity> extends BaseMachineBlock {
+public class LargeMachineBlock extends BaseMachineBlock {
 
-    protected LargeMachineBlock(Properties properties) {
-        super(properties);
+    private final MachineConfig config;
+    private final MapCodec<LargeMachineBlock> codec;
+
+    public LargeMachineBlock(MachineConfig config) {
+        super(config.blockProperties());
+        this.config = config;
+        // 每个机器实例有自己的 CODEC，lambda 中捕获 config
+        this.codec = simpleCodec(p -> new LargeMachineBlock(config));
     }
 
-    /**
-     * 获取主方块对应的侧面方块引用。
-     *
-     * @return 侧面方块延迟引用
-     */
     @Override
-    public abstract DeferredBlock<?> getSideBlock();
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return codec;
+    }
 
-    /**
-     * 获取主方块实体类型引用。
-     *
-     * @return 方块实体类型供应商
-     */
-    public abstract Supplier<BlockEntityType<T>> getBlockEntityType();
+    // ========== 从 MachineConfig 读取机器属性 ==========
+
+    @Override
+    public DeferredBlock<?> getSideBlock() {
+        return config.sideBlock();
+    }
 
     @Override
     public BlockEntityType<?> getMachineBlockEntityType() {
-        return getBlockEntityType().get();
+        MachineRegistry.MachineEntry entry = MachineRegistry.getEntry(config.id());
+        return entry != null && entry.mainBlockEntity() != null ? entry.mainBlockEntity().get() : null;
     }
 
-    /**
-     * 创建主方块实体实例。
-     *
-     * @param pos   方块位置
-     * @param state 方块状态
-     * @return 主方块实体
-     */
-    protected abstract T createBlockEntity(BlockPos pos, BlockState state);
+    @Nullable
+    @Override
+    public BlockEntityType<?> getSideBlockEntityType() {
+        MachineRegistry.MachineEntry entry = MachineRegistry.getEntry(config.id());
+        return entry != null && entry.sideBlockEntity() != null ? entry.sideBlockEntity().get() : null;
+    }
+
+    @Override
+    public Vec3i[] getSideOffsets() {
+        return config.sideOffsets();
+    }
+
+    @Override
+    public Vec3i[][] getFillRegions() {
+        return config.fillRegions();
+    }
+
+    // ========== 方块实体 ==========
 
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return createBlockEntity(pos, state);
+        return config.blockEntityFactory().create(pos, state);
     }
 
     @Nullable
     @Override
-    public <T2 extends BlockEntity> BlockEntityTicker<T2> getTicker(Level level, BlockState state, BlockEntityType<T2> type) {
-        return createTickerHelper(type, getBlockEntityType().get(), BaseIOBlockEntity::tick);
+    @SuppressWarnings("unchecked")
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
+        MachineRegistry.MachineEntry entry = MachineRegistry.getEntry(config.id());
+        if (entry != null && entry.mainBlockEntity() != null) {
+            BlockEntityType<?> expectedType = entry.mainBlockEntity().get();
+            return createTickerHelper(type, (BlockEntityType) expectedType,
+                    (level1, pos1, state1, be1) ->
+                            BaseIOBlockEntity.tick(level1, pos1, state1, (BaseIOBlockEntity) be1));
+        }
+        return null;
     }
+
+    // ========== 通用大型机器行为 ==========
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
@@ -91,13 +117,24 @@ public abstract class LargeMachineBlock<T extends BaseIOBlockEntity & GeoBlockEn
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         if (!level.isClientSide()) {
             BlockPos[] sidePositions = getSidePositions(state, pos);
+            BlockState sideState = getSideBlock().get().defaultBlockState().setValue(FACING, state.getValue(FACING));
             for (BlockPos sidePos : sidePositions) {
-                level.setBlockAndUpdate(sidePos,
-                        getSideBlock().get().defaultBlockState().setValue(FACING, state.getValue(FACING)));
+                // 先放置方块（创建 BE），但不立即同步
+                level.setBlock(sidePos, sideState, Block.UPDATE_ALL);
+                // 在同步前设置 parentPos
                 BlockEntity be = level.getBlockEntity(sidePos);
                 if (be instanceof BaseIOSideBlockEntity sideBE) {
                     sideBE.setParentPos(pos);
+                    sideBE.setChanged();
                 }
+                // 现在同步到客户端（parentPos 已设置）
+                level.sendBlockUpdated(sidePos, sideState, sideState, Block.UPDATE_ALL);
+            }
+            // 同步主方块以确保客户端有最新 BE 数据
+            level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
+            BlockEntity mainBE = level.getBlockEntity(pos);
+            if (mainBE != null) {
+                mainBE.setChanged();
             }
         }
     }
@@ -121,12 +158,13 @@ public abstract class LargeMachineBlock<T extends BaseIOBlockEntity & GeoBlockEn
 
     @Override
     public boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
-        if (!level.isClientSide()) {
-            BlockPos[] sidePositions = getSidePositions(state, pos);
-            for (BlockPos sidePos : sidePositions) {
-                if (!level.getBlockState(sidePos).isAir()) {
-                    return false;
-                }
+        // 检查侧面位置是否被其他方块占用（空气和本机侧面方块都允许）
+        DeferredBlock<?> sideBlock = getSideBlock();
+        BlockPos[] sidePositions = getSidePositions(state, pos);
+        for (BlockPos sidePos : sidePositions) {
+            BlockState sideState = level.getBlockState(sidePos);
+            if (!sideState.isAir() && (sideBlock == null || !sideState.is(sideBlock.get()))) {
+                return false;
             }
         }
         return true;

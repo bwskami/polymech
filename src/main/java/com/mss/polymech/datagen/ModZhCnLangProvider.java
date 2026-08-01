@@ -136,7 +136,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
-        add(ModBlocks.HORIZONTAL_STEAM_BOILER.get(), "卧式蒸汽锅炉");
+        add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "卧式蒸汽锅炉");
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");

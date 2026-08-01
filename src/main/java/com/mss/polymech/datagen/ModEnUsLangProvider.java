@@ -157,7 +157,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
-        add(ModBlocks.HORIZONTAL_STEAM_BOILER.get(), "Horizontal Steam Boiler");
+        add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "Horizontal Steam Boiler");
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             PipeMaterial material = materialEntry.getKey();

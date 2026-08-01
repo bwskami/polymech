@@ -14,6 +14,7 @@ import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.phys.BlockHitResult;
@@ -21,48 +22,45 @@ import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.function.Supplier;
+
 /**
- * 大型机器侧面方块抽象基类，封装所有侧面方块的通用行为。
+ * 大型机器侧面方块（非抽象、配置驱动），所有机器共用。
  * <p>
- * 子类只需提供侧面方块实体构造逻辑和主方块引用，其余行为（右键打开父方块GUI、
- * 破坏时连锁移除父方块、中键选取返回主方块物品等）由基类统一实现。
+ * 通过 {@link Supplier} 注入侧面方块实体类型，不再需要为每台机器
+ * 单独创建 SideBlock 子类。
  * </p>
- *
- * @param <T> 侧面方块实体类型，必须继承 {@link BaseIOSideBlockEntity}
  */
-public abstract class LargeMachineSideBlock<T extends BaseIOSideBlockEntity> extends SideBlock {
+public class LargeMachineSideBlock extends SideBlock {
 
-    /** 对应的主方块延迟引用 */
+    private final MapCodec<LargeMachineSideBlock> codec;
     private final DeferredBlock<? extends BaseMachineBlock> mainBlock;
+    private final Supplier<BlockEntityType<?>> sideBETypeSupplier;
 
-    protected LargeMachineSideBlock(Properties properties, DeferredBlock<? extends BaseMachineBlock> mainBlock) {
+    public LargeMachineSideBlock(Properties properties,
+                                  DeferredBlock<? extends BaseMachineBlock> mainBlock,
+                                  Supplier<BlockEntityType<?>> sideBETypeSupplier) {
         super(properties);
         this.mainBlock = mainBlock;
+        this.sideBETypeSupplier = sideBETypeSupplier;
+        this.codec = simpleCodec(p -> new LargeMachineSideBlock(p, mainBlock, sideBETypeSupplier));
     }
 
-    /** 获取对应的主方块引用 */
+    @Override
+    protected MapCodec<? extends Block> codec() {
+        return codec;
+    }
+
     public DeferredBlock<? extends BaseMachineBlock> getMainBlock() {
         return mainBlock;
     }
 
-    // ========== 子类需实现的抽象方法 ==========
-
-    @Override
-    protected abstract MapCodec<? extends Block> codec();
-
-    /**
-     * 创建侧面方块实体实例。
-     *
-     * @param pos   方块位置
-     * @param state 方块状态
-     * @return 侧面方块实体
-     */
-    protected abstract T createSideBlockEntity(BlockPos pos, BlockState state);
+    // ========== 方块实体 ==========
 
     @Nullable
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return createSideBlockEntity(pos, state);
+        return new GenericSideBlockEntity(sideBETypeSupplier.get(), pos, state);
     }
 
     // ========== 通用方块状态定义 ==========

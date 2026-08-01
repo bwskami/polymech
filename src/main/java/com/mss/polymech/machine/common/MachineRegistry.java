@@ -3,6 +3,7 @@ package com.mss.polymech.machine.common;
 import com.mss.polymech.machine.BaseMachineBlock;
 import com.mss.polymech.machine.SideBlock;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -25,16 +26,20 @@ public class MachineRegistry {
     public static class MachineEntry {
         private final String id;
         private final Supplier<? extends BaseMachineBlock> mainBlock;
-        private final Supplier<? extends SideBlock> sideBlock;
+        @Nullable
+        private Supplier<? extends SideBlock> sideBlock;
+        @Nullable
         private Supplier<? extends BlockEntityType<?>> mainBlockEntity;
+        @Nullable
         private Supplier<? extends BlockEntityType<?>> sideBlockEntity;
 
+        /**
+         * 创建机器条目（方块注册阶段调用，侧面方块和方块实体尚未注册）。
+         */
         public MachineEntry(String id,
-                            Supplier<? extends BaseMachineBlock> mainBlock,
-                            Supplier<? extends SideBlock> sideBlock) {
+                            Supplier<? extends BaseMachineBlock> mainBlock) {
             this.id = id;
             this.mainBlock = mainBlock;
-            this.sideBlock = sideBlock;
         }
 
         public String id() {
@@ -45,14 +50,21 @@ public class MachineRegistry {
             return mainBlock;
         }
 
+        @Nullable
         public Supplier<? extends SideBlock> sideBlock() {
             return sideBlock;
         }
 
+        public void setSideBlock(Supplier<? extends SideBlock> sideBlock) {
+            this.sideBlock = sideBlock;
+        }
+
+        @Nullable
         public Supplier<? extends BlockEntityType<?>> mainBlockEntity() {
             return mainBlockEntity;
         }
 
+        @Nullable
         public Supplier<? extends BlockEntityType<?>> sideBlockEntity() {
             return sideBlockEntity;
         }
