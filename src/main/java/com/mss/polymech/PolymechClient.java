@@ -4,13 +4,10 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorItemRenderer;
-import com.mss.polymech.client.renderer.BeehiveCokeOvenRenderer;
-import com.mss.polymech.client.renderer.FillingUnitRenderer;
-import com.mss.polymech.client.renderer.HorizontalSteamBoilerRenderer;
-import com.mss.polymech.client.renderer.PrimitiveBlastFurnaceRenderer;
-import com.mss.polymech.client.renderer.SteamRollerCrusherRenderer;
-import com.mss.polymech.client.renderer.SteamTurbineGeneratorRenderer;
+import com.mss.polymech.client.renderer.MachineGeoRenderer;
 import com.mss.polymech.entity.ModEntities;
+import com.mss.polymech.machine.common.MachineRegistry;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -49,13 +46,31 @@ public class PolymechClient {
     }
 
     @SubscribeEvent
+    @SuppressWarnings({"unchecked", "rawtypes"})
     static void onRegisterEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.CONVEYOR_ITEM.get(), ConveyorItemRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.FILLING_UNIT.get(), FillingUnitRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.HORIZONTAL_STEAM_BOILER.get(), HorizontalSteamBoilerRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.BEEHIVE_COKE_OVEN.get(), BeehiveCokeOvenRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.PRIMITIVE_BLAST_FURNACE.get(), PrimitiveBlastFurnaceRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.STEAM_ROLLER_CRUSHER.get(), SteamRollerCrusherRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.STEAM_TURBINE_GENERATOR.get(), SteamTurbineGeneratorRenderer::new);
+
+        // 自动注册所有大型机器的方块实体渲染器（从 MachineRegistry 遍历）
+        for (MachineRegistry.MachineEntry entry : MachineRegistry.getEntries()) {
+            var beSupplier = entry.mainBlockEntity();
+            if (beSupplier == null) continue;
+
+            ResourceLocation modelPath, texturePath, animationPath;
+            if ("filling_unit".equals(entry.id())) {
+                // FillingUnit 不使用 block/ 子目录约定
+                modelPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/filling_unit.geo.json");
+                texturePath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/filling_unit.png");
+                animationPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/filling_unit.animation.json");
+            } else {
+                String id = entry.id();
+                modelPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/" + id + ".geo.json");
+                texturePath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/" + id + "/" + id + ".png");
+                animationPath = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/" + id + ".animation.json");
+            }
+
+            event.registerBlockEntityRenderer(
+                    (net.minecraft.world.level.block.entity.BlockEntityType) beSupplier.get(),
+                    ctx -> new MachineGeoRenderer<>(ctx, modelPath, texturePath, animationPath));
+        }
     }
 }

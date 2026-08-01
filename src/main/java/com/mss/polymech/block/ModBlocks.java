@@ -3,7 +3,10 @@ package com.mss.polymech.block;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
-import com.mss.polymech.item.*;
+import com.mss.polymech.item.MachineBlockItem;
+import com.mss.polymech.item.ModItems;
+import com.mss.polymech.item.PipeItem;
+import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.machine.common.MachineConfig;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MachineRegistrar;
@@ -16,6 +19,7 @@ import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
 import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
@@ -100,7 +104,10 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(FillingUnitBlockEntity::new)
                             .build(),
-                    FillingUnitItem::new);
+                    (block, props) -> new MachineBlockItem(block, props,
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/filling_unit.geo.json"),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/filling_unit.png"),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/filling_unit.animation.json")));
 
     /* 水平蒸汽锅炉 */
     public static final MachineRegistrar.MachineRegistration HORIZONTAL_STEAM_BOILER =
@@ -110,7 +117,7 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(HorizontalSteamBoilerBlockEntity::new)
                             .build(),
-                    HorizontalSteamBoilerItem::new);
+                    MachineBlockItem::new);
 
     /* 蜂巢焦炉 */
     public static final MachineRegistrar.MachineRegistration BEEHIVE_COKE_OVEN =
@@ -120,7 +127,7 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(BeehiveCokeOvenBlockEntity::new)
                             .build(),
-                    BeehiveCokeOvenItem::new);
+                    MachineBlockItem::new);
 
     /* 原始高炉 */
     public static final MachineRegistrar.MachineRegistration PRIMITIVE_BLAST_FURNACE =
@@ -130,7 +137,7 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(PrimitiveBlastFurnaceBlockEntity::new)
                             .build(),
-                    PrimitiveBlastFurnaceItem::new);
+                    MachineBlockItem::new);
 
     /* 蒸汽辊式破碎机 */
     public static final MachineRegistrar.MachineRegistration STEAM_ROLLER_CRUSHER =
@@ -140,7 +147,7 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamRollerCrusherBlockEntity::new)
                             .build(),
-                    SteamRollerCrusherItem::new);
+                    MachineBlockItem::new);
 
     /* 蒸汽涡轮发电机 */
     public static final MachineRegistrar.MachineRegistration STEAM_TURBINE_GENERATOR =
@@ -150,7 +157,7 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamTurbineGeneratorBlockEntity::new)
                             .build(),
-                    SteamTurbineGeneratorItem::new);
+                    MachineBlockItem::new);
 
     // ========== 管道方块：数据驱动批量注册 ==========
     
