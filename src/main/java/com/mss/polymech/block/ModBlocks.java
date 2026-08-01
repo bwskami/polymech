@@ -8,6 +8,7 @@ import com.mss.polymech.machine.common.MachineConfig;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MachineRegistrar;
 import com.mss.polymech.machine.production.FillingUnitBlockEntity;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlock;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import com.mss.polymech.machine.production.BeehiveCokeOvenBlockEntity;
 import com.mss.polymech.machine.production.PrimitiveBlastFurnaceBlockEntity;
@@ -105,7 +106,7 @@ public class ModBlocks {
     public static final MachineRegistrar.MachineRegistration HORIZONTAL_STEAM_BOILER =
             MachineRegistrar.registerBlock(
                     MachineConfig.builder("horizontal_steam_boiler")
-                            .sideOffsets(MachineConfig.crossOffsets())
+                            .blockFactory(HorizontalSteamBoilerBlock::new)  // ← 新增这一行
                             .blockProperties(machineProps())
                             .blockEntityFactory(HorizontalSteamBoilerBlockEntity::new)
                             .build(),

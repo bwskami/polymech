@@ -38,8 +38,8 @@ public class LargeMachineBlock extends BaseMachineBlock {
     public LargeMachineBlock(MachineConfig config) {
         super(config.blockProperties());
         this.config = config;
-        // 每个机器实例有自己的 CODEC，lambda 中捕获 config
-        this.codec = simpleCodec(p -> new LargeMachineBlock(config));
+        // 使用 config.blockFactory() 以支持子类重建（子类重写偏移时，codec 会调用其构造函数）
+        this.codec = simpleCodec(p -> config.blockFactory().apply(config));
     }
 
     @Override

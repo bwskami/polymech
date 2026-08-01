@@ -56,7 +56,7 @@ public class MachineRegistrar {
             BiFunction<Block, Item.Properties, ? extends BlockItem> itemFactory) {
 
         DeferredBlock<LargeMachineBlock> mainBlock =
-                ModBlocks.BLOCKS.register(config.id(), () -> new LargeMachineBlock(config));
+                ModBlocks.BLOCKS.register(config.id(), () -> config.blockFactory().apply(config));
 
         ModItems.ITEMS.register(config.id(),
                 () -> itemFactory.apply(mainBlock.get(), new Item.Properties()));

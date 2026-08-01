@@ -8,11 +8,18 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.function.Function;
+
 /**
  * 大型机器的全部配置，一处定义、处处自动注册。
  * <p>
  * 新建机器只需：1 个 BlockEntity 类 + 1 条 MachineConfig 定义，
  * 主方块、侧面方块、侧面方块实体均由通用类自动生成。
+ * </p>
+ * <p>
+ * 如需自定义侧面方块填充布局，创建 LargeMachineBlock 子类并重写
+ * {@code getSideOffsets()} / {@code getFillRegions()}，
+ * 然后通过 {@code .blockFactory(MyBlock::new)} 注入。
  * </p>
  */
 public class MachineConfig {
@@ -23,6 +30,7 @@ public class MachineConfig {
     private final Vec3i[][] fillRegions;
     private final BlockBehaviour.Properties blockProperties;
     private final BlockEntityType.BlockEntitySupplier<? extends BlockEntity> blockEntityFactory;
+    private final Function<MachineConfig, ? extends LargeMachineBlock> blockFactory;
     private final int slotCount;
     private final int defaultMaxProgress;
     private final int powerPerTick;
@@ -37,6 +45,7 @@ public class MachineConfig {
         this.fillRegions = builder.fillRegions;
         this.blockProperties = builder.blockProperties;
         this.blockEntityFactory = builder.blockEntityFactory;
+        this.blockFactory = builder.blockFactory;
         this.slotCount = builder.slotCount;
         this.defaultMaxProgress = builder.defaultMaxProgress;
         this.powerPerTick = builder.powerPerTick;
@@ -53,6 +62,9 @@ public class MachineConfig {
     public int defaultMaxProgress() { return defaultMaxProgress; }
     public int powerPerTick() { return powerPerTick; }
 
+    /** 方块工厂，用于创建 Block 实例（默认 {@code LargeMachineBlock::new}），子类重写偏移时可注入自定义构造函数。 */
+    public Function<MachineConfig, ? extends LargeMachineBlock> blockFactory() { return blockFactory; }
+
     public DeferredBlock<?> sideBlock() { return sideBlock; }
     void setSideBlock(DeferredBlock<?> sideBlock) { this.sideBlock = sideBlock; }
 
@@ -67,10 +79,11 @@ public class MachineConfig {
 
     public static class Builder {
         private final String id;
-        private Vec3i[] sideOffsets;
+        private Vec3i[] sideOffsets = new Vec3i[0];
         @Nullable private Vec3i[][] fillRegions;
         private BlockBehaviour.Properties blockProperties;
         private BlockEntityType.BlockEntitySupplier<? extends BlockEntity> blockEntityFactory;
+        private Function<MachineConfig, ? extends LargeMachineBlock> blockFactory = LargeMachineBlock::new;
         private int slotCount = 3;
         private int defaultMaxProgress = 200;
         private int powerPerTick = 10;
@@ -85,13 +98,20 @@ public class MachineConfig {
         public Builder blockEntityFactory(BlockEntityType.BlockEntitySupplier<? extends BlockEntity> factory) {
             this.blockEntityFactory = factory; return this;
         }
+        /**
+         * 自定义 Block 子类构造函数，用于重写 {@code getSideOffsets()} / {@code getFillRegions()}。
+         * 默认为 {@code LargeMachineBlock::new}，不调用则使用通用方块类。
+         */
+        public Builder blockFactory(Function<MachineConfig, ? extends LargeMachineBlock> factory) {
+            this.blockFactory = factory; return this;
+        }
         public Builder slotCount(int count) { this.slotCount = count; return this; }
         public Builder defaultMaxProgress(int maxProgress) { this.defaultMaxProgress = maxProgress; return this; }
         public Builder powerPerTick(int power) { this.powerPerTick = power; return this; }
 
         public MachineConfig build() {
-            if (sideOffsets == null || blockProperties == null || blockEntityFactory == null) {
-                throw new IllegalStateException("sideOffsets, blockProperties, blockEntityFactory are required for machine: " + id);
+            if (blockProperties == null || blockEntityFactory == null) {
+                throw new IllegalStateException("blockProperties, blockEntityFactory are required for machine: " + id);
             }
             return new MachineConfig(this);
         }
