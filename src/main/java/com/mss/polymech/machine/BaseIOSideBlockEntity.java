@@ -1,7 +1,5 @@
 package com.mss.polymech.machine;
 
-import com.mss.polymech.machine.common.LargeMachineSideBlock;
-import com.mss.polymech.machine.common.SideType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -20,14 +18,6 @@ public abstract class BaseIOSideBlockEntity extends BlockEntity {
 
     public BlockPos getParentPos() { return parentPos; }
     public void setParentPos(BlockPos pos) { this.parentPos = pos; }
-
-    /** 获取此侧面方块的类型。 */
-    public SideType getSideType() {
-        if (getBlockState().hasProperty(LargeMachineSideBlock.SIDE_TYPE)) {
-            return getBlockState().getValue(LargeMachineSideBlock.SIDE_TYPE);
-        }
-        return SideType.NORMAL;
-    }
 
     @Nullable
     public <T extends BlockEntity> T getParentBlock() {

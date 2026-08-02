@@ -17,7 +17,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -28,13 +27,11 @@ import java.util.function.Supplier;
 /**
  * 大型机器侧面方块（非抽象、配置驱动），所有机器共用。
  * <p>
- * 通过 {@link Supplier} 注入侧面方块实体类型，不再需要为每台机器
- * 单独创建 SideBlock 子类。
+ * 侧面方块全部是通用代理，不分类。
+ * 哪个位置对应什么功能，由主方块的 BlockEntity 根据位置映射。
  * </p>
  */
 public class LargeMachineSideBlock extends SideBlock {
-
-    public static final EnumProperty<SideType> SIDE_TYPE = EnumProperty.create("side_type", SideType.class);
 
     private final MapCodec<LargeMachineSideBlock> codec;
     private final DeferredBlock<? extends BaseMachineBlock> mainBlock;
@@ -47,7 +44,6 @@ public class LargeMachineSideBlock extends SideBlock {
         this.mainBlock = mainBlock;
         this.sideBETypeSupplier = sideBETypeSupplier;
         this.codec = simpleCodec(p -> new LargeMachineSideBlock(p, mainBlock, sideBETypeSupplier));
-        registerDefaultState(stateDefinition.any().setValue(SIDE_TYPE, SideType.NORMAL));
     }
 
     @Override
@@ -71,12 +67,7 @@ public class LargeMachineSideBlock extends SideBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(BaseMachineBlock.FACING, SIDE_TYPE);
-    }
-
-    /** 获取侧面方块的类型。 */
-    public static SideType getSideType(BlockState state) {
-        return state.getValue(SIDE_TYPE);
+        builder.add(BaseMachineBlock.FACING);
     }
 
     // ========== 通用侧面方块行为 ==========

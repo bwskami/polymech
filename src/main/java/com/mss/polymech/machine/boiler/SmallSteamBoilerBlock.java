@@ -1,10 +1,10 @@
-package com.mss.polymech.block;
+package com.mss.polymech.machine.boiler;
 
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.mss.polymech.block.entity.SmallSteamBoilerBlockEntity;
-import com.mss.polymech.client.gui.block.SmallSteamBoilerUI;
+import com.mss.polymech.client.gui.boiler.SmallSteamBoilerUI;
 import com.mss.polymech.machine.BaseIOBlockEntity;
+import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -56,7 +56,7 @@ public class SmallSteamBoilerBlock extends BaseEntityBlock implements BlockUIMen
     @Nullable
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        return createTickerHelper(type, com.mss.polymech.block.entity.ModBlockEntities.SMALL_STEAM_BOILER.get(),
+        return createTickerHelper(type, ModBlockEntities.SMALL_STEAM_BOILER.get(),
                 (level1, pos1, state1, be1) ->
                         BaseIOBlockEntity.tick(level1, pos1, state1, (BaseIOBlockEntity) be1));
     }

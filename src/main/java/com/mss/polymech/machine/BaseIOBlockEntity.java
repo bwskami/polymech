@@ -4,6 +4,7 @@ import com.mss.polymech.power.PowerNetworkManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
+import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.Packet;
@@ -19,6 +20,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
@@ -260,4 +262,36 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public ItemStackHandler getItemStackHandler() { return itemStackHandler; }
+
+    // ==================== 侧面方块位置映射（子类覆盖） ====================
+
+    /**
+     * 根据侧面方块相对于主方块的本地偏移，返回对应的物品处理器。
+     * <p>
+     * 子类覆盖此方法，定义每个位置映射到哪个内部槽位/处理器。
+     * 返回 null 表示该位置不暴露物品能力。
+     * </p>
+     *
+     * @param relativeOffset 侧面方块相对于主方块的本地偏移（未旋转）
+     * @return 对应的 IItemHandler，或 null
+     */
+    @Nullable
+    public IItemHandler getItemHandlerFor(Vec3i relativeOffset) {
+        return null;
+    }
+
+    /**
+     * 根据侧面方块相对于主方块的本地偏移，返回对应的流体处理器。
+     * <p>
+     * 子类覆盖此方法，定义每个位置映射到哪个内部储罐。
+     * 返回 null 表示该位置不暴露流体能力。
+     * </p>
+     *
+     * @param relativeOffset 侧面方块相对于主方块的本地偏移（未旋转）
+     * @return 对应的 IFluidHandler，或 null
+     */
+    @Nullable
+    public IFluidHandler getFluidHandlerFor(Vec3i relativeOffset) {
+        return null;
+    }
 }

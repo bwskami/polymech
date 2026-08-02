@@ -3,7 +3,8 @@ package com.mss.polymech.block;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
-import com.mss.polymech.block.entity.SmallSteamBoilerBlockEntity;
+import com.mss.polymech.machine.boiler.SmallSteamBoilerBlock;
+import com.mss.polymech.machine.boiler.SmallSteamBoilerBlockEntity;
 import com.mss.polymech.item.MachineBlockItem;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.PipeItem;
@@ -22,7 +23,6 @@ import com.mss.polymech.machine.production.SteamDuplexMineralJigBlockEntity;
 import com.mss.polymech.machine.production.SteamHammerBlockEntity;
 import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
 import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
-import net.minecraft.core.Vec3i;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.resources.ResourceLocation;
@@ -131,10 +131,6 @@ public class ModBlocks {
                             .blockProperties(machineProps())
                             .blockEntityFactory(HorizontalSteamBoilerBlockEntity::new)
                             .slotCount(5)   // 输入水桶、输出空桶、燃料、输出蒸汽桶、灰烬
-                            .fluidInputOffsets(new Vec3i[]{ new Vec3i(0, 0, 1) })      // 前方：水输入仓
-                            .fluidOutputOffsets(new Vec3i[]{ new Vec3i(0, 0, -1) })     // 后方：蒸汽输出仓
-                            .itemInputOffsets(new Vec3i[]{ new Vec3i(1, 0, 0) })        // 右侧：燃料输入
-                            .itemOutputOffsets(new Vec3i[]{ new Vec3i(-1, 0, 0) })      // 左侧：灰烬输出
                             .build(),
                     MachineBlockItem::new);
 

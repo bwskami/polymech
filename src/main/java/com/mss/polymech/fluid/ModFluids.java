@@ -61,6 +61,7 @@ public class ModFluids {
                     .supportsBoating(false)
                     .motionScale(0.002)   // 飘浮效果
             ) {
+                @SuppressWarnings("removal")
                 @Override
                 public void initializeClient(Consumer<IClientFluidTypeExtensions> consumer) {
                     consumer.accept(new IClientFluidTypeExtensions() {

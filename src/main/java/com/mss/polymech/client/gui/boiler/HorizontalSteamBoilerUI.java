@@ -1,8 +1,8 @@
-package com.mss.polymech.client.gui.block;
+package com.mss.polymech.client.gui.boiler;
 
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.mss.polymech.machine.common.AbstractSteamBoilerBlockEntity;
+import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 
 import java.util.Objects;

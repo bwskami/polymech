@@ -9,10 +9,8 @@ import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.machine.BaseIOBlockEntity;
 import com.mss.polymech.machine.BaseIOSideBlockEntity;
 import com.mss.polymech.machine.BaseMachineBlock;
-import com.mss.polymech.machine.common.AbstractSteamBoilerBlockEntity;
-import com.mss.polymech.machine.common.LargeMachineSideBlock;
+import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.machine.common.MachineRegistry;
-import com.mss.polymech.machine.common.SideType;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
@@ -20,7 +18,9 @@ import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Vec3i;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -188,19 +188,21 @@ public class Polymech {
                 return null;
             }, entry.mainBlock().get());
 
-            // ===== 侧面方块: 按类型暴露不同能力 =====
+            // ===== 侧面方块: 按位置映射暴露能力 =====
 
             // 侧面方块物品能力
             event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
                 if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
-                    SideType sideType = LargeMachineSideBlock.getSideType(state);
-                    var parent = sideEntity.getParentBlock();
-                    if (parent instanceof BaseIOBlockEntity be) {
-                        return switch (sideType) {
-                            case ITEM_INPUT -> be.getInputHandler();
-                            case ITEM_OUTPUT -> be.getOutputHandler();
-                            default -> null; // NORMAL 和 FLUID 类型不暴露物品能力
-                        };
+                    BlockPos parentPos = sideEntity.getParentPos();
+                    if (parentPos != null) {
+                        var parent = sideEntity.getParentBlock();
+                        if (parent instanceof BaseIOBlockEntity be) {
+                            Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
+                            // 反转朝向旋转：将世界偏移转回本地偏移
+                            Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
+                            Vec3i local = unrotateVec3i(offset, facing);
+                            return be.getItemHandlerFor(local);
+                        }
                     }
                 }
                 return null;
@@ -209,14 +211,15 @@ public class Polymech {
             // 侧面方块流体能力
             event.registerBlock(Capabilities.FluidHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
                 if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
-                    SideType sideType = LargeMachineSideBlock.getSideType(state);
-                    var parent = sideEntity.getParentBlock();
-                    if (parent instanceof AbstractSteamBoilerBlockEntity boiler) {
-                        return switch (sideType) {
-                            case FLUID_INPUT -> boiler.getWaterInputHandler();
-                            case FLUID_OUTPUT -> boiler.getSteamOutputHandler();
-                            default -> null;
-                        };
+                    BlockPos parentPos = sideEntity.getParentPos();
+                    if (parentPos != null) {
+                        var parent = sideEntity.getParentBlock();
+                        if (parent instanceof BaseIOBlockEntity be) {
+                            Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
+                            Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
+                            Vec3i local = unrotateVec3i(offset, facing);
+                            return be.getFluidHandlerFor(local);
+                        }
                     }
                 }
                 return null;
@@ -259,5 +262,20 @@ public class Polymech {
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("HELLO from server starting");
+    }
+
+    /**
+     * 反转 BaseMachineBlock.rotateVec3i 的旋转，将世界坐标偏移转回本地坐标。
+     */
+    private static Vec3i unrotateVec3i(Vec3i offset, Direction facing) {
+        int x = offset.getX();
+        int z = offset.getZ();
+        return switch (facing) {
+            case NORTH -> new Vec3i(x, offset.getY(), z);
+            case SOUTH -> new Vec3i(-x, offset.getY(), -z);
+            case EAST -> new Vec3i(z, offset.getY(), -x);
+            case WEST -> new Vec3i(-z, offset.getY(), x);
+            default -> offset;
+        };
     }
 }

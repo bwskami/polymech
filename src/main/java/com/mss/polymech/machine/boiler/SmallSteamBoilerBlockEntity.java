@@ -1,7 +1,7 @@
-package com.mss.polymech.block.entity;
+package com.mss.polymech.machine.boiler;
 
+import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.fluid.ModFluids;
-import com.mss.polymech.machine.common.AbstractSteamBoilerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;

@@ -1,4 +1,4 @@
-package com.mss.polymech.machine.common;
+package com.mss.polymech.machine.boiler;
 
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.machine.BaseIOBlockEntity;
@@ -26,6 +26,7 @@ import java.util.Set;
  * 产汽公式（每 tick 执行）：
  * <pre>
  *   steamAmount = (currentTemperature - 273) / 100 × parallel   (mB/t)
+ *   waterAmount = steamAmount                                    (mB/t)
  * </pre>
  * 温度使用开氏度(K)，范围 293K(环境) ~ 773K(满温)。
  * </p>
@@ -199,12 +200,14 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
 
         // === 3. 持续产蒸汽（373K起产，每tick执行） ===
         // 公式：steamAmount = (temp - 273) / 100 × parallel
+        // 并行 = 多台机器同时工作，水耗也乘以 parallel
         if (currentTemperature >= MIN_STEAM_TEMP) {
             int steamAmount = (currentTemperature - 273) / 100 * getParallel();
+            int waterAmount = steamAmount; // 水耗 = 产汽量（1:1 转换，但并行倍数消耗）
             if (steamAmount > 0 && steamTank.getFluidAmount() + steamAmount <= steamCapacity) {
                 FluidStack waterInTank = waterTank.getFluid();
-                if (!waterInTank.isEmpty() && waterInTank.getAmount() >= 1) {
-                    waterTank.drain(1, IFluidHandler.FluidAction.EXECUTE);
+                if (!waterInTank.isEmpty() && waterInTank.getAmount() >= waterAmount) {
+                    waterTank.drain(waterAmount, IFluidHandler.FluidAction.EXECUTE);
                     steamTank.fill(
                             new FluidStack(ModFluids.STEAM_SOURCE.get(), steamAmount),
                             IFluidHandler.FluidAction.EXECUTE);

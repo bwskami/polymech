@@ -3,6 +3,7 @@ package com.mss.polymech.block.entity;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.machine.common.MachineRegistrar;
+import com.mss.polymech.machine.boiler.SmallSteamBoilerBlockEntity;
 import com.mss.polymech.machine.production.*;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;

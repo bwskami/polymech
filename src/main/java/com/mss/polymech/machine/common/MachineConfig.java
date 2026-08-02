@@ -1,6 +1,7 @@
 package com.mss.polymech.machine.common;
 
 import com.mss.polymech.machine.BaseMachineBlock;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -8,7 +9,6 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -18,7 +18,12 @@ import java.util.function.Function;
  * 主方块、侧面方块、侧面方块实体均由通用类自动生成。
  * </p>
  * <p>
- * 如需自定义侧面方块填充布局，创建 LargeMachineBlock 子类并重写
+ * 侧面方块全部是通用代理，不分类。
+ * 哪个位置对应什么功能（流体输入/输出、物品输入/输出等），
+ * 由 BlockEntity 根据位置映射到内部处理器。
+ * </p>
+ * <p>
+ * 如需自定义侧面方块布局，创建 LargeMachineBlock 子类并重写
  * {@code getSideOffsets()} / {@code getFillRegions()}，
  * 然后通过 {@code .blockFactory(MyBlock::new)} 注入。
  * </p>
@@ -26,8 +31,7 @@ import java.util.function.Function;
 public class MachineConfig {
 
     private final String id;
-    /** 按类型分组的侧面偏移。键为 SideType，值为该类型的偏移数组。 */
-    private final Map<SideType, Vec3i[]> typedSideOffsets;
+    private final Vec3i[] sideOffsets;
     @Nullable
     private final Vec3i[][] fillRegions;
     private final BlockBehaviour.Properties blockProperties;
@@ -43,7 +47,7 @@ public class MachineConfig {
 
     private MachineConfig(Builder builder) {
         this.id = builder.id;
-        this.typedSideOffsets = Collections.unmodifiableMap(new EnumMap<>(builder.typedSideOffsets));
+        this.sideOffsets = builder.sideOffsets;
         this.fillRegions = builder.fillRegions;
         this.blockProperties = builder.blockProperties;
         this.blockEntityFactory = builder.blockEntityFactory;
@@ -56,29 +60,7 @@ public class MachineConfig {
     // -- getters --
 
     public String id() { return id; }
-
-    /** 获取指定类型的侧面偏移数组。 */
-    public Vec3i[] sideOffsets(SideType type) {
-        return typedSideOffsets.getOrDefault(type, new Vec3i[0]);
-    }
-
-    /** 获取所有类型的所有侧面偏移（合并）。 */
-    public Vec3i[] sideOffsets() {
-        return typedSideOffsets.values().stream()
-                .flatMap(Arrays::stream)
-                .toArray(Vec3i[]::new);
-    }
-
-    /** 根据侧面偏移获取其类型。 */
-    public SideType getSideType(Vec3i offset) {
-        for (var entry : typedSideOffsets.entrySet()) {
-            for (Vec3i o : entry.getValue()) {
-                if (o.equals(offset)) return entry.getKey();
-            }
-        }
-        return SideType.NORMAL;
-    }
-
+    public Vec3i[] sideOffsets() { return sideOffsets; }
     @Nullable public Vec3i[][] fillRegions() { return fillRegions; }
     public BlockBehaviour.Properties blockProperties() { return blockProperties; }
     public BlockEntityType.BlockEntitySupplier<? extends BlockEntity> blockEntityFactory() { return blockEntityFactory; }
@@ -95,6 +77,16 @@ public class MachineConfig {
     public DeferredBlock<? extends BaseMachineBlock> mainBlock() { return mainBlock; }
     void setMainBlock(DeferredBlock<? extends BaseMachineBlock> mainBlock) { this.mainBlock = mainBlock; }
 
+    /** 根据主方块位置和朝向，计算所有侧面方块的世界坐标 */
+    public BlockPos[] getSidePositions(BlockPos center, net.minecraft.core.Direction facing) {
+        BlockPos[] positions = new BlockPos[sideOffsets.length];
+        for (int i = 0; i < sideOffsets.length; i++) {
+            Vec3i rotated = BaseMachineBlock.rotateVec3i(sideOffsets[i], facing);
+            positions[i] = center.offset(rotated);
+        }
+        return positions;
+    }
+
     // -- Builder --
 
     public static Builder builder(String id) {
@@ -103,7 +95,7 @@ public class MachineConfig {
 
     public static class Builder {
         private final String id;
-        private final Map<SideType, Vec3i[]> typedSideOffsets = new EnumMap<>(SideType.class);
+        private Vec3i[] sideOffsets = new Vec3i[0];
         @Nullable private Vec3i[][] fillRegions;
         private BlockBehaviour.Properties blockProperties;
         private BlockEntityType.BlockEntitySupplier<? extends BlockEntity> blockEntityFactory;
@@ -116,39 +108,9 @@ public class MachineConfig {
             this.id = id;
         }
 
-        /** 设置所有侧面偏移（均为 NORMAL 类型）。 */
+        /** 设置侧面方块偏移（通用，不分类）。 */
         public Builder sideOffsets(Vec3i[] offsets) {
-            this.typedSideOffsets.put(SideType.NORMAL, offsets);
-            return this;
-        }
-
-        /** 设置指定类型的侧面偏移。 */
-        public Builder sideOffsets(SideType type, Vec3i[] offsets) {
-            this.typedSideOffsets.put(type, offsets);
-            return this;
-        }
-
-        /** 便捷方法：设置流体输入仓偏移。 */
-        public Builder fluidInputOffsets(Vec3i[] offsets) {
-            this.typedSideOffsets.put(SideType.FLUID_INPUT, offsets);
-            return this;
-        }
-
-        /** 便捷方法：设置流体输出仓偏移。 */
-        public Builder fluidOutputOffsets(Vec3i[] offsets) {
-            this.typedSideOffsets.put(SideType.FLUID_OUTPUT, offsets);
-            return this;
-        }
-
-        /** 便捷方法：设置物品输入仓偏移。 */
-        public Builder itemInputOffsets(Vec3i[] offsets) {
-            this.typedSideOffsets.put(SideType.ITEM_INPUT, offsets);
-            return this;
-        }
-
-        /** 便捷方法：设置物品输出仓偏移。 */
-        public Builder itemOutputOffsets(Vec3i[] offsets) {
-            this.typedSideOffsets.put(SideType.ITEM_OUTPUT, offsets);
+            this.sideOffsets = offsets;
             return this;
         }
 
@@ -171,10 +133,6 @@ public class MachineConfig {
         public MachineConfig build() {
             if (blockProperties == null || blockEntityFactory == null) {
                 throw new IllegalStateException("blockProperties, blockEntityFactory are required for machine: " + id);
-            }
-            // 确保至少有一个类型注册了偏移
-            if (typedSideOffsets.isEmpty()) {
-                typedSideOffsets.put(SideType.NORMAL, new Vec3i[0]);
             }
             return new MachineConfig(this);
         }
