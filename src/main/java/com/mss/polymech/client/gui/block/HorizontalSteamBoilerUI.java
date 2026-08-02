@@ -28,13 +28,15 @@ public class HorizontalSteamBoilerUI {
 
         var itemHandler = be.getItemStackHandler();
 
-        // 隐藏进度条默认 label
-        var progressBar = new ProgressBar();
-        progressBar.label.setText(Component.empty());
-
-        // 隐藏温度进度条默认 label
+        // 隐藏所有进度条默认 label
         var tempBar = new ProgressBar();
         tempBar.label.setText(Component.empty());
+
+        var waterBar = new ProgressBar();
+        waterBar.label.setText(Component.empty());
+
+        var steamBar = new ProgressBar();
+        steamBar.label.setText(Component.empty());
 
         // 开关机按钮（书签标签风格，在面板外面右下角）
         var toggleBtn = new Button()
@@ -49,46 +51,49 @@ public class HorizontalSteamBoilerUI {
         mainPanel.addClass("panel_bg");
 
         mainPanel.addChildren(
-                // 机器区域：左槽 | 中间(温度条+信息面板+进度条) | 右槽
-                new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(4)).addChildren(
-                        // 左侧：输入液体 + 燃料（纵向，无文字）
-                        new UIElement().layout(l -> l.width(22).gapAll(14)).addChildren(
+                // 机器区域：左3槽(贴左) | 水位条 | 温度条+信息面板+蒸汽条(居中撑满) | 右2槽(贴右)
+                new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(2)).addChildren(
+                        // 左侧：输入水桶 + 输出空桶 + 输入燃料（纵向，贴左）
+                        new UIElement().layout(l -> l.width(20).gapAll(4)).addChildren(
                                 new ItemSlot().bind(itemHandler, 0),
-                                new ItemSlot().bind(itemHandler, 1)
+                                new ItemSlot().bind(itemHandler, 1),
+                                new ItemSlot().bind(itemHandler, 2)
                         ),
 
-                        // 中间区域：温度条+信息面板(横向) + 进度条(下方)
-                        new UIElement().layout(l -> l.gapAll(2)).addChildren(
-                                // 上行：温度条 + 信息面板
-                                new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(2)).addChildren(
-                                        tempBar
-                                                .setMaxValue(1000)
-                                                .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getTemperature()).build())
-                                                .layout(l -> l.width(18).height(50)),
-                                        new UIElement().layout(l -> l.width(72).gapAll(2).paddingAll(4)).addClass("panel_bg").addChildren(
-                                                new Label().setText(Component.translatable("block.poly_mech.horizontal_steam_boiler")),
-                                                new Label().bind(DataBindingBuilder.componentS2C(() -> {
-                                                    String status = be.isEnable()
-                                                            ? (be.getProgress() > 0 ? "§a工作中" : "§a运行中")
-                                                            : "§c已停止";
-                                                    return Component.literal(status);
-                                                }).build()),
-                                                new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                                        Component.literal("§e" + be.getTemperature() + "°C  §7" + be.getEfficiency() + "%")
-                                                ).build())
-                                        )
+                        // 水位条
+                        waterBar
+                                .setMaxValue(100)
+                                .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getWaterLevel()).build())
+                                .layout(l -> l.width(16).height(70)),
+
+                        // 中间区域：温度条 + 信息面板 + 蒸汽条（flex撑满剩余空间）
+                        new UIElement().layout(l -> l.flex(1).flexDirection(FlexDirection.ROW).gapAll(2)).addChildren(
+                                tempBar
+                                        .setMaxValue(1000)
+                                        .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getTemperature()).build())
+                                        .layout(l -> l.width(16).height(70)),
+                                new UIElement().layout(l -> l.flex(1).gapAll(2).paddingAll(4)).addClass("panel_bg").addChildren(
+                                        new Label().setText(Component.translatable("block.poly_mech.horizontal_steam_boiler")),
+                                        new Label().bind(DataBindingBuilder.componentS2C(() -> {
+                                            String status = be.isEnable()
+                                                    ? (be.getProgress() > 0 ? "§a工作中" : "§a运行中")
+                                                    : "§c已停止";
+                                            return Component.literal(status);
+                                        }).build()),
+                                        new Label().bind(DataBindingBuilder.componentS2C(() ->
+                                                Component.literal("§e" + be.getTemperature() + "°C  §7" + be.getEfficiency() + "%")
+                                        ).build())
                                 ),
-                                // 下行：进度条（横跨温度条+信息面板宽度）
-                                progressBar
-                                        .setMaxValue(be.getMaxProgress() > 0 ? be.getMaxProgress() : 100)
-                                        .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getProgress()).build())
-                                        .layout(l -> l.width(94).height(14))
+                                steamBar
+                                        .setMaxValue(100)
+                                        .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getSteamLevel()).build())
+                                        .layout(l -> l.width(16).height(70))
                         ),
 
-                        // 右侧：输出液体 + 灰烬（纵向，无文字）
-                        new UIElement().layout(l -> l.width(22).gapAll(14)).addChildren(
-                                new ItemSlot().bind(itemHandler, 2),
-                                new ItemSlot().bind(itemHandler, 3)
+                        // 右侧：输出蒸汽桶 + 输出灰烬（纵向，贴右）
+                        new UIElement().layout(l -> l.width(20).gapAll(4)).addChildren(
+                                new ItemSlot().bind(itemHandler, 3),
+                                new ItemSlot().bind(itemHandler, 4)
                         )
                 ),
 
