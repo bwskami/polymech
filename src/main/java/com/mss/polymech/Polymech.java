@@ -15,6 +15,7 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
+import com.mss.polymech.network.MachineTogglePacket;
 import net.minecraft.core.Direction;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
@@ -152,6 +153,11 @@ public class Polymech {
                 MachinePlacementPacket.TYPE,
                 MachinePlacementPacket.STREAM_CODEC,
                 MachinePlacementPacket::handle
+        );
+        registrar.playToServer(
+                MachineTogglePacket.TYPE,
+                MachineTogglePacket.STREAM_CODEC,
+                MachineTogglePacket::handle
         );
     }
 

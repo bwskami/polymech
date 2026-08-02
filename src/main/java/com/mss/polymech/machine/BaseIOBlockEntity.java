@@ -32,7 +32,7 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     protected int storedPower;
     protected static final int MAX_STORED_POWER = 10000;
     protected boolean isWorking;
-    protected boolean enable = true;
+    protected boolean enable = false;
     protected int progress = 0;
     protected int maxProgress;
     protected boolean needsInit = true;
@@ -134,6 +134,10 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
         if (level != null) {
             level.sendBlockUpdated(getBlockPos(), level.getBlockState(getBlockPos()), level.getBlockState(getBlockPos()), 3);
         }
+    }
+
+    public void toggleEnable() {
+        setEnable(!enable);
     }
 
     @Override

@@ -159,6 +159,14 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
         add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "Horizontal Steam Boiler");
 
+        // 卧式蒸汽锅炉 GUI 翻译
+        add("gui.poly_mech.input_liquid", "Input Liquid");
+        add("gui.poly_mech.fuel", "Fuel");
+        add("gui.poly_mech.output_liquid", "Output Liquid");
+        add("gui.poly_mech.output_ash", "Ash");
+        add("gui.poly_mech.button.enable", "Enable");
+        add("gui.poly_mech.button.disable", "Disable");
+
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             PipeMaterial material = materialEntry.getKey();
             for (var sizeEntry : materialEntry.getValue().entrySet()) {

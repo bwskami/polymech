@@ -50,9 +50,10 @@ public class HorizontalSteamBoilerBlockEntity extends BaseIOBlockEntity implemen
     /** 蓝图预览虚影标记：为 true 时跳过建造动画，直接显示 working 状态 */
     public boolean isGhostPreview = false;
 
-    private static final int INPUT_SLOT = 0;
+    private static final int INPUT_LIQUID_SLOT = 0;
     private static final int FUEL_SLOT = 1;
-    private static final int OUTPUT_SLOT = 2;
+    private static final int OUTPUT_LIQUID_SLOT = 2;
+    private static final int OUTPUT_ASH_SLOT = 3;
     private static final int POWER_PER_TICK = 5;
 
     private static final Set<net.minecraft.world.item.Item> FUEL_ITEMS = Set.of(
@@ -97,8 +98,8 @@ public class HorizontalSteamBoilerBlockEntity extends BaseIOBlockEntity implemen
     @Override
     protected IItemHandler getOutput() { return new OutputHandler(itemStackHandler); }
 
-    @Override protected int getInvSize() { return 3; }
-    @Override protected int getOutputSlotIndex() { return OUTPUT_SLOT; }
+    @Override protected int getInvSize() { return 4; }
+    @Override protected int getOutputSlotIndex() { return OUTPUT_LIQUID_SLOT; }
 
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
@@ -165,7 +166,7 @@ public class HorizontalSteamBoilerBlockEntity extends BaseIOBlockEntity implemen
     protected void craftItem(Level world) {
         if (!itemStackHandler.getStackInSlot(FUEL_SLOT).isEmpty()) {
             itemStackHandler.extractItem(FUEL_SLOT, 1, false);
-            itemStackHandler.insertItem(OUTPUT_SLOT, new ItemStack(Items.STICK), false);
+            itemStackHandler.insertItem(OUTPUT_ASH_SLOT, new ItemStack(Items.STICK), false);
         }
     }
 
@@ -174,12 +175,32 @@ public class HorizontalSteamBoilerBlockEntity extends BaseIOBlockEntity implemen
         ItemStack fuelStack = itemStackHandler.getStackInSlot(FUEL_SLOT);
         if (fuelStack.isEmpty()) return false;
         if (!isFuel(fuelStack)) return false;
-        ItemStack outputStack = itemStackHandler.getStackInSlot(OUTPUT_SLOT);
-        return outputStack.isEmpty() || outputStack.getCount() < outputStack.getMaxStackSize();
+        ItemStack ashStack = itemStackHandler.getStackInSlot(OUTPUT_ASH_SLOT);
+        return ashStack.isEmpty() || ashStack.getCount() < ashStack.getMaxStackSize();
     }
 
     private static boolean isFuel(ItemStack stack) {
         return FUEL_ITEMS.contains(stack.getItem());
+    }
+
+    // ==================== GUI 数据访问器 ====================
+
+    public int getProgress() { return progress; }
+    public int getMaxProgress() { return maxProgress; }
+    public boolean isEnable() { return enable; }
+
+    /** 当前温度（基于进度值） */
+    public int getTemperature() {
+        int baseTemp = 20;
+        int maxTemp = 1000;
+        if (maxProgress <= 0) return baseTemp;
+        return baseTemp + (int) ((float) progress / maxProgress * (maxTemp - baseTemp));
+    }
+
+    /** 当前效率（百分比） */
+    public int getEfficiency() {
+        if (maxProgress <= 0) return 0;
+        return (int) ((float) progress / maxProgress * 100);
     }
 
     // ==================== NBT：放置动画状态持久化 ====================
@@ -199,13 +220,13 @@ public class HorizontalSteamBoilerBlockEntity extends BaseIOBlockEntity implemen
     private record InputHandler(ItemStackHandler parent) implements IItemHandler {
         @Override public int getSlots() { return 2; }
         @Override public @NotNull ItemStack getStackInSlot(int slot) {
-            if (slot == 0) return parent.getStackInSlot(INPUT_SLOT);
+            if (slot == 0) return parent.getStackInSlot(INPUT_LIQUID_SLOT);
             if (slot == 1) return parent.getStackInSlot(FUEL_SLOT);
             return ItemStack.EMPTY;
         }
         @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
             if (slot == 0) {
-                return parent.insertItem(INPUT_SLOT, stack, simulate);
+                return parent.insertItem(INPUT_LIQUID_SLOT, stack, simulate);
             } else if (slot == 1) {
                 if (isFuel(stack)) {
                     return parent.insertItem(FUEL_SLOT, stack, simulate);
@@ -225,15 +246,19 @@ public class HorizontalSteamBoilerBlockEntity extends BaseIOBlockEntity implemen
     }
 
     private record OutputHandler(ItemStackHandler parent) implements IItemHandler {
-        @Override public int getSlots() { return 1; }
+        @Override public int getSlots() { return 2; }
         @Override public @NotNull ItemStack getStackInSlot(int slot) {
-            return parent.getStackInSlot(HorizontalSteamBoilerBlockEntity.OUTPUT_SLOT);
+            if (slot == 0) return parent.getStackInSlot(OUTPUT_LIQUID_SLOT);
+            if (slot == 1) return parent.getStackInSlot(OUTPUT_ASH_SLOT);
+            return ItemStack.EMPTY;
         }
         @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
             return stack;
         }
         @Override public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return parent.extractItem(HorizontalSteamBoilerBlockEntity.OUTPUT_SLOT, amount, simulate);
+            if (slot == 0) return parent.extractItem(OUTPUT_LIQUID_SLOT, amount, simulate);
+            if (slot == 1) return parent.extractItem(OUTPUT_ASH_SLOT, amount, simulate);
+            return ItemStack.EMPTY;
         }
         @Override public int getSlotLimit(int slot) { return 64; }
         @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return false; }

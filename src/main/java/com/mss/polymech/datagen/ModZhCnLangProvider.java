@@ -137,6 +137,14 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
         add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "卧式蒸汽锅炉");
+
+        // 卧式蒸汽锅炉 GUI 翻译
+        add("gui.poly_mech.input_liquid", "输入液体");
+        add("gui.poly_mech.fuel", "燃料");
+        add("gui.poly_mech.output_liquid", "输出液体");
+        add("gui.poly_mech.output_ash", "灰烬");
+        add("gui.poly_mech.button.enable", "开机");
+        add("gui.poly_mech.button.disable", "关机");
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");
