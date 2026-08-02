@@ -3,6 +3,7 @@ package com.mss.polymech.block;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
+import com.mss.polymech.block.entity.SmallSteamBoilerBlockEntity;
 import com.mss.polymech.item.MachineBlockItem;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.PipeItem;
@@ -86,6 +87,14 @@ public class ModBlocks {
     public static final DeferredBlock<ConveyorBlock> CONVEYOR =
             registerConveyor("conveyor", () -> new ConveyorBlock(Block.Properties.of()
                     .strength(2.0F, 3.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+
+    /* 小型蒸汽锅炉（单方块机器） */
+    public static final DeferredBlock<SmallSteamBoilerBlock> SMALL_STEAM_BOILER =
+            registerBlocks("small_steam_boiler", () -> new SmallSteamBoilerBlock(Block.Properties.of()
+                    .strength(3.0F, 6.0F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));

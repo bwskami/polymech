@@ -9,10 +9,10 @@ import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.machine.BaseIOBlockEntity;
 import com.mss.polymech.machine.BaseIOSideBlockEntity;
 import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.common.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.machine.common.LargeMachineSideBlock;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.SideType;
-import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
@@ -211,7 +211,7 @@ public class Polymech {
                 if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
                     SideType sideType = LargeMachineSideBlock.getSideType(state);
                     var parent = sideEntity.getParentBlock();
-                    if (parent instanceof HorizontalSteamBoilerBlockEntity boiler) {
+                    if (parent instanceof AbstractSteamBoilerBlockEntity boiler) {
                         return switch (sideType) {
                             case FLUID_INPUT -> boiler.getWaterInputHandler();
                             case FLUID_OUTPUT -> boiler.getSteamOutputHandler();
@@ -224,8 +224,7 @@ public class Polymech {
 
             // 主方块流体能力（兼容直接交互）
             event.registerBlock(Capabilities.FluidHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
-                if (blockEntity instanceof HorizontalSteamBoilerBlockEntity boiler) {
-                    // 主方块根据方向暴露：正面=蒸汽输出，背面=水输入
+                if (blockEntity instanceof AbstractSteamBoilerBlockEntity boiler) {
                     Direction facing = state.getValue(BaseMachineBlock.FACING);
                     if (context == null) return boiler.getSteamOutputHandler();
                     if (context == facing.getOpposite()) return boiler.getWaterInputHandler();

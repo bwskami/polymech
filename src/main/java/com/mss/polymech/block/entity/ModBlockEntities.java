@@ -27,6 +27,11 @@ public class ModBlockEntities {
                     BlockEntityType.Builder.of(ConveyorBlockEntity::new,
                             ModBlocks.CONVEYOR.get()).build(null));
 
+    public static final Supplier<BlockEntityType<SmallSteamBoilerBlockEntity>> SMALL_STEAM_BOILER =
+            BLOCK_ENTITIES.register("small_steam_boiler", () ->
+                    BlockEntityType.Builder.of(SmallSteamBoilerBlockEntity::new,
+                            ModBlocks.SMALL_STEAM_BOILER.get()).build(null));
+
     // ========== Phase 2a：大型机器主方块实体（带泛型，类型安全） ==========
 
     public static final Supplier<BlockEntityType<FillingUnitBlockEntity>> FILLING_UNIT =
