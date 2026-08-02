@@ -11,6 +11,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.client.model.MachineGeoModel;
 import com.mss.polymech.item.BlueprintToolItem;
 import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -241,6 +242,10 @@ public class MachinePreviewRenderer {
             return be;
         });
         if (tempBe == null) return;
+        // 标记为蓝图预览虚影，跳过建造动画
+        if (tempBe instanceof HorizontalSteamBoilerBlockEntity boiler) {
+            boiler.isGhostPreview = true;
+        }
         tempBe.setBlockState(state);
 
         try {

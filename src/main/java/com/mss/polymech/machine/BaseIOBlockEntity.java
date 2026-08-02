@@ -67,6 +67,11 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     public static <T extends BaseIOBlockEntity> void tick(Level world, BlockPos pos, BlockState state, T be) {
         if (world.isClientSide()) return;
 
+        // 建造动画服务端计时（仅 HorizontalSteamBoilerBlockEntity 需要）
+        if (be instanceof com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity boiler) {
+            boiler.tickServerSide();
+        }
+
         if (be.needsInit && world instanceof ServerLevel serverWorld) {
             be.needsInit = false;
             PowerNetworkManager.get(serverWorld).registerConsumer(

@@ -1,13 +1,6 @@
 {
 	"format_version": "1.8.0",
 	"animations": {
-		"idle": {
-			"loop": true
-		},
-		"working": {
-			"loop": true,
-			"animation_length": 2
-		},
 		"building": {
 			"animation_length": 2,
 			"bones": {
@@ -303,6 +296,5 @@
 				}
 			}
 		}
-	},
-	"geckolib_format_version": 2
+	}
 }
