@@ -1,5 +1,6 @@
 package com.mss.polymech.client.gui.block;
 
+import com.lowdragmc.lowdraglib2.gui.ColorPattern;
 import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.lowdragmc.lowdraglib2.gui.ui.UI;
@@ -9,15 +10,20 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.ItemSlot;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
+import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
+import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
+import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import com.mss.polymech.network.MachineTogglePacket;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import java.util.List;
 import java.util.Objects;
 
 public class HorizontalSteamBoilerUI {
@@ -28,15 +34,35 @@ public class HorizontalSteamBoilerUI {
 
         var itemHandler = be.getItemStackHandler();
 
-        // 隐藏所有进度条默认 label
+        // 隐藏所有进度条默认 label，设置为垂直填充（从下往上）+ 自定义颜色
         var tempBar = new ProgressBar();
         tempBar.label.setText(Component.empty());
+        tempBar.progressBarStyle(s -> s.fillDirection(FillDirection.DOWN_TO_UP));
+        tempBar.bar(b -> b.style(st -> st.backgroundTexture(ColorPattern.ORANGE.rectTexture())));
+        tempBar.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) ->
+                event.hoverTooltips = new HoverTooltips(List.of(
+                        Component.literal("§e温度: " + be.getTemperature() + "K / 773K"),
+                        Component.literal("§3产汽: " + be.getTotalSteamOutput() + " mB/t")
+                ), null, null, null));
 
         var waterBar = new ProgressBar();
         waterBar.label.setText(Component.empty());
+        waterBar.progressBarStyle(s -> s.fillDirection(FillDirection.DOWN_TO_UP));
+        waterBar.bar(b -> b.style(st -> st.backgroundTexture(ColorPattern.LIGHT_BLUE.rectTexture())));
+        waterBar.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) ->
+                event.hoverTooltips = new HoverTooltips(List.of(
+                        Component.literal("§b水位: " + be.getWaterAmount() + " / " + HorizontalSteamBoilerBlockEntity.WATER_CAPACITY + " mB")
+                ), null, null, null));
 
         var steamBar = new ProgressBar();
         steamBar.label.setText(Component.empty());
+        steamBar.progressBarStyle(s -> s.fillDirection(FillDirection.DOWN_TO_UP));
+        steamBar.bar(b -> b.style(st -> st.backgroundTexture(ColorPattern.CYAN.rectTexture())));
+        steamBar.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) ->
+                event.hoverTooltips = new HoverTooltips(List.of(
+                        Component.literal("§3蒸汽: " + be.getSteamAmount() + " / " + HorizontalSteamBoilerBlockEntity.STEAM_CAPACITY + " mB"),
+                        Component.literal("§7产汽速率: " + be.getTotalSteamOutput() + " mB/t")
+                ), null, null, null));
 
         // 开关机按钮（书签标签风格，在面板外面右下角）
         var toggleBtn = new Button()
@@ -69,19 +95,17 @@ public class HorizontalSteamBoilerUI {
                         // 中间区域：温度条 + 信息面板 + 蒸汽条（flex撑满剩余空间）
                         new UIElement().layout(l -> l.flex(1).flexDirection(FlexDirection.ROW).gapAll(2)).addChildren(
                                 tempBar
-                                        .setMaxValue(1000)
-                                        .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getTemperature()).build())
+                                        .setMaxValue(100)
+                                        .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getTemperaturePercent()).build())
                                         .layout(l -> l.width(16).height(70)),
                                 new UIElement().layout(l -> l.flex(1).gapAll(2).paddingAll(4)).addClass("panel_bg").addChildren(
                                         new Label().setText(Component.translatable("block.poly_mech.horizontal_steam_boiler")),
                                         new Label().bind(DataBindingBuilder.componentS2C(() -> {
-                                            String status = be.isEnable()
-                                                    ? (be.getProgress() > 0 ? "§a工作中" : "§a运行中")
-                                                    : "§c已停止";
+                                            String status = be.isEnable() ? "§a运行中" : "§c已停止";
                                             return Component.literal(status);
                                         }).build()),
                                         new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                                Component.literal("§e" + be.getTemperature() + "°C  §7" + be.getEfficiency() + "%")
+                                                Component.literal("§e" + be.getTemperature() + "K  §3" + be.getTotalSteamOutput() + " mB/t")
                                         ).build())
                                 ),
                                 steamBar
@@ -90,10 +114,11 @@ public class HorizontalSteamBoilerUI {
                                         .layout(l -> l.width(16).height(70))
                         ),
 
-                        // 右侧：输出蒸汽桶 + 输出灰烬（纵向，贴右）
+                        // 右侧：空桶输入 + 蒸汽桶输出 + 灰烬输出（纵向，贴右）
                         new UIElement().layout(l -> l.width(20).gapAll(4)).addChildren(
                                 new ItemSlot().bind(itemHandler, 3),
-                                new ItemSlot().bind(itemHandler, 4)
+                                new ItemSlot().bind(itemHandler, 4),
+                                new ItemSlot().bind(itemHandler, 5)
                         )
                 ),
 

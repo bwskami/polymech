@@ -5,6 +5,7 @@ import com.mss.polymech.machine.BaseIOBlockEntity;
 import com.mss.polymech.machine.BaseIOSideBlockEntity;
 import com.mss.polymech.machine.BaseMachineBlock;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
@@ -116,9 +117,15 @@ public class LargeMachineBlock extends BaseMachineBlock {
     @Override
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         if (!level.isClientSide()) {
-            BlockPos[] sidePositions = getSidePositions(state, pos);
-            BlockState sideState = getSideBlock().get().defaultBlockState().setValue(FACING, state.getValue(FACING));
-            for (BlockPos sidePos : sidePositions) {
+            Direction facing = state.getValue(FACING);
+            Vec3i[] rawOffsets = config.sideOffsets();
+            for (Vec3i rawOffset : rawOffsets) {
+                Vec3i rotated = BaseMachineBlock.rotateVec3i(rawOffset, facing);
+                BlockPos sidePos = pos.offset(rotated);
+                SideType sideType = config.getSideType(rawOffset);
+                BlockState sideState = getSideBlock().get().defaultBlockState()
+                        .setValue(FACING, facing)
+                        .setValue(LargeMachineSideBlock.SIDE_TYPE, sideType);
                 // 先放置方块（创建 BE），但不立即同步
                 level.setBlock(sidePos, sideState, Block.UPDATE_ALL);
                 // 在同步前设置 parentPos

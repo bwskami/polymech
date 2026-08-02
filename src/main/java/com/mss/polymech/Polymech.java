@@ -2,13 +2,17 @@ package com.mss.polymech;
 
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.entity.ModBlockEntities;
+import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.machine.BaseIOBlockEntity;
 import com.mss.polymech.machine.BaseIOSideBlockEntity;
 import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.common.LargeMachineSideBlock;
 import com.mss.polymech.machine.common.MachineRegistry;
+import com.mss.polymech.machine.common.SideType;
+import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
@@ -86,6 +90,7 @@ public class Polymech {
         // 注册游戏内容
         ModItems.register(modEventBus);
         ModBlocks.register(modEventBus);
+        ModFluids.register(modEventBus);
         ModEntities.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModMenuTypes.register(modEventBus);
@@ -168,36 +173,66 @@ public class Polymech {
                 ConveyorBlockEntity::getItemHandler
         );
 
-        // 通过MachineRegistry统一注册所有大型机器的物品能力
+        // 通过MachineRegistry统一注册所有大型机器的物品和流体能力
         for (MachineRegistry.MachineEntry entry : MachineRegistry.getEntries()) {
             var mainBE = entry.mainBlockEntity();
             var sideBE = entry.sideBlockEntity();
             if (mainBE == null || sideBE == null) continue;
 
-            // 主方块能力
+            // ===== 主方块: 物品能力 =====
             event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
                 if (blockEntity instanceof BaseIOBlockEntity be) {
                     if (context == null) return be.getItemStackHandler();
-                    Direction facing = state.getValue(BaseMachineBlock.FACING);
-                    if (context == facing) return be.getInputHandler();
-                    if (context == facing.getOpposite()) return be.getOutputHandler();
+                    return null; // 主方块自己不通过方向暴露物品IO，由侧面仓处理
                 }
                 return null;
             }, entry.mainBlock().get());
 
-            // 侧面方块能力（委托给主方块）
+            // ===== 侧面方块: 按类型暴露不同能力 =====
+
+            // 侧面方块物品能力
             event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
                 if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
+                    SideType sideType = LargeMachineSideBlock.getSideType(state);
                     var parent = sideEntity.getParentBlock();
                     if (parent instanceof BaseIOBlockEntity be) {
-                        if (context == null) return be.getItemStackHandler();
-                        Direction facing = state.getValue(BaseMachineBlock.FACING);
-                        if (context == facing) return be.getInputHandler();
-                        if (context == facing.getOpposite()) return be.getOutputHandler();
+                        return switch (sideType) {
+                            case ITEM_INPUT -> be.getInputHandler();
+                            case ITEM_OUTPUT -> be.getOutputHandler();
+                            default -> null; // NORMAL 和 FLUID 类型不暴露物品能力
+                        };
                     }
                 }
                 return null;
             }, entry.sideBlock().get());
+
+            // 侧面方块流体能力
+            event.registerBlock(Capabilities.FluidHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+                if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
+                    SideType sideType = LargeMachineSideBlock.getSideType(state);
+                    var parent = sideEntity.getParentBlock();
+                    if (parent instanceof HorizontalSteamBoilerBlockEntity boiler) {
+                        return switch (sideType) {
+                            case FLUID_INPUT -> boiler.getWaterInputHandler();
+                            case FLUID_OUTPUT -> boiler.getSteamOutputHandler();
+                            default -> null;
+                        };
+                    }
+                }
+                return null;
+            }, entry.sideBlock().get());
+
+            // 主方块流体能力（兼容直接交互）
+            event.registerBlock(Capabilities.FluidHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+                if (blockEntity instanceof HorizontalSteamBoilerBlockEntity boiler) {
+                    // 主方块根据方向暴露：正面=蒸汽输出，背面=水输入
+                    Direction facing = state.getValue(BaseMachineBlock.FACING);
+                    if (context == null) return boiler.getSteamOutputHandler();
+                    if (context == facing.getOpposite()) return boiler.getWaterInputHandler();
+                    if (context == facing) return boiler.getSteamOutputHandler();
+                }
+                return null;
+            }, entry.mainBlock().get());
         }
     }
 

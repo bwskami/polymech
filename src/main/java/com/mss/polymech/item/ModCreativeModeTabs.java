@@ -7,6 +7,7 @@ import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.fluid.ModFluids;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
@@ -72,6 +73,7 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.COKE_OVEN_BRICK.get());
                         output.accept(ModBlocks.FLUID_TANK.get());
+                        output.accept(ModFluids.STEAM_BUCKET.get());
                         
                         // 如果有目标为BLOCK的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {

@@ -4,6 +4,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.api.material.MaterialRegistry;
+import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.texture_data.ItemLayerTemplates;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -122,6 +123,11 @@ public class ModItemModelsProvider extends ItemModelProvider {
 
             // 情况3: 方块物品或其他 → 跳过（由 BlockStateProvider 处理）
             Polymech.LOGGER.debug("Skipped model generation for block item: {}", path);
+        }
+
+        // 流体桶物品
+        for (var entry : ModFluids.FLUID_BUCKET_ITEMS.getEntries()) {
+            basicItem(entry.get());
         }
     }
 }

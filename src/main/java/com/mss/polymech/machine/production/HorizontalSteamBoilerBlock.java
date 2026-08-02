@@ -6,7 +6,6 @@ import com.mss.polymech.client.gui.block.HorizontalSteamBoilerUI;
 import com.mss.polymech.machine.common.LargeMachineBlock;
 import com.mss.polymech.machine.common.MachineConfig;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -17,21 +16,6 @@ public class HorizontalSteamBoilerBlock extends LargeMachineBlock implements Blo
 
     public HorizontalSteamBoilerBlock(MachineConfig config) {
         super(config);
-    }
-
-    @Override
-    public Vec3i[] getSideOffsets() {
-        return new Vec3i[]{
-                new Vec3i(0, 0, 1),
-            // 你的自定义偏移...
-        };
-    }
-
-    @Override
-    public Vec3i[][] getFillRegions() {
-        return new Vec3i[][]{
-            // 你的自定义填充区域...
-        };
     }
 
     @Override

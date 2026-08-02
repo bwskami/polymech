@@ -167,6 +167,18 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("gui.poly_mech.button.enable", "Enable");
         add("gui.poly_mech.button.disable", "Disable");
 
+        // 蒸汽流体
+        add("fluid.poly_mech.steam", "Steam");
+        add("item.poly_mech.steam_bucket", "Steam Bucket");
+        add("block.poly_mech.steam", "Steam");
+
+        // 侧面方块类型
+        add("side_type.poly_mech.normal", "Machine Casing");
+        add("side_type.poly_mech.fluid_input", "Fluid Input Hatch");
+        add("side_type.poly_mech.fluid_output", "Fluid Output Hatch");
+        add("side_type.poly_mech.item_input", "Item Input Hatch");
+        add("side_type.poly_mech.item_output", "Item Output Hatch");
+
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             PipeMaterial material = materialEntry.getKey();
             for (var sizeEntry : materialEntry.getValue().entrySet()) {

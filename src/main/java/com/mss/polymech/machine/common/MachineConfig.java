@@ -8,6 +8,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -25,7 +26,8 @@ import java.util.function.Function;
 public class MachineConfig {
 
     private final String id;
-    private final Vec3i[] sideOffsets;
+    /** 按类型分组的侧面偏移。键为 SideType，值为该类型的偏移数组。 */
+    private final Map<SideType, Vec3i[]> typedSideOffsets;
     @Nullable
     private final Vec3i[][] fillRegions;
     private final BlockBehaviour.Properties blockProperties;
@@ -41,7 +43,7 @@ public class MachineConfig {
 
     private MachineConfig(Builder builder) {
         this.id = builder.id;
-        this.sideOffsets = builder.sideOffsets;
+        this.typedSideOffsets = Collections.unmodifiableMap(new EnumMap<>(builder.typedSideOffsets));
         this.fillRegions = builder.fillRegions;
         this.blockProperties = builder.blockProperties;
         this.blockEntityFactory = builder.blockEntityFactory;
@@ -54,7 +56,29 @@ public class MachineConfig {
     // -- getters --
 
     public String id() { return id; }
-    public Vec3i[] sideOffsets() { return sideOffsets; }
+
+    /** 获取指定类型的侧面偏移数组。 */
+    public Vec3i[] sideOffsets(SideType type) {
+        return typedSideOffsets.getOrDefault(type, new Vec3i[0]);
+    }
+
+    /** 获取所有类型的所有侧面偏移（合并）。 */
+    public Vec3i[] sideOffsets() {
+        return typedSideOffsets.values().stream()
+                .flatMap(Arrays::stream)
+                .toArray(Vec3i[]::new);
+    }
+
+    /** 根据侧面偏移获取其类型。 */
+    public SideType getSideType(Vec3i offset) {
+        for (var entry : typedSideOffsets.entrySet()) {
+            for (Vec3i o : entry.getValue()) {
+                if (o.equals(offset)) return entry.getKey();
+            }
+        }
+        return SideType.NORMAL;
+    }
+
     @Nullable public Vec3i[][] fillRegions() { return fillRegions; }
     public BlockBehaviour.Properties blockProperties() { return blockProperties; }
     public BlockEntityType.BlockEntitySupplier<? extends BlockEntity> blockEntityFactory() { return blockEntityFactory; }
@@ -79,7 +103,7 @@ public class MachineConfig {
 
     public static class Builder {
         private final String id;
-        private Vec3i[] sideOffsets = new Vec3i[0];
+        private final Map<SideType, Vec3i[]> typedSideOffsets = new EnumMap<>(SideType.class);
         @Nullable private Vec3i[][] fillRegions;
         private BlockBehaviour.Properties blockProperties;
         private BlockEntityType.BlockEntitySupplier<? extends BlockEntity> blockEntityFactory;
@@ -92,7 +116,42 @@ public class MachineConfig {
             this.id = id;
         }
 
-        public Builder sideOffsets(Vec3i[] offsets) { this.sideOffsets = offsets; return this; }
+        /** 设置所有侧面偏移（均为 NORMAL 类型）。 */
+        public Builder sideOffsets(Vec3i[] offsets) {
+            this.typedSideOffsets.put(SideType.NORMAL, offsets);
+            return this;
+        }
+
+        /** 设置指定类型的侧面偏移。 */
+        public Builder sideOffsets(SideType type, Vec3i[] offsets) {
+            this.typedSideOffsets.put(type, offsets);
+            return this;
+        }
+
+        /** 便捷方法：设置流体输入仓偏移。 */
+        public Builder fluidInputOffsets(Vec3i[] offsets) {
+            this.typedSideOffsets.put(SideType.FLUID_INPUT, offsets);
+            return this;
+        }
+
+        /** 便捷方法：设置流体输出仓偏移。 */
+        public Builder fluidOutputOffsets(Vec3i[] offsets) {
+            this.typedSideOffsets.put(SideType.FLUID_OUTPUT, offsets);
+            return this;
+        }
+
+        /** 便捷方法：设置物品输入仓偏移。 */
+        public Builder itemInputOffsets(Vec3i[] offsets) {
+            this.typedSideOffsets.put(SideType.ITEM_INPUT, offsets);
+            return this;
+        }
+
+        /** 便捷方法：设置物品输出仓偏移。 */
+        public Builder itemOutputOffsets(Vec3i[] offsets) {
+            this.typedSideOffsets.put(SideType.ITEM_OUTPUT, offsets);
+            return this;
+        }
+
         public Builder fillRegions(@Nullable Vec3i[][] regions) { this.fillRegions = regions; return this; }
         public Builder blockProperties(BlockBehaviour.Properties props) { this.blockProperties = props; return this; }
         public Builder blockEntityFactory(BlockEntityType.BlockEntitySupplier<? extends BlockEntity> factory) {
@@ -112,6 +171,10 @@ public class MachineConfig {
         public MachineConfig build() {
             if (blockProperties == null || blockEntityFactory == null) {
                 throw new IllegalStateException("blockProperties, blockEntityFactory are required for machine: " + id);
+            }
+            // 确保至少有一个类型注册了偏移
+            if (typedSideOffsets.isEmpty()) {
+                typedSideOffsets.put(SideType.NORMAL, new Vec3i[0]);
             }
             return new MachineConfig(this);
         }

@@ -145,6 +145,18 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("gui.poly_mech.output_ash", "灰烬");
         add("gui.poly_mech.button.enable", "开机");
         add("gui.poly_mech.button.disable", "关机");
+
+        // 蒸汽流体
+        add("fluid.poly_mech.steam", "蒸汽");
+        add("item.poly_mech.steam_bucket", "蒸汽桶");
+        add("block.poly_mech.steam", "蒸汽");
+
+        // 侧面方块类型
+        add("side_type.poly_mech.normal", "机器外壳");
+        add("side_type.poly_mech.fluid_input", "流体输入仓");
+        add("side_type.poly_mech.fluid_output", "流体输出仓");
+        add("side_type.poly_mech.item_input", "物品输入仓");
+        add("side_type.poly_mech.item_output", "物品输出仓");
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");

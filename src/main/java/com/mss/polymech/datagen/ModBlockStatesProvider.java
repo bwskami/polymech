@@ -4,6 +4,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.fluid.ModFluids;
 import net.minecraft.core.Direction;
 import net.minecraft.data.PackOutput;
 import net.minecraft.world.level.block.Block;
@@ -21,6 +22,10 @@ public class ModBlockStatesProvider extends BlockStateProvider {
     protected void registerStatesAndModels() {
         simpleBlockWithItem(ModBlocks.COKE_OVEN_BRICK.get(), cubeAll(ModBlocks.COKE_OVEN_BRICK.get()));
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
+
+        // 蒸汽流体方块
+        simpleBlock(ModFluids.STEAM_BLOCK.get(), models().getBuilder("steam")
+                .texture("particle", modLoc("block/steam_still")));
 
         generateConveyorBlockState();
 

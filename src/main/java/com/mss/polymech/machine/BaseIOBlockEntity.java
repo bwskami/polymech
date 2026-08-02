@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.IItemHandler;
 import net.neoforged.neoforge.items.ItemStackHandler;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
@@ -44,6 +45,17 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
         protected void onContentsChanged(int slot) {
             setChanged();
         }
+
+        @Override
+        public boolean isItemValid(int slot, @NotNull net.minecraft.world.item.ItemStack stack) {
+            return BaseIOBlockEntity.this.isItemValidForSlot(slot, stack);
+        }
+
+        @Override
+        public @NotNull net.minecraft.world.item.ItemStack insertItem(int slot, @NotNull net.minecraft.world.item.ItemStack stack, boolean simulate) {
+            if (!isItemValid(slot, stack)) return stack;
+            return super.insertItem(slot, stack, simulate);
+        }
     };
     protected IItemHandler input = getInput();
     protected IItemHandler output = getOutput();
@@ -64,6 +76,26 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     protected abstract IItemHandler getOutput();
     protected abstract int getOutputSlotIndex();
 
+    /**
+     * 每 tick 调用的自定义逻辑钩子（仅服务端、机器启用时）。
+     * 子类可覆盖以实现自动转换等逻辑。
+     */
+    protected void onTick(Level world) {}
+
+    /**
+     * 是否有燃料动力（用于非电力驱动的机器，如蒸汽锅炉）。
+     * 子类可覆盖以返回 true，使机器在燃料充足时运行。
+     */
+    protected boolean hasFuelPower() { return false; }
+
+    /**
+     * 子类覆盖此方法以定义 GUI 槽位的物品验证规则。
+     * 默认允许所有物品放入所有槽位。
+     */
+    protected boolean isItemValidForSlot(int slot, @NotNull net.minecraft.world.item.ItemStack stack) {
+        return true;
+    }
+
     public static <T extends BaseIOBlockEntity> void tick(Level world, BlockPos pos, BlockState state, T be) {
         if (world.isClientSide()) return;
 
@@ -80,6 +112,8 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
         if (!be.enable) {
             be.isWorking = false;
+            // 停机时仍然调用 onTick（用于锅炉余温冷却、水桶转换等）
+            be.onTick(world);
             world.sendBlockUpdated(pos, state, state, 3);
             be.setChanged();
             return;
@@ -87,21 +121,27 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
         be.tickNum++;
 
-        if (!be.isPowered && be.storedPower < be.getPowerCostPerTick()) return;
+        // 子类每 tick 自定义逻辑（如：水桶自动转水、锅炉温度管理）
+        be.onTick(world);
+
+        if (!be.isPowered && be.storedPower < be.getPowerCostPerTick() && !be.hasFuelPower()) return;
 
         if (be.isOutputSlotAvailable()) {
             boolean hasRecipe = be.hasCorrectRecipe(world);
-            if (be.needsPower() || !hasRecipe) {
+            boolean canRun = hasRecipe && (be.storedPower >= be.getPowerCostPerTick() || be.hasFuelPower());
+            if (!canRun) {
                 be.isWorking = false;
-            } else if (!be.needsPower() && !be.isWorking) {
+            } else if (!be.isWorking) {
                 be.isWorking = true;
             }
             be.setChanged();
             world.sendBlockUpdated(pos, state, state, 3);
 
-            if (hasRecipe && be.storedPower >= be.getPowerCostPerTick()) {
+            if (canRun) {
                 be.incrementProgress();
-                be.storedPower -= be.getPowerCostPerTick();
+                if (!be.hasFuelPower()) {
+                    be.storedPower -= be.getPowerCostPerTick();
+                }
                 if (be.hasCraftingFinished()) {
                     be.craftItem(world);
                     be.resetProgress();
@@ -170,7 +210,15 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     @Override
     public void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        itemStackHandler.deserializeNBT(registries, tag.getCompound("inventory"));
+        // 兼容旧存档：如果保存的槽位数与当前不一致，跳过加载（避免崩溃）
+        if (tag.contains("inventory")) {
+            var invTag = tag.getCompound("inventory");
+            int savedSize = invTag.getInt("Size");
+            if (savedSize == getInvSize()) {
+                itemStackHandler.deserializeNBT(registries, invTag);
+            }
+            // 槽位数不匹配时保留新创建的空 handler，旧物品数据丢失
+        }
         progress = tag.getInt("progress");
         storedPower = tag.getInt("storedPower");
         isWorking = tag.getBoolean("isWorking");
