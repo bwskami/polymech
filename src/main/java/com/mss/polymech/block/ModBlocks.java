@@ -112,6 +112,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(FillingUnitBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     (block, props) -> new MachineBlockItem(block, props,
                             ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/filling_unit.geo.json"),
@@ -136,6 +137,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(BeehiveCokeOvenBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     MachineBlockItem::new);
 
@@ -146,6 +148,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(PrimitiveBlastFurnaceBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     MachineBlockItem::new);
 
@@ -156,6 +159,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamRollerCrusherBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     MachineBlockItem::new);
 
@@ -166,6 +170,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamTurbineGeneratorBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     MachineBlockItem::new);
 
@@ -176,6 +181,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(FlameReverberatoryFurnaceBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     MachineBlockItem::new);
 
@@ -186,6 +192,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(GasTurbineGeneratorBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     (block, props) -> new MachineBlockItem(block, props,
                             ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/gas_turbine_generator.geo.json"),
@@ -199,6 +206,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamDuplexMineralJigBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     (block, props) -> new MachineBlockItem(block, props,
                             ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/steam_duplex_mineral_jig.geo.json"),
@@ -212,6 +220,7 @@ public class ModBlocks {
                             .sideOffsets(MachineConfig.crossOffsets())
                             .blockProperties(machineProps())
                             .blockEntityFactory(SteamHammerBlockEntity::new)
+                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
                     MachineBlockItem::new);
 

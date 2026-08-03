@@ -1,0 +1,20 @@
+{
+  "type": "poly_mech:primitive_blast_furnace",
+  "duration": 400,
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "minecraft:iron_ingot"
+    },
+    {
+      "count": 1,
+      "item": "poly_mech:coke"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 1,
+      "id": "poly_mech:steel_ingot"
+    }
+  ]
+}

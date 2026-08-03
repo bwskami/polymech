@@ -1,0 +1,22 @@
+{
+  "type": "poly_mech:steam_roller_crusher",
+  "duration": 60,
+  "fluid_inputs": [
+    {
+      "amount": 50,
+      "fluid": "poly_mech:steam_source"
+    }
+  ],
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "minecraft:gravel"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 1,
+      "id": "minecraft:flint"
+    }
+  ]
+}

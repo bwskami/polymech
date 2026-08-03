@@ -120,6 +120,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "Blueprint");
+        add(ModItems.COKE.get(), "Coke");
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "Multiblock Machine Selection");

@@ -1,20 +1,13 @@
 package com.mss.polymech.machine.production;
 
 import com.mss.polymech.block.entity.ModBlockEntities;
-import com.mss.polymech.machine.BaseIOBlockEntity;
+import com.mss.polymech.recipe.ModRecipeTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoBlockEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
@@ -23,55 +16,37 @@ import software.bernie.geckolib.animation.AnimationController;
 import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
-import java.util.Optional;
-
-public class SteamHammerBlockEntity extends BaseIOBlockEntity implements GeoBlockEntity {
+/**
+ * 蒸汽锤：蒸汽驱动锻压（锭→板）。
+ * <p>
+ * 布局：槽位 0=输入, 1=输出；储罐 0=蒸汽输入。
+ * 蒸汽消耗通过配方的流体输入声明实现（参考 GTM SteamEnergyRecipeHandler 思路）。
+ * </p>
+ */
+public class SteamHammerBlockEntity extends AbstractProcessingBlockEntity implements GeoBlockEntity {
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    private static final int INPUT_SLOT1 = 0;
-    private static final int INPUT_SLOT2 = 1;
-    private static final int OUTPUT_SLOT = 2;
-    private static final int POWER_PER_TICK = 12;
+    private static final int INPUT_SLOT = 0;
+    private static final int OUTPUT_SLOT = 1;
+    public static final int TANK_STEAM = 0;
 
     public SteamHammerBlockEntity(BlockPos pos, BlockState state) {
-        super(ModBlockEntities.STEAM_HAMMER.get(), pos, state, 150);
+        super(ModBlockEntities.STEAM_HAMMER.get(), pos, state,
+                ModRecipeTypes.STEAM_HAMMER.type(), 100);
     }
 
-    @Override
-    protected int getPowerCostPerTick() { return POWER_PER_TICK; }
+    // -- 布局声明 --
+    @Override public int[] getInputSlots() { return new int[]{INPUT_SLOT}; }
+    @Override public int[] getOutputSlots() { return new int[]{OUTPUT_SLOT}; }
+    @Override protected int getInvSize() { return 2; }
+    @Override protected int getTankCount() { return 1; }
+    @Override protected int getTankCapacity(int index) { return 8000; }
 
-    @Override
-    protected ContainerData createPropertyDelegate() {
-        return new ContainerData() {
-            @Override public int get(int index) {
-                return switch (index) {
-                    case 0 -> SteamHammerBlockEntity.this.progress;
-                    case 1 -> SteamHammerBlockEntity.this.maxProgress;
-                    case 2 -> SteamHammerBlockEntity.this.enable ? 1 : 0;
-                    default -> 0;
-                };
-            }
-            @Override public void set(int index, int value) {
-                switch (index) {
-                    case 0 -> SteamHammerBlockEntity.this.progress = value;
-                    case 1 -> SteamHammerBlockEntity.this.maxProgress = value;
-                    case 2 -> SteamHammerBlockEntity.this.enable = value == 1;
-                }
-            }
-            @Override public int getCount() { return 3; }
-        };
-    }
+    // -- 动力：蒸汽经配方流体输入消耗，跳过电力检查 --
+    @Override protected boolean hasFuelPower() { return true; }
 
-    @Override
-    protected IItemHandler getInput() { return new InputHandler(itemStackHandler); }
-
-    @Override
-    protected IItemHandler getOutput() { return new OutputHandler(itemStackHandler); }
-
-    @Override protected int getInvSize() { return 3; }
-    @Override protected int getOutputSlotIndex() { return OUTPUT_SLOT; }
-
+    // -- GeckoLib 动画 --
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "controller", 0,
@@ -90,49 +65,5 @@ public class SteamHammerBlockEntity extends BaseIOBlockEntity implements GeoBloc
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInv, Player player) {
         return null;
-    }
-
-    @Override
-    protected Optional<RecipeHolder<?>> getMatchRecipe(Level world) {
-        return Optional.empty();
-    }
-
-    @Override
-    protected void craftItem(Level world) {
-    }
-
-    @Override
-    protected boolean hasCorrectRecipe(Level world) {
-        return false;
-    }
-
-    private record InputHandler(ItemStackHandler parent) implements IItemHandler {
-        @Override public int getSlots() { return 2; }
-        @Override public @NotNull ItemStack getStackInSlot(int slot) {
-            return parent.getStackInSlot(slot);
-        }
-        @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return parent.insertItem(slot, stack, simulate);
-        }
-        @Override public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return ItemStack.EMPTY;
-        }
-        @Override public int getSlotLimit(int slot) { return 64; }
-        @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return true; }
-    }
-
-    private record OutputHandler(ItemStackHandler parent) implements IItemHandler {
-        @Override public int getSlots() { return 1; }
-        @Override public @NotNull ItemStack getStackInSlot(int slot) {
-            return parent.getStackInSlot(SteamHammerBlockEntity.OUTPUT_SLOT);
-        }
-        @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return stack;
-        }
-        @Override public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return parent.extractItem(SteamHammerBlockEntity.OUTPUT_SLOT, amount, simulate);
-        }
-        @Override public int getSlotLimit(int slot) { return 64; }
-        @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return false; }
     }
 }

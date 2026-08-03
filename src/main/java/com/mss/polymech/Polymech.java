@@ -14,6 +14,7 @@ import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MultiTankFluidHandler;
 import com.mss.polymech.machine.common.SlotFilteredItemHandler;
 import com.mss.polymech.menu.ModMenuTypes;
+import com.mss.polymech.recipe.ModRecipeTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.network.ConveyorPlacementPacket;
@@ -98,6 +99,7 @@ public class Polymech {
         ModEntities.register(modEventBus);
         ModBlockEntities.register(modEventBus);
         ModMenuTypes.register(modEventBus);
+        ModRecipeTypes.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);
         
         // 注册网络数据包处理器

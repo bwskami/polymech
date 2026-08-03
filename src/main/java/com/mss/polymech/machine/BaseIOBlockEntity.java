@@ -104,6 +104,25 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     protected boolean hasFuelPower() { return false; }
 
     /**
+     * 是否使用基类的配方加工流程（progress 累加 + craftItem）。
+     * 发电机类机器覆盖为 false，自行在 {@link #onTick(Level)} 中处理能量输出。
+     */
+    protected boolean usesRecipeCrafting() { return true; }
+
+    /**
+     * 注册电网身份。默认为用电器；发电机子类可覆盖以额外注册为发电机。
+     */
+    protected void registerPowerMemberships(ServerLevel world) {
+        PowerNetworkManager.get(world).registerConsumer(
+                getBlockPos(), this::getRequiredPower, this::receiveElectricCharge);
+    }
+
+    /** 注销电网身份，与 {@link #registerPowerMemberships(ServerLevel)} 对称。 */
+    protected void unregisterPowerMemberships(ServerLevel world) {
+        PowerNetworkManager.get(world).unregisterConsumer(getBlockPos());
+    }
+
+    /**
      * 子类覆盖此方法以定义 GUI 槽位的物品验证规则。
      * 默认允许所有物品放入所有槽位。
      */
@@ -121,8 +140,7 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
         if (be.needsInit && world instanceof ServerLevel serverWorld) {
             be.needsInit = false;
-            PowerNetworkManager.get(serverWorld).registerConsumer(
-                    be.getBlockPos(), be::getRequiredPower, be::receiveElectricCharge);
+            be.registerPowerMemberships(serverWorld);
         }
 
         // 主动输出：周期性把 OUTPUT 代理面的产物推送到结构外部（停机时也输出）
@@ -141,8 +159,14 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
         be.tickNum++;
 
-        // 子类每 tick 自定义逻辑（如：水桶自动转水、锅炉温度管理）
+        // 子类每 tick 自定义逻辑（如：水桶自动转水、锅炉温度管理、发电机发电）
         be.onTick(world);
+
+        // 发电机等自行处理能量的机器不走配方加工流程
+        if (!be.usesRecipeCrafting()) {
+            be.setChanged();
+            return;
+        }
 
         if (!be.isPowered && be.storedPower < be.getPowerCostPerTick() && !be.hasFuelPower()) return;
 
@@ -209,7 +233,7 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     @Override
     public void setRemoved() {
         if (level instanceof ServerLevel serverLevel) {
-            PowerNetworkManager.get(serverLevel).unregisterConsumer(getBlockPos());
+            unregisterPowerMemberships(serverLevel);
         }
         super.setRemoved();
     }
@@ -267,6 +291,16 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
     protected void resetProgress() { progress = 0; }
     protected void incrementProgress() { progress++; }
+
+    // -- UI 访问器 --
+    public int getProgress() { return progress; }
+    public int getMaxProgress() { return maxProgress; }
+    public boolean isEnable() { return enable; }
+    public boolean isWorkingState() { return isWorking; }
+    public int getStoredPower() { return storedPower; }
+    public double getProgressPercent() {
+        return maxProgress <= 0 ? 0.0 : progress / (double) maxProgress;
+    }
 
     protected boolean canOutputAccept(ItemStack result) {
         ItemStack out = itemStackHandler.getStackInSlot(getOutputSlotIndex());

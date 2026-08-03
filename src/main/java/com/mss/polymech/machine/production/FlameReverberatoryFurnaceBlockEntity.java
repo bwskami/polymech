@@ -1,20 +1,19 @@
 package com.mss.polymech.machine.production;
 
 import com.mss.polymech.block.entity.ModBlockEntities;
-import com.mss.polymech.machine.BaseIOBlockEntity;
+import com.mss.polymech.recipe.MachineRecipe;
+import com.mss.polymech.recipe.ModRecipeTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerData;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.SmeltingRecipe;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemStackHandler;
-import org.jetbrains.annotations.NotNull;
+import net.neoforged.neoforge.common.crafting.SizedIngredient;
 import org.jetbrains.annotations.Nullable;
 import software.bernie.geckolib.animatable.GeoBlockEntity;
 import software.bernie.geckolib.animatable.instance.AnimatableInstanceCache;
@@ -23,55 +22,72 @@ import software.bernie.geckolib.animation.AnimationController;
 import software.bernie.geckolib.animation.RawAnimation;
 import software.bernie.geckolib.util.GeckoLibUtil;
 
-import java.util.Optional;
+import java.util.List;
 
-public class FlameReverberatoryFurnaceBlockEntity extends BaseIOBlockEntity implements GeoBlockEntity {
+/**
+ * 火焰反射炉：燃料驱动熔炼。
+ * <p>
+ * 特殊实现：不读取自有配方表，而是在运行时代理原版熔炼配方
+ * （参考 GTM MULTI_SMELTER 的 proxyRecipes 思路），
+ * 将匹配到的熔炼配方包装为 {@link MachineRecipe} 走统一加工流程。
+ * </p>
+ * <p>
+ * 布局：槽位 0=输入, 1=输出；无储罐。
+ * </p>
+ */
+public class FlameReverberatoryFurnaceBlockEntity extends AbstractProcessingBlockEntity implements GeoBlockEntity {
 
     private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
 
-    private static final int INPUT_SLOT1 = 0;
-    private static final int INPUT_SLOT2 = 1;
-    private static final int OUTPUT_SLOT = 2;
-    private static final int POWER_PER_TICK = 10;
+    private static final int INPUT_SLOT = 0;
+    private static final int OUTPUT_SLOT = 1;
 
     public FlameReverberatoryFurnaceBlockEntity(BlockPos pos, BlockState state) {
-        super(ModBlockEntities.FLAME_REVERBERATORY_FURNACE.get(), pos, state, 200);
+        super(ModBlockEntities.FLAME_REVERBERATORY_FURNACE.get(), pos, state,
+                ModRecipeTypes.FLAME_REVERBERATORY_FURNACE.type(), 200);
     }
 
-    @Override
-    protected int getPowerCostPerTick() { return POWER_PER_TICK; }
+    // -- 布局声明 --
+    @Override public int[] getInputSlots() { return new int[]{INPUT_SLOT}; }
+    @Override public int[] getOutputSlots() { return new int[]{OUTPUT_SLOT}; }
+    @Override protected int getInvSize() { return 2; }
 
+    // -- 动力：燃料驱动（熔炉风格），跳过电力检查 --
+    @Override protected boolean hasFuelPower() { return true; }
+    @Override protected int getPowerCostPerTick() { return 0; }
+
+    /**
+     * 代理原版熔炼配方：按输入槽物品查找可熔炼配方，
+     * 包装为合成 MachineRecipe（耗时取熔炼时长，无能耗、无流体）。
+     */
     @Override
-    protected ContainerData createPropertyDelegate() {
-        return new ContainerData() {
-            @Override public int get(int index) {
-                return switch (index) {
-                    case 0 -> FlameReverberatoryFurnaceBlockEntity.this.progress;
-                    case 1 -> FlameReverberatoryFurnaceBlockEntity.this.maxProgress;
-                    case 2 -> FlameReverberatoryFurnaceBlockEntity.this.enable ? 1 : 0;
-                    default -> 0;
-                };
-            }
-            @Override public void set(int index, int value) {
-                switch (index) {
-                    case 0 -> FlameReverberatoryFurnaceBlockEntity.this.progress = value;
-                    case 1 -> FlameReverberatoryFurnaceBlockEntity.this.maxProgress = value;
-                    case 2 -> FlameReverberatoryFurnaceBlockEntity.this.enable = value == 1;
-                }
-            }
-            @Override public int getCount() { return 3; }
-        };
+    @Nullable
+    protected MachineRecipe findRecipe(Level world) {
+        if (world == null) return null;
+        if (lastRecipe != null && lastRecipe.matches(buildInput(), world)) {
+            return lastRecipe;
+        }
+        var inputStack = itemStackHandler.getStackInSlot(INPUT_SLOT);
+        if (inputStack.isEmpty()) return null;
+        for (RecipeHolder<SmeltingRecipe> holder :
+                world.getRecipeManager().getAllRecipesFor(RecipeType.SMELTING)) {
+            SmeltingRecipe cooking = holder.value();
+            var ingredients = cooking.getIngredients();
+            if (ingredients.isEmpty() || !ingredients.get(0).test(inputStack)) continue;
+            var result = cooking.getResultItem(world.registryAccess());
+            if (result.isEmpty()) continue;
+            lastRecipe = new MachineRecipe(recipeType,
+                    List.of(new SizedIngredient(ingredients.get(0), 1)),
+                    List.of(),
+                    List.of(result.copy()),
+                    List.of(),
+                    cooking.getCookingTime(), 0, false);
+            return lastRecipe;
+        }
+        return null;
     }
 
-    @Override
-    protected IItemHandler getInput() { return new InputHandler(itemStackHandler); }
-
-    @Override
-    protected IItemHandler getOutput() { return new OutputHandler(itemStackHandler); }
-
-    @Override protected int getInvSize() { return 3; }
-    @Override protected int getOutputSlotIndex() { return OUTPUT_SLOT; }
-
+    // -- GeckoLib 动画 --
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         controllers.add(new AnimationController<>(this, "controller", 0,
@@ -90,49 +106,5 @@ public class FlameReverberatoryFurnaceBlockEntity extends BaseIOBlockEntity impl
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory playerInv, Player player) {
         return null;
-    }
-
-    @Override
-    protected Optional<RecipeHolder<?>> getMatchRecipe(Level world) {
-        return Optional.empty();
-    }
-
-    @Override
-    protected void craftItem(Level world) {
-    }
-
-    @Override
-    protected boolean hasCorrectRecipe(Level world) {
-        return false;
-    }
-
-    private record InputHandler(ItemStackHandler parent) implements IItemHandler {
-        @Override public int getSlots() { return 2; }
-        @Override public @NotNull ItemStack getStackInSlot(int slot) {
-            return parent.getStackInSlot(slot);
-        }
-        @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return parent.insertItem(slot, stack, simulate);
-        }
-        @Override public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return ItemStack.EMPTY;
-        }
-        @Override public int getSlotLimit(int slot) { return 64; }
-        @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return true; }
-    }
-
-    private record OutputHandler(ItemStackHandler parent) implements IItemHandler {
-        @Override public int getSlots() { return 1; }
-        @Override public @NotNull ItemStack getStackInSlot(int slot) {
-            return parent.getStackInSlot(FlameReverberatoryFurnaceBlockEntity.OUTPUT_SLOT);
-        }
-        @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
-            return stack;
-        }
-        @Override public @NotNull ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return parent.extractItem(FlameReverberatoryFurnaceBlockEntity.OUTPUT_SLOT, amount, simulate);
-        }
-        @Override public int getSlotLimit(int slot) { return 64; }
-        @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return false; }
     }
 }

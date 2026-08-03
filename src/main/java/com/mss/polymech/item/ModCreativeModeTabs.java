@@ -50,6 +50,9 @@ public class ModCreativeModeTabs {
                     .icon(() -> new ItemStack(ModItems.getMaterialItem(ModItemTypes.INGOT, "steel").get()))
                     .title(Component.translatable("itemGroup.material_tab"))
                     .displayItems((parameters, output) -> {
+                        // 焦煤（焦炉产物，非材料前缀物品，手动加入）
+                        output.accept(ModItems.COKE.get());
+
                         // 自动收集所有目标为MATERIAL的物品
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {
                             if (prefix.getCreativeTabTarget() == ItemTagPrefix.CreativeTabTarget.MATERIAL) {

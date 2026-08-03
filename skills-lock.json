@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "neoforge-modding": {
+      "source": "siredvin/minecraft-modding-skills",
+      "sourceType": "github",
+      "skillPath": "skills/neoforge-modding/SKILL.md",
+      "computedHash": "64d8cca1c869f4936b54a9cf7bda7daa8bced25b02632d8b1d383dccc4e1daee"
+    }
+  }
+}

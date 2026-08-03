@@ -78,6 +78,13 @@ public class ModItems {
     public static final DeferredItem<BlueprintToolItem> BLUEPRINT =
             ITEMS.register("blueprint", () -> new BlueprintToolItem(new Item.Properties()));
 
+    /*
+     * 焦煤，蜂窝焦炉的产物，用于原始高炉炼钢与高级燃料。
+     * 模型复用粉尘染色模板，颜色由 colors.json 的 coke 材质条目提供。
+     */
+    public static final DeferredItem<Item> COKE =
+            ITEMS.register("coke", () -> new Item(new Item.Properties()));
+
     // ========== 材料物品：数据驱动批量注册 ==========
     
     /*

@@ -80,6 +80,9 @@ public class ModItemModelsProvider extends ItemModelProvider {
         for (ConveyorMaterial material : ConveyorMaterial.values()) {
             ITEM_TYPE_OVERRIDES.put(material.getConveyorRegistryName(), ItemLayerTemplates.CONVEYOR_BELT_ITEM);
         }
+
+        // 焦煤：复用粉尘染色模板，颜色由 colors.json 的 coke 材质条目提供
+        ITEM_TYPE_OVERRIDES.put("coke", ItemLayerTemplates.DUST);
     }
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",

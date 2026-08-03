@@ -10,6 +10,7 @@
     "ivar": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
     "cupronickel": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
     "stainless_steel": { "colors": ["#ffCDD7E4", "#ff9b75c1", "#fffdfbff"] },
+    "coke": { "colors": ["#ff3a3a3f", "#ff1f1f24", "#ff5a5a62"] },
 
     "aluminium_block": { "colors": ["#ff87ceeb", "#ff5fa3d6", "#abffffff"] },
     "nickel_block": { "colors": ["#ffBCB896", "#fe906d9f", "#e8fffc9e"] },
@@ -36,7 +37,9 @@
     "conveyor": "stainless_steel_block",
     "bronze_conveyor": "bronze_block",
     "stainless_steel_conveyor": "stainless_steel_block",
-    "brass_conveyor": "brass_block"
+    "brass_conveyor": "brass_block",
+
+    "coke": "coke"
   },
   "block_materials": {
     "pipe": "stainless_steel_block",

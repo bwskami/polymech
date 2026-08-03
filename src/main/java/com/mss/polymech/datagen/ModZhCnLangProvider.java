@@ -168,6 +168,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");
+        add(ModItems.COKE.get(), "焦煤");
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "多方块机器选择");

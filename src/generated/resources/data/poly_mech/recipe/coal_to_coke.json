@@ -1,0 +1,16 @@
+{
+  "type": "poly_mech:beehive_coke_oven",
+  "duration": 900,
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "minecraft:coal"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 1,
+      "id": "poly_mech:coke"
+    }
+  ]
+}
