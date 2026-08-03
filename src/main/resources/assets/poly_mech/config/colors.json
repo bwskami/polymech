@@ -31,7 +31,12 @@
     "bronze_ingot": "bronze",
     "ivar_ingot": "ivar",
     "cupronickel_ingot": "cupronickel",
-    "stainless_steel_ingot": "stainless_steel"
+    "stainless_steel_ingot": "stainless_steel",
+
+    "conveyor": "stainless_steel_block",
+    "bronze_conveyor": "bronze_block",
+    "stainless_steel_conveyor": "stainless_steel_block",
+    "brass_conveyor": "brass_block"
   },
   "block_materials": {
     "pipe": "stainless_steel_block",
@@ -52,6 +57,11 @@
     "brass_pipe": "brass_block",
     "brass_small_pipe": "brass_block",
     "brass_big_pipe": "brass_block",
-    "brass_huge_pipe": "brass_block"
+    "brass_huge_pipe": "brass_block",
+
+    "conveyor": "stainless_steel_block",
+    "bronze_conveyor": "bronze_block",
+    "stainless_steel_conveyor": "stainless_steel_block",
+    "brass_conveyor": "brass_block"
   }
 }

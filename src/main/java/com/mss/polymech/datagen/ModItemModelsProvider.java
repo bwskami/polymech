@@ -3,6 +3,7 @@ package com.mss.polymech.datagen;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.ModItems;
@@ -74,6 +75,11 @@ public class ModItemModelsProvider extends ItemModelProvider {
         ITEM_TYPE_OVERRIDES.put("brass_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
         ITEM_TYPE_OVERRIDES.put("brass_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
         ITEM_TYPE_OVERRIDES.put("brass_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
+
+        // 传送带物品（按材质注册名映射）
+        for (ConveyorMaterial material : ConveyorMaterial.values()) {
+            ITEM_TYPE_OVERRIDES.put(material.getConveyorRegistryName(), ItemLayerTemplates.CONVEYOR_BELT_ITEM);
+        }
     }
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",
@@ -105,6 +111,8 @@ public class ModItemModelsProvider extends ItemModelProvider {
             String path = itemId.getPath();
 
             // 情况1: 染色模板物品 → 生成多层模型
+            // 注：item/generated 会自动给第 N 层分配 tintindex=N；
+            // 超出 colors.json 颜色数组范围的图层（如传送带第 4 层）会返回白色，即不染色
             ItemLayerTemplates type = ITEM_TYPE_OVERRIDES.get(path);
             if (type != null) {
                 var builder = withExistingParent(path, "item/generated");

@@ -13,6 +13,7 @@ import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 
@@ -170,6 +171,9 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
             } else {
                 consumeNextFuel();
             }
+        } else if (fuelBurnTimeRemaining > 0) {
+            // 关机即清零燃烧时间：开机后重新消耗一个燃料，而不是接着上次烧
+            fuelBurnTimeRemaining = 0;
         }
 
         boolean isBurning = fuelBurnTimeRemaining > 0;
@@ -309,6 +313,9 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
     /** 当前温度（开氏度K，用于 GUI tooltip） */
     public int getTemperature() { return currentTemperature; }
 
+    /** 剩余燃烧时间（tick，用于 GUI 显示；关机时为 0） */
+    public int getFuelBurnTimeRemaining() { return fuelBurnTimeRemaining; }
+
     /** 温度百分比（0~100，基于环境温度到最大温度范围） */
     public int getTemperaturePercent() {
         return (int) ((float) (currentTemperature - AMBIENT_TEMPERATURE) / (MAX_TEMPERATURE - AMBIENT_TEMPERATURE) * 100);
@@ -336,6 +343,27 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
 
     /** 获取蒸汽罐中的流体堆 */
     public FluidStack getSteamFluidStack() { return steamTank.getFluid(); }
+
+    // ==================== 侧面方块流体代理解析 ====================
+
+    /** 逻辑储罐索引：水输入罐（供 Block 的 getFluidProxy 引用） */
+    public static final int TANK_WATER = 0;
+    /** 逻辑储罐索引：蒸汽输出罐（供 Block 的 getFluidProxy 引用） */
+    public static final int TANK_STEAM = 1;
+
+    /**
+     * 按逻辑储罐索引返回实际储罐：
+     * 0 → 水输入罐，1 → 蒸汽输出罐。
+     */
+    @Override
+    @Nullable
+    public IFluidHandler getFluidTank(int tankIndex) {
+        return switch (tankIndex) {
+            case TANK_WATER -> getWaterInputHandler();
+            case TANK_STEAM -> getSteamOutputHandler();
+            default -> null;
+        };
+    }
 
     // ==================== NBT 持久化 ====================
 

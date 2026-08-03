@@ -26,6 +26,10 @@ public class ClientEvents {
         for (var pipe : ModBlocks.PIPE_BLOCKS) {
             ItemBlockRenderTypes.setRenderLayer(pipe.get(), RenderType.translucent());
         }
+
+        for (var conveyor : ModBlocks.CONVEYOR_BLOCKS) {
+            ItemBlockRenderTypes.setRenderLayer(conveyor.get(), RenderType.translucent());
+        }
         
         Polymech.LOGGER.info("Pipe render layers configured to TRANSLUCENT!");
     }
@@ -62,7 +66,9 @@ public class ClientEvents {
     @SubscribeEvent
     public static void registerBlockColors(RegisterColorHandlersEvent.Block event) {
         ColorConfigLoader.load();
-        Block[] pipeBlocks = ModBlocks.PIPE_BLOCKS.stream()
+        Block[] tintedBlocks = java.util.stream.Stream.concat(
+                        ModBlocks.PIPE_BLOCKS.stream(),
+                        ModBlocks.CONVEYOR_BLOCKS.stream())
                 .map(holder -> holder.get())
                 .toArray(Block[]::new);
         
@@ -73,6 +79,6 @@ public class ClientEvents {
                 return colors[tintIndex] != null ? colors[tintIndex] : 0xFFFFFFFF;
             }
             return 0xFFFFFFFF;
-        }, pipeBlocks);
+        }, tintedBlocks);
     }
 }

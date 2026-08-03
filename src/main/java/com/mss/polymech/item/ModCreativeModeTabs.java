@@ -89,7 +89,7 @@ public class ModCreativeModeTabs {
                     }).build());
 
     /*
-     * 管道标签页，包含所有管道方块。
+     * 管道与物流标签页，包含所有管道方块和传送带。
      */
     public static final Supplier<CreativeModeTab> PIPE_TAB =
             CREATIVE_MODE_TABS.register("pipe_tab", () -> CreativeModeTab.builder()
@@ -98,6 +98,11 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         for (var pipe : ModBlocks.PIPE_BLOCKS) {
                             output.accept(pipe.get());
+                        }
+
+                        // 传送带（所有材质）
+                        for (var conveyor : ModBlocks.CONVEYOR_BLOCKS) {
+                            output.accept(conveyor.get());
                         }
                     }).build());
 

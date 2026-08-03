@@ -2,6 +2,7 @@ package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.ModBlocks;
@@ -29,6 +30,13 @@ public class ModZhCnLangProvider extends LanguageProvider {
             PipeBlock.PipeSize.SMALL, "小型管道",
             PipeBlock.PipeSize.BIG, "大型管道",
             PipeBlock.PipeSize.HUGE, "巨型管道"
+    );
+
+    private static final Map<ConveyorMaterial, String> CONVEYOR_MATERIAL_ZH = Map.of(
+            ConveyorMaterial.IRON, "",
+            ConveyorMaterial.BRONZE, "青铜",
+            ConveyorMaterial.STAINLESS_STEEL, "不锈钢",
+            ConveyorMaterial.BRASS, "黄铜"
     );
 
     private static final Map<String, String> MATERIAL_ZH_NAMES = Map.ofEntries(
@@ -205,9 +213,14 @@ public class ModZhCnLangProvider extends LanguageProvider {
             }
         }
 
+        for (var conveyorEntry : ModBlocks.CONVEYOR_TABLE.entrySet()) {
+            String name = CONVEYOR_MATERIAL_ZH.get(conveyorEntry.getKey()) + "传送带";
+            add(conveyorEntry.getValue().get(), name);
+        }
+
         add("itemGroup.material_tab", "Ploy Mech:材料");
         add("itemGroup.block_tab", "Ploy Mech:方块");
-        add("itemGroup.pipe_tab", "Ploy Mech:管道");
+        add("itemGroup.pipe_tab", "Ploy Mech:管道与物流相关");
         add("itemGroup.tool_tab", "Ploy Mech:工具");
     }
 }

@@ -3,6 +3,7 @@ package com.mss.polymech.datagen;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.ModBlocks;
@@ -188,9 +189,13 @@ public class ModEnUsLangProvider extends LanguageProvider {
             }
         }
 
+        for (var conveyorEntry : ModBlocks.CONVEYOR_TABLE.entrySet()) {
+            add(conveyorEntry.getValue().get(), buildConveyorDisplayName(conveyorEntry.getKey()));
+        }
+
         add("itemGroup.material_tab", "Ploy Mech:Material");
         add("itemGroup.block_tab", "Ploy Mech:Block");
-        add("itemGroup.pipe_tab", "Ploy Mech:Pipes");
+        add("itemGroup.pipe_tab", "Ploy Mech:Pipes and Logistics");
         add("itemGroup.tool_tab", "Ploy Mech:Tool");
     }
 
@@ -222,5 +227,15 @@ public class ModEnUsLangProvider extends LanguageProvider {
             default    -> "Pipe";
         };
         return materialName + sizeName;
+    }
+
+    private String buildConveyorDisplayName(ConveyorMaterial material) {
+        String materialName = switch (material) {
+            case IRON -> "";
+            case BRONZE -> "Bronze ";
+            case STAINLESS_STEEL -> "Stainless Steel ";
+            case BRASS -> "Brass ";
+        };
+        return materialName + "Conveyor Belt";
     }
 }

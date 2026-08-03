@@ -6,7 +6,6 @@ import com.mss.polymech.machine.BaseMachineBlock;
 import com.mss.polymech.machine.SideBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -87,11 +86,12 @@ public class LargeMachineSideBlock extends SideBlock {
         if (!level.isClientSide()) {
             BlockEntity be = level.getBlockEntity(pos);
             if (be instanceof BaseIOSideBlockEntity sideBE) {
-                BlockEntity parent = sideBE.getParentBlock();
-                if (parent instanceof MenuProvider menuProvider) {
-                    BlockPos parentPos = sideBE.getParentPos();
-                    if (parentPos != null) {
-                        player.openMenu(menuProvider, parentPos);
+                BlockPos parentPos = sideBE.getParentPos();
+                if (parentPos != null) {
+                    BlockState parentState = level.getBlockState(parentPos);
+                    Block parentBlock = parentState.getBlock();
+                    if (parentBlock instanceof BaseMachineBlock machineBlock) {
+                        machineBlock.openMachineUI((net.minecraft.server.level.ServerPlayer) player, parentPos);
                         return InteractionResult.SUCCESS;
                     }
                 }

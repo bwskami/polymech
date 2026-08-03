@@ -24,6 +24,9 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * 大型机器主方块（配置驱动），不再需要子类。
  * <p>
@@ -118,24 +121,51 @@ public class LargeMachineBlock extends BaseMachineBlock {
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         if (!level.isClientSide()) {
             Direction facing = state.getValue(FACING);
+            
+            // 收集所有需要放置的侧面位置
+            Set<BlockPos> sidePositions = new HashSet<>();
+            
+            // 1. 处理离散偏移
             Vec3i[] rawOffsets = getSideOffsets();
-            for (Vec3i rawOffset : rawOffsets) {
-                Vec3i rotated = BaseMachineBlock.rotateVec3i(rawOffset, facing);
-                BlockPos sidePos = pos.offset(rotated);
+            if (rawOffsets != null) {
+                for (Vec3i rawOffset : rawOffsets) {
+                    Vec3i rotated = BaseMachineBlock.rotateVec3i(rawOffset, facing);
+                    sidePositions.add(pos.offset(rotated));
+                }
+            }
+            
+            // 2. 处理填充区域（角点填充）
+            Vec3i[][] fillRegions = getFillRegions();
+            if (fillRegions != null) {
+                for (Vec3i[] region : fillRegions) {
+                    Vec3i min = region[0];
+                    Vec3i max = region[1];
+                    for (int x = Math.min(min.getX(), max.getX()); x <= Math.max(min.getX(), max.getX()); x++) {
+                        for (int y = Math.min(min.getY(), max.getY()); y <= Math.max(min.getY(), max.getY()); y++) {
+                            for (int z = Math.min(min.getZ(), max.getZ()); z <= Math.max(min.getZ(), max.getZ()); z++) {
+                                Vec3i rotated = BaseMachineBlock.rotateVec3i(new Vec3i(x, y, z), facing);
+                                sidePositions.add(pos.offset(rotated));
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 放置所有侧面方块（排除主方块自身位置）
+            sidePositions.remove(pos);
+            for (BlockPos sidePos : sidePositions) {
                 BlockState sideState = getSideBlock().get().defaultBlockState()
                         .setValue(FACING, facing);
-                // 先放置方块（创建 BE），但不立即同步
                 level.setBlock(sidePos, sideState, Block.UPDATE_ALL);
-                // 在同步前设置 parentPos
                 BlockEntity be = level.getBlockEntity(sidePos);
                 if (be instanceof BaseIOSideBlockEntity sideBE) {
                     sideBE.setParentPos(pos);
                     sideBE.setChanged();
                 }
-                // 现在同步到客户端（parentPos 已设置）
                 level.sendBlockUpdated(sidePos, sideState, sideState, Block.UPDATE_ALL);
             }
-            // 同步主方块以确保客户端有最新 BE 数据
+            
+            // 同步主方块
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
             BlockEntity mainBE = level.getBlockEntity(pos);
             if (mainBE != null) {

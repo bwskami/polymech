@@ -6,8 +6,10 @@ import com.mss.polymech.machine.common.MachineRegistrar;
 import com.mss.polymech.machine.boiler.SmallSteamBoilerBlockEntity;
 import com.mss.polymech.machine.production.*;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 import java.util.function.Supplier;
@@ -26,7 +28,9 @@ public class ModBlockEntities {
     public static final Supplier<BlockEntityType<ConveyorBlockEntity>> CONVEYOR =
             BLOCK_ENTITIES.register("conveyor", () ->
                     BlockEntityType.Builder.of(ConveyorBlockEntity::new,
-                            ModBlocks.CONVEYOR.get()).build(null));
+                            ModBlocks.CONVEYOR_BLOCKS.stream()
+                                    .map(DeferredBlock::get)
+                                    .toArray(Block[]::new)).build(null));
 
     public static final Supplier<BlockEntityType<SmallSteamBoilerBlockEntity>> SMALL_STEAM_BOILER =
             BLOCK_ENTITIES.register("small_steam_boiler", () ->

@@ -5,7 +5,6 @@ import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.core.Vec3i;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -150,15 +149,20 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
         if (waterTank.getFluidAmount() < waterCapacity) {
             ItemStack waterStack = itemStackHandler.getStackInSlot(INPUT_WATER_SLOT);
             if (!waterStack.isEmpty() && waterStack.getItem() == Items.WATER_BUCKET) {
-                int filled = waterTank.fill(new FluidStack(Fluids.WATER, WATER_PER_CRAFT),
-                        IFluidHandler.FluidAction.EXECUTE);
-                if (filled > 0) {
-                    itemStackHandler.extractItem(INPUT_WATER_SLOT, 1, false);
-                    ItemStack emptyStack = itemStackHandler.getStackInSlot(OUTPUT_EMPTY_SLOT);
-                    if (emptyStack.isEmpty()) {
-                        itemStackHandler.setStackInSlot(OUTPUT_EMPTY_SLOT, new ItemStack(Items.BUCKET));
-                    } else if (emptyStack.getCount() < emptyStack.getMaxStackSize()) {
-                        emptyStack.grow(1);
+                // 先检查空桶输出槽能否接收，槽满时不做转换，避免抽走水桶后空桶被吞
+                ItemStack emptyStack = itemStackHandler.getStackInSlot(OUTPUT_EMPTY_SLOT);
+                boolean canOutputEmpty = emptyStack.isEmpty()
+                        || (emptyStack.getItem() == Items.BUCKET && emptyStack.getCount() < emptyStack.getMaxStackSize());
+                if (canOutputEmpty) {
+                    int filled = waterTank.fill(new FluidStack(Fluids.WATER, WATER_PER_CRAFT),
+                            IFluidHandler.FluidAction.EXECUTE);
+                    if (filled > 0) {
+                        itemStackHandler.extractItem(INPUT_WATER_SLOT, 1, false);
+                        if (emptyStack.isEmpty()) {
+                            itemStackHandler.setStackInSlot(OUTPUT_EMPTY_SLOT, new ItemStack(Items.BUCKET));
+                        } else {
+                            emptyStack.grow(1);
+                        }
                     }
                 }
             }
@@ -352,43 +356,5 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
         }
         @Override public int getSlotLimit(int slot) { return 64; }
         @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) { return false; }
-    }
-
-    // ==================== 侧面方块位置映射 ====================
-
-    /**
-     * 侧面方块位置 → 物品处理器映射。
-     * <p>
-     * 本地坐标（未旋转，facing=NORTH 时）：
-     * <ul>
-     *   <li>(1,0,0) 右侧：物品输入（燃料）</li>
-     *   <li>(-1,0,0) 左侧：物品输出（灰烬）</li>
-     * </ul>
-     * </p>
-     */
-    @Override
-    @Nullable
-    public IItemHandler getItemHandlerFor(Vec3i relativeOffset) {
-        if (relativeOffset.equals(new Vec3i(1, 0, 0))) return getInput();
-        if (relativeOffset.equals(new Vec3i(-1, 0, 0))) return getOutput();
-        return null;
-    }
-
-    /**
-     * 侧面方块位置 → 流体处理器映射。
-     * <p>
-     * 本地坐标（未旋转，facing=NORTH 时）：
-     * <ul>
-     *   <li>(0,0,1) 前方：水输入</li>
-     *   <li>(0,0,-1) 后方：蒸汽输出</li>
-     * </ul>
-     * </p>
-     */
-    @Override
-    @Nullable
-    public IFluidHandler getFluidHandlerFor(Vec3i relativeOffset) {
-        if (relativeOffset.equals(new Vec3i(0, 0, 1))) return getWaterInputHandler();
-        if (relativeOffset.equals(new Vec3i(0, 0, -1))) return getSteamOutputHandler();
-        return null;
     }
 }

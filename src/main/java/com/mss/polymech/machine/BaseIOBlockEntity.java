@@ -2,6 +2,7 @@ package com.mss.polymech.machine;
 
 import com.mss.polymech.power.PowerNetworkManager;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.Vec3i;
@@ -20,8 +21,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -39,6 +43,15 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     protected int progress = 0;
     protected int maxProgress;
     protected boolean needsInit = true;
+
+    // ==================== 主动输出配置 ====================
+
+    /** 主动输出周期（tick） */
+    private static final int PROXY_EXPORT_INTERVAL = 10;
+    /** 每周期每个槽位最大输出物品数 */
+    private static final int MAX_ITEM_EXPORT_PER_CYCLE = 16;
+    /** 每周期每个储罐最大输出流体量（mB） */
+    private static final int MAX_FLUID_EXPORT_PER_CYCLE = 1000;
 
     protected final ContainerData propertyDelegate;
 
@@ -110,6 +123,11 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
             be.needsInit = false;
             PowerNetworkManager.get(serverWorld).registerConsumer(
                     be.getBlockPos(), be::getRequiredPower, be::receiveElectricCharge);
+        }
+
+        // 主动输出：周期性把 OUTPUT 代理面的产物推送到结构外部（停机时也输出）
+        if (world.getGameTime() % PROXY_EXPORT_INTERVAL == 0) {
+            be.exportProxyOutputs(world);
         }
 
         if (!be.enable) {
@@ -263,35 +281,90 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
     public ItemStackHandler getItemStackHandler() { return itemStackHandler; }
 
-    // ==================== 侧面方块位置映射（子类覆盖） ====================
+    // ==================== 主动输出（OUTPUT 代理面向外推送） ====================
 
     /**
-     * 根据侧面方块相对于主方块的本地偏移，返回对应的物品处理器。
-     * <p>
-     * 子类覆盖此方法，定义每个位置映射到哪个内部槽位/处理器。
-     * 返回 null 表示该位置不暴露物品能力。
-     * </p>
-     *
-     * @param relativeOffset 侧面方块相对于主方块的本地偏移（未旋转）
-     * @return 对应的 IItemHandler，或 null
+     * 遍历 Block 定义的所有代理位置，将 OUTPUT 方向的物品/流体
+     * 主动推送到结构外部的相邻方块。跳过属于机器结构自身的相邻位置。
      */
-    @Nullable
-    public IItemHandler getItemHandlerFor(Vec3i relativeOffset) {
-        return null;
+    protected void exportProxyOutputs(Level world) {
+        if (!(world.getBlockState(worldPosition).getBlock() instanceof BaseMachineBlock mb)) return;
+        Direction facing = world.getBlockState(worldPosition).getValue(BaseMachineBlock.FACING);
+        for (Vec3i local : mb.enumerateLocalOffsets()) {
+            exportItemAtProxy(world, mb, facing, local);
+            exportFluidAtProxy(world, mb, facing, local);
+        }
     }
 
+    /** 将 OUTPUT 物品代理面的槽位内容推送到外部相邻容器 */
+    private void exportItemAtProxy(Level world, BaseMachineBlock mb, Direction facing, Vec3i local) {
+        BaseMachineBlock.ItemProxy proxy = mb.getItemProxy(local);
+        if (proxy == null || proxy.io() != BaseMachineBlock.ProxyIO.OUTPUT) return;
+        int[] slots = proxy.slots();
+        BlockPos sidePos = worldPosition.offset(BaseMachineBlock.rotateVec3i(local, facing));
+        for (Direction dir : Direction.values()) {
+            BlockPos targetPos = sidePos.relative(dir);
+            Vec3i targetLocal = BaseMachineBlock.unrotateVec3i(targetPos.subtract(worldPosition), facing);
+            if (mb.isLocalPartOfStructure(targetLocal)) continue;
+            IItemHandler target = world.getCapability(Capabilities.ItemHandler.BLOCK, targetPos, dir.getOpposite());
+            if (target == null) continue;
+            for (int internalSlot : slots) {
+                ItemStack stack = itemStackHandler.getStackInSlot(internalSlot);
+                if (stack.isEmpty()) continue;
+                ItemStack toMove = stack.copyWithCount(Math.min(stack.getCount(), MAX_ITEM_EXPORT_PER_CYCLE));
+                // 用插入前的数量计算实际接受量：部分目标 handler 会就地修改传入栈，
+                // 若插入后再读 toMove.getCount() 会把 moved 算错（曾导致刷物）
+                int planned = toMove.getCount();
+                ItemStack remainder = ItemHandlerHelper.insertItemStacked(target, toMove, false);
+                int moved = planned - remainder.getCount();
+                if (moved > 0) {
+                    itemStackHandler.extractItem(internalSlot, moved, false);
+                }
+            }
+        }
+    }
+
+    /** 将 OUTPUT 流体代理面的储罐内容推送到外部相邻储罐 */
+    private void exportFluidAtProxy(Level world, BaseMachineBlock mb, Direction facing, Vec3i local) {
+        BaseMachineBlock.FluidProxy proxy = mb.getFluidProxy(local);
+        if (proxy == null || proxy.io() != BaseMachineBlock.ProxyIO.OUTPUT) return;
+        int[] tanks = proxy.tanks();
+        BlockPos sidePos = worldPosition.offset(BaseMachineBlock.rotateVec3i(local, facing));
+        for (Direction dir : Direction.values()) {
+            BlockPos targetPos = sidePos.relative(dir);
+            Vec3i targetLocal = BaseMachineBlock.unrotateVec3i(targetPos.subtract(worldPosition), facing);
+            if (mb.isLocalPartOfStructure(targetLocal)) continue;
+            IFluidHandler target = world.getCapability(Capabilities.FluidHandler.BLOCK, targetPos, dir.getOpposite());
+            if (target == null) continue;
+            for (int tankIndex : tanks) {
+                IFluidHandler tank = getFluidTank(tankIndex);
+                if (tank == null) continue;
+                // 先模拟抽取，按对方实际接受量执行，避免流体丢失
+                FluidStack drained = tank.drain(MAX_FLUID_EXPORT_PER_CYCLE, IFluidHandler.FluidAction.SIMULATE);
+                if (drained.isEmpty()) continue;
+                int filled = target.fill(drained, IFluidHandler.FluidAction.EXECUTE);
+                if (filled > 0) {
+                    tank.drain(filled, IFluidHandler.FluidAction.EXECUTE);
+                }
+            }
+        }
+    }
+
+    // ==================== 侧面方块流体代理解析（子类覆盖） ====================
+
     /**
-     * 根据侧面方块相对于主方块的本地偏移，返回对应的流体处理器。
+     * 按逻辑储罐索引获取实际的 IFluidHandler。
      * <p>
-     * 子类覆盖此方法，定义每个位置映射到哪个内部储罐。
-     * 返回 null 表示该位置不暴露流体能力。
+     * 与物品代理对称：Block 通过 {@code getFluidProxy} 声明储罐索引，
+     * 能力层据此调用本方法取出具体储罐。储罐数量不受一进一出限制，
+     * 多进多出的化学反应机器可定义任意多个储罐。默认无储罐返回 null。
      * </p>
      *
-     * @param relativeOffset 侧面方块相对于主方块的本地偏移（未旋转）
+     * @param tankIndex Block 定义的逻辑储罐索引
      * @return 对应的 IFluidHandler，或 null
      */
     @Nullable
-    public IFluidHandler getFluidHandlerFor(Vec3i relativeOffset) {
+    public IFluidHandler getFluidTank(int tankIndex) {
         return null;
     }
 }

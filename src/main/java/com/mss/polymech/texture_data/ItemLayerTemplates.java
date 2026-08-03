@@ -33,6 +33,12 @@ public enum ItemLayerTemplates {
             "item/material_sets/pipe_item/huge_pipe_item_secondary",
             "item/material_sets/pipe_item/huge_pipe_item_overlay"
     ),
+    CONVEYOR_BELT_ITEM(
+            "item/material_sets/conveyor_belt_item/conveyor_item",
+            "item/material_sets/conveyor_belt_item/conveyor_item_secondary",
+            "item/material_sets/conveyor_belt_item/conveyor_item_overlay",
+            "item/material_sets/conveyor_belt_item/conveyor_item_thirdly"
+    ),
     NUGGET(
             "item/material_sets/nugget/nugget",
             "item/material_sets/nugget/nugget_secondary",

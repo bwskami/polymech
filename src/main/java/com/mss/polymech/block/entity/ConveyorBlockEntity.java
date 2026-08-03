@@ -416,10 +416,9 @@ public class ConveyorBlockEntity extends BlockEntity {
      */
     @Nullable
     public IItemHandler getItemHandler(@Nullable Direction side) {
-        if (side == Direction.DOWN || side == Direction.UP) {
-            return itemHandler;
-        }
-        return null;
+        // 六面全部暴露：水平面供侧面机器主动推送物品上带（如锅炉灰烬输出），
+        // insertItem 本身只检查传送带起点是否空闲，与输入方向无关。
+        return itemHandler;
     }
 
     /**
@@ -451,16 +450,19 @@ public class ConveyorBlockEntity extends BlockEntity {
                 return stack; // 起点被占用，拒绝输入
             }
 
+            // 每次调用只接受 1 个物品。余量必须基于原始栈计算且不得篡改入参：
+            // 此前用 stack.split(1) 后再 copy().shrink(1) 会双重扣减，
+            // 谎报接受数量，导致调用方 moved 算成 0 而物品已上带（刷物漏洞）。
+            ItemStack remainder = stack.copy();
+            remainder.shrink(1);
+
             if (!simulate) {
-                ItemStack toInsert = stack.split(1);
-                ConveyorItemEntity conveyorItem = ConveyorItemEntity.create(level, worldPosition, toInsert);
+                ConveyorItemEntity conveyorItem = ConveyorItemEntity.create(level, worldPosition, stack.copyWithCount(1));
                 level.addFreshEntity(conveyorItem);
                 managedItems.add(conveyorItem.getUUID());
             }
 
-            ItemStack result = stack.copy();
-            result.shrink(1);
-            return result;
+            return remainder;
         }
 
         @Override
@@ -521,6 +523,12 @@ public class ConveyorBlockEntity extends BlockEntity {
     private static boolean tryInsertIntoContainer(Level level, BlockPos pos, Direction facing,
                                                   ConveyorItemEntity item) {
         BlockPos containerPos = pos.relative(facing);
+
+        // 前方是传送带时不走能力注入，由 findNextConveyor 直接转移同一实体，
+        // 否则新实体 tickCount 归零会导致物品自转角度重置
+        if (level.getBlockState(containerPos).getBlock() instanceof ConveyorBlock) {
+            return false;
+        }
 
         BlockEntity be = level.getBlockEntity(containerPos);
         if (be == null) return false;

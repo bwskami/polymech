@@ -11,6 +11,8 @@ import com.mss.polymech.machine.BaseIOSideBlockEntity;
 import com.mss.polymech.machine.BaseMachineBlock;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.machine.common.MachineRegistry;
+import com.mss.polymech.machine.common.MultiTankFluidHandler;
+import com.mss.polymech.machine.common.SlotFilteredItemHandler;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
@@ -23,6 +25,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.slf4j.Logger;
@@ -30,6 +33,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -188,20 +192,26 @@ public class Polymech {
                 return null;
             }, entry.mainBlock().get());
 
-            // ===== 侧面方块: 按位置映射暴露能力 =====
+            // ===== 侧面方块: Block定义槽位/方向 → 能力层包装 =====
 
             // 侧面方块物品能力
             event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
                 if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
                     BlockPos parentPos = sideEntity.getParentPos();
                     if (parentPos != null) {
-                        var parent = sideEntity.getParentBlock();
-                        if (parent instanceof BaseIOBlockEntity be) {
+                        Block parentBlock = level.getBlockState(parentPos).getBlock();
+                        if (parentBlock instanceof BaseMachineBlock machineBlock) {
                             Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
-                            // 反转朝向旋转：将世界偏移转回本地偏移
                             Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
-                            Vec3i local = unrotateVec3i(offset, facing);
-                            return be.getItemHandlerFor(local);
+                            Vec3i local = BaseMachineBlock.unrotateVec3i(offset, facing);
+                            // Block 声明位置→物品代理（槽位 + IO 方向）
+                            var proxy = machineBlock.getItemProxy(local);
+                            if (proxy == null) return null;
+                            // 能力层直接包装 BE 的内部 handler，只暴露指定槽位
+                            var parent = sideEntity.getParentBlock();
+                            if (parent instanceof BaseIOBlockEntity be) {
+                                return new SlotFilteredItemHandler(be.getItemStackHandler(), proxy.slots());
+                            }
                         }
                     }
                 }
@@ -213,12 +223,26 @@ public class Polymech {
                 if (blockEntity instanceof BaseIOSideBlockEntity sideEntity) {
                     BlockPos parentPos = sideEntity.getParentPos();
                     if (parentPos != null) {
-                        var parent = sideEntity.getParentBlock();
-                        if (parent instanceof BaseIOBlockEntity be) {
+                        Block parentBlock = level.getBlockState(parentPos).getBlock();
+                        if (parentBlock instanceof BaseMachineBlock machineBlock) {
                             Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
                             Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
-                            Vec3i local = unrotateVec3i(offset, facing);
-                            return be.getFluidHandlerFor(local);
+                            Vec3i local = BaseMachineBlock.unrotateVec3i(offset, facing);
+                            // Block 声明位置→流体代理（储罐 + IO 方向）
+                            var proxy = machineBlock.getFluidProxy(local);
+                            if (proxy == null) return null;
+                            int[] tanks = proxy.tanks();
+                            if (tanks.length == 0) return null;
+                            // BE 按索引提供实际储罐；多罐时拼接为组合 handler
+                            var parent = sideEntity.getParentBlock();
+                            if (parent instanceof BaseIOBlockEntity be) {
+                                IFluidHandler[] handlers = new IFluidHandler[tanks.length];
+                                for (int i = 0; i < tanks.length; i++) {
+                                    handlers[i] = be.getFluidTank(tanks[i]);
+                                    if (handlers[i] == null) return null;
+                                }
+                                return handlers.length == 1 ? handlers[0] : new MultiTankFluidHandler(handlers);
+                            }
                         }
                     }
                 }
@@ -262,20 +286,5 @@ public class Polymech {
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("HELLO from server starting");
-    }
-
-    /**
-     * 反转 BaseMachineBlock.rotateVec3i 的旋转，将世界坐标偏移转回本地坐标。
-     */
-    private static Vec3i unrotateVec3i(Vec3i offset, Direction facing) {
-        int x = offset.getX();
-        int z = offset.getZ();
-        return switch (facing) {
-            case NORTH -> new Vec3i(x, offset.getY(), z);
-            case SOUTH -> new Vec3i(-x, offset.getY(), -z);
-            case EAST -> new Vec3i(z, offset.getY(), -x);
-            case WEST -> new Vec3i(-z, offset.getY(), x);
-            default -> offset;
-        };
     }
 }

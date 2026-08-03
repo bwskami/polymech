@@ -3,7 +3,7 @@ package com.mss.polymech.client;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.mss.polymech.Polymech;
-import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.util.ConveyorPathCalculator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
@@ -65,7 +65,7 @@ public class ConveyorPreviewRenderer {
         if (player == null) return;
 
         Item heldItem = player.getMainHandItem().getItem();
-        if (heldItem != ModBlocks.CONVEYOR.get().asItem()) {
+        if (!(heldItem instanceof ConveyorItem)) {
             return;
         }
 

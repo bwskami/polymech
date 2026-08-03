@@ -1,7 +1,7 @@
 package com.mss.polymech.client;
 
 import com.mss.polymech.Polymech;
-import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.util.ConveyorPathCalculator;
 import net.minecraft.client.Minecraft;
@@ -39,7 +39,7 @@ public class ConveyorInputHandler {
         if (player == null) return;
 
         Item heldItem = player.getMainHandItem().getItem();
-        if (heldItem != ModBlocks.CONVEYOR.get().asItem()) {
+        if (!(heldItem instanceof ConveyorItem)) {
             ConveyorPreviewRenderer.clearStartPos();
             return;
         }

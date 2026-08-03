@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "poly_mech:item/material_sets/conveyor_belt_item/conveyor_item",
+    "layer1": "poly_mech:item/material_sets/conveyor_belt_item/conveyor_item_secondary",
+    "layer2": "poly_mech:item/material_sets/conveyor_belt_item/conveyor_item_overlay",
+    "layer3": "poly_mech:item/material_sets/conveyor_belt_item/conveyor_item_thirdly"
+  }
+}

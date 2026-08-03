@@ -120,8 +120,15 @@ public abstract class AbstractSteamBoilerUI {
                                     return Component.literal(status);
                                 }).build()),
                                 new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                        Component.literal("§e" + be.getTemperature() + "K  §3" + be.getTotalSteamOutput() + " mB/t")
-                                ).build())
+                                        Component.literal("§e温度: " + be.getTemperature() + "K")
+                                ).build()),
+                                new Label().bind(DataBindingBuilder.componentS2C(() ->
+                                        Component.literal("§3效率: " + be.getTotalSteamOutput() + " mB/t")
+                                ).build()),
+                                new Label().bind(DataBindingBuilder.componentS2C(() -> {
+                                    int burnTicks = be.getFuelBurnTimeRemaining();
+                                    return Component.literal("§6燃烧: " + (burnTicks / 20) + "s");
+                                }).build())
                         ),
                         steamBar
                                 .setMaxValue(100)

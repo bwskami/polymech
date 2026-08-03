@@ -3,7 +3,6 @@ package com.mss.polymech.network;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.ConveyorType;
-import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.util.ConveyorPathCalculator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -13,6 +12,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -55,11 +55,12 @@ public record ConveyorPlacementPacket(BlockPos start, BlockPos end) implements C
 
             List<Direction> facings = ConveyorPathCalculator.calculateFacings(path, packet.start(), packet.end());
 
-            var conveyorBlock = ModBlocks.CONVEYOR.get();
-            var conveyorItem = conveyorBlock.asItem();
-
+            // 根据手持的传送带物品确定实际放置的传送带方块（支持多材质）
             ItemStack heldItem = player.getMainHandItem();
-            if (!heldItem.is(conveyorItem)) return;
+            if (!(heldItem.getItem() instanceof BlockItem blockItem)
+                    || !(blockItem.getBlock() instanceof ConveyorBlock conveyorBlock)) {
+                return;
+            }
 
             int available = player.isCreative() ? Integer.MAX_VALUE : heldItem.getCount();
             int placedCount = 0;

@@ -1,6 +1,7 @@
 package com.mss.polymech.block;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
 import com.mss.polymech.machine.boiler.SmallSteamBoilerBlock;
@@ -83,13 +84,7 @@ public class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
 
-    /* 传送带方块，用于移动物品 */
-    public static final DeferredBlock<ConveyorBlock> CONVEYOR =
-            registerConveyor("conveyor", () -> new ConveyorBlock(Block.Properties.of()
-                    .strength(2.0F, 3.0F)
-                    .sound(SoundType.METAL)
-                    .requiresCorrectToolForDrops()
-                    .noOcclusion()));
+    /* 传送带方块（多材质数据驱动注册，见下方 CONVEYOR_TABLE） */
 
     /* 小型蒸汽锅炉（单方块机器） */
     public static final DeferredBlock<SmallSteamBoilerBlock> SMALL_STEAM_BOILER =
@@ -242,6 +237,24 @@ public class ModBlocks {
      */
     public static final List<DeferredBlock<PipeBlock>> PIPE_BLOCKS;
 
+    // ========== 传送带方块：数据驱动批量注册 ==========
+
+    /* 内部传送带查找表（构建期间使用） */
+    private static final Map<ConveyorMaterial, DeferredBlock<ConveyorBlock>> CONVEYOR_TABLE_INTERNAL = new LinkedHashMap<>();
+
+    /*
+     * 传送带方块查找表。
+     * <p>
+     * 结构：Map&lt;传送带材料, 方块引用&gt;
+     * </p>
+     */
+    public static final Map<ConveyorMaterial, DeferredBlock<ConveyorBlock>> CONVEYOR_TABLE;
+
+    /*
+     * 所有传送带方块的扁平列表，便于批量操作（渲染层、颜色、战利品表等）。
+     */
+    public static final List<DeferredBlock<ConveyorBlock>> CONVEYOR_BLOCKS;
+
     static {
         // 数据驱动批量注册流程
         List<DeferredBlock<PipeBlock>> allPipes = new ArrayList<>();
@@ -274,6 +287,20 @@ public class ModBlocks {
         PIPE_TABLE = Collections.unmodifiableMap(PIPE_TABLE_INTERNAL);
         PIPE_BLOCKS = Collections.unmodifiableList(allPipes);
 
+        // 传送带：按材质批量注册（默认材质注册名为 conveyor，其余为 <material>_conveyor）
+        List<DeferredBlock<ConveyorBlock>> allConveyors = new ArrayList<>();
+        for (ConveyorMaterial material : ConveyorMaterial.values()) {
+            DeferredBlock<ConveyorBlock> conveyor = registerConveyor(material.getConveyorRegistryName(),
+                    () -> new ConveyorBlock(Block.Properties.of()
+                            .strength(material.getStrength(), material.getResistance())
+                            .sound(material.getSoundType())
+                            .requiresCorrectToolForDrops()
+                            .noOcclusion()));
+            CONVEYOR_TABLE_INTERNAL.put(material, conveyor);
+            allConveyors.add(conveyor);
+        }
+        CONVEYOR_TABLE = Collections.unmodifiableMap(CONVEYOR_TABLE_INTERNAL);
+        CONVEYOR_BLOCKS = Collections.unmodifiableList(allConveyors);
     }
 
     /*
@@ -287,6 +314,16 @@ public class ModBlocks {
      */
     public static DeferredBlock<PipeBlock> getPipe(PipeMaterial material, PipeBlock.PipeSize size) {
         return PIPE_TABLE.get(material).get(size);
+    }
+
+    /*
+     * 获取指定材料的传送带方块引用。
+     *
+     * @param material 传送带材料
+     * @return 对应的传送带方块引用
+     */
+    public static DeferredBlock<ConveyorBlock> getConveyor(ConveyorMaterial material) {
+        return CONVEYOR_TABLE.get(material);
     }
 
     // ========== 注册工具方法 ==========

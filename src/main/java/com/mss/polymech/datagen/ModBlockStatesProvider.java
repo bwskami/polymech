@@ -27,7 +27,7 @@ public class ModBlockStatesProvider extends BlockStateProvider {
         simpleBlock(ModFluids.STEAM_BLOCK.get(), models().getBuilder("steam")
                 .texture("particle", modLoc("block/steam_still")));
 
-        generateConveyorBlockState();
+        generateConveyorBlockStates();
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             for (var sizeEntry : materialEntry.getValue().entrySet()) {
@@ -37,18 +37,21 @@ public class ModBlockStatesProvider extends BlockStateProvider {
         }
     }
 
-    private void generateConveyorBlockState() {
+    private void generateConveyorBlockStates() {
+        // 所有材质共用同一个染色模型，颜色由 colors.json + 方块颜色处理器决定
         ModelFile conveyorModel = models().getExistingFile(
                 modLoc("block/conveyor_belt/conveyor_belt"));
 
-        getVariantBuilder(ModBlocks.CONVEYOR.get())
-                .forAllStates(state -> {
-                    Direction facing = state.getValue(ConveyorBlock.FACING);
-                    return ConfiguredModel.builder()
-                            .modelFile(conveyorModel)
-                            .rotationY((int) (facing.toYRot() + 180) % 360)
-                            .build();
-                });
+        for (var entry : ModBlocks.CONVEYOR_TABLE.entrySet()) {
+            getVariantBuilder(entry.getValue().get())
+                    .forAllStates(state -> {
+                        Direction facing = state.getValue(ConveyorBlock.FACING);
+                        return ConfiguredModel.builder()
+                                .modelFile(conveyorModel)
+                                .rotationY((int) (facing.toYRot() + 180) % 360)
+                                .build();
+                    });
+        }
     }
 
     private String getTemplateName(PipeBlock.PipeSize size) {
