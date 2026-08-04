@@ -37,6 +37,9 @@ public class PipeBlock extends Block {
         CONNECTED("connected"),
         EXTRACT("extract");
 
+        /** values() 缓存，避免高频调用重复分配数组 */
+        public static final PipeConnection[] VALUES = values();
+
         private final String name;
 
         PipeConnection(String name) {
@@ -183,6 +186,14 @@ public class PipeBlock extends Block {
     private final PipeSize pipeSize;
     private final PipeMaterial pipeMaterial;
 
+    /**
+     * 形状缓存（性能修复）：启动期引擎会为全部 11664 个管道状态并行预计算形状缓存，
+     * 且每个状态会多次调用 getShape（碰撞/遮挡/面遮挡）。每次现场用 Shapes.or 拼接是加载卡顿的根源。
+     * 以三进制连接掩码为键缓存：同尺寸管道只有 3^6=729 种组合，每种只构建一次。
+     * 启动期形状预计算是并行的，必须用线程安全容器。
+     */
+    private final java.util.Map<Integer, VoxelShape> pipeShapeCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     // 默认构造函数（铁质普通管道）
     public PipeBlock(Properties properties) {
         this(properties, PipeMaterial.IRON, PipeSize.NORMAL);
@@ -250,9 +261,15 @@ public class PipeBlock extends Block {
     }
 
     private VoxelShape getPipeShape(BlockState state) {
+        int mask = connectionMask(state);
+        VoxelShape cached = pipeShapeCache.get(mask);
+        if (cached != null) return cached;
+
         VoxelShape shape = pipeSize.getCoreShape();
+        int m = mask;
         for (Direction dir : Direction.values()) {
-            PipeConnection conn = state.getValue(getProperty(dir));
+            PipeConnection conn = PipeConnection.VALUES[m % 3];
+            m /= 3;
             if (conn == PipeConnection.NONE) continue;
             // 已连接/抽取：都渲染管臂碰撞箱
             shape = Shapes.or(shape, armShape(dir));
@@ -261,7 +278,19 @@ public class PipeBlock extends Block {
                 shape = Shapes.or(shape, INPUT_PLATES[dir.get3DDataValue()]);
             }
         }
+        pipeShapeCache.put(mask, shape);
         return shape;
+    }
+
+    /** 把 6 个方向的三态连接编码为三进制整数（0..728），作为形状缓存键 */
+    private static int connectionMask(BlockState state) {
+        int mask = 0;
+        int mul = 1;
+        for (Direction dir : Direction.values()) {
+            mask += state.getValue(getProperty(dir)).ordinal() * mul;
+            mul *= 3;
+        }
+        return mask;
     }
 
     private VoxelShape armShape(Direction dir) {
