@@ -28,7 +28,8 @@ import org.joml.Matrix4f;
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class WrenchOverlayRenderer {
 
-    private static final float OFFSET = 0.05F;
+    // 已禁用深度测试，法向偏移只需极小值；过大会导致斜视角下九宫格透视膨胀出方块边框
+    private static final float OFFSET = 0.001F;
     private static final float LINE_WIDTH = 0.02F;
     private static final int LINE_COLOR = 0xFFFFFFFF;
 
@@ -102,10 +103,11 @@ public class WrenchOverlayRenderer {
             addLine(buf, matrix, face, axes, 0, t, 1, t, hw, r, g, b, a);
         }
 
-        addLine(buf, matrix, face, axes, 0, 0, 1, 0, hw, r, g, b, a);
-        addLine(buf, matrix, face, axes, 1, 0, 1, 1, hw, r, g, b, a);
-        addLine(buf, matrix, face, axes, 1, 1, 0, 1, hw, r, g, b, a);
-        addLine(buf, matrix, face, axes, 0, 1, 0, 0, hw, r, g, b, a);
+        // 外框线中心向内偏移半个线宽，避免线宽一半膨胀到方块面外，保证紧贴边框
+        addLine(buf, matrix, face, axes, 0, hw, 1, hw, hw, r, g, b, a);
+        addLine(buf, matrix, face, axes, 1 - hw, 0, 1 - hw, 1, hw, r, g, b, a);
+        addLine(buf, matrix, face, axes, 1, 1 - hw, 0, 1 - hw, hw, r, g, b, a);
+        addLine(buf, matrix, face, axes, hw, 1, hw, 0, hw, r, g, b, a);
 
         BufferUploader.drawWithShader(buf.buildOrThrow());
     }

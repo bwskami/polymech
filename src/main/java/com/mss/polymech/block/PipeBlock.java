@@ -98,6 +98,19 @@ public class PipeBlock extends Block {
             Shapes.or(Block.box(14, 2, 2, 16, 14, 14), Block.box(11, 3, 3, 15, 13, 13))  // EAST
     };
 
+    /**
+     * SMALL 尺寸专用抽取口碰撞箱（template_small_pipe_input 模型）：
+     * 单板 [4.5,4.5,0.1]→[11.5,11.5,2.1]，按方向旋转
+     */
+    private static final VoxelShape[] INPUT_PLATES_SMALL = new VoxelShape[]{
+            Block.box(4.5, 0.1, 4.5, 11.5, 2.1, 11.5),     // DOWN
+            Block.box(4.5, 13.9, 4.5, 11.5, 15.9, 11.5),   // UP
+            Block.box(4.5, 4.5, 0.1, 11.5, 11.5, 2.1),     // NORTH
+            Block.box(4.5, 4.5, 13.9, 11.5, 11.5, 15.9),   // SOUTH
+            Block.box(0.1, 4.5, 4.5, 2.1, 11.5, 11.5),     // WEST
+            Block.box(13.9, 4.5, 4.5, 15.9, 11.5, 11.5)    // EAST
+    };
+
     // 管道尺寸枚举
     public enum PipeSize implements IMaterialPipeType {
         SMALL("small_pipe", 6, 4, 50, 400),
@@ -274,8 +287,9 @@ public class PipeBlock extends Block {
             // 已连接/抽取：都渲染管臂碰撞箱
             shape = Shapes.or(shape, armShape(dir));
             if (conn == PipeConnection.EXTRACT) {
-                // 抽取模式额外加上抽取口板
-                shape = Shapes.or(shape, INPUT_PLATES[dir.get3DDataValue()]);
+                // 抽取模式额外加上抽取口板（SMALL 尺寸用专用小碰撞箱，与模型对齐）
+                VoxelShape[] plates = pipeSize == PipeSize.SMALL ? INPUT_PLATES_SMALL : INPUT_PLATES;
+                shape = Shapes.or(shape, plates[dir.get3DDataValue()]);
             }
         }
         pipeShapeCache.put(mask, shape);
