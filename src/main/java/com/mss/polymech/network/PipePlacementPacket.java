@@ -141,6 +141,9 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String materialN
      * </p>
      */
     private static void applyEndpoint(Level level, BlockPos anchor, BlockPos pathEndCell, PipeBlock.PipeConnection value) {
+        // 只有流体锚点（流体代理/容器）才接线；物品代理等普通侧面方块不设连接
+        if (!PipePathCalculator.isFluidAnchor(level, anchor)) return;
+
         PipeBlock.PipeConnection effective = value;
         if (value == PipeBlock.PipeConnection.CONNECTED && isOutputProxy(level, anchor)) {
             effective = PipeBlock.PipeConnection.EXTRACT;

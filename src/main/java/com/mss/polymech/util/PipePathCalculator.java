@@ -59,6 +59,30 @@ public class PipePathCalculator {
     }
 
     /**
+     * 该格是否为流体锚点：机器声明的流体代理格，或带流体能力的容器/机器主方块。
+     * 只有流体锚点才允许特殊铺设（整格选取为端点、面向锚点设为抽取/连接）；
+     * 物品代理等普通侧面方块不在此列。
+     */
+    public static boolean isFluidAnchor(BlockGetter level, BlockPos pos) {
+        if (level == null) return false;
+        // 侧面方块：解析父机器在该局部偏移声明的代理类型
+        if (level.getBlockEntity(pos) instanceof BaseIOSideBlockEntity sideEntity) {
+            BlockPos parentPos = sideEntity.getParentPos();
+            if (parentPos == null) return false;
+            if (!(level.getBlockState(parentPos).getBlock() instanceof BaseMachineBlock machineBlock)) return false;
+            Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
+            Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
+            Vec3i local = BaseMachineBlock.unrotateVec3i(offset, facing);
+            return machineBlock.getFluidProxy(local) != null;
+        }
+        // 储罐等普通容器 / 机器主方块：走流体能力查询
+        if (level instanceof net.minecraft.world.level.Level fullLevel) {
+            return fullLevel.getCapability(net.neoforged.neoforge.capabilities.Capabilities.FluidHandler.BLOCK, pos, null) != null;
+        }
+        return false;
+    }
+
+    /**
      * 带阻挡检测的路径计算：默认朝向被非管道方块阻挡时换用镜像朝向。
      */
     public static List<BlockPos> calculatePath(BlockGetter level, BlockPos start, BlockPos end) {

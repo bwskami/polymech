@@ -2,10 +2,6 @@ package com.mss.polymech.client;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
-import com.mss.polymech.block.PipeBlock;
-import com.mss.polymech.api.material.PipeMaterial;
-import com.mss.polymech.machine.BaseMachineBlock;
-import com.mss.polymech.machine.SideBlock;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.util.PipePathCalculator;
 import net.minecraft.client.Minecraft;
@@ -18,7 +14,6 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.InputEvent;
-import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
@@ -102,27 +97,15 @@ public class PipeInputHandler {
     
     /**
      * 计算铺设端点位置：
-     * 点击的方块带流体能力（容器/机器），或本身就是机器主方块/侧面方块
-     * （含流体侧面方块）→ 直接选取方块所在格子作为端点；
+     * 点击的方块是流体锚点（流体代理侧面方块/储罐/机器主方块）
+     * → 直接选取方块所在格子作为端点；
      * 其他情况与正常放置逻辑一致：放置在点击面的外侧。
      */
     public static BlockPos getEndpointPosition(net.minecraft.world.level.Level level, BlockHitResult hitResult) {
         BlockPos pos = hitResult.getBlockPos();
-        if (isDeviceBlock(level, pos)) {
+        if (PipePathCalculator.isFluidAnchor(level, pos)) {
             return pos;
         }
         return pos.relative(hitResult.getDirection());
-    }
-    
-    /**
-     * 是否为可接管的设备方块：流体能力查询兼容储罐等普通容器，
-     * 机器主方块/侧面方块额外兼容（避免客户端能力查询时机问题导致流体侧面方块漏选）。
-     */
-    private static boolean isDeviceBlock(net.minecraft.world.level.Level level, BlockPos pos) {
-        if (level.getCapability(Capabilities.FluidHandler.BLOCK, pos, null) != null) {
-            return true;
-        }
-        net.minecraft.world.level.block.Block block = level.getBlockState(pos).getBlock();
-        return block instanceof SideBlock || block instanceof BaseMachineBlock;
     }
 }
