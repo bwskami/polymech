@@ -81,13 +81,17 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String materialN
             }
             
             if (!placed.isEmpty()) {
-                // 新铺设的管道彼此互连（不接旧管）
-                wireNewConnections(level, placed);
-                // 端点接线：起点侧管道面向起点设为抽取，终点侧管道面向终点设为连接
-                applyEndpoint(level, packet.start(), PipeBlock.PipeConnection.EXTRACT);
-                applyEndpoint(level, packet.end(), PipeBlock.PipeConnection.CONNECTED);
-                // 统一重建管网，反映新接线（守恒，不丢流体）
-                PipeBlock.notifyConnectionsChanged(level, placed.get(0));
+                // 沿路径接线：路径上相邻两格都是管道则互连（含吸附格已有旧管道的情况）
+                wirePathConnections(level, path);
+                // 端点接线：起点侧面向起点设为抽取，终点侧面向终点设为连接；
+                // 锚点是 OUTPUT 代理时无论点击顺序都取抽取方向（否则蒸汽/产物出不来）
+                applyEndpoint(level, packet.start(), path.get(0), PipeBlock.PipeConnection.EXTRACT);
+                applyEndpoint(level, packet.end(), path.get(path.size() - 1), PipeBlock.PipeConnection.CONNECTED);
+                // 统一重建管网：批量铺设期间每根管各自成孤立网，
+                // 这里把所有涉及的网按当前连通性整体重新聚类（守恒，不丢流体）
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    com.mss.polymech.pipenet.WorldPipeNet.get(serverLevel).onBatchConnectionsChanged(path);
+                }
             }
             
             if (placedCount > 0 && !player.isCreative()) {
@@ -97,31 +101,86 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String materialN
     }
     
     /**
-     * 新铺设的管道彼此相邻的面设为已连接；不在本次铺设列表内的旧管道不会被接上。
+     * 沿路径接线：路径上相邻的两格当前都是管道则互连（setConnection 会镜像同步对面）。
+     * 不在路径上的旧管道不会被接上；路径上的格子若已有旧管道（如吸附格）则一并接入，
+     * 保证整条路径连通。
      */
-    private static void wireNewConnections(Level level, List<BlockPos> placed) {
-        for (BlockPos pos : placed) {
-            for (Direction dir : Direction.values()) {
-                if (placed.contains(pos.relative(dir))) {
-                    PipeBlock.setConnection(level, pos, dir, PipeBlock.PipeConnection.CONNECTED);
-                }
+    private static void wirePathConnections(Level level, List<BlockPos> path) {
+        for (int i = 0; i + 1 < path.size(); i++) {
+            BlockPos a = path.get(i);
+            BlockPos b = path.get(i + 1);
+            if (!(level.getBlockState(a).getBlock() instanceof PipeBlock)) continue;
+            if (!(level.getBlockState(b).getBlock() instanceof PipeBlock)) continue;
+            Direction dir = getStepDirection(a, b);
+            if (dir != null) {
+                PipeBlock.setConnection(level, a, dir, PipeBlock.PipeConnection.CONNECTED);
             }
         }
     }
+
+    /** 相邻两格间的方向（仅支持单轴一步位移） */
+    private static Direction getStepDirection(BlockPos from, BlockPos to) {
+        int dx = to.getX() - from.getX();
+        int dy = to.getY() - from.getY();
+        int dz = to.getZ() - from.getZ();
+        for (Direction dir : Direction.values()) {
+            if (dir.getStepX() == dx && dir.getStepY() == dy && dir.getStepZ() == dz) {
+                return dir;
+            }
+        }
+        return null;
+    }
     
     /**
-     * 为铺设端点接线：锚点方块相邻的管道，其指向锚点的面设为指定连接状态。
-     * 起点（容器/机器）侧为抽取，终点侧为连接；锚点本身是新铺设的管道时跳过。
-     * 相邻管道无论是否本次铺设都接线（吸附端点格可能已有旧管道）。
+     * 为铺设端点接线：把路径端点格（或其相邻格）的管道面向锚点的面设为指定连接状态。
+     * <p>
+     * 吸附场景下路径端点格是锚点声明面所对的格子（可能就是管道格本身）；
+     * 未吸附时路径端点格是锚点自身（容器/机器），取与其相邻的管道。
+     * 若锚点是机器声明的 OUTPUT 代理，则强制设为抽取：输出代理只能被抽取，
+     * 不受点击顺序影响（否则先点了机器一端会被设成 CONNECTED 导致抽不出来）。
+     * </p>
      */
-    private static void applyEndpoint(Level level, BlockPos anchor, PipeBlock.PipeConnection value) {
-        if (level.getBlockState(anchor).getBlock() instanceof PipeBlock) return;
-        
-        for (Direction dir : Direction.values()) {
-            BlockPos pipePos = anchor.relative(dir);
-            if (!(level.getBlockState(pipePos).getBlock() instanceof PipeBlock)) continue;
-            PipeBlock.setConnection(level, pipePos, dir.getOpposite(), value);
+    private static void applyEndpoint(Level level, BlockPos anchor, BlockPos pathEndCell, PipeBlock.PipeConnection value) {
+        PipeBlock.PipeConnection effective = value;
+        if (value == PipeBlock.PipeConnection.CONNECTED && isOutputProxy(level, anchor)) {
+            effective = PipeBlock.PipeConnection.EXTRACT;
         }
+
+        BlockPos pipePos = null;
+        Direction anchorDir = null;
+        if (level.getBlockState(pathEndCell).getBlock() instanceof PipeBlock) {
+            // 吸附格（或路径端点格本身就是管道）：面向锚点
+            pipePos = pathEndCell;
+            anchorDir = getStepDirection(pathEndCell, anchor);
+        } else if (pathEndCell.equals(anchor)) {
+            // 未吸附：锚点是容器/机器，找与其相邻的管道
+            for (Direction dir : Direction.values()) {
+                BlockPos candidate = anchor.relative(dir);
+                if (level.getBlockState(candidate).getBlock() instanceof PipeBlock) {
+                    pipePos = candidate;
+                    anchorDir = dir.getOpposite();
+                    break;
+                }
+            }
+        }
+        if (pipePos == null || anchorDir == null) return;
+        PipeBlock.setConnection(level, pipePos, anchorDir, effective);
+    }
+
+    /** 锚点是否为机器声明的 OUTPUT 代理（物品或流体） */
+    private static boolean isOutputProxy(net.minecraft.world.level.BlockGetter level, BlockPos anchor) {
+        if (!(level.getBlockEntity(anchor) instanceof com.mss.polymech.machine.BaseIOSideBlockEntity sideEntity)) return false;
+        BlockPos parentPos = sideEntity.getParentPos();
+        if (parentPos == null) return false;
+        if (!(level.getBlockState(parentPos).getBlock() instanceof com.mss.polymech.machine.BaseMachineBlock machineBlock)) return false;
+        net.minecraft.core.Direction facing = level.getBlockState(parentPos).getValue(com.mss.polymech.machine.BaseMachineBlock.FACING);
+        net.minecraft.core.Vec3i offset = new net.minecraft.core.Vec3i(
+                anchor.getX() - parentPos.getX(), anchor.getY() - parentPos.getY(), anchor.getZ() - parentPos.getZ());
+        net.minecraft.core.Vec3i local = com.mss.polymech.machine.BaseMachineBlock.unrotateVec3i(offset, facing);
+        com.mss.polymech.machine.BaseMachineBlock.FluidProxy fluidProxy = machineBlock.getFluidProxy(local);
+        if (fluidProxy != null) return fluidProxy.io() == com.mss.polymech.machine.BaseMachineBlock.ProxyIO.OUTPUT;
+        com.mss.polymech.machine.BaseMachineBlock.ItemProxy itemProxy = machineBlock.getItemProxy(local);
+        return itemProxy != null && itemProxy.io() == com.mss.polymech.machine.BaseMachineBlock.ProxyIO.OUTPUT;
     }
     
     private static PipeMaterial resolveMaterial(String name) {

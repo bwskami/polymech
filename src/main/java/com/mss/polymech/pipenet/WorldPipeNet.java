@@ -156,6 +156,39 @@ public class WorldPipeNet extends SavedData {
         rebuild(candidates, pool, pos);
     }
 
+    /**
+     * 批量铺设结束后的统一重建：批量铺设期间每根新管放置时面还是 NONE，
+     * {@link #onPipePlaced} 只能为每根管各建一个单管孤立网；接线完成后必须把
+     * 所有涉及的网（每根新管自己的网 + 与之相邻的旧网）按当前连通性整体重新聚类，
+     * 否则管网会碎片化，流体只能走通起点附近一两根管的距离。
+     */
+    public void onBatchConnectionsChanged(Collection<BlockPos> positions) {
+        Set<FluidPipeNet> affected = new LinkedHashSet<>();
+        Set<BlockPos> candidates = new HashSet<>();
+        for (BlockPos pos : positions) {
+            BlockPos immutable = pos.immutable();
+            if (!(level.getBlockState(immutable).getBlock() instanceof PipeBlock)) continue;
+            candidates.add(immutable);
+            FluidPipeNet own = pipeIndex.get(immutable);
+            if (own != null) affected.add(own);
+            for (Direction dir : Direction.values()) {
+                if (isConnected(level, immutable, dir)) {
+                    FluidPipeNet neighborNet = pipeIndex.get(immutable.relative(dir));
+                    if (neighborNet != null) affected.add(neighborNet);
+                }
+            }
+        }
+
+        FluidPool pool = new FluidPool();
+        for (FluidPipeNet net : affected) {
+            pool.addAll(net.drainAll());
+            candidates.addAll(net.allPipes());
+            unregister(net);
+        }
+        if (candidates.isEmpty()) return;
+        rebuild(candidates, pool, candidates.iterator().next());
+    }
+
     /** 邻接方块变化：失效端点缓存 */
     public void onNeighborChanged(BlockPos pos) {
         FluidPipeNet net = pipeIndex.get(pos);
