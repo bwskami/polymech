@@ -3,6 +3,7 @@ package com.mss.polymech;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.fluid.ModFluids;
+import com.mss.polymech.item.FluidCellItem;
 import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.entity.ModEntities;
@@ -28,6 +29,7 @@ import net.minecraft.core.Vec3i;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.templates.FluidHandlerItemStackSimple;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.slf4j.Logger;
@@ -96,6 +98,7 @@ public class Polymech {
         
         // 注册游戏内容
         ModItems.register(modEventBus);
+        ModDataComponents.register(modEventBus);
         ModBlocks.register(modEventBus);
         ModFluids.register(modEventBus);
         ModEntities.register(modEventBus);
@@ -284,6 +287,14 @@ public class Polymech {
                 return null;
             }, entry.mainBlock().get());
         }
+
+        // 通用流体单元物品流体能力：流体内容存储在fluid_content数据组件中
+        event.registerItem(
+                Capabilities.FluidHandler.ITEM,
+                (stack, context) -> new FluidHandlerItemStackSimple(
+                        ModDataComponents.FLUID_CONTENT, stack, FluidCellItem.CAPACITY),
+                ModItems.UNIVERSAL_FLUID_CELL.get()
+        );
     }
 
     /*

@@ -6,6 +6,7 @@ import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorItemRenderer;
 import com.mss.polymech.client.renderer.MachineGeoRenderer;
 import com.mss.polymech.entity.ModEntities;
+import com.mss.polymech.item.ModItems;
 import com.mss.polymech.machine.common.MachineRegistry;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
@@ -16,9 +17,11 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
+import net.neoforged.neoforge.client.model.DynamicFluidContainerModel;
 import net.neoforged.neoforge.client.event.InputEvent;
 
 @Mod(value = Polymech.MOD_ID, dist = Dist.CLIENT)
@@ -43,6 +46,18 @@ public class PolymechClient {
     static void onRegisterGeometryLoaders(ModelEvent.RegisterGeometryLoaders event) {
         event.register(PipeModelLoader.ID, PipeModelLoader.INSTANCE);
         event.register(ConveyorModelLoader.ID, ConveyorModelLoader.INSTANCE);
+    }
+
+    /*
+     * 注册通用流体单元的流体层颜色。
+     * <p>
+     * NeoForge的fluid_container模型不会自动染色，需要注册
+     * DynamicFluidContainerModel.Colors：tintIndex==1时返回所含流体的tint颜色。
+     * </p>
+     */
+    @SubscribeEvent
+    static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
+        event.register(new DynamicFluidContainerModel.Colors(), ModItems.UNIVERSAL_FLUID_CELL.get());
     }
 
     @SubscribeEvent

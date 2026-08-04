@@ -2,6 +2,8 @@ package com.mss.polymech.machine.production;
 
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.fluid.ModFluids;
+import com.mss.polymech.item.FluidCellHelper;
+import com.mss.polymech.item.FluidCellItem;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -48,7 +50,7 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
     private static final int INPUT_WATER_SLOT = 0;        // 输入水桶
     private static final int OUTPUT_EMPTY_SLOT = 1;       // 输出空桶
     private static final int FUEL_SLOT = 2;               // 输入燃料
-    private static final int INPUT_EMPTY_BUCKET_SLOT = 3; // 输入空桶/蒸汽桶
+    private static final int INPUT_EMPTY_BUCKET_SLOT = 3; // 蒸汽罐容器输入（空桶/未满蒸汽单元）
     private static final int OUTPUT_STEAM_SLOT = 4;       // 输出蒸汽桶
     private static final int OUTPUT_ASH_SLOT = 5;         // 输出灰烬
 
@@ -122,23 +124,45 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
     // ==================== 槽位验证 ====================
 
     /**
-     * GUI 槽位验证规则：
-     * 槽位 0（水输入）：接受水桶
+     * GUI 槽位验证规则（桶与流体单元统一标准）：
+     * 槽位 0（水输入）：接受可向水罐排入的容器——水桶、装水的流体单元
      * 槽位 1（空桶输出）：GUI 不允许放入，只能由机器产出
      * 槽位 2（燃料输入）：接受燃料物品
-     * 槽位 3（桶输入）：接受空桶和蒸汽桶
+     * 槽位 3（蒸汽罐容器输入）：接受可从蒸汽罐灌入的容器——空桶、未满的蒸汽/空流体单元
+     * （蒸汽罐为 TankIO.OUT 只出不进，满载容器无法被灌注故拒绝放入，不存在倒灌路径）
      * 槽位 4（蒸汽桶输出）：GUI 不允许放入，只能由机器产出
      * 槽位 5（灰烬输出）：GUI 不允许放入，只能由机器产出
      */
     @Override
     protected boolean isItemValidForSlot(int slot, @NotNull ItemStack stack) {
         return switch (slot) {
-            case INPUT_WATER_SLOT -> stack.getItem() == Items.WATER_BUCKET;
+            case INPUT_WATER_SLOT -> stack.getItem() == Items.WATER_BUCKET || isWaterCell(stack);
             case OUTPUT_EMPTY_SLOT, OUTPUT_STEAM_SLOT, OUTPUT_ASH_SLOT -> false;
             case FUEL_SLOT -> isFuel(stack);
-            case INPUT_EMPTY_BUCKET_SLOT -> stack.getItem() == Items.BUCKET || stack.getItem() == ModFluids.STEAM_BUCKET.get();
+            case INPUT_EMPTY_BUCKET_SLOT -> canReceiveSteam(stack);
             default -> false;
         };
+    }
+
+    /** 判断是否为装水的流体单元（允许不满 1000 mB） */
+    private static boolean isWaterCell(ItemStack stack) {
+        if (!FluidCellHelper.isFluidCell(stack)) return false;
+        FluidStack content = FluidCellItem.getFluid(stack);
+        return !content.isEmpty() && content.getFluid() == Fluids.WATER;
+    }
+
+    /**
+     * 统一标准：容器能否从蒸汽输出罐接收蒸汽。
+     * 空桶，或未满的流体单元（空单元/部分装蒸汽的单元）。
+     */
+    private static boolean canReceiveSteam(ItemStack stack) {
+        if (stack.getItem() == Items.BUCKET) return true;
+        if (FluidCellHelper.isFluidCell(stack)) {
+            FluidStack content = FluidCellItem.getFluid(stack);
+            return (content.isEmpty() || content.getFluid() == ModFluids.STEAM_SOURCE.get())
+                    && content.getAmount() < FluidCellItem.CAPACITY;
+        }
+        return false;
     }
 
     // ==================== 大锅炉特有：自动桶转换 ====================
@@ -165,10 +189,32 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
                         }
                     }
                 }
+            } else if (FluidCellHelper.isFluidCell(waterStack)) {
+                // 水单元→排入水罐（支持不满 1000 mB 的部分量），剩余流体留在单元内不吞，
+                // 倒空后的单元输出到 OUTPUT_EMPTY_SLOT
+                ItemStack single = waterStack.copyWithCount(1);
+                ItemStack preview = FluidCellHelper.drainCellIntoTank(single, waterTank, false);
+                if (preview != null) {
+                    ItemStack emptyStack = itemStackHandler.getStackInSlot(OUTPUT_EMPTY_SLOT);
+                    boolean canOutputEmpty = emptyStack.isEmpty()
+                            || (ItemStack.isSameItemSameComponents(emptyStack, preview)
+                                && emptyStack.getCount() < emptyStack.getMaxStackSize());
+                    if (canOutputEmpty) {
+                        ItemStack result = FluidCellHelper.drainCellIntoTank(single, waterTank, true);
+                        if (result != null) {
+                            itemStackHandler.extractItem(INPUT_WATER_SLOT, 1, false);
+                            if (emptyStack.isEmpty()) {
+                                itemStackHandler.setStackInSlot(OUTPUT_EMPTY_SLOT, result);
+                            } else {
+                                emptyStack.grow(1);
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // === 自动桶↔蒸汽转换（空桶→蒸汽桶 / 蒸汽桶→排入储罐） ===
+        // === 自动容器↔蒸汽转换（统一标准：槽位3的容器只从蒸汽罐被灌入，不倒灌） ===
         ItemStack bucketStack = itemStackHandler.getStackInSlot(INPUT_EMPTY_BUCKET_SLOT);
         if (!bucketStack.isEmpty()) {
             if (bucketStack.getItem() == Items.BUCKET) {
@@ -187,21 +233,35 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
                         }
                     }
                 }
-            } else if (bucketStack.getItem() == ModFluids.STEAM_BUCKET.get()) {
-                // 蒸汽桶→排入储罐：消耗蒸汽桶，产出空桶到 OUTPUT_EMPTY_SLOT
-                if (steamTank.getFluidAmount() + 1000 <= steamCapacity) {
-                    ItemStack emptyBucketOutput = itemStackHandler.getStackInSlot(OUTPUT_EMPTY_SLOT);
-                    boolean canOutput = emptyBucketOutput.isEmpty()
-                            || (emptyBucketOutput.getItem() == Items.BUCKET && emptyBucketOutput.getCount() < emptyBucketOutput.getMaxStackSize());
-                    if (canOutput) {
-                        steamTank.fill(new FluidStack(ModFluids.STEAM_SOURCE.get(), 1000), IFluidHandler.FluidAction.EXECUTE);
+            } else if (FluidCellHelper.isFluidCell(bucketStack)) {
+                // 空/半满蒸汽单元→放入 OUTPUT_STEAM_SLOT 逐 tick 灌注，灌满前不取下一个（一次只灌一个）
+                ItemStack steamOutStack = itemStackHandler.getStackInSlot(OUTPUT_STEAM_SLOT);
+                boolean cellInProgress = FluidCellHelper.isFluidCell(steamOutStack);
+                if (!cellInProgress && steamOutStack.isEmpty() && steamTank.getFluidAmount() > 0) {
+                    ItemStack single = bucketStack.copyWithCount(1);
+                    if (canReceiveSteam(single)) {
+                        // 从输入槽取一个，放入输出槽开始灌注
                         itemStackHandler.extractItem(INPUT_EMPTY_BUCKET_SLOT, 1, false);
-                        if (emptyBucketOutput.isEmpty()) {
-                            itemStackHandler.setStackInSlot(OUTPUT_EMPTY_SLOT, new ItemStack(Items.BUCKET));
-                        } else {
-                            emptyBucketOutput.grow(1);
+                        itemStackHandler.setStackInSlot(OUTPUT_STEAM_SLOT, single);
+                        // 本 tick 立即灌注一次，剩余的后续 tick 继续
+                        ItemStack filled = FluidCellHelper.fillCellFromTank(single, steamTank, true);
+                        if (filled != null) {
+                            itemStackHandler.setStackInSlot(OUTPUT_STEAM_SLOT, filled);
                         }
                     }
+                }
+            }
+        }
+
+        // === 正在灌注的单元：每 tick 从蒸汽罐继续抽取蒸汽，直到灌满 1000 mB ===
+        ItemStack steamOutStack = itemStackHandler.getStackInSlot(OUTPUT_STEAM_SLOT);
+        if (FluidCellHelper.isFluidCell(steamOutStack) && steamOutStack.getCount() == 1
+                && canReceiveSteam(steamOutStack)) {
+            FluidStack cellContent = FluidCellItem.getFluid(steamOutStack);
+            if (cellContent.getAmount() < FluidCellItem.CAPACITY) {
+                ItemStack filled = FluidCellHelper.fillCellFromTank(steamOutStack, steamTank, true);
+                if (filled != null) {
+                    itemStackHandler.setStackInSlot(OUTPUT_STEAM_SLOT, filled);
                 }
             }
         }
@@ -225,7 +285,8 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
         boolean hasWater = waterTank.getFluidAmount() >= 1;
         if (!hasWater) {
             ItemStack waterStack = itemStackHandler.getStackInSlot(INPUT_WATER_SLOT);
-            if (waterStack.isEmpty() || waterStack.getItem() != Items.WATER_BUCKET) {
+            if (waterStack.isEmpty()
+                    || !(waterStack.getItem() == Items.WATER_BUCKET || isWaterCell(waterStack))) {
                 return false;
             }
         }
@@ -309,7 +370,7 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
         }
         @Override public @NotNull ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
             if (slot == 0) {
-                if (stack.getItem() == Items.WATER_BUCKET) {
+                if (stack.getItem() == Items.WATER_BUCKET || isWaterCell(stack)) {
                     return parent.insertItem(INPUT_WATER_SLOT, stack, simulate);
                 }
             } else if (slot == 1) {
@@ -319,7 +380,7 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
                     return parent.insertItem(FUEL_SLOT, stack, simulate);
                 }
             } else if (slot == 3) {
-                if (stack.getItem() == Items.BUCKET || stack.getItem() == ModFluids.STEAM_BUCKET.get()) {
+                if (canReceiveSteam(stack)) {
                     return parent.insertItem(INPUT_EMPTY_BUCKET_SLOT, stack, simulate);
                 }
             }
@@ -331,10 +392,10 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
         }
         @Override public int getSlotLimit(int slot) { return 64; }
         @Override public boolean isItemValid(int slot, @NotNull ItemStack stack) {
-            if (slot == 0) return stack.getItem() == Items.WATER_BUCKET;
+            if (slot == 0) return stack.getItem() == Items.WATER_BUCKET || isWaterCell(stack);
             if (slot == 1) return false;
             if (slot == 2) return isFuel(stack);
-            if (slot == 3) return stack.getItem() == Items.BUCKET || stack.getItem() == ModFluids.STEAM_BUCKET.get();
+            if (slot == 3) return canReceiveSteam(stack);
             return false;
         }
     }

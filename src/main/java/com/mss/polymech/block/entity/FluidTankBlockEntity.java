@@ -1,5 +1,6 @@
 package com.mss.polymech.block.entity;
 
+import com.mss.polymech.item.FluidCellHelper;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -128,6 +129,18 @@ public class FluidTankBlockEntity extends BlockEntity {
             tank.drain(1000, IFluidHandler.FluidAction.EXECUTE);
             input.shrink(1);
             addToOutput(filledBucket);
+            if (input.isEmpty()) bucketHandler.setStackInSlot(0, ItemStack.EMPTY);
+        } else if (FluidCellHelper.isFluidCell(input)) {
+            // 通用流体单元：与储罐双向转移，支持部分量（不满 1000 mB 也能装/倒），不吞流体
+            ItemStack single = input.copyWithCount(1);
+            // 先模拟得到结果单元，确认输出槽可接收后再真正执行（避免输出槽满时流体来回振荡）
+            ItemStack preview = FluidCellHelper.processCellAgainstTank(single, tank, false);
+            if (preview == null) return;
+            if (!canOutputAccept(preview)) return;
+            ItemStack result = FluidCellHelper.processCellAgainstTank(single, tank, true);
+            if (result == null) return;
+            input.shrink(1);
+            addToOutput(result);
             if (input.isEmpty()) bucketHandler.setStackInSlot(0, ItemStack.EMPTY);
         }
     }

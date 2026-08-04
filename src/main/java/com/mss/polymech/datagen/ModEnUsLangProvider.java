@@ -121,6 +121,11 @@ public class ModEnUsLangProvider extends LanguageProvider {
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "Blueprint");
         add(ModItems.COKE.get(), "Coke");
+
+        // 通用流体单元
+        add(ModItems.UNIVERSAL_FLUID_CELL.get(), "Universal Fluid Cell");
+        add("tooltip.poly_mech.fluid_cell.empty", "Empty");
+        add("tooltip.poly_mech.fluid_cell.stored", "Contains: %s (%d/%d mB)");
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "Multiblock Machine Selection");
@@ -198,6 +203,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("itemGroup.block_tab", "Ploy Mech:Block");
         add("itemGroup.pipe_tab", "Ploy Mech:Pipes and Logistics");
         add("itemGroup.tool_tab", "Ploy Mech:Tool");
+        add("itemGroup.fluid_cell_tab", "Ploy Mech:Fluid Cells");
     }
 
     private String formatMaterialName(String name) {

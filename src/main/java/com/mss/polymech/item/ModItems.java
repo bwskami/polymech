@@ -85,6 +85,16 @@ public class ModItems {
     public static final DeferredItem<Item> COKE =
             ITEMS.register("coke", () -> new Item(new Item.Properties()));
 
+    /*
+     * 通用流体单元，单一物品即可盛装任意流体。
+     * <p>
+     * 流体内容存储在fluid_content数据组件中，流体能力在Polymech#registerCapabilities中注册。
+     * 渲染使用neoforge:fluid_container模型加载器（底图不染色，流体层按流体颜色染色）。
+     * </p>
+     */
+    public static final DeferredItem<FluidCellItem> UNIVERSAL_FLUID_CELL =
+            ITEMS.register("universal_fluid_cell", () -> new FluidCellItem(new Item.Properties()));
+
     // ========== 材料物品：数据驱动批量注册 ==========
     
     /*

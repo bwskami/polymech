@@ -1,6 +1,8 @@
 package com.mss.polymech.machine.boiler;
 
+import com.mss.polymech.fluid.IOFluidHandler;
 import com.mss.polymech.fluid.ModFluids;
+import com.mss.polymech.fluid.TankIO;
 import com.mss.polymech.machine.BaseIOBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -110,6 +112,10 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
     protected final FluidTank waterTank;
     /** 输出蒸汽罐 */
     protected final FluidTank steamTank;
+    /** 水罐对外视图（TankIO.IN 只进：外部可灌入水，不能抽走） */
+    protected final IOFluidHandler waterInputHandler;
+    /** 蒸汽罐对外视图（TankIO.OUT 只出：外部可抽走蒸汽，不能倒灌） */
+    protected final IOFluidHandler steamOutputHandler;
 
     // ==================== 构造函数 ====================
 
@@ -142,6 +148,10 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
                 }
             }
         };
+
+        // 对外能力视图：按 IO 模式门控 fill/drain，机器内部逻辑仍直接操作原始储罐
+        this.waterInputHandler = new IOFluidHandler(waterTank, TankIO.IN);
+        this.steamOutputHandler = new IOFluidHandler(steamTank, TankIO.OUT);
     }
 
     // ==================== 抽象方法（子类必须实现） ====================
@@ -335,11 +345,17 @@ public abstract class AbstractSteamBoilerBlockEntity extends BaseIOBlockEntity {
 
     // ==================== 流体处理器 ====================
 
-    /** 获取输入水罐处理器 */
-    public IFluidHandler getWaterInputHandler() { return waterTank; }
+    /**
+     * 获取输入水罐对外处理器（TankIO.IN：只进不出）。
+     * 世界能力、管道、手持容器交互统一走此视图，天然禁止从水罐抽水。
+     */
+    public IFluidHandler getWaterInputHandler() { return waterInputHandler; }
 
-    /** 获取输出蒸汽罐处理器 */
-    public IFluidHandler getSteamOutputHandler() { return steamTank; }
+    /**
+     * 获取输出蒸汽罐对外处理器（TankIO.OUT：只出不进）。
+     * 世界能力、管道、手持容器交互统一走此视图，天然禁止蒸汽倒灌回锅炉。
+     */
+    public IFluidHandler getSteamOutputHandler() { return steamOutputHandler; }
 
     /** 获取蒸汽罐中的流体堆 */
     public FluidStack getSteamFluidStack() { return steamTank.getFluid(); }

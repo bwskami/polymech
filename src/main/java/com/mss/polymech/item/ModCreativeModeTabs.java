@@ -8,10 +8,14 @@ import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.fluid.ModFluids;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.FlowingFluid;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -63,6 +67,29 @@ public class ModCreativeModeTabs {
                                     }
                                 }
                             }
+                        }
+                    }).build());
+
+    /*
+     * 通用流体单元标签页，包含空单元与所有流体的满装单元。
+     * <p>
+     * 自动遍历注册表中的每种流体（跳过空流体与流动态非源流体），
+     * 为每种流体生成一个满装单元条目。
+     * </p>
+     */
+    public static final Supplier<CreativeModeTab> FLUID_CELL_TAB =
+            CREATIVE_MODE_TABS.register("fluid_cell_tab", () -> CreativeModeTab.builder()
+                    .icon(() -> FluidCellItem.getFilledCellStack(Fluids.WATER, FluidCellItem.CAPACITY))
+                    .title(Component.translatable("itemGroup.fluid_cell_tab"))
+                    .displayItems((parameters, output) -> {
+                        // 空单元
+                        output.accept(ModItems.UNIVERSAL_FLUID_CELL.get());
+                        // 自动为每种流体生成满装单元
+                        for (Fluid fluid : BuiltInRegistries.FLUID) {
+                            // 跳过空流体与流动态（非源）流体，避免重复条目
+                            if (fluid == Fluids.EMPTY) continue;
+                            if (fluid instanceof FlowingFluid flowing && !flowing.isSource(fluid.defaultFluidState())) continue;
+                            output.accept(FluidCellItem.getFilledCellStack(fluid, FluidCellItem.CAPACITY));
                         }
                     }).build());
     

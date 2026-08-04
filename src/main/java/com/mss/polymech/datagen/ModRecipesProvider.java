@@ -118,12 +118,15 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
                         List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
                         List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "steel").get(), 2)),
                         List.of(), 160, 0, false));
-        saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "raw_copper_to_dust_x2",
-                new MachineRecipe(ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG.type().get(),
-                        List.of(si(Items.RAW_COPPER)),
-                        List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
-                        List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "copper").get(), 2)),
-                        List.of(), 160, 0, false));
+        var copperDust = ModItems.getMaterialItem(ModItemTypes.DUST, "copper");
+        if (copperDust != null) {
+            saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "raw_copper_to_dust_x2",
+                    new MachineRecipe(ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG.type().get(),
+                            List.of(si(Items.RAW_COPPER)),
+                            List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
+                            List.of(new ItemStack(copperDust.get(), 2)),
+                            List.of(), 160, 0, false));
+        }
 
         // ===== 灌装机：空桶+蒸汽→蒸汽桶（电力） =====
         saveMachine(out, ModRecipeTypes.FILLING_UNIT, "fill_steam_bucket",

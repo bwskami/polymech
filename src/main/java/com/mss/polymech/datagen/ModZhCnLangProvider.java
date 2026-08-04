@@ -169,6 +169,11 @@ public class ModZhCnLangProvider extends LanguageProvider {
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");
         add(ModItems.COKE.get(), "焦煤");
+
+        // 通用流体单元
+        add(ModItems.UNIVERSAL_FLUID_CELL.get(), "通用流体单元");
+        add("tooltip.poly_mech.fluid_cell.empty", "空的");
+        add("tooltip.poly_mech.fluid_cell.stored", "内含：%s（%d/%d mB）");
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "多方块机器选择");
@@ -223,5 +228,6 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("itemGroup.block_tab", "Ploy Mech:方块");
         add("itemGroup.pipe_tab", "Ploy Mech:管道与物流相关");
         add("itemGroup.tool_tab", "Ploy Mech:工具");
+        add("itemGroup.fluid_cell_tab", "Ploy Mech:流体单元");
     }
 }

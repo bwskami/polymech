@@ -97,6 +97,7 @@
   "item.poly_mech.bronze_small_gear": "青铜小齿轮",
   "item.poly_mech.bronze_spring": "青铜弹簧",
   "item.poly_mech.bronze_stick": "青铜杆",
+  "item.poly_mech.coke": "焦煤",
   "item.poly_mech.cupronickel_alloy_ingot": "白铜锭",
   "item.poly_mech.cupronickel_bolt": "白铜螺栓",
   "item.poly_mech.cupronickel_dust": "白铜粉",
@@ -170,6 +171,7 @@
   "item.poly_mech.tin_small_gear": "锡小齿轮",
   "item.poly_mech.tin_spring": "锡弹簧",
   "item.poly_mech.tin_stick": "锡杆",
+  "item.poly_mech.universal_fluid_cell": "通用流体单元",
   "item.poly_mech.wrench": "扳手",
   "item.poly_mech.zinc_bolt": "锌螺栓",
   "item.poly_mech.zinc_dust": "锌粉",
@@ -184,6 +186,7 @@
   "item.poly_mech.zinc_spring": "锌弹簧",
   "item.poly_mech.zinc_stick": "锌杆",
   "itemGroup.block_tab": "Ploy Mech:方块",
+  "itemGroup.fluid_cell_tab": "Ploy Mech:流体单元",
   "itemGroup.material_tab": "Ploy Mech:材料",
   "itemGroup.pipe_tab": "Ploy Mech:管道与物流相关",
   "itemGroup.tool_tab": "Ploy Mech:工具",
@@ -192,5 +195,7 @@
   "side_type.poly_mech.fluid_output": "流体输出仓",
   "side_type.poly_mech.item_input": "物品输入仓",
   "side_type.poly_mech.item_output": "物品输出仓",
-  "side_type.poly_mech.normal": "机器外壳"
+  "side_type.poly_mech.normal": "机器外壳",
+  "tooltip.poly_mech.fluid_cell.empty": "空的",
+  "tooltip.poly_mech.fluid_cell.stored": "内含：%s（%d/%d mB）"
 }

@@ -97,6 +97,7 @@
   "item.poly_mech.bronze_small_gear": "Bronze Small Gear",
   "item.poly_mech.bronze_spring": "Bronze Spring",
   "item.poly_mech.bronze_stick": "Bronze Stick",
+  "item.poly_mech.coke": "Coke",
   "item.poly_mech.cupronickel_alloy_ingot": "Cupronickel Ingot",
   "item.poly_mech.cupronickel_bolt": "Cupronickel Bolt",
   "item.poly_mech.cupronickel_dust": "Cupronickel Dust",
@@ -170,6 +171,7 @@
   "item.poly_mech.tin_small_gear": "Tin Small Gear",
   "item.poly_mech.tin_spring": "Tin Spring",
   "item.poly_mech.tin_stick": "Tin Stick",
+  "item.poly_mech.universal_fluid_cell": "Universal Fluid Cell",
   "item.poly_mech.wrench": "Wrench",
   "item.poly_mech.zinc_bolt": "Zinc Bolt",
   "item.poly_mech.zinc_dust": "Zinc Dust",
@@ -184,6 +186,7 @@
   "item.poly_mech.zinc_spring": "Zinc Spring",
   "item.poly_mech.zinc_stick": "Zinc Stick",
   "itemGroup.block_tab": "Ploy Mech:Block",
+  "itemGroup.fluid_cell_tab": "Ploy Mech:Fluid Cells",
   "itemGroup.material_tab": "Ploy Mech:Material",
   "itemGroup.pipe_tab": "Ploy Mech:Pipes and Logistics",
   "itemGroup.tool_tab": "Ploy Mech:Tool",
@@ -192,5 +195,7 @@
   "side_type.poly_mech.fluid_output": "Fluid Output Hatch",
   "side_type.poly_mech.item_input": "Item Input Hatch",
   "side_type.poly_mech.item_output": "Item Output Hatch",
-  "side_type.poly_mech.normal": "Machine Casing"
+  "side_type.poly_mech.normal": "Machine Casing",
+  "tooltip.poly_mech.fluid_cell.empty": "Empty",
+  "tooltip.poly_mech.fluid_cell.stored": "Contains: %s (%d/%d mB)"
 }

@@ -1,0 +1,12 @@
+{
+  "type": "poly_mech:steam_turbine_generator",
+  "duration": 100,
+  "fluid_inputs": [
+    {
+      "amount": 500,
+      "fluid": "poly_mech:steam_source"
+    }
+  ],
+  "generator": true,
+  "power_per_tick": 8
+}
