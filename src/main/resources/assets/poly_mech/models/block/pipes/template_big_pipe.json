@@ -8,5 +8,13 @@
 		"west": { "model": "poly_mech:block/pipes/template_big_pipe_arm_west" },
 		"up": { "model": "poly_mech:block/pipes/template_big_pipe_arm_up" },
 		"down": { "model": "poly_mech:block/pipes/template_big_pipe_arm_up", "x": 180, "y": 0 }
+	},
+	"inputs": {
+		"north": { "model": "poly_mech:block/pipes/template_pipe_input" },
+		"south": { "model": "poly_mech:block/pipes/template_pipe_input", "x": 0, "y": 180 },
+		"east": { "model": "poly_mech:block/pipes/template_pipe_input", "x": 0, "y": 90 },
+		"west": { "model": "poly_mech:block/pipes/template_pipe_input", "x": 0, "y": 270 },
+		"up": { "model": "poly_mech:block/pipes/template_pipe_input", "x": 270, "y": 0 },
+		"down": { "model": "poly_mech:block/pipes/template_pipe_input", "x": 90, "y": 0 }
 	}
 }

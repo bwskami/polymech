@@ -82,9 +82,11 @@ public class PipePreviewRenderer {
         BlockPos clickedPos = blockHitResult.getBlockPos();
         if (mc.level.isEmptyBlock(clickedPos)) return;
         
-        BlockPos targetPos = getPlacementPosition(blockHitResult);
+        BlockPos targetPos = PipeInputHandler.getEndpointPosition(mc.level, blockHitResult);
+        boolean containerEndpoint = targetPos.equals(clickedPos);
         
-        if (!hasAdjacentSupport(mc.level, targetPos)) {
+        // 容器/机器端点不需要支撑检查；普通铺设位置需有邻接支撑
+        if (!containerEndpoint && !hasAdjacentSupport(mc.level, targetPos)) {
             return;
         }
         
@@ -101,7 +103,10 @@ public class PipePreviewRenderer {
         int pathColor = getPathColor(pipeId.size());
         
         if (startPos != null) {
-            List<BlockPos> path = PipePathCalculator.calculatePath(startPos, targetPos);
+            // 与服务端一致：路径端点先经过代理面吸附解析（接线锚点不变）
+            BlockPos pathStart = PipePathCalculator.resolveEndpoint(mc.level, startPos, targetPos);
+            BlockPos pathEnd = PipePathCalculator.resolveEndpoint(mc.level, targetPos, startPos);
+            List<BlockPos> path = PipePathCalculator.calculatePath(mc.level, pathStart, pathEnd);
             
             int emptyCount = 0;
             for (BlockPos pos : path) {
@@ -117,9 +122,9 @@ public class PipePreviewRenderer {
             if (!path.isEmpty() && canAfford) {
                 for (int i = 0; i < path.size(); i++) {
                     BlockPos pos = path.get(i);
-                    if (pos.equals(startPos)) continue;
+                    if (pos.equals(pathStart)) continue;
                     
-                    if (pos.equals(targetPos)) {
+                    if (pos.equals(pathEnd)) {
                         renderBlockOutline(poseStack, event.getCamera(), pos, COLOR_B_POINT);
                     } else {
                         renderBlockOutline(poseStack, event.getCamera(), pos, pathColor);
@@ -155,11 +160,6 @@ public class PipePreviewRenderer {
         return null;
     }
     
-    private static BlockPos getPlacementPosition(BlockHitResult hitResult) {
-        BlockPos pos = hitResult.getBlockPos();
-        return pos.relative(hitResult.getDirection());
-    }
-
     public static boolean hasAdjacentSupport(net.minecraft.world.level.Level level, BlockPos pos) {
         if (level == null) return false;
         for (Direction dir : Direction.values()) {

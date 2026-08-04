@@ -8,6 +8,7 @@ import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.machine.common.LargeMachineBlock;
 import com.mss.polymech.machine.common.MachineConfig;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionResult;
@@ -52,13 +53,14 @@ public class HorizontalSteamBoilerBlock extends LargeMachineBlock implements Blo
     }
 
     /**
-     * 流体代理声明（本地坐标，facing=NORTH）：位置 → 储罐 + IO 方向。
+     * 流体代理声明（本地坐标，facing=NORTH）：位置 → 储罐 + IO 方向 + 有效面。
      * 储罐索引见 {@link AbstractSteamBoilerBlockEntity}：0=水输入罐，1=蒸汽输出罐
+     * <p>蒸汽排汽口位于烟囱模型顶部，故蒸汽输出仅声明 UP 面。</p>
      */
     @Override
     public FluidProxy getFluidProxy(Vec3i relativeOffset) {
         if (relativeOffset.equals(new Vec3i(0, 0, 1))) return new FluidProxy(new int[]{AbstractSteamBoilerBlockEntity.TANK_WATER}, ProxyIO.INPUT);   // 水输入
-        if (relativeOffset.equals(new Vec3i(0, 3, 0))) return new FluidProxy(new int[]{AbstractSteamBoilerBlockEntity.TANK_STEAM}, ProxyIO.OUTPUT);  // 蒸汽输出
+        if (relativeOffset.equals(new Vec3i(0, 3, 0))) return new FluidProxy(new int[]{AbstractSteamBoilerBlockEntity.TANK_STEAM}, ProxyIO.OUTPUT, new Direction[]{Direction.UP});  // 蒸汽输出（仅顶面）
         return null;
     }
 

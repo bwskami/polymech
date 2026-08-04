@@ -340,6 +340,7 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
             BlockPos targetPos = sidePos.relative(dir);
             Vec3i targetLocal = BaseMachineBlock.unrotateVec3i(targetPos.subtract(worldPosition), facing);
             if (mb.isLocalPartOfStructure(targetLocal)) continue;
+            if (!proxy.allowsWorldFace(dir, facing)) continue; // 仅从声明的有效面推送
             IItemHandler target = world.getCapability(Capabilities.ItemHandler.BLOCK, targetPos, dir.getOpposite());
             if (target == null) continue;
             for (int internalSlot : slots) {
@@ -368,6 +369,7 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
             BlockPos targetPos = sidePos.relative(dir);
             Vec3i targetLocal = BaseMachineBlock.unrotateVec3i(targetPos.subtract(worldPosition), facing);
             if (mb.isLocalPartOfStructure(targetLocal)) continue;
+            if (!proxy.allowsWorldFace(dir, facing)) continue; // 仅从声明的有效面推送
             IFluidHandler target = world.getCapability(Capabilities.FluidHandler.BLOCK, targetPos, dir.getOpposite());
             if (target == null) continue;
             for (int tankIndex : tanks) {

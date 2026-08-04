@@ -18,10 +18,13 @@ import java.util.function.Function;
 public class UnbakedPipeModel implements IUnbakedGeometry<UnbakedPipeModel> {
     private final ResourceLocation centerModel;
     private final Map<Direction, ArmConfig> armConfigs;
+    private final Map<Direction, ArmConfig> inputConfigs;
 
-    public UnbakedPipeModel(ResourceLocation centerModel, Map<Direction, ArmConfig> armConfigs) {
+    public UnbakedPipeModel(ResourceLocation centerModel, Map<Direction, ArmConfig> armConfigs,
+                            Map<Direction, ArmConfig> inputConfigs) {
         this.centerModel = centerModel;
         this.armConfigs = armConfigs;
+        this.inputConfigs = inputConfigs;
     }
 
     @Override
@@ -29,33 +32,37 @@ public class UnbakedPipeModel implements IUnbakedGeometry<UnbakedPipeModel> {
                                Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState,
                                ItemOverrides overrides) {
         BakedModel center = baker.bake(centerModel, modelState, spriteGetter);
-        Map<Direction, BakedModel> arms = new EnumMap<>(Direction.class);
-
-        for (var entry : armConfigs.entrySet()) {
-            Direction dir = entry.getKey();
-            ArmConfig config = entry.getValue();
-            
-            // 创建带旋转的 ModelState
-            ModelState rotatedState = createRotatedState(modelState, config.xRot(), config.yRot());
-            BakedModel arm = baker.bake(config.model(), rotatedState, spriteGetter);
-            arms.put(dir, arm);
-        }
-
-        return new BakedPipeModel(center, arms);
+        Map<Direction, BakedModel> arms = bakeSection(baker, spriteGetter, modelState, armConfigs);
+        Map<Direction, BakedModel> inputs = bakeSection(baker, spriteGetter, modelState, inputConfigs);
+        return new BakedPipeModel(center, arms, inputs);
     }
 
-    private ModelState createRotatedState(ModelState baseState, int xRot, int yRot) {
+    private static Map<Direction, BakedModel> bakeSection(ModelBaker baker,
+                                                          Function<Material, TextureAtlasSprite> spriteGetter,
+                                                          ModelState modelState, Map<Direction, ArmConfig> configs) {
+        Map<Direction, BakedModel> baked = new EnumMap<>(Direction.class);
+        for (var entry : configs.entrySet()) {
+            ArmConfig config = entry.getValue();
+            // 创建带旋转的 ModelState
+            ModelState rotatedState = createRotatedState(modelState, config.xRot(), config.yRot());
+            baked.put(entry.getKey(), baker.bake(config.model(), rotatedState, spriteGetter));
+        }
+        return baked;
+    }
+
+    /**
+     * 与原版 BlockModelRotation 一致的旋转约定：{@code rotateYXZ(-y, -x, 0)}。
+     * 即 JSON 里的 x/y 语义等同 blockstate 变体的 x/y：
+     * 朝北的模型 y=90 朝东、y=270 朝西、x=270 朝上、x=90 朝下。
+     */
+    private static ModelState createRotatedState(ModelState baseState, int xRot, int yRot) {
         if (xRot == 0 && yRot == 0) {
             return baseState;
         }
 
-        Quaternionf rotation = new Quaternionf();
-        if (yRot != 0) {
-            rotation.rotateY((float) Math.toRadians(yRot));
-        }
-        if (xRot != 0) {
-            rotation.rotateX((float) Math.toRadians(xRot));
-        }
+        float degToRad = (float) (Math.PI / 180.0);
+        Quaternionf rotation = new Quaternionf()
+                .rotateYXZ(-yRot * degToRad, -xRot * degToRad, 0.0F);
 
         Transformation transform = new Transformation(null, rotation, null, null);
 

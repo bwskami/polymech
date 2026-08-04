@@ -277,13 +277,14 @@ public class ModBlocks {
                 // 生成注册名称（如：pipe, bronze_pipe, stainless_steel_small_pipe）
                 String name = size.getRegistryName(material);
                 
-                // 注册管道方块
+                // 注册管道方块（材质 + 尺寸，材质决定流速倍率）
                 DeferredBlock<PipeBlock> pipe = registerPipe(name,
                         () -> new PipeBlock(Block.Properties.of()
                                 .strength(material.getStrength(), material.getResistance())
                                 .sound(material.getSoundType())
                                 .requiresCorrectToolForDrops()
                                 .noOcclusion(),
+                                material,
                                 size));
                 
                 sizeMap.put(size, pipe);

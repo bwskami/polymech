@@ -23,26 +23,7 @@ public class PipeModelLoader implements IGeometryLoader<UnbakedPipeModel> {
                 GsonHelper.getAsString(json, "center", "poly_mech:block/pipes/template_pipe_core"));
 
         Map<Direction, ArmConfig> armConfigs = new EnumMap<>(Direction.class);
-
-        if (json.has("arms")) {
-            JsonObject armsJson = GsonHelper.getAsJsonObject(json, "arms");
-            for (Direction dir : Direction.values()) {
-                String key = dir.getName();
-                if (armsJson.has(key)) {
-                    JsonElement armElement = armsJson.get(key);
-                    if (armElement.isJsonObject()) {
-                        JsonObject armObj = armElement.getAsJsonObject();
-                        String modelPath = GsonHelper.getAsString(armObj, "model");
-                        int xRot = GsonHelper.getAsInt(armObj, "x", 0);
-                        int yRot = GsonHelper.getAsInt(armObj, "y", 0);
-                        armConfigs.put(dir, new ArmConfig(ResourceLocation.parse(modelPath), xRot, yRot));
-                    } else {
-                        String modelPath = armElement.getAsString();
-                        armConfigs.put(dir, new ArmConfig(ResourceLocation.parse(modelPath), 0, 0));
-                    }
-                }
-            }
-        }
+        parseDirectionalSection(json, "arms", armConfigs);
 
         if (armConfigs.isEmpty()) {
             ResourceLocation defaultArm = ResourceLocation.parse("poly_mech:block/pipes/template_pipe_arm");
@@ -51,7 +32,31 @@ public class PipeModelLoader implements IGeometryLoader<UnbakedPipeModel> {
             }
         }
 
-        return new UnbakedPipeModel(centerModel, armConfigs);
+        // 抽取口（input）模型：仅在 EXTRACT 状态叠加渲染在管臂外侧，可为空
+        Map<Direction, ArmConfig> inputConfigs = new EnumMap<>(Direction.class);
+        parseDirectionalSection(json, "inputs", inputConfigs);
+
+        return new UnbakedPipeModel(centerModel, armConfigs, inputConfigs);
+    }
+
+    /** 解析按方向组织的模型段（arms/inputs 同构）：每方向 model + x/y 旋转 */
+    private static void parseDirectionalSection(JsonObject json, String section, Map<Direction, ArmConfig> out) {
+        if (!json.has(section)) return;
+        JsonObject sectionJson = GsonHelper.getAsJsonObject(json, section);
+        for (Direction dir : Direction.values()) {
+            String key = dir.getName();
+            if (!sectionJson.has(key)) continue;
+            JsonElement element = sectionJson.get(key);
+            if (element.isJsonObject()) {
+                JsonObject obj = element.getAsJsonObject();
+                String modelPath = GsonHelper.getAsString(obj, "model");
+                int xRot = GsonHelper.getAsInt(obj, "x", 0);
+                int yRot = GsonHelper.getAsInt(obj, "y", 0);
+                out.put(dir, new ArmConfig(ResourceLocation.parse(modelPath), xRot, yRot));
+            } else {
+                out.put(dir, new ArmConfig(ResourceLocation.parse(element.getAsString()), 0, 0));
+            }
+        }
     }
 
     public record ArmConfig(ResourceLocation model, int xRot, int yRot) {}

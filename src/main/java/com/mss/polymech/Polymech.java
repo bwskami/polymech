@@ -14,6 +14,7 @@ import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MultiTankFluidHandler;
 import com.mss.polymech.machine.common.SlotFilteredItemHandler;
 import com.mss.polymech.menu.ModMenuTypes;
+import com.mss.polymech.pipenet.PipeFluidHandler;
 import com.mss.polymech.recipe.ModRecipeTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
@@ -34,6 +35,7 @@ import org.slf4j.Logger;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.IEventBus;
@@ -179,6 +181,22 @@ public class Polymech {
                 ConveyorBlockEntity::getItemHandler
         );
 
+        // 流体储罐流体能力（供管道管网作为端点交互）
+        event.registerBlockEntity(
+                Capabilities.FluidHandler.BLOCK,
+                ModBlockEntities.FLUID_TANK.get(),
+                (tankBE, side) -> tankBE.getFluidHandler()
+        );
+
+        // 管道流体能力：无 BlockEntity，转发给世界级管网（WorldPipeNet）
+        Block[] pipeBlocks = ModBlocks.PIPE_BLOCKS.stream()
+                .map(deferred -> (Block) deferred.get())
+                .toArray(Block[]::new);
+        event.registerBlock(Capabilities.FluidHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
+            if (level.isClientSide()) return null;
+            return new PipeFluidHandler((ServerLevel) level, pos, context);
+        }, pipeBlocks);
+
         // 通过MachineRegistry统一注册所有大型机器的物品和流体能力
         for (MachineRegistry.MachineEntry entry : MachineRegistry.getEntries()) {
             var mainBE = entry.mainBlockEntity();
@@ -206,9 +224,11 @@ public class Polymech {
                             Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
                             Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
                             Vec3i local = BaseMachineBlock.unrotateVec3i(offset, facing);
-                            // Block 声明位置→物品代理（槽位 + IO 方向）
+                            // Block 声明位置→物品代理（槽位 + IO 方向 + 有效面）
                             var proxy = machineBlock.getItemProxy(local);
                             if (proxy == null) return null;
+                            // 声明了有效面时，仅允许从指定面访问（context==null 查询不过滤）
+                            if (!proxy.allowsWorldFace(context, facing)) return null;
                             // 能力层直接包装 BE 的内部 handler，只暴露指定槽位
                             var parent = sideEntity.getParentBlock();
                             if (parent instanceof BaseIOBlockEntity be) {
@@ -230,9 +250,11 @@ public class Polymech {
                             Vec3i offset = new Vec3i(pos.getX() - parentPos.getX(), pos.getY() - parentPos.getY(), pos.getZ() - parentPos.getZ());
                             Direction facing = level.getBlockState(parentPos).getValue(BaseMachineBlock.FACING);
                             Vec3i local = BaseMachineBlock.unrotateVec3i(offset, facing);
-                            // Block 声明位置→流体代理（储罐 + IO 方向）
+                            // Block 声明位置→流体代理（储罐 + IO 方向 + 有效面）
                             var proxy = machineBlock.getFluidProxy(local);
                             if (proxy == null) return null;
+                            // 声明了有效面时，仅允许从指定面访问（context==null 查询不过滤）
+                            if (!proxy.allowsWorldFace(context, facing)) return null;
                             int[] tanks = proxy.tanks();
                             if (tanks.length == 0) return null;
                             // BE 按索引提供实际储罐；多罐时拼接为组合 handler

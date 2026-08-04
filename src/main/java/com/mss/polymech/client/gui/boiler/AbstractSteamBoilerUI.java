@@ -40,6 +40,13 @@ public abstract class AbstractSteamBoilerUI {
     /** 获取锅炉方块实体 */
     protected abstract AbstractSteamBoilerBlockEntity getBoiler(BlockUIMenuType.BlockUIHolder holder);
 
+    /** 信息面板小字号标签（6px，默认 8px） */
+    private static Label smallLabel() {
+        Label label = new Label();
+        label.textStyle(s -> s.fontSize(6.0f));
+        return label;
+    }
+
     public ModularUI createBoilerUI(BlockUIMenuType.BlockUIHolder holder) {
         var be = getBoiler(holder);
         var itemHandler = be.getItemStackHandler();
@@ -113,19 +120,19 @@ public abstract class AbstractSteamBoilerUI {
                                 .setMaxValue(100)
                                 .bind(DataBindingBuilder.floatValS2C(() -> (float) be.getTemperaturePercent()).build())
                                 .layout(l -> l.width(16).height(70)),
-                        new UIElement().layout(l -> l.flex(1).gapAll(2).paddingAll(4)).addClass("panel_bg").addChildren(
-                                new Label().setText(Component.translatable(getTitleKey())),
-                                new Label().bind(DataBindingBuilder.componentS2C(() -> {
+                        new UIElement().layout(l -> l.flex(1).height(70).gapAll(2).paddingAll(4)).addClass("panel_bg").setOverflowVisible(false).addChildren(
+                                smallLabel().setText(Component.translatable(getTitleKey())),
+                                smallLabel().bind(DataBindingBuilder.componentS2C(() -> {
                                     String status = be.isEnable() ? "§a运行中" : "§c已停止";
                                     return Component.literal(status);
                                 }).build()),
-                                new Label().bind(DataBindingBuilder.componentS2C(() ->
+                                smallLabel().bind(DataBindingBuilder.componentS2C(() ->
                                         Component.literal("§e温度: " + be.getTemperature() + "K")
                                 ).build()),
-                                new Label().bind(DataBindingBuilder.componentS2C(() ->
-                                        Component.literal("§3效率: " + be.getTotalSteamOutput() + " mB/t")
+                                smallLabel().bind(DataBindingBuilder.componentS2C(() ->
+                                        Component.literal("§3预期效率: " + be.getTotalSteamOutput() + " mB/t")
                                 ).build()),
-                                new Label().bind(DataBindingBuilder.componentS2C(() -> {
+                                smallLabel().bind(DataBindingBuilder.componentS2C(() -> {
                                     int burnTicks = be.getFuelBurnTimeRemaining();
                                     return Component.literal("§6燃烧: " + (burnTicks / 20) + "s");
                                 }).build())

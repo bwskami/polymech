@@ -99,12 +99,14 @@ neoForge {
             // "SCAN": For mods scan.
             // "REGISTRIES": For firing of registry events.
             // "REGISTRYDUMP": For getting the contents of all registries.
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            // 注：REGISTRIES 标记会输出大量注册日志拖慢启动，需要调试注册问题时再打开
+            // systemProperty 'forge.logging.markers', 'REGISTRIES'
 
             // Recommended logging level for the console
             // You can set various levels here.
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-            logLevel = org.slf4j.event.Level.DEBUG
+            // DEBUG 级别会产生海量日志 IO，显著拖慢启动与进存档，默认用 INFO
+            logLevel = org.slf4j.event.Level.INFO
         }
     }
 

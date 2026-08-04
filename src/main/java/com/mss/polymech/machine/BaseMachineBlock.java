@@ -70,18 +70,63 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
     }
 
     /**
-     * 物品代理声明：暴露的内部槽位索引 + IO 方向。
+     * 物品代理声明：暴露的内部槽位索引 + IO 方向 + 有效面。
      * 槽位索引直接指向主方块 BE 的 itemStackHandler，
      * 能力层会将其包装为过滤视图，外部设备只能看到/操作这些槽位。
+     * <p>
+     * {@code faces}（本地坐标，facing=NORTH）声明代理仅生效的面：
+     * null 或空数组表示六面全通；否则只有声明的面才暴露能力/参与主动推送，
+     * 管道自动铺设也会吸附到首个声明面所对的格子。
      */
-    public record ItemProxy(int[] slots, ProxyIO io) {}
+    public record ItemProxy(int[] slots, ProxyIO io, @Nullable Direction[] faces) {
+        public ItemProxy(int[] slots, ProxyIO io) {
+            this(slots, io, null);
+        }
+
+        /** 世界方向 side 是否允许访问该代理（未声明面时六面全通；null 查询面视为通过） */
+        public boolean allowsWorldFace(@Nullable Direction worldSide, Direction facing) {
+            if (faces == null || faces.length == 0) return true;
+            if (worldSide == null) return true;
+            for (Direction f : faces) {
+                if (rotateDirection(f, facing) == worldSide) return true;
+            }
+            return false;
+        }
+    }
 
     /**
-     * 流体代理声明：暴露的逻辑储罐索引 + IO 方向。
+     * 流体代理声明：暴露的逻辑储罐索引 + IO 方向 + 有效面。
      * 储罐索引指向 BE 的逻辑储罐列表（{@code BaseIOBlockEntity#getFluidTank(int)}），
      * 支持多进多出的任意储罐数量；单个位置可暴露多个储罐（能力层拼接为组合 handler）。
+     * <p>
+     * {@code faces} 语义同 {@link ItemProxy}：null/空=六面全通，否则仅声明面生效。
      */
-    public record FluidProxy(int[] tanks, ProxyIO io) {}
+    public record FluidProxy(int[] tanks, ProxyIO io, @Nullable Direction[] faces) {
+        public FluidProxy(int[] tanks, ProxyIO io) {
+            this(tanks, io, null);
+        }
+
+        /** 世界方向 side 是否允许访问该代理（未声明面时六面全通；null 查询面视为通过） */
+        public boolean allowsWorldFace(@Nullable Direction worldSide, Direction facing) {
+            if (faces == null || faces.length == 0) return true;
+            if (worldSide == null) return true;
+            for (Direction f : faces) {
+                if (rotateDirection(f, facing) == worldSide) return true;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * 将本地坐标的方向（facing=NORTH 声明）旋转为实际世界方向。
+     */
+    public static Direction rotateDirection(Direction local, Direction facing) {
+        if (local.getAxis() == Direction.Axis.Y || facing.getAxis() == Direction.Axis.Y) {
+            return local; // 竖直面与水平旋转无关
+        }
+        Vec3i step = rotateVec3i(local.getNormal(), facing);
+        return Direction.getNearest(step.getX(), step.getY(), step.getZ());
+    }
 
     /**
      * 获取指定本地偏移位置的物品代理声明（槽位 + IO 方向）。

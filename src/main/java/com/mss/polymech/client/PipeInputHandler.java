@@ -4,6 +4,8 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.api.material.PipeMaterial;
+import com.mss.polymech.machine.BaseMachineBlock;
+import com.mss.polymech.machine.SideBlock;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.util.PipePathCalculator;
 import net.minecraft.client.Minecraft;
@@ -16,6 +18,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
@@ -46,9 +49,11 @@ public class PipeInputHandler {
         BlockPos clickedPos = blockHitResult.getBlockPos();
         if (mc.level.isEmptyBlock(clickedPos)) return;
         
-        BlockPos targetPos = getPlacementPosition(blockHitResult);
+        BlockPos targetPos = getEndpointPosition(mc.level, blockHitResult);
+        boolean containerEndpoint = targetPos.equals(clickedPos);
         
-        if (!PipePreviewRenderer.hasAdjacentSupport(mc.level, targetPos)) {
+        // 容器/机器端点不需要支撑检查；普通铺设位置需有邻接支撑
+        if (!containerEndpoint && !PipePreviewRenderer.hasAdjacentSupport(mc.level, targetPos)) {
             return;
         }
         
@@ -61,7 +66,10 @@ public class PipeInputHandler {
             if (startPipeId.equals(pipeId)) {
                 int available = player.isCreative() ? Integer.MAX_VALUE : player.getMainHandItem().getCount();
                 
-                java.util.List<BlockPos> path = PipePathCalculator.calculatePath(startPos, targetPos);
+                // 与服务端一致：路径端点先经过代理面吸附解析（接线锚点不变）
+                BlockPos pathStart = PipePathCalculator.resolveEndpoint(mc.level, startPos, targetPos);
+                BlockPos pathEnd = PipePathCalculator.resolveEndpoint(mc.level, targetPos, startPos);
+                java.util.List<BlockPos> path = PipePathCalculator.calculatePath(mc.level, pathStart, pathEnd);
                 int emptyCount = 0;
                 for (BlockPos pos : path) {
                     if (mc.level != null && mc.level.isEmptyBlock(pos)) {
@@ -93,13 +101,28 @@ public class PipeInputHandler {
     }
     
     /**
-     * 获取方块放置位置
-     * 与正常放置方块时的逻辑一致：点击方块表面时，放置在表面的外侧
+     * 计算铺设端点位置：
+     * 点击的方块带流体能力（容器/机器），或本身就是机器主方块/侧面方块
+     * （含流体侧面方块）→ 直接选取方块所在格子作为端点；
+     * 其他情况与正常放置逻辑一致：放置在点击面的外侧。
      */
-    private static BlockPos getPlacementPosition(BlockHitResult hitResult) {
+    public static BlockPos getEndpointPosition(net.minecraft.world.level.Level level, BlockHitResult hitResult) {
         BlockPos pos = hitResult.getBlockPos();
-        // 如果点击的是方块的侧面，则放置在侧面的外侧
-        // 这与 BlockItem.useOn 的行为一致
+        if (isDeviceBlock(level, pos)) {
+            return pos;
+        }
         return pos.relative(hitResult.getDirection());
+    }
+    
+    /**
+     * 是否为可接管的设备方块：流体能力查询兼容储罐等普通容器，
+     * 机器主方块/侧面方块额外兼容（避免客户端能力查询时机问题导致流体侧面方块漏选）。
+     */
+    private static boolean isDeviceBlock(net.minecraft.world.level.Level level, BlockPos pos) {
+        if (level.getCapability(Capabilities.FluidHandler.BLOCK, pos, null) != null) {
+            return true;
+        }
+        net.minecraft.world.level.block.Block block = level.getBlockState(pos).getBlock();
+        return block instanceof SideBlock || block instanceof BaseMachineBlock;
     }
 }

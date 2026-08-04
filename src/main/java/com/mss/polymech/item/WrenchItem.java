@@ -11,7 +11,7 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.phys.Vec3;
 
 public class WrenchItem extends Item {
@@ -49,16 +49,25 @@ public class WrenchItem extends Item {
 
         Direction target = determineGridSide(face, lx, ly, lz);
         if (target != null) {
-            BooleanProperty prop = getPropertyForDirection(target);
-            boolean newValue = !state.getValue(prop);
-            level.setBlock(pos, state.setValue(prop, newValue), net.minecraft.world.level.block.Block.UPDATE_NONE);
+            EnumProperty<PipeBlock.PipeConnection> prop = PipeBlock.getProperty(target);
+            PipeBlock.PipeConnection current = state.getValue(prop);
 
             BlockPos neighborPos = pos.relative(target);
-            BlockState neighborState = level.getBlockState(neighborPos);
-            if (neighborState.getBlock() instanceof PipeBlock) {
-                BooleanProperty neighborProp = getPropertyForDirection(target.getOpposite());
-                level.setBlock(neighborPos, neighborState.setValue(neighborProp, newValue),
-                        net.minecraft.world.level.block.Block.UPDATE_NONE);
+            boolean neighborIsPipe = level.getBlockState(neighborPos).getBlock() instanceof PipeBlock;
+            PipeBlock.PipeConnection next = current.next(neighborIsPipe);
+
+            level.setBlock(pos, state.setValue(prop, next), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+
+            if (neighborIsPipe) {
+                // 管道间连接切换：镜像对面，并通知管网拓扑重建（合并/分裂）
+                EnumProperty<PipeBlock.PipeConnection> neighborProp = PipeBlock.getProperty(target.getOpposite());
+                BlockState neighborState = level.getBlockState(neighborPos);
+                level.setBlock(neighborPos, neighborState.setValue(neighborProp, next),
+                        net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+                PipeBlock.notifyConnectionsChanged(level, pos);
+            } else {
+                // 设备侧连接/抽取切换：不影响管网拓扑，只失效端点缓存
+                PipeBlock.notifyEndpointsChanged(level, pos);
             }
 
             player.swing(context.getHand());
@@ -117,17 +126,6 @@ public class WrenchItem extends Item {
             }
         }
         return null;
-    }
-
-    public static BooleanProperty getPropertyForDirection(Direction direction) {
-        return switch (direction) {
-            case NORTH -> PipeBlock.NORTH;
-            case SOUTH -> PipeBlock.SOUTH;
-            case EAST  -> PipeBlock.EAST;
-            case WEST  -> PipeBlock.WEST;
-            case UP    -> PipeBlock.UP;
-            case DOWN  -> PipeBlock.DOWN;
-        };
     }
 
     public static Direction[] getFaceAxes(Direction face, Direction playerFacing) {
