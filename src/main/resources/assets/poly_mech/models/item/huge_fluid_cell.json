@@ -1,0 +1,9 @@
+{
+  "loader": "neoforge:fluid_container",
+  "parent": "neoforge:item/default",
+  "textures": {
+    "base": "poly_mech:item/material_sets/huge_fluid_cell/base",
+    "fluid": "poly_mech:item/material_sets/huge_fluid_cell/overlay"
+  },
+  "fluid": "minecraft:empty"
+}

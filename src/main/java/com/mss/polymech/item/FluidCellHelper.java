@@ -13,7 +13,7 @@ import net.neoforged.neoforge.fluids.capability.IFluidHandler;
  * <ul>
  *   <li>先尝试 储罐→单元（装填），再尝试 单元→储罐（排空）</li>
  *   <li>天然支持部分转移（如储罐只剩 600 mB 时装入 600 mB），不会吞流体</li>
- *   <li>单元支持不满 1000 mB 的部分装填/排空（与桶不同）</li>
+ *   <li>单元支持不满上限的部分装填/排空（与桶不同），上限为种类容量或玩家设置的capacity_limit</li>
  * </ul>
  * </p>
  */
@@ -21,9 +21,9 @@ public final class FluidCellHelper {
 
     private FluidCellHelper() {}
 
-    /** 判断物品堆是否为通用流体单元 */
+    /** 判断物品堆是否为流体单元（任意种类） */
     public static boolean isFluidCell(ItemStack stack) {
-        return stack.getItem() == ModItems.UNIVERSAL_FLUID_CELL.get();
+        return stack.getItem() instanceof FluidCellItem;
     }
 
     /**
@@ -58,7 +58,8 @@ public final class FluidCellHelper {
      */
     public static ItemStack fillCellFromTank(ItemStack cellStack, IFluidHandler tank, boolean execute) {
         FluidStack content = FluidCellItem.getFluid(cellStack);
-        int space = FluidCellItem.CAPACITY - content.getAmount();
+        // 生效容量：玩家设置的容量上限（未设置时为种类最大容量）
+        int space = FluidCellItem.getCapacityLimit(cellStack) - content.getAmount();
         if (space <= 0) return null;
         FluidStack available = tank.drain(space, IFluidHandler.FluidAction.SIMULATE);
         if (available.isEmpty()) return null;
@@ -81,7 +82,7 @@ public final class FluidCellHelper {
     /**
      * 单元 → 储罐：把单元内流体排入储罐。
      * <p>
-     * 支持部分转移（储罐空间不足时只排一部分，或单元本身不满 1000 mB），
+     * 支持部分转移（储罐空间不足时只排一部分，或单元本身未满），
      * 剩余流体留在单元内，不会丢失。
      * </p>
      *

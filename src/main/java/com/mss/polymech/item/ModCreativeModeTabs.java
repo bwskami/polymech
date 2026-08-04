@@ -71,10 +71,10 @@ public class ModCreativeModeTabs {
                     }).build());
 
     /*
-     * 通用流体单元标签页，包含空单元与所有流体的满装单元。
+     * 通用流体单元标签页，包含四种规格的空单元与所有流体的满装单元。
      * <p>
      * 自动遍历注册表中的每种流体（跳过空流体与流动态非源流体），
-     * 为每种流体生成一个满装单元条目。
+     * 为每种流体×每种单元规格生成一个满装单元条目。
      * </p>
      */
     public static final Supplier<CreativeModeTab> FLUID_CELL_TAB =
@@ -82,14 +82,19 @@ public class ModCreativeModeTabs {
                     .icon(() -> FluidCellItem.getFilledCellStack(Fluids.WATER, FluidCellItem.CAPACITY))
                     .title(Component.translatable("itemGroup.fluid_cell_tab"))
                     .displayItems((parameters, output) -> {
-                        // 空单元
-                        output.accept(ModItems.UNIVERSAL_FLUID_CELL.get());
-                        // 自动为每种流体生成满装单元
-                        for (Fluid fluid : BuiltInRegistries.FLUID) {
-                            // 跳过空流体与流动态（非源）流体，避免重复条目
-                            if (fluid == Fluids.EMPTY) continue;
-                            if (fluid instanceof FlowingFluid flowing && !flowing.isSource(fluid.defaultFluidState())) continue;
-                            output.accept(FluidCellItem.getFilledCellStack(fluid, FluidCellItem.CAPACITY));
+                        // 空单元（四种规格，按容量从小到大）
+                        for (var cell : ModItems.ALL_FLUID_CELLS) {
+                            output.accept(cell.get());
+                        }
+                        // 自动为每种流体×每种规格生成满装单元
+                        for (var cell : ModItems.ALL_FLUID_CELLS) {
+                            int capacity = cell.get().getMaxCapacity();
+                            for (Fluid fluid : BuiltInRegistries.FLUID) {
+                                // 跳过空流体与流动态（非源）流体，避免重复条目
+                                if (fluid == Fluids.EMPTY) continue;
+                                if (fluid instanceof FlowingFluid flowing && !flowing.isSource(fluid.defaultFluidState())) continue;
+                                output.accept(FluidCellItem.getFilledCellStack(cell.get(), fluid, capacity));
+                            }
                         }
                     }).build());
     

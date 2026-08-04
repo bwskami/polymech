@@ -49,7 +49,7 @@ public class PolymechClient {
     }
 
     /*
-     * 注册通用流体单元的流体层颜色。
+     * 注册流体单元（四种规格）的流体层颜色。
      * <p>
      * NeoForge的fluid_container模型不会自动染色，需要注册
      * DynamicFluidContainerModel.Colors：tintIndex==1时返回所含流体的tint颜色。
@@ -57,7 +57,9 @@ public class PolymechClient {
      */
     @SubscribeEvent
     static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
-        event.register(new DynamicFluidContainerModel.Colors(), ModItems.UNIVERSAL_FLUID_CELL.get());
+        event.register(new DynamicFluidContainerModel.Colors(),
+                ModItems.ALL_FLUID_CELLS.stream().map(def -> (net.minecraft.world.item.Item) def.get())
+                        .toArray(net.minecraft.world.item.Item[]::new));
     }
 
     @SubscribeEvent

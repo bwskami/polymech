@@ -122,10 +122,21 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModItems.BLUEPRINT.get(), "Blueprint");
         add(ModItems.COKE.get(), "Coke");
 
-        // 通用流体单元
+        // 通用流体单元（四种规格）
+        add(ModItems.SMALL_FLUID_CELL.get(), "Small Fluid Cell");
         add(ModItems.UNIVERSAL_FLUID_CELL.get(), "Universal Fluid Cell");
+        add(ModItems.MEDIUM_FLUID_CELL.get(), "Medium Fluid Cell");
+        add(ModItems.HUGE_FLUID_CELL.get(), "Huge Fluid Cell");
         add("tooltip.poly_mech.fluid_cell.empty", "Empty");
         add("tooltip.poly_mech.fluid_cell.stored", "Contains: %s (%d/%d mB)");
+        add("tooltip.poly_mech.fluid_cell.limit", "Capacity limited to %d/%d mB");
+        add("tooltip.poly_mech.fluid_cell.config_hint", "Sneak + Right Click: set capacity limit");
+        add("gui.poly_mech.fluid_cell.config_title", "Set Capacity Limit");
+        add("gui.poly_mech.fluid_cell.stored", "Stored: %d mB");
+        add("gui.poly_mech.fluid_cell.max_capacity", "Type capacity: %d mB");
+        add("gui.poly_mech.fluid_cell.limit_label", "Limit:");
+        add("gui.poly_mech.button.confirm", "Confirm");
+        add("gui.poly_mech.button.cancel", "Cancel");
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "Multiblock Machine Selection");

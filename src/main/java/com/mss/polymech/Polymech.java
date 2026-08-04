@@ -2,6 +2,7 @@ package com.mss.polymech;
 
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.entity.ModBlockEntities;
+import com.mss.polymech.fluid.FluidCellFluidHandler;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.FluidCellItem;
 import com.mss.polymech.item.ModCreativeModeTabs;
@@ -23,13 +24,14 @@ import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
+import com.mss.polymech.network.SetCellCapacityPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
+import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.templates.FluidHandlerItemStackSimple;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.slf4j.Logger;
@@ -175,6 +177,11 @@ public class Polymech {
                 MachineTogglePacket.STREAM_CODEC,
                 MachineTogglePacket::handle
         );
+        registrar.playToServer(
+                SetCellCapacityPacket.TYPE,
+                SetCellCapacityPacket.STREAM_CODEC,
+                SetCellCapacityPacket::handle
+        );
     }
 
     private void registerCapabilities(RegisterCapabilitiesEvent event) {
@@ -288,12 +295,12 @@ public class Polymech {
             }, entry.mainBlock().get());
         }
 
-        // 通用流体单元物品流体能力：流体内容存储在fluid_content数据组件中
+        // 通用流体单元物品流体能力：流体内容存储在fluid_content数据组件中，
+        // 生效容量尊重玩家设置的capacity_limit上限（四种规格单元均注册）
         event.registerItem(
                 Capabilities.FluidHandler.ITEM,
-                (stack, context) -> new FluidHandlerItemStackSimple(
-                        ModDataComponents.FLUID_CONTENT, stack, FluidCellItem.CAPACITY),
-                ModItems.UNIVERSAL_FLUID_CELL.get()
+                (stack, context) -> new FluidCellFluidHandler(stack, FluidCellItem.getMaxCapacity(stack)),
+                ModItems.ALL_FLUID_CELLS.stream().map(def -> (Item) def.get()).toArray(Item[]::new)
         );
     }
 

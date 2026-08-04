@@ -2,6 +2,7 @@ package com.mss.polymech;
 
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.fluids.SimpleFluidContent;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -30,6 +31,18 @@ public class ModDataComponents {
             DATA_COMPONENTS.registerComponentType("fluid_content", builder -> builder
                     .persistent(SimpleFluidContent.CODEC)
                     .networkSynchronized(SimpleFluidContent.STREAM_CODEC));
+
+    /*
+     * 容量上限数据组件。
+     * <p>
+     * 用于通用流体单元存储玩家设置的容量上限（mB）。
+     * 未设置（组件不存在）时，单元以其种类的默认最大容量工作。
+     * </p>
+     */
+    public static final Supplier<DataComponentType<Integer>> CAPACITY_LIMIT =
+            DATA_COMPONENTS.registerComponentType("capacity_limit", builder -> builder
+                    .persistent(com.mojang.serialization.Codec.intRange(0, Integer.MAX_VALUE))
+                    .networkSynchronized(ByteBufCodecs.VAR_INT));
 
     /*
      * 向NeoForge事件总线注册数据组件注册器。

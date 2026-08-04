@@ -90,10 +90,25 @@ public class ModItems {
      * <p>
      * 流体内容存储在fluid_content数据组件中，流体能力在Polymech#registerCapabilities中注册。
      * 渲染使用neoforge:fluid_container模型加载器（底图不染色，流体层按流体颜色染色）。
+     * 按容量分为四种规格：小型250 / 通用1000 / 中型4000 / 超大型16000 mB。
      * </p>
      */
+    public static final DeferredItem<FluidCellItem> SMALL_FLUID_CELL =
+            ITEMS.register("small_fluid_cell", () -> new FluidCellItem(new Item.Properties(), 250));
+
     public static final DeferredItem<FluidCellItem> UNIVERSAL_FLUID_CELL =
-            ITEMS.register("universal_fluid_cell", () -> new FluidCellItem(new Item.Properties()));
+            ITEMS.register("universal_fluid_cell", () -> new FluidCellItem(new Item.Properties(), FluidCellItem.CAPACITY));
+
+    public static final DeferredItem<FluidCellItem> MEDIUM_FLUID_CELL =
+            ITEMS.register("medium_fluid_cell", () -> new FluidCellItem(new Item.Properties(), 4000));
+
+    public static final DeferredItem<FluidCellItem> HUGE_FLUID_CELL =
+            ITEMS.register("huge_fluid_cell", () -> new FluidCellItem(new Item.Properties(), 16000));
+
+    /** 所有流体单元种类（按容量从小到大），供创造标签页/能力注册等遍历 */
+    @SuppressWarnings("unchecked")
+    public static final List<DeferredItem<FluidCellItem>> ALL_FLUID_CELLS = List.of(
+            SMALL_FLUID_CELL, UNIVERSAL_FLUID_CELL, MEDIUM_FLUID_CELL, HUGE_FLUID_CELL);
 
     // ========== 材料物品：数据驱动批量注册 ==========
     

@@ -153,14 +153,15 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
 
     /**
      * 统一标准：容器能否从蒸汽输出罐接收蒸汽。
-     * 空桶，或未满的流体单元（空单元/部分装蒸汽的单元）。
+     * 空桶，或未满的流体单元（空单元/部分装蒸汽的单元；
+     * 未满指低于其生效容量上限，含玩家设置的capacity_limit）。
      */
     private static boolean canReceiveSteam(ItemStack stack) {
         if (stack.getItem() == Items.BUCKET) return true;
         if (FluidCellHelper.isFluidCell(stack)) {
             FluidStack content = FluidCellItem.getFluid(stack);
             return (content.isEmpty() || content.getFluid() == ModFluids.STEAM_SOURCE.get())
-                    && content.getAmount() < FluidCellItem.CAPACITY;
+                    && content.getAmount() < FluidCellItem.getCapacityLimit(stack);
         }
         return false;
     }
@@ -253,12 +254,12 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
             }
         }
 
-        // === 正在灌注的单元：每 tick 从蒸汽罐继续抽取蒸汽，直到灌满 1000 mB ===
+        // === 正在灌注的单元：每 tick 从蒸汽罐继续抽取蒸汽，直到达到其生效容量上限 ===
         ItemStack steamOutStack = itemStackHandler.getStackInSlot(OUTPUT_STEAM_SLOT);
         if (FluidCellHelper.isFluidCell(steamOutStack) && steamOutStack.getCount() == 1
                 && canReceiveSteam(steamOutStack)) {
             FluidStack cellContent = FluidCellItem.getFluid(steamOutStack);
-            if (cellContent.getAmount() < FluidCellItem.CAPACITY) {
+            if (cellContent.getAmount() < FluidCellItem.getCapacityLimit(steamOutStack)) {
                 ItemStack filled = FluidCellHelper.fillCellFromTank(steamOutStack, steamTank, true);
                 if (filled != null) {
                     itemStackHandler.setStackInSlot(OUTPUT_STEAM_SLOT, filled);

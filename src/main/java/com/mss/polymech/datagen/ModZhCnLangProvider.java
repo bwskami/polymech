@@ -170,10 +170,21 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add(ModItems.BLUEPRINT.get(), "蓝图");
         add(ModItems.COKE.get(), "焦煤");
 
-        // 通用流体单元
+        // 通用流体单元（四种规格）
+        add(ModItems.SMALL_FLUID_CELL.get(), "小型流体单元");
         add(ModItems.UNIVERSAL_FLUID_CELL.get(), "通用流体单元");
+        add(ModItems.MEDIUM_FLUID_CELL.get(), "中型流体单元");
+        add(ModItems.HUGE_FLUID_CELL.get(), "超大型流体单元");
         add("tooltip.poly_mech.fluid_cell.empty", "空的");
         add("tooltip.poly_mech.fluid_cell.stored", "内含：%s（%d/%d mB）");
+        add("tooltip.poly_mech.fluid_cell.limit", "容量上限已设为 %d/%d mB");
+        add("tooltip.poly_mech.fluid_cell.config_hint", "按住 Shift 右键：设置容量上限");
+        add("gui.poly_mech.fluid_cell.config_title", "设置容量上限");
+        add("gui.poly_mech.fluid_cell.stored", "已储存：%d mB");
+        add("gui.poly_mech.fluid_cell.max_capacity", "种类上限：%d mB");
+        add("gui.poly_mech.fluid_cell.limit_label", "容量上限：");
+        add("gui.poly_mech.button.confirm", "确认");
+        add("gui.poly_mech.button.cancel", "取消");
         
         // 添加多方块机器选择界面的翻译
         add("gui.poly_mech.multiblock_selection.title", "多方块机器选择");
