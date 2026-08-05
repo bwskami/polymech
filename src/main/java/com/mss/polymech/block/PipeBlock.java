@@ -200,12 +200,14 @@ public class PipeBlock extends Block {
     private final PipeMaterial pipeMaterial;
 
     /**
-     * 形状缓存（性能修复）：启动期引擎会为全部 11664 个管道状态并行预计算形状缓存，
+     * 形状缓存（性能修复）：启动期引擎会为全部管道状态并行预计算形状缓存，
      * 且每个状态会多次调用 getShape（碰撞/遮挡/面遮挡）。每次现场用 Shapes.or 拼接是加载卡顿的根源。
-     * 以三进制连接掩码为键缓存：同尺寸管道只有 3^6=729 种组合，每种只构建一次。
+     * 形状只取决于（尺寸，连接掩码），与材质无关；材质多达数十种后必须跨方块实例共享，
+     * 否则同一尺寸的 729 种组合会被每种材质重复构建一遍。
      * 启动期形状预计算是并行的，必须用线程安全容器。
      */
-    private final java.util.Map<Integer, VoxelShape> pipeShapeCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<PipeSize, java.util.Map<Integer, VoxelShape>> SHAPE_CACHE_BY_SIZE =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     // 默认构造函数（铁质普通管道）
     public PipeBlock(Properties properties) {
@@ -275,7 +277,9 @@ public class PipeBlock extends Block {
 
     private VoxelShape getPipeShape(BlockState state) {
         int mask = connectionMask(state);
-        VoxelShape cached = pipeShapeCache.get(mask);
+        java.util.Map<Integer, VoxelShape> cache =
+                SHAPE_CACHE_BY_SIZE.computeIfAbsent(pipeSize, s -> new java.util.concurrent.ConcurrentHashMap<>());
+        VoxelShape cached = cache.get(mask);
         if (cached != null) return cached;
 
         VoxelShape shape = pipeSize.getCoreShape();
@@ -292,7 +296,7 @@ public class PipeBlock extends Block {
                 shape = Shapes.or(shape, plates[dir.get3DDataValue()]);
             }
         }
-        pipeShapeCache.put(mask, shape);
+        cache.put(mask, shape);
         return shape;
     }
 

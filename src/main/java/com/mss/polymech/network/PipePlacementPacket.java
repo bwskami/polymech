@@ -187,10 +187,8 @@ public record PipePlacementPacket(BlockPos start, BlockPos end, String materialN
     }
     
     private static PipeMaterial resolveMaterial(String name) {
-        for (PipeMaterial m : PipeMaterial.values()) {
-            if (m.getName().equals(name)) return m;
-        }
-        return PipeMaterial.IRON;
+        PipeMaterial material = PipeMaterial.byName(name);
+        return material != null ? material : PipeMaterial.IRON;
     }
     
     private static PipeBlock.PipeSize resolveSize(String name) {
