@@ -5,6 +5,10 @@ import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.MaterialRegistry;
+import com.mss.polymech.api.material.PipeMaterial;
+import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.fluid.ModChemicalFluids;
+import com.mss.polymech.fluid.ModElementFluids;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.texture_data.ItemLayerTemplates;
@@ -52,29 +56,18 @@ public class ModItemModelsProvider extends ItemModelProvider {
             ITEM_TYPE_OVERRIDES.put(materialName + "_ring", ItemLayerTemplates.RING);
         }
         
-        // 管道物品
-        ITEM_TYPE_OVERRIDES.put("pipe", ItemLayerTemplates.PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
-        
-        // 青铜管道物品
-        ITEM_TYPE_OVERRIDES.put("bronze_pipe", ItemLayerTemplates.PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("bronze_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("bronze_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("bronze_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
-        
-        // 不锈钢管道物品
-        ITEM_TYPE_OVERRIDES.put("stainless_steel_pipe", ItemLayerTemplates.PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("stainless_steel_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("stainless_steel_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("stainless_steel_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
-        
-        // 黄铜管道物品
-        ITEM_TYPE_OVERRIDES.put("brass_pipe", ItemLayerTemplates.PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("brass_small_pipe", ItemLayerTemplates.SMALL_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("brass_big_pipe", ItemLayerTemplates.BIG_PIPE_ITEM);
-        ITEM_TYPE_OVERRIDES.put("brass_huge_pipe", ItemLayerTemplates.HUGE_PIPE_ITEM);
+        // 管道物品（数据驱动：全部材质×全部尺寸，模板按尺寸选择）
+        for (PipeMaterial pipeMaterial : PipeMaterial.getAll()) {
+            for (PipeBlock.PipeSize size : PipeBlock.PipeSize.values()) {
+                ItemLayerTemplates pipeTemplate = switch (size) {
+                    case SMALL -> ItemLayerTemplates.SMALL_PIPE_ITEM;
+                    case BIG -> ItemLayerTemplates.BIG_PIPE_ITEM;
+                    case HUGE -> ItemLayerTemplates.HUGE_PIPE_ITEM;
+                    default -> ItemLayerTemplates.PIPE_ITEM;
+                };
+                ITEM_TYPE_OVERRIDES.put(size.getRegistryName(pipeMaterial), pipeTemplate);
+            }
+        }
 
         // 传送带物品（按材质注册名映射）
         for (ConveyorMaterial material : ConveyorMaterial.values()) {
@@ -139,6 +132,18 @@ public class ModItemModelsProvider extends ItemModelProvider {
         // 流体桶物品
         for (var entry : ModFluids.FLUID_BUCKET_ITEMS.getEntries()) {
             basicItem(entry.get());
+        }
+
+        // 化学流体桶：暂共用原版桶贴图（layer0），后续可替换为各流体专属贴图
+        for (var entry : ModChemicalFluids.BUCKETS.getEntries()) {
+            withExistingParent(entry.getId().getPath(), "item/generated")
+                    .texture("layer0", mcLoc("item/bucket"));
+        }
+
+        // 熔融金属桶：同样暂用原版桶贴图（仅液体有桶，等离子体无桶）
+        for (var entry : ModElementFluids.BUCKETS.getEntries()) {
+            withExistingParent(entry.getId().getPath(), "item/generated")
+                    .texture("layer0", mcLoc("item/bucket"));
         }
     }
 }

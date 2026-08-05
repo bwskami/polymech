@@ -8,9 +8,14 @@ import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.fluid.ChemicalFluid;
+import com.mss.polymech.fluid.ModElements;
 import com.mss.polymech.item.ModItems;
 import net.minecraft.data.PackOutput;
 import net.neoforged.neoforge.common.data.LanguageProvider;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class ModEnUsLangProvider extends LanguageProvider {
     public ModEnUsLangProvider(PackOutput output) {
@@ -190,6 +195,79 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("item.poly_mech.steam_bucket", "Steam Bucket");
         add("block.poly_mech.steam", "Steam");
 
+        // 化学流体（真实存在的化学物质，不可放置）
+        // 英文名称作为翻译源数据写在datagen侧，运行时一律通过翻译键解析
+        Map<String, String> chemicalNames = new LinkedHashMap<>();
+        // 酸 / 碱 / 氧化剂（液体）
+        chemicalNames.put("sulfuric_acid", "Sulfuric Acid");
+        chemicalNames.put("nitric_acid", "Nitric Acid");
+        chemicalNames.put("hydrochloric_acid", "Hydrochloric Acid");
+        chemicalNames.put("hydrofluoric_acid", "Hydrofluoric Acid");
+        chemicalNames.put("hydrogen_peroxide", "Hydrogen Peroxide");
+        chemicalNames.put("sodium_hydroxide", "Sodium Hydroxide Solution");
+        chemicalNames.put("ammonia_water", "Ammonia Water");
+        chemicalNames.put("acetic_acid", "Acetic Acid");
+        // 有机溶剂（液体）
+        chemicalNames.put("ethanol", "Ethanol");
+        chemicalNames.put("methanol", "Methanol");
+        chemicalNames.put("acetone", "Acetone");
+        chemicalNames.put("glycerol", "Glycerol");
+        chemicalNames.put("benzene", "Benzene");
+        chemicalNames.put("toluene", "Toluene");
+        chemicalNames.put("phenol", "Phenol");
+        chemicalNames.put("nitrobenzene", "Nitrobenzene");
+        // 单质 / 氧化物（液体）
+        chemicalNames.put("bromine", "Bromine");
+        chemicalNames.put("mercury", "Mercury");
+        chemicalNames.put("sulfur_trioxide", "Sulfur Trioxide");
+        // 气体
+        chemicalNames.put("hydrogen", "Hydrogen");
+        chemicalNames.put("nitrogen", "Nitrogen");
+        chemicalNames.put("oxygen", "Oxygen");
+        chemicalNames.put("chlorine", "Chlorine");
+        chemicalNames.put("ammonia", "Ammonia");
+        chemicalNames.put("methane", "Methane");
+        chemicalNames.put("propane", "Propane");
+        chemicalNames.put("butane", "Butane");
+        chemicalNames.put("carbon_dioxide", "Carbon Dioxide");
+        chemicalNames.put("carbon_monoxide", "Carbon Monoxide");
+        chemicalNames.put("sulfur_dioxide", "Sulfur Dioxide");
+        chemicalNames.put("hydrogen_sulfide", "Hydrogen Sulfide");
+        chemicalNames.put("helium", "Helium");
+        chemicalNames.put("argon", "Argon");
+        for (ChemicalFluid chem : ChemicalFluid.values()) {
+            String name = chemicalNames.get(chem.getId());
+            add("fluid.poly_mech." + chem.getId(), name);
+            // 只有液体才有桶
+            if (chem.isLiquid()) {
+                add("item.poly_mech." + chem.getId() + "_bucket", name + " Bucket");
+            }
+        }
+
+        // 熔融金属（每种材料一条，温度≈熔点，带桶）
+        for (String materialName : MaterialRegistry.getMaterialNames()) {
+            String name = "Molten " + formatMaterialName(materialName);
+            add("fluid.poly_mech.molten_" + materialName, name);
+            add("item.poly_mech.molten_" + materialName + "_bucket", name + " Bucket");
+        }
+
+        // 等离子体（周期表全118元素，无桶）
+        for (ModElements element : ModElements.values()) {
+            add("fluid.poly_mech." + element.getId() + "_plasma",
+                    formatMaterialName(element.getId()) + " Plasma");
+        }
+
+        // 金属存储块（仅有锭的材料，键为材料名）
+        for (var entry : ModBlocks.MATERIAL_BLOCKS.entrySet()) {
+            add(entry.getValue().get(), formatMaterialName(entry.getKey()) + " Block");
+        }
+        // tooltip管理中心：物态 / 温度 / 危险警示（化学式直接由ModTooltipCenter渲染，无需翻译键）
+        add("tooltip.poly_mech.fluid.state_liquid", "State: Liquid");
+        add("tooltip.poly_mech.fluid.state_gas", "State: Gas");
+        add("tooltip.poly_mech.fluid.state_plasma", "State: Plasma");
+        add("tooltip.poly_mech.fluid.temperature", "Temperature: %d K");
+        add("tooltip.poly_mech.hazardous", "⚠ Hazardous");
+
         // 侧面方块类型
         add("side_type.poly_mech.normal", "Machine Casing");
         add("side_type.poly_mech.fluid_input", "Fluid Input Hatch");
@@ -215,6 +293,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("itemGroup.pipe_tab", "Ploy Mech:Pipes and Logistics");
         add("itemGroup.tool_tab", "Ploy Mech:Tool");
         add("itemGroup.fluid_cell_tab", "Ploy Mech:Fluid Cells");
+        add("itemGroup.bucket_tab", "Ploy Mech:Fluid Buckets");
     }
 
     private String formatMaterialName(String name) {
@@ -222,6 +301,8 @@ public class ModEnUsLangProvider extends LanguageProvider {
         boolean capitalizeNext = true;
         for (char c : name.toCharArray()) {
             if (c == '_') {
+                // 下划线转为空格，下一个单词首字母大写（stainless_steel -> Stainless Steel）
+                result.append(' ');
                 capitalizeNext = true;
             } else {
                 result.append(capitalizeNext ? Character.toUpperCase(c) : c);
@@ -232,12 +313,9 @@ public class ModEnUsLangProvider extends LanguageProvider {
     }
 
     private String buildDisplayName(PipeMaterial material, PipeBlock.PipeSize size) {
-        String materialName = switch (material) {
-            case IRON -> "";
-            case BRONZE -> "Bronze ";
-            case STAINLESS_STEEL -> "Stainless Steel ";
-            case BRASS -> "Brass ";
-        };
+        // 铁为默认材质，不加材料前缀
+        String materialName = material == PipeMaterial.IRON ? ""
+                : formatMaterialName(material.getName()) + " ";
         String sizeName = switch (size) {
             case SMALL -> "Small Pipe";
             case BIG   -> "Big Pipe";

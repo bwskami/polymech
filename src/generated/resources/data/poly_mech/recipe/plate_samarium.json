@@ -1,0 +1,22 @@
+{
+  "type": "poly_mech:steam_hammer",
+  "duration": 100,
+  "fluid_inputs": [
+    {
+      "amount": 100,
+      "fluid": "poly_mech:steam_source"
+    }
+  ],
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "poly_mech:samarium_ingot"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 1,
+      "id": "poly_mech:samarium_plate"
+    }
+  ]
+}

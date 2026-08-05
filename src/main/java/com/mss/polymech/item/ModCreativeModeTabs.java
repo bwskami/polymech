@@ -7,6 +7,10 @@ import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.fluid.ChemicalFluid;
+import com.mss.polymech.fluid.ElementFluid;
+import com.mss.polymech.fluid.ModChemicalFluids;
+import com.mss.polymech.fluid.ModElementFluids;
 import com.mss.polymech.fluid.ModFluids;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -99,7 +103,7 @@ public class ModCreativeModeTabs {
                     }).build());
     
     /*
-     * 方块标签页，包含所有非管道方块。
+     * 方块标签页，包含所有非管道方块与金属存储块。
      */
     public static final Supplier<CreativeModeTab> BLOCK_TAB =
             CREATIVE_MODE_TABS.register("block_tab", () -> CreativeModeTab.builder()
@@ -108,8 +112,12 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModBlocks.COKE_OVEN_BRICK.get());
                         output.accept(ModBlocks.FLUID_TANK.get());
-                        output.accept(ModFluids.STEAM_BUCKET.get());
-                        
+
+                        // 金属存储块（按材料名遍历）
+                        for (var entry : ModBlocks.MATERIAL_BLOCKS.entrySet()) {
+                            output.accept(entry.getValue().get());
+                        }
+
                         // 如果有目标为BLOCK的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {
                             if (prefix.getCreativeTabTarget() == ItemTagPrefix.CreativeTabTarget.BLOCK) {
@@ -119,6 +127,39 @@ public class ModCreativeModeTabs {
                                         output.accept(item.get());
                                     }
                                 }
+                            }
+                        }
+                    }).build());
+
+    /*
+     * 流体桶标签页，包含蒸汽桶、化学流体桶与熔融金属桶。
+     */
+    public static final Supplier<CreativeModeTab> BUCKET_TAB =
+            CREATIVE_MODE_TABS.register("bucket_tab", () -> CreativeModeTab.builder()
+                    .icon(() -> {
+                        // 图标：熔融钢桶
+                        for (ElementFluid def : ModElementFluids.getDefinitions()) {
+                            if (def.isLiquid() && "steel".equals(def.getMaterialName())) {
+                                return new ItemStack(ModElementFluids.getBucket(def));
+                            }
+                        }
+                        return new ItemStack(ModFluids.STEAM_BUCKET.get());
+                    })
+                    .title(Component.translatable("itemGroup.bucket_tab"))
+                    .displayItems((parameters, output) -> {
+                        output.accept(ModFluids.STEAM_BUCKET.get());
+
+                        // 化学流体桶（仅液体有桶）
+                        for (ChemicalFluid chem : ChemicalFluid.values()) {
+                            if (chem.isLiquid()) {
+                                output.accept(ModChemicalFluids.getBucket(chem));
+                            }
+                        }
+
+                        // 熔融金属桶（仅液体有桶，等离子体无桶）
+                        for (ElementFluid def : ModElementFluids.getDefinitions()) {
+                            if (def.isLiquid()) {
+                                output.accept(ModElementFluids.getBucket(def));
                             }
                         }
                     }).build());

@@ -30,6 +30,11 @@ public class ClientEvents {
         for (var conveyor : ModBlocks.CONVEYOR_BLOCKS) {
             ItemBlockRenderTypes.setRenderLayer(conveyor.get(), RenderType.translucent());
         }
+
+        // 金属存储块（三层染色模板，含半透明图层）
+        for (var materialBlock : ModBlocks.MATERIAL_BLOCKS.values()) {
+            ItemBlockRenderTypes.setRenderLayer(materialBlock.get(), RenderType.translucent());
+        }
         
         Polymech.LOGGER.info("Pipe render layers configured to TRANSLUCENT!");
     }
@@ -66,9 +71,11 @@ public class ClientEvents {
     @SubscribeEvent
     public static void registerBlockColors(RegisterColorHandlersEvent.Block event) {
         ColorConfigLoader.load();
-        Block[] tintedBlocks = java.util.stream.Stream.concat(
+        Block[] tintedBlocks = java.util.stream.Stream.of(
                         ModBlocks.PIPE_BLOCKS.stream(),
-                        ModBlocks.CONVEYOR_BLOCKS.stream())
+                        ModBlocks.CONVEYOR_BLOCKS.stream(),
+                        ModBlocks.MATERIAL_BLOCKS.values().stream())
+                .flatMap(s -> s)
                 .map(holder -> holder.get())
                 .toArray(Block[]::new);
         

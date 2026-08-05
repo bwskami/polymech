@@ -1,7 +1,9 @@
 package com.mss.polymech.block;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.api.material.ConveyorMaterial;
+import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
 import com.mss.polymech.machine.boiler.SmallSteamBoilerBlock;
@@ -264,12 +266,31 @@ public class ModBlocks {
      */
     public static final List<DeferredBlock<ConveyorBlock>> CONVEYOR_BLOCKS;
 
+    // ========== 金属存储块：数据驱动批量注册 ==========
+
+    /**
+     * 存储块贴图选择标准（原子质量阈值）：
+     * 材料平均原子质量 &gt;= 该值 → 普通贴图（block_normal）；低于该值 → 重型贴图（block_heavy）。
+     * 阈值取55（铁附近），可按需调整。
+     */
+    public static final double MASS_THRESHOLD = 55.0;
+
+    /**
+     * 金属存储块查找表：材料名 → 存储块（仅含锭材料，如 steel_block、brass_block）。
+     * 模型为三层染色模板（base/overlay/secondary，tintindex 0/1/2），
+     * 颜色由 colors.json 的材料条目提供（自动推断 _block 后缀）。
+     */
+    public static final Map<String, DeferredBlock<Block>> MATERIAL_BLOCKS;
+
+    /** 方块→材料名 反查表（存储块化学式tooltip使用） */
+    private static final Map<Block, String> BLOCK_MATERIAL_LOOKUP = new IdentityHashMap<>();
+
     static {
         // 数据驱动批量注册流程
         List<DeferredBlock<PipeBlock>> allPipes = new ArrayList<>();
         
-        // 遍历所有管道材料
-        for (PipeMaterial material : PipeMaterial.values()) {
+        // 遍历所有管道材料（原版金属+全部含锭材料，自动注册）
+        for (PipeMaterial material : PipeMaterial.getAll()) {
             Map<PipeBlock.PipeSize, DeferredBlock<PipeBlock>> sizeMap = new LinkedHashMap<>();
             
             // 遍历所有管道尺寸
@@ -311,6 +332,32 @@ public class ModBlocks {
         }
         CONVEYOR_TABLE = Collections.unmodifiableMap(CONVEYOR_TABLE_INTERNAL);
         CONVEYOR_BLOCKS = Collections.unmodifiableList(allConveyors);
+
+        // 金属存储块：为每种含锭材料注册 {material}_block
+        Map<String, DeferredBlock<Block>> materialBlocks = new LinkedHashMap<>();
+        for (String materialName : MaterialRegistry.getMaterialNames()) {
+            if (!ModItemTypes.hasIngot(materialName)) continue;
+            String registryName = materialName + "_block";
+            DeferredBlock<Block> block = registerBlocks(registryName,
+                    () -> new Block(Block.Properties.of()
+                            .strength(5.0F, 6.0F)
+                            .sound(SoundType.METAL)
+                            .requiresCorrectToolForDrops()));
+            materialBlocks.put(materialName, block);
+        }
+        MATERIAL_BLOCKS = Collections.unmodifiableMap(materialBlocks);
+    }
+
+    /**
+     * 方块→材料名反查（用于存储块化学式tooltip）；非材料存储块返回null。
+     */
+    public static String getMaterialOfBlock(Block block) {
+        if (BLOCK_MATERIAL_LOOKUP.isEmpty() && !MATERIAL_BLOCKS.isEmpty()) {
+            for (Map.Entry<String, DeferredBlock<Block>> entry : MATERIAL_BLOCKS.entrySet()) {
+                BLOCK_MATERIAL_LOOKUP.put(entry.getValue().get(), entry.getKey());
+            }
+        }
+        return BLOCK_MATERIAL_LOOKUP.get(block);
     }
 
     /*

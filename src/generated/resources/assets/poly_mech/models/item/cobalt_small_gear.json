@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "poly_mech:item/material_sets/small_gear/small_gear",
+    "layer1": "poly_mech:item/material_sets/small_gear/small_gear_secondary",
+    "layer2": "poly_mech:item/material_sets/small_gear/small_gear_overlay"
+  }
+}

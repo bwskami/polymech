@@ -168,6 +168,33 @@ public class ModItems {
         return MATERIAL_ITEMS_TABLE.get(prefix).get(materialName);
     }
 
+    /** 物品→材料名反查表（惰性构建，注册完成后才有意义） */
+    private static volatile Map<Item, String> ITEM_MATERIAL_LOOKUP;
+
+    /*
+     * 反查物品对应的材料名（类似GregTech的ChemicalHelper.getMaterialEntry）。
+     * <p>
+     * 仅覆盖数据驱动注册的材料物品（锭、粉、板等），
+     * 机器、单元等功能性物品不在其中。非材料物品返回null。
+     * </p>
+     *
+     * @param item 物品实例
+     * @return 材料名；非材料物品返回null
+     */
+    public static String getMaterialOf(Item item) {
+        Map<Item, String> lookup = ITEM_MATERIAL_LOOKUP;
+        if (lookup == null) {
+            lookup = new IdentityHashMap<>();
+            for (Map<String, DeferredItem<Item>> materialMap : MATERIAL_ITEMS_TABLE.values()) {
+                for (Map.Entry<String, DeferredItem<Item>> entry : materialMap.entrySet()) {
+                    lookup.put(entry.getValue().get(), entry.getKey());
+                }
+            }
+            ITEM_MATERIAL_LOOKUP = lookup;
+        }
+        return lookup.get(item);
+    }
+
     /*
      * 向NeoForge事件总线注册物品注册器。
      * <p>

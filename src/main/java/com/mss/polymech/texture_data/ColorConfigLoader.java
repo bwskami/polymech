@@ -247,6 +247,11 @@ public class ColorConfigLoader {
      * @return 材料名，如果无法提取则返回null
      */
     private static String extractMaterialName(String path) {
+        // 优先完整路径直接匹配（如 steel_block → steel_block 专属方块配色、coke）
+        if (MATERIAL_COLORS.containsKey(path)) {
+            return path;
+        }
+
         // 处理 raw_ 前缀
         if (path.startsWith("raw_")) {
             String material = path.substring(4);
@@ -266,7 +271,7 @@ public class ColorConfigLoader {
         // 处理常见后缀
         String[] suffixes = {"_ingot", "_dust", "_plate", "_nugget", "_stick", "_gear", 
                             "_small_gear", "_spring", "_screw", "_bolt", "_ring", "_foil",
-                            "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe"};
+                            "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe", "_block"};
         
         for (String suffix : suffixes) {
             if (path.endsWith(suffix)) {

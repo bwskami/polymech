@@ -1,6 +1,7 @@
 package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.PipeBlock;
@@ -28,6 +29,7 @@ public class ModBlockStatesProvider extends BlockStateProvider {
                 .texture("particle", modLoc("block/steam_still")));
 
         generateConveyorBlockStates();
+        generateMaterialBlocks();
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             for (var sizeEntry : materialEntry.getValue().entrySet()) {
@@ -51,6 +53,20 @@ public class ModBlockStatesProvider extends BlockStateProvider {
                                 .rotationY((int) (facing.toYRot() + 180) % 360)
                                 .build();
                     });
+        }
+    }
+
+    /*
+     * 金属存储块：所有材料共用两套染色模板模型，颜色由 colors.json + 方块颜色处理器决定。
+     * 贴图选择标准：材料平均原子质量 >= MASS_THRESHOLD → block_normal，否则 block_heavy。
+     */
+    private void generateMaterialBlocks() {
+        ModelFile normalModel = models().getExistingFile(modLoc("block/material_block_normal"));
+        ModelFile heavyModel = models().getExistingFile(modLoc("block/material_block_heavy"));
+        for (var entry : ModBlocks.MATERIAL_BLOCKS.entrySet()) {
+            double mass = MaterialRegistry.getAtomicMass(entry.getKey());
+            ModelFile model = mass >= ModBlocks.MASS_THRESHOLD ? normalModel : heavyModel;
+            simpleBlockWithItem(entry.getValue().get(), model);
         }
     }
 

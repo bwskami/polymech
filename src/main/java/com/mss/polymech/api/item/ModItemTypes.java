@@ -37,13 +37,42 @@ public class ModItemTypes {
     
     /* 单质金属材料列表 */
     private static final Set<String> PURE_METALS = Set.of(
-        "steel", "aluminium", "nickel", "tin", "zinc"
+        "steel", "aluminium", "nickel", "tin", "zinc",
+        // 从GTM抄录的真实单质金属
+        "silver", "lead", "chromium", "titanium", "tungsten",
+        "platinum", "osmium", "iridium", "palladium", "cobalt",
+        "manganese", "molybdenum", "silicon", "bismuth", "antimony",
+        "gallium", "indium", "tantalum", "niobium", "vanadium",
+        "neodymium", "beryllium",
+        // 第二批补全的周期表真实金属
+        "europium", "samarium", "yttrium", "rhodium", "ruthenium",
+        "thorium", "uranium", "plutonium"
     );
     
     /* 合金材料列表 */
     private static final Set<String> ALLOYS = Set.of(
-        "brass", "bronze", "ivar", "cupronickel", "stainless_steel"
+        "brass", "bronze", "ivar", "cupronickel", "stainless_steel", "electrum"
     );
+
+    /* 粉状金属：碱金属/碱土金属/稀土等活泼金属，只生成粉，不生成锭及其它形态（参考GTM的dust-only材料） */
+    private static final Set<String> DUST_ONLY_METALS = Set.of(
+        "lithium", "sodium", "potassium", "rubidium", "caesium", "francium",
+        "magnesium", "calcium", "strontium", "barium", "radium",
+        "scandium", "hafnium", "zirconium", "rhenium", "cadmium",
+        "lanthanum", "cerium", "praseodymium", "promethium", "gadolinium",
+        "terbium", "dysprosium", "holmium", "erbium", "thulium", "ytterbium", "lutetium",
+        "actinium", "protactinium", "neptunium", "americium"
+    );
+
+    /** 含锭材料过滤器（单质金属+合金）：锭、粒、板等形态只对含锭材料生成 */
+    private static boolean hasIngotMaterial(String materialName) {
+        return PURE_METALS.contains(materialName) || ALLOYS.contains(materialName);
+    }
+
+    /** 判断材料是否含锭形态（供存储块、熔融流体等模块复用） */
+    public static boolean hasIngot(String materialName) {
+        return hasIngotMaterial(materialName);
+    }
 
     /*
      * 锭类型物品前缀（仅适用于单质金属）。
@@ -84,7 +113,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "nugget"),
         "%s_nugget",
         "%s Nugget"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 粉类型物品前缀。
@@ -110,7 +140,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "ingot_plate"),
         "%s_plate",
         "%s Plate"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 箔类型物品前缀。
@@ -123,7 +154,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "foil"),
         "%s_foil",
         "%s Foil"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 杆类型物品前缀。
@@ -136,7 +168,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "stick"),
         "%s_stick",
         "%s Stick"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 齿轮类型物品前缀。
@@ -149,7 +182,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "gear"),
         "%s_gear",
         "%s Gear"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 小齿轮类型物品前缀。
@@ -162,7 +196,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "small_gear"),
         "%s_small_gear",
         "%s Small Gear"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 弹簧类型物品前缀。
@@ -175,7 +210,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "spring"),
         "%s_spring",
         "%s Spring"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 螺丝类型物品前缀。
@@ -188,7 +224,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "screw"),
         "%s_screw",
         "%s Screw"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 螺栓类型物品前缀。
@@ -201,7 +238,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "bolt"),
         "%s_bolt",
         "%s Bolt"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
     /*
      * 环类型物品前缀。
@@ -214,7 +252,8 @@ public class ModItemTypes {
         ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "ring"),
         "%s_ring",
         "%s Ring"
-    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
 
 
     /*

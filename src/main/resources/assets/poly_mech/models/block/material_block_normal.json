@@ -1,0 +1,47 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "poly_mech:block/material_sets/block_normal/block_normal",
+    "base": "poly_mech:block/material_sets/block_normal/block_normal",
+    "overlay": "poly_mech:block/material_sets/block_normal/block_normal_overlay",
+    "secondary": "poly_mech:block/material_sets/block_normal/block_normal_secondary"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "down": { "texture": "#base", "tintindex": 0, "cullface": "down" },
+        "up": { "texture": "#base", "tintindex": 0, "cullface": "up" },
+        "north": { "texture": "#base", "tintindex": 0, "cullface": "north" },
+        "south": { "texture": "#base", "tintindex": 0, "cullface": "south" },
+        "west": { "texture": "#base", "tintindex": 0, "cullface": "west" },
+        "east": { "texture": "#base", "tintindex": 0, "cullface": "east" }
+      }
+    },
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "down": { "texture": "#overlay", "tintindex": 1, "cullface": "down" },
+        "up": { "texture": "#overlay", "tintindex": 1, "cullface": "up" },
+        "north": { "texture": "#overlay", "tintindex": 1, "cullface": "north" },
+        "south": { "texture": "#overlay", "tintindex": 1, "cullface": "south" },
+        "west": { "texture": "#overlay", "tintindex": 1, "cullface": "west" },
+        "east": { "texture": "#overlay", "tintindex": 1, "cullface": "east" }
+      }
+    },
+    {
+      "from": [0, 0, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "down": { "texture": "#secondary", "tintindex": 2, "cullface": "down" },
+        "up": { "texture": "#secondary", "tintindex": 2, "cullface": "up" },
+        "north": { "texture": "#secondary", "tintindex": 2, "cullface": "north" },
+        "south": { "texture": "#secondary", "tintindex": 2, "cullface": "south" },
+        "west": { "texture": "#secondary", "tintindex": 2, "cullface": "west" },
+        "east": { "texture": "#secondary", "tintindex": 2, "cullface": "east" }
+      }
+    }
+  ]
+}

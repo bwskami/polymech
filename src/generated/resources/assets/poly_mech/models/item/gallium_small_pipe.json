@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "poly_mech:item/material_sets/pipe_item/small_pipe_item",
+    "layer1": "poly_mech:item/material_sets/pipe_item/small_pipe_item_secondary",
+    "layer2": "poly_mech:item/material_sets/pipe_item/small_pipe_item_overlay"
+  }
+}
