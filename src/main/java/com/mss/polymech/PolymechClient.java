@@ -3,9 +3,8 @@ package com.mss.polymech;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
-import com.mss.polymech.client.renderer.ConveyorItemRenderer;
+import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
 import com.mss.polymech.client.renderer.MachineGeoRenderer;
-import com.mss.polymech.entity.ModEntities;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.machine.common.MachineRegistry;
 import net.minecraft.resources.ResourceLocation;
@@ -65,7 +64,8 @@ public class PolymechClient {
     @SubscribeEvent
     @SuppressWarnings({"unchecked", "rawtypes"})
     static void onRegisterEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        event.registerEntityRenderer(ModEntities.CONVEYOR_ITEM.get(), ConveyorItemRenderer::new);
+        // 传送带物品包渲染（数据驱动，无实体）
+        event.registerBlockEntityRenderer(ModBlockEntities.CONVEYOR.get(), ConveyorBlockEntityRenderer::new);
 
         // 自动注册所有大型机器的方块实体渲染器（从 MachineRegistry 遍历）
         for (MachineRegistry.MachineEntry entry : MachineRegistry.getEntries()) {

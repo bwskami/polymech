@@ -119,6 +119,13 @@ public class ModItemModelsProvider extends ItemModelProvider {
                 continue;
             }
 
+            // 网络调试仪：暂复用扳手贴图，后续可替换为专属贴图
+            if ("network_tool".equals(path)) {
+                withExistingParent(path, "item/generated")
+                        .texture("layer0", modLoc("item/wrench"));
+                continue;
+            }
+
             // 情况2: 普通物品 → 使用 basicItem（需要独立纹理）
             if (isNormalItem(path)) {
                 basicItem(item);

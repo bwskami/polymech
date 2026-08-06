@@ -3,7 +3,6 @@ package com.mss.polymech.block;
 import com.mojang.serialization.MapCodec;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
-import com.mss.polymech.entity.ConveyorItemEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -26,15 +25,12 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.BooleanOp;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 public class ConveyorBlock extends BaseEntityBlock {
     public static final MapCodec<ConveyorBlock> CODEC = simpleCodec(ConveyorBlock::new);
@@ -221,6 +217,10 @@ public class ConveyorBlock extends BaseEntityBlock {
         if (newType != state.getValue(TYPE)) {
             BlockState newState = state.setValue(TYPE, newType);
             level.setBlock(pos, newState, Block.UPDATE_NEIGHBORS | Block.UPDATE_CLIENTS);
+            if (level.getBlockEntity(pos) instanceof ConveyorBlockEntity be) {
+                // 类型变化可能改变直连链 → 重建所属线路
+                be.refreshLine();
+            }
         }
     }
 
@@ -264,6 +264,10 @@ public class ConveyorBlock extends BaseEntityBlock {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         refreshSelfState(level, pos, state);
         refreshNeighbors(level, pos, state);
+        if (level.getBlockEntity(pos) instanceof ConveyorBlockEntity be) {
+            // 双端重建线路：新格并入既有线路（服务端权威，客户端镜像同步）
+            be.refreshLine();
+        }
         if (level.isClientSide()) {
             level.getModelDataManager().requestRefresh(level.getBlockEntity(pos));
             for (Direction dir : Direction.Plane.HORIZONTAL) {
@@ -283,6 +287,11 @@ public class ConveyorBlock extends BaseEntityBlock {
             // 弹出传送带上的所有物品
             ejectConveyorItems(level, pos);
 
+            if (level.getBlockEntity(pos) instanceof ConveyorBlockEntity be) {
+                // 双端除名：本格脱离线路，断链后半段由各自 tick 惰性重建
+                be.detachFromLine();
+            }
+
             super.onRemove(state, level, pos, newState, movedByPiston);
             refreshNeighbors(level, pos, state);
             if (level.isClientSide()) {
@@ -299,13 +308,8 @@ public class ConveyorBlock extends BaseEntityBlock {
 
     private static void ejectConveyorItems(Level level, BlockPos pos) {
         if (level.isClientSide()) return;
-        AABB scanBox = buildScanBox(pos);
-        List<ConveyorItemEntity> items = level.getEntitiesOfClass(
-                ConveyorItemEntity.class, scanBox,
-                item -> item.isAlive() && item.getConveyorPos().equals(pos)
-        );
-        for (ConveyorItemEntity item : items) {
-            item.ejectAsItemEntity();
+        if (level.getBlockEntity(pos) instanceof ConveyorBlockEntity be) {
+            be.ejectAllItems();
         }
     }
 
@@ -328,49 +332,20 @@ public class ConveyorBlock extends BaseEntityBlock {
         return insertItem(level, pos, player, stack);
     }
 
-    private static AABB buildScanBox(BlockPos pos) {
-        return new AABB(
-                pos.getX() - 0.1, pos.getY() + 4.0 / 16.0 - 0.1, pos.getZ() - 0.1,
-                pos.getX() + 1.1, pos.getY() + 1.0 + 0.3, pos.getZ() + 1.1
-        );
-    }
-
     private static ItemInteractionResult pickupItem(Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        AABB scanBox = buildScanBox(pos);
-        List<ConveyorItemEntity> items = level.getEntitiesOfClass(ConveyorItemEntity.class, scanBox,
-                item -> item.isAlive() && item.getConveyorPos().equals(pos));
-
-        if (items.isEmpty()) {
+        if (!(level.getBlockEntity(pos) instanceof ConveyorBlockEntity be)) {
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
 
-        // 优先取瞄准点附近的物品（判定范围 0.8 格，足够宽松）
+        // 优先取瞄准点附近的物品（判定范围 0.8 格），否则取终点附近的包
         double hitX = hitResult.getLocation().x;
         double hitZ = hitResult.getLocation().z;
-        ConveyorItemEntity target = null;
-        double closestDist = 0.8; // 最大有效距离
-
-        for (ConveyorItemEntity item : items) {
-            double dx = item.getX() - hitX;
-            double dz = item.getZ() - hitZ;
-            double dist = Math.sqrt(dx * dx + dz * dz);
-            if (dist < closestDist) {
-                closestDist = dist;
-                target = item;
-            }
+        ItemStack result = be.pickupNear(hitX, hitZ);
+        if (result.isEmpty()) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
 
-        // 瞄准点附近没有物品，退回到取第一个
-        if (target == null) {
-            target = items.getFirst();
-        }
-
-        ItemStack result = target.getItem();
-        if (!result.isEmpty()) {
-            player.getInventory().placeItemBackInInventory(result.copy());
-            target.discard();
-        }
-
+        player.getInventory().placeItemBackInInventory(result);
         return ItemInteractionResult.SUCCESS;
     }
 
@@ -388,23 +363,15 @@ public class ConveyorBlock extends BaseEntityBlock {
             }
         }
 
-        AABB scanBox = buildScanBox(pos);
-        List<ConveyorItemEntity> items = level.getEntitiesOfClass(ConveyorItemEntity.class, scanBox,
-                item -> item.isAlive() && item.getConveyorPos().equals(pos));
-
-        // 起点附近已有物品则不允许放入
-        for (ConveyorItemEntity item : items) {
-            if (item.getProgress() < 0.4F) {
-                return ItemInteractionResult.FAIL;
-            }
+        if (!(level.getBlockEntity(pos) instanceof ConveyorBlockEntity be)) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         }
 
-        ItemStack toInsert = stack.split(1);
-        if (!toInsert.isEmpty()) {
-            ConveyorItemEntity conveyorItem = ConveyorItemEntity.create(level, pos, toInsert);
-            level.addFreshEntity(conveyorItem);
+        ItemStack toInsert = stack.copy();
+        if (!be.insertStack(toInsert)) {
+            return ItemInteractionResult.FAIL; // 起点被异物品包占用
         }
-
+        stack.shrink(1);
         return ItemInteractionResult.SUCCESS;
     }
 }

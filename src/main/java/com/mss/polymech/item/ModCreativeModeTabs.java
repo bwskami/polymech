@@ -191,6 +191,7 @@ public class ModCreativeModeTabs {
                     .title(Component.translatable("itemGroup.tool_tab"))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.WRENCH.get());
+                        output.accept(ModItems.NETWORK_TOOL.get());
                         
                         // 如果有目标为TOOL的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {

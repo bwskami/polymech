@@ -79,6 +79,13 @@ public class ModItems {
             ITEMS.register("blueprint", () -> new BlueprintToolItem(new Item.Properties()));
 
     /*
+     * 网络调试仪，手持时高亮显示传送带线路与管道网络（纯标记物品）。
+     */
+    public static final DeferredItem<NetworkToolItem> NETWORK_TOOL =
+            ITEMS.register("network_tool", () -> new NetworkToolItem(new Item.Properties()
+                    .stacksTo(1)));
+
+    /*
      * 焦煤，蜂窝焦炉的产物，用于原始高炉炼钢与高级燃料。
      * 模型复用粉尘染色模板，颜色由 colors.json 的 coke 材质条目提供。
      */
