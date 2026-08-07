@@ -15,6 +15,8 @@ import net.minecraft.world.item.ItemStack;
  *   <li>{@code prevProgress}：上一 tick 的进度，供渲染 partialTick 插值</li>
  *   <li>{@code entryDir}：转弯入场的来源方向（3D data value），渲染平滑转向用；
  *       {@link #NO_ENTRY_TURN} 表示直线入场</li>
+ *   <li>{@code lastDrivenTick}：创建 tick 印记——跨线交接新建的包在创建当 tick
+ *       不移动（下一 tick 起步），双端节奏确定、与 BE tick 顺序无关</li>
  * </ul>
  */
 public class BeltItem {
@@ -26,6 +28,7 @@ public class BeltItem {
     private double progress;
     private double prevProgress;
     private byte entryDir = NO_ENTRY_TURN;
+    private long lastDrivenTick = -1L;
 
     public BeltItem(ItemStack stack, double progress) {
         this.stack = stack;
@@ -73,6 +76,14 @@ public class BeltItem {
         this.entryDir = entryDir;
     }
 
+    public long getLastDrivenTick() {
+        return lastDrivenTick;
+    }
+
+    public void setLastDrivenTick(long lastDrivenTick) {
+        this.lastDrivenTick = lastDrivenTick;
+    }
+
     /**
      * 是否可以合并进另一个同种物品。
      */
@@ -100,15 +111,25 @@ public class BeltItem {
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
         tag.put("Stack", stack.saveOptional(registries));
         tag.putDouble("Progress", progress);
+        // PrevPos 一并序列化（Create 同款）：客户端收到快照后直接用服务端的
+        // prev→progress 继续插值，不会因 prev==progress 冻结一帧产生顿挫
+        tag.putDouble("PrevPos", prevProgress);
         tag.putByte("EntryDir", entryDir);
+        tag.putLong("LastDrivenTick", lastDrivenTick);
         return tag;
     }
 
     public static BeltItem load(CompoundTag tag, HolderLookup.Provider registries) {
         ItemStack stack = ItemStack.parseOptional(registries, tag.getCompound("Stack"));
         BeltItem item = new BeltItem(stack, tag.getDouble("Progress"));
+        if (tag.contains("PrevPos")) {
+            item.prevProgress = tag.getDouble("PrevPos");
+        }
         if (tag.contains("EntryDir")) {
             item.entryDir = tag.getByte("EntryDir");
+        }
+        if (tag.contains("LastDrivenTick")) {
+            item.lastDrivenTick = tag.getLong("LastDrivenTick");
         }
         return item;
     }

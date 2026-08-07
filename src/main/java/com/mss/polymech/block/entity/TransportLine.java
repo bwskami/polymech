@@ -26,7 +26,9 @@ import java.util.List;
  *   <li><b>线内零检查搬家</b>：包跨格时直接换列表（线内直连已由组网保证），
  *       无入口检查、无交接延迟、无 acceptIncoming 开销</li>
  *   <li><b>合并拾取</b>：整条线一个大 AABB 扫描一次，按沿线投影定位到具体格</li>
- *   <li><b>双端确定性</b>：客户端组建相同线路镜像，共用同一驱动代码，移动零网络包</li>
+ *   <li><b>双端确定性（Create 同款）</b>：客户端组建相同线路镜像，与服务端逐 tick
+ *       执行同一套驱动代码，移动零网络包、无周期校准快照；仅结构变化（增/删/合并）
+ *       发一次快照，双端位置自然一致</li>
  *   <li><b>拆线安全</b>：区块卸载仅除名、绝不访问邻居区块（防卡死）；
  *       断链后半段成员惰性重建（下个 tick 自动刷新）</li>
  * </ul>
@@ -41,9 +43,6 @@ class TransportLine {
 
     /** 拾取扫描冷却 */
     private int pickupCooldown;
-
-    /** 校准同步计时 */
-    private int syncTimer = ConveyorBlockEntity.SYNC_INTERVAL;
 
     /** 低频脏标记计时 */
     private int dirtyTimer = ConveyorBlockEntity.DIRTY_INTERVAL;
@@ -136,23 +135,13 @@ class TransportLine {
         // 2. 统一驱动
         drive(level, changed, true);
 
-        // 3. 同步：构成变化立即发；有物品时低频校准兜底
-        boolean anyChanged = false;
+        // 3. 同步：仅结构变化（增/删/合并）时发快照（Create 同款）。
+        // 双端逐 tick 执行同一套 drive，纯移动零包且位置自然一致；
+        // 周期性校准快照反而会周期性瞬移物品（长带上“一会顿一下”的元凶）
         for (ConveyorBlockEntity be : changed) {
-            be.needsSync = true;
+            be.needsSync = false;
             be.setChanged();
-            anyChanged = true;
-        }
-        if (anyChanged) {
-            for (ConveyorBlockEntity be : changed) {
-                be.needsSync = false;
-                be.syncToClient();
-            }
-        } else if (hasItems() && --syncTimer <= 0) {
-            syncTimer = ConveyorBlockEntity.SYNC_INTERVAL;
-            for (ConveyorBlockEntity be : members) {
-                if (!be.items.isEmpty()) be.syncToClient();
-            }
+            be.syncToClient();
         }
 
         // 4. 低频脏标记（纯移动不值得每 tick 标脏，进度回滚不会刷物）
@@ -214,13 +203,19 @@ class TransportLine {
         mergeSort(orderBuf, tmpBuf, 0, total);
 
         double speed = material.getBeltSpeed();
-        double endWait = ConveyorBlockEntity.getEndWait(speed);
         double lineLength = n;
+        long now = level.getGameTime();
 
         for (int pos = total - 1; pos >= 0; pos--) {
             int o = orderBuf[pos];
             BeltItem item = flatBuf[o];
             int own = ownerBuf[o];
+
+            // 印记：本 tick 刚创建（跨线交接）的包下一 tick 再起步，
+            // 双端节奏确定、与 BE tick 顺序无关（绝不被双驱动/提前起步）
+            if (item.getLastDrivenTick() == now) {
+                continue;
+            }
             item.setPrevProgress(item.getProgress());
 
             double global = own + item.getProgress();
@@ -236,36 +231,37 @@ class TransportLine {
             }
 
             boolean isTail = pos == total - 1;
-            if (isTail && (newGlobal >= lineLength - ConveyorBlockEntity.EPSILON
-                    || global >= (lineLength - 1) + endWait - ConveyorBlockEntity.EPSILON)) {
-                // 线尾队首包到达终点：终点动作（容器注入/移交线外/弹出）
+            if (isTail && newGlobal >= lineLength - ConveyorBlockEntity.EPSILON) {
+                // 线尾队首包完整走到格尾边界才尝试交接（下一格起点与格尾同一位置，渲染零跳变）
                 ConveyorBlockEntity tail = members.get(n - 1);
                 double newProgress = newGlobal - (n - 1);
                 if (tryTailHandoff(level, tail, item, newProgress, server)) {
                     tail.items.remove(item);
                     markChanged(changed, tail);
-                } else if (item.getProgress() > endWait) {
-                    // 目标不可达：固定在终点等待位，不震荡
-                    item.setProgress(endWait);
                 }
+                // 目标不可达：停在当前位置下 tick 重试（绝不回退拉扯）
                 continue;
             }
 
             if (newGlobal > global) {
                 int newOwner = (int) Math.floor(newGlobal);
                 if (newOwner != own) {
-                    // 线内跨格：直接换列表，无入口检查（前方包已让位）
+                    // 线内跨格：直接换列表，无入口检查（前方包已让位）。
+                    // 注意：跨格是<b>纯移动</b>，绝不 markChanged/发同步包（Create 同款：
+                    // 移动零网络包）。流动中的带子上跨格几乎每 tick 都在发生，
+                    // 若每次跨格都发快照，网络延迟会把客户端周期性回拉 = 持续顿挫
                     double newProgress = newGlobal - newOwner;
                     ConveyorBlockEntity from = members.get(own);
                     ConveyorBlockEntity to = members.get(newOwner);
                     from.items.remove(item);
+                    // 渲染插值连续性：prev 换算到新格坐标 = newProgress - speed
+                    // （可为小负值，几何上就是来源格出口边 = 新格入口边同一点）；
+                    // 渲染器不钳制，跨边界帧间零跳变
+                    item.setPrevProgress(newProgress - speed);
                     item.setProgress(newProgress);
-                    item.setPrevProgress(newProgress);
                     item.setEntryDir(BeltItem.NO_ENTRY_TURN);
                     to.insertSorted(item);
                     ownerBuf[o] = newOwner;
-                    markChanged(changed, from);
-                    markChanged(changed, to);
                 } else {
                     item.setProgress(newGlobal - own);
                 }

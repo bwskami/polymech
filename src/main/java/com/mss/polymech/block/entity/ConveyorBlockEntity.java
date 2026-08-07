@@ -42,8 +42,9 @@ import java.util.List;
  * <ul>
  *   <li><b>零实体扫描</b>：移动/排队/交接全部基于本 BE 的数组操作，
  *       仅在低频拾取掉落物时做一次 AABB 扫描</li>
- *   <li><b>双端确定性模拟</b>：服务端权威 tick，客户端按相同规则本地推进，
- *       纯移动过程<b>零网络包</b>；仅在物品构成变化（增/删/耗尽）时发送快照</li>
+ *   <li><b>双端确定性模拟（Create 同款）</b>：双端逐 tick 执行同一套驱动代码，
+ *       纯移动过程<b>零网络包、无周期校准快照</b>；仅在物品构成变化
+ *       （增/删/耗尽）时发送一次快照，双端位置自然一致</li>
  *   <li><b>余进度连续交接</b>：物品到达带尾时以溢出进度进入下一格，跨格零停顿</li>
  *   <li><b>能力缓存</b>：前方容器的 ItemHandler 用 {@link BlockCapabilityCache} 缓存，
  *       方块变化自动失效，避免每 tick 能力查询</li>
@@ -80,9 +81,6 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     /** 拾取扫描降频间隔（tick） */
     static final int PICKUP_INTERVAL = 4;
-
-    /** 低频校准同步间隔（tick）：兜底修正客户端漂移 */
-    static final int SYNC_INTERVAL = 40;
 
     /** 低频存档脏标记间隔（tick） */
     static final int DIRTY_INTERVAL = 40;
@@ -305,19 +303,18 @@ public class ConveyorBlockEntity extends BlockEntity {
         } else {
             BeltItem created = new BeltItem(incoming.copy(), Math.min(entryProgress, 0.99D));
             created.setEntryDir(sideEntry ? (byte) sourceDir.get3DDataValue() : BeltItem.NO_ENTRY_TURN);
+            created.setLastDrivenTick(level.getGameTime()); // 印记：下一 tick 起步（双端节奏确定）
+            // 插值连续性：prev 取入口前一步，新包从入口边平滑滑入；
+            // 若 prev==progress 会静止一帧再跳变 = 视觉“卡一下”
+            created.setPrevProgress(Math.min(entryProgress, 0.99D) - getBeltSpeed());
             insertSorted(created);
         }
         if (server) {
+            // 接收格不在发送线的 changed 列表里，须单独同步（无周期校准兜底）；
+            // 客户端虽有自己的镜像驱动，快照保证偶发漂移立即收敛
             setChanged();
-            needsSync = true;
-        }
-
-        // 立即级联驱动接收线：若接收线本 tick 已先驱动过（BE tick 顺序不定），
-        // 新包会原地停一 tick，表现为“经过别的传送带卡一下”；级联驱动让新包
-        // 即刻启程，且双端行为与 BE tick 顺序无关（包上有每 tick 一步印记兼底）
-        TransportLine recvLine = lineRef;
-        if (recvLine != null && !recvLine.isEmpty()) {
-            recvLine.tick(level);
+            needsSync = false;
+            syncToClient();
         }
         return true;
     }
@@ -917,30 +914,19 @@ public class ConveyorBlockEntity extends BlockEntity {
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
-        boolean client = level != null && level.isClientSide();
-
-        // 客户端：保留旧快照用于插值对齐
-        List<BeltItem> oldItems = client ? new ArrayList<>(items) : null;
 
         items.clear();
         if (tag.contains("Items", Tag.TAG_LIST)) {
             ListTag list = tag.getList("Items", Tag.TAG_COMPOUND);
             for (int i = 0; i < list.size(); i++) {
+                // BeltItem.load 会直接读取 PrevPos（Create 同款）：客户端收到快照后
+                // 用服务端的 prev→progress 无缝继续插值，不做任何本地对齐加工
                 BeltItem item = BeltItem.load(list.getCompound(i), registries);
                 // 防御：钳制进度到 [0, 0.99]，防止越界存档数据
                 item.setProgress(Mth.clamp(item.getProgress(), 0.0D, 0.99D));
                 items.add(item);
             }
             items.sort(Comparator.comparingDouble(BeltItem::getProgress));
-        }
-
-        // 客户端快照对齐：新包 prevProgress = 旧包 progress（按索引对齐），
-        // 避免校正瞬间位置跳变
-        if (client && oldItems != null) {
-            int n = Math.min(items.size(), oldItems.size());
-            for (int i = 0; i < n; i++) {
-                items.get(i).setPrevProgress(oldItems.get(i).getProgress());
-            }
         }
     }
 

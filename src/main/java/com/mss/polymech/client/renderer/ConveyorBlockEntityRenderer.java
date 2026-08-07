@@ -28,17 +28,18 @@ import net.minecraft.world.phys.AABB;
 import java.util.List;
 
 /**
- * 传送带物品包渲染器。
+ * 传送带物品包渲染器（Create 同款平滑）。
  * <p>
  * 直接渲染 BE 内的 {@link BeltItem} 队列：prevProgress → progress 按 partialTick
- * 线性插值（客户端确定性模拟 + 快照对齐，纯移动零网络包也不抽搐）。
+ * 线性插值。双端逐 tick 执行同一套确定性驱动，插值起点永远是上一 tick 真实位置；
+ * 跨格时 prev 换算到新格坐标（可为小负值，几何上就是来源格出口边），
+ * 因此<b>插值结果不钳制到 [0,1]</b>——跨边界帧间位置零跳变。
  * 物品平躺在带面上随带运动。
  * </p>
  * <p>
  * 转角（侧向馈入）平滑曲线：带 entryDir 且与本格朝向垂直的物品走一条二次贝塞尔
  * 曲线——从入口边中点（恰为来源带路径终点，位置无缝衔接）经方块中心弯到出口边
- * 中点，朝向沿曲线切线连续旋转，实现 Create 同款的丝滑转角运输动画。纯渲染层，
- * 不改变任何逻辑坐标。
+ * 中点，朝向沿曲线切线连续旋转。纯渲染层，不改变任何逻辑坐标。
  * </p>
  */
 public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<ConveyorBlockEntity> {
@@ -80,16 +81,18 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
             ItemStack stack = item.getStack();
             if (stack.isEmpty()) continue;
 
-            double progress = Mth.clamp(
-                    Mth.lerp(partialTick, item.getPrevProgress(), item.getProgress()), 0.0D, 1.0D);
+            // 不钳制：跨格时 prev 可为小负值（新格坐标下 = 来源格出口边），
+            // 不钳制才能保证跨边界帧间位置连续；钳制会在每格边界瞬移一步
+            double progress = Mth.lerp(partialTick, item.getPrevProgress(), item.getProgress());
             byte entryDir = item.getEntryDir();
 
             float itemYaw;
             if (type == ConveyorType.HORIZONTAL && isCornerEntry(entryDir, facing)) {
-                // 转角平滑曲线：位置走贝塞尔弧，朝向沿切线连续旋转
+                // 转角平滑曲线：位置走贝塞尔弧，朝向沿切线连续旋转（t 映射需钳制）
                 Direction source = Direction.from3DDataValue(entryDir);
+                double cp = Mth.clamp(progress, 0.0D, 1.0D);
                 double t = Mth.clamp(
-                        (progress - ConveyorBlockEntity.SIDE_ENTRY_PROGRESS)
+                        (cp - ConveyorBlockEntity.SIDE_ENTRY_PROGRESS)
                                 / (1.0D - ConveyorBlockEntity.SIDE_ENTRY_PROGRESS),
                         0.0D, 1.0D);
                 computeCornerPosition(pos, source, facing, t, posOut);
@@ -104,7 +107,7 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
                 if (entryDir != BeltItem.NO_ENTRY_TURN && progress < TURN_BLEND) {
                     Direction source = Direction.from3DDataValue(entryDir);
                     float sourceYaw = yawOf(source);
-                    float blend = (float) (progress / TURN_BLEND);
+                    float blend = (float) (Math.max(0.0D, progress) / TURN_BLEND);
                     itemYaw = sourceYaw + Mth.degreesDifference(sourceYaw, yaw) * blend;
                 }
             }
