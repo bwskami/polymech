@@ -18,6 +18,10 @@ import net.minecraft.world.item.ItemStack;
  *   <li>{@code lastDrivenTick}：创建 tick 印记——跨线交接新建的包在创建当 tick
  *       不移动（下一 tick 起步），双端节奏确定、与 BE tick 顺序无关</li>
  * </ul>
+ * <p>
+ * 传送带上物品包<b>永不合并</b>：每批独立通过，保护特地设计的物流分批；
+ * 合并需求由专门的设备承担。
+ * </p>
  */
 public class BeltItem {
 
@@ -82,28 +86,6 @@ public class BeltItem {
 
     public void setLastDrivenTick(long lastDrivenTick) {
         this.lastDrivenTick = lastDrivenTick;
-    }
-
-    /**
-     * 是否可以合并进另一个同种物品。
-     */
-    public boolean canMerge(ItemStack other, int limit) {
-        return stack.getCount() < limit
-                && ItemStack.isSameItemSameComponents(stack, other);
-    }
-
-    /**
-     * 把 other 合并进本包（不超过 limit）。
-     *
-     * @return 合并后 other 的剩余数量
-     */
-    public int merge(ItemStack other, int limit) {
-        int space = limit - stack.getCount();
-        int take = Math.min(space, other.getCount());
-        if (take > 0) {
-            stack.grow(take);
-        }
-        return other.getCount() - take;
     }
 
     // ========== NBT ==========

@@ -218,12 +218,19 @@ class TransportLine {
             }
             item.setPrevProgress(item.getProgress());
 
+            // 转角加速：侧入包在目标格走贝塞尔转弯曲线期间以倍速推进，
+            // 缩短转弯时间、提高路口吞吐（否则入口门被拖住，依次转入的
+            // 侧向包间隔被拉长）；双端同一套规则，确定性不受影响
+            double itemSpeed = isCornerBlending(item, members.get(own))
+                    ? speed * ConveyorBlockEntity.CORNER_TURN_SPEED_MULT
+                    : speed;
+
             double global = own + item.getProgress();
             double aheadLimit = (pos == total - 1)
                     ? lineLength - ConveyorBlockEntity.EPSILON
                     : (ownerBuf[orderBuf[pos + 1]] + flatBuf[orderBuf[pos + 1]].getProgress())
                             - ConveyorBlockEntity.PACKAGE_PITCH;
-            double newGlobal = Math.min(global + speed, aheadLimit);
+            double newGlobal = Math.min(global + itemSpeed, aheadLimit);
             // 间距已被破坏（入场/快照对齐等残留）时只等待、绝不倒退，
             // 避免物品被往回抽扯产生拉扯抖动；前车前进后间距自然恢复
             if (newGlobal < global) {
@@ -239,7 +246,8 @@ class TransportLine {
                     tail.items.remove(item);
                     markChanged(changed, tail);
                 }
-                // 目标不可达：停在当前位置下 tick 重试（绝不回退拉扯）
+                // 目标不可达（转弯入口被占用 / 前方方块阻挡 / 容器已满）：
+                // 停在当前位置下 tick 重试（终点等待，绝不回退拉扯）
                 continue;
             }
 
@@ -254,10 +262,10 @@ class TransportLine {
                     ConveyorBlockEntity from = members.get(own);
                     ConveyorBlockEntity to = members.get(newOwner);
                     from.items.remove(item);
-                    // 渲染插值连续性：prev 换算到新格坐标 = newProgress - speed
-                    // （可为小负值，几何上就是来源格出口边 = 新格入口边同一点）；
-                    // 渲染器不钳制，跨边界帧间零跳变
-                    item.setPrevProgress(newProgress - speed);
+                    // 渲染插值连续性：prev 换算到新格坐标 = newProgress - 本 tick 步长
+                    // （转弯包为加速步长；可为小负值，几何上就是来源格出口边 =
+                    // 新格入口边同一点）；渲染器不钳制，跨边界帧间零跳变
+                    item.setPrevProgress(newProgress - itemSpeed);
                     item.setProgress(newProgress);
                     item.setEntryDir(BeltItem.NO_ENTRY_TURN);
                     to.insertSorted(item);
@@ -276,6 +284,19 @@ class TransportLine {
         Direction facing = state.getValue(ConveyorBlock.FACING);
         ConveyorType type = state.getValue(ConveyorBlock.TYPE);
         return tail.tryHandoff(level, tail.getBlockPos(), state, facing, type, item, newProgress, server);
+    }
+
+    /**
+     * 包是否正在走转角曲线：侧入（entryDir 有效）且来源方向与本格朝向垂直。
+     * 与渲染器的 isCornerEntry 判定一致：只有走贝塞尔曲线的包才加速；
+     * 跨格后 entryDir 被清除，加速自动终止（双端规则相同）。
+     */
+    private static boolean isCornerBlending(BeltItem item, ConveyorBlockEntity be) {
+        byte entryDir = item.getEntryDir();
+        if (entryDir == BeltItem.NO_ENTRY_TURN) return false;
+        Direction source = Direction.from3DDataValue(entryDir);
+        Direction facing = be.getBlockState().getValue(ConveyorBlock.FACING);
+        return source.getAxis().isHorizontal() && source.getAxis() != facing.getAxis();
     }
 
     /** 无装箱归并排序（orderBuf 按线内坐标升序） */

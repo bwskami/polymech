@@ -50,16 +50,23 @@ import java.util.List;
  *       方块变化自动失效，避免每 tick 能力查询</li>
  *   <li><b>注入指数退避</b>：前方容器满时重试间隔倍增（上限 40 tick），疏通后立即恢复</li>
  *   <li><b>下一格缓存</b>：目标传送带 BE 引用缓存，方块改动/低频复检时刷新</li>
- *   <li><b>物品包合并</b>：同种物品合并成包（容量由材质等级决定），减少包数量</li>
+ *   <li><b>物品包不合并</b>：带上一切入包途径（交接/拾取/玩家/漏斗）都永不合并，
+ *       每批保持独立通过，避免打乱特地设计的物流分批；合并需求由专门的设备承担</li>
  * </ul>
  */
 public class ConveyorBlockEntity extends BlockEntity {
 
-    /** 排队间距（格）：同带相邻物品包的最小间隔 */
-    public static final double PACKAGE_PITCH = 0.4D;
+    /**
+     * 排队间距（格）：同带相邻物品包的最小间隔。
+     * <p>
+     * 必须大于渲染足迹（ITEM_SCALE=0.55 的扁平物品模型沿带向约 0.55 格宽），
+     * 否则相邻同物包视觉上重叠、看起来像合并成一堆（传送带已禁止真合并）。
+     * </p>
+     */
+    public static final double PACKAGE_PITCH = 0.6D;
 
     /**
-     * 直连入场检查区间：目标格 [0, 该值) 有包则拒绝（同物可合并）。
+     * 直连入场检查区间：目标格 [0, 该值) 有包则拒绝。
      * 与间距对齐：入场进度≈0，前车至少在该值处才放包进入，间距恒 ≥ PITCH。
      */
     public static final double DIRECT_ENTRY_CHECK = PACKAGE_PITCH;
@@ -69,12 +76,23 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     /**
      * 转弯入场检查区间：目标格 [0, 该值) 有包则拒绝。
-     * = 入场进度 + 间距：侧入包落在 0.5 处，前车至少在 0.9 处，间距恒 ≥ PITCH。
+     * = 入场进度 + 间距：侧入包落在 0.5 处，前车位置足够靠前，间距恒 ≥ PITCH。
      */
     public static final double SIDE_ENTRY_CHECK = SIDE_ENTRY_PROGRESS + PACKAGE_PITCH;
 
     /** 浮点容差 */
     static final double EPSILON = 1.0E-6D;
+
+    /**
+     * 转角加速倍率：侧入包在目标格内走贝塞尔转弯曲线期间，
+     * 以带速的该倍数推进，把半格长的转弯压缩成更短时间。
+     * <p>
+     * 转弯慢会拖住入口门（整格清空才放下一包），侧向排队依次转入时
+     * 前后包间隔被拉长；加速后路口吞吐提高，转入后的间距回归正常排队间距。
+     * 双端执行同一套 drive，确定性不受影响。
+     * </p>
+     */
+    public static final double CORNER_TURN_SPEED_MULT = 2.0D;
 
     /** 拾取掉落物的水平半径 */
     static final double PICKUP_RADIUS = 0.35D;
@@ -232,9 +250,9 @@ public class ConveyorBlockEntity extends BlockEntity {
     }
 
     /**
-     * 尝试将物品包移出本格：容器注入 → 移交下一格 → 弹出掉落物。
+     * 尝试将物品包移出本格：容器注入 → 移交下一格 → 前方阻挡等待 / 弹出掉落物。
      *
-     * @return true 表示物品包已离开本格（调用方应移除）
+     * @return true 表示物品包已离开本格（调用方应移除）；false 表示终点等待
      */
     boolean tryHandoff(Level level, BlockPos pos, BlockState state,
                        Direction facing, ConveyorType type, BeltItem item,
@@ -258,10 +276,18 @@ public class ConveyorBlockEntity extends BlockEntity {
                     next.worldPosition.getX() - worldPosition.getX(),
                     next.worldPosition.getY() - worldPosition.getY(),
                     next.worldPosition.getZ() - worldPosition.getZ());
-            return next.acceptIncoming(item.getStack(), entryProgress, sideEntry, sourceDir);
+            return next.acceptIncoming(item, entryProgress, sideEntry, sourceDir);
         }
 
-        // 3. 无下一格：服务端弹出为掉落物；客户端原地等待快照
+        // 3. 无下一格：
+        //    a) 前方存在非空气方块且无法传入（非容器 / 容器已满 / 坡道出口）→
+        //       终点等待：停在格尾下 tick 重试，与转弯侧向入口被占用的等待
+        //       走同一条路径（tryTailHandoff 返回 false → drive 原地保留），
+        //       方块移除/容器疏通后自动恢复，绝不弹出
+        //    b) 出口方向为空气（带端敞开）→ 服务端弹出掉落物；客户端等快照
+        if (isExitBlocked(level, pos, facing, type)) {
+            return false;
+        }
         if (server) {
             ejectAsItemEntity(level, pos, facing, item);
             return true;
@@ -270,45 +296,56 @@ public class ConveyorBlockEntity extends BlockEntity {
     }
 
     /**
+     * 出口方向是否有非空气方块阻挡（阻挡即触发终点等待）。
+     * <p>
+     * 双端确定性：只读方块状态查询，客户端/服务端结果一致，
+     * 无需任何额外同步。
+     * </p>
+     */
+    static boolean isExitBlocked(Level level, BlockPos pos, Direction facing, ConveyorType type) {
+        // 出口格：水平带=正前方；上坡=前方上层（物品升到高处离开）；
+        // 下坡=前方下层（物品降到低处离开）
+        BlockPos exit = switch (type) {
+            case UP -> pos.relative(facing).above();
+            case DOWN -> pos.relative(facing).below();
+            default -> pos.relative(facing);
+        };
+        return !level.getBlockState(exit).isAir();
+    }
+
+    /**
      * 接收来自前一格传送带的物品包（双端规则一致，保证确定性）。
      * <p>
-     * 入口检查：直连时目标格 [0, {@link #DIRECT_ENTRY_CHECK}) 区域必须空闲
-     * （或可合并同物包）；转弯时 [0, {@link #SIDE_ENTRY_CHECK}) 必须空闲且不合并。
+     * 入口检查：直连时目标格 [0, {@link #DIRECT_ENTRY_CHECK}) 区域必须空闲；
+     * 转弯时 [0, {@link #SIDE_ENTRY_CHECK}) 必须空闲。占用则拒绝（前格终点等待）。
+     * </p>
+     * <p>
+     * <b>永不合并</b>：传送带上不存在包合并，每批独立通过，保护特地设计的
+     * 物流分批；合并需求由专门的设备承担。
      * </p>
      *
+     * @param incoming  来源物品包（交接后由调用方移除）
      * @param sourceDir 来源方向（从来源格指向本格），转弯时记录到包上供客户端平滑旋转
      */
-    public boolean acceptIncoming(ItemStack incoming, double entryProgress, boolean sideEntry,
+    public boolean acceptIncoming(BeltItem incoming, double entryProgress, boolean sideEntry,
                                   Direction sourceDir) {
         if (level == null) return false;
         boolean server = !level.isClientSide();
 
-        int limit = getStackLimit();
         double checkMax = sideEntry ? SIDE_ENTRY_CHECK : DIRECT_ENTRY_CHECK;
-
-        BeltItem mergeTarget = null;
         for (BeltItem item : items) {
             if (item.getProgress() < checkMax) {
-                if (!sideEntry && item.canMerge(incoming, limit)) {
-                    mergeTarget = item;
-                    break;
-                }
-                return false; // 入口区域被占用且无法合并
+                return false; // 入口区域被占用
             }
         }
 
-        if (mergeTarget != null) {
-            // 直连合并：包汇入入口处同物包，无需新增位置
-            mergeTarget.merge(incoming, limit);
-        } else {
-            BeltItem created = new BeltItem(incoming.copy(), Math.min(entryProgress, 0.99D));
-            created.setEntryDir(sideEntry ? (byte) sourceDir.get3DDataValue() : BeltItem.NO_ENTRY_TURN);
-            created.setLastDrivenTick(level.getGameTime()); // 印记：下一 tick 起步（双端节奏确定）
-            // 插值连续性：prev 取入口前一步，新包从入口边平滑滑入；
-            // 若 prev==progress 会静止一帧再跳变 = 视觉“卡一下”
-            created.setPrevProgress(Math.min(entryProgress, 0.99D) - getBeltSpeed());
-            insertSorted(created);
-        }
+        BeltItem created = new BeltItem(incoming.getStack().copy(), Math.min(entryProgress, 0.99D));
+        created.setEntryDir(sideEntry ? (byte) sourceDir.get3DDataValue() : BeltItem.NO_ENTRY_TURN);
+        created.setLastDrivenTick(level.getGameTime()); // 印记：下一 tick 起步（双端节奏确定）
+        // 插值连续性：prev 取入口前一步，新包从入口边平滑滑入；
+        // 若 prev==progress 会静止一帧再跳变 = 视觉“卡一下”
+        created.setPrevProgress(Math.min(entryProgress, 0.99D) - getBeltSpeed());
+        insertSorted(created);
         if (server) {
             // 接收格不在发送线的 changed 列表里，须单独同步（无周期校准兜底）；
             // 客户端虽有自己的镜像驱动，快照保证偶发漂移立即收敛
@@ -409,8 +446,13 @@ public class ConveyorBlockEntity extends BlockEntity {
     /**
      * 拾取传送带起点附近的掉落物（每 {@link #PICKUP_INTERVAL} tick 一次）。
      * <p>
-     * 优先整组拾取并合并进起点同物包；入口区域被异物品包占用时拒绝；
+     * 起点区域被任何包占用时拒绝；否则新建独立物品包（永不合并）；
      * 每次调用最多拾取一个掉落物（整线拾取由 {@link TransportLine} 统一扫描调度）。
+     * </p>
+     * <p>
+     * <b>每次只取 1 个物品</b>：掉落物实体在原版里会自动聚合成大堆
+     * （前格弹出的多个包落地后会聚成 64 堆），若整堆吞入相当于变相
+     * 把多个包合并成一个，违背禁合并设计；每次 1 个、一包一独立批次。
      * </p>
      */
     boolean tryPickupItems(Level level, BlockPos pos) {
@@ -425,35 +467,20 @@ public class ConveyorBlockEntity extends BlockEntity {
 
         ItemEntity drop = drops.getFirst();
         ItemStack dropStack = drop.getItem();
-        int limit = getStackLimit();
 
-        // 起点区域检查：可合并则记录，否则拒绝
-        BeltItem mergeTarget = null;
+        // 起点区域被任何包占用则拒绝（永不合并）
         for (BeltItem item : items) {
             if (item.getProgress() < PACKAGE_PITCH) {
-                if (item.canMerge(dropStack, limit)) {
-                    mergeTarget = item;
-                    break;
-                }
-                return false; // 入口被异物品包占用
+                return false;
             }
         }
 
-        if (mergeTarget != null) {
-            int remaining = mergeTarget.merge(dropStack, limit);
-            if (remaining == 0) {
-                drop.discard();
-            } else {
-                dropStack.setCount(remaining);
-            }
+        // 每次只取 1 个（防止把原版聚合的掉落物堆变相合并成大包）
+        insertSorted(new BeltItem(dropStack.copyWithCount(1), 0.0D));
+        if (dropStack.getCount() <= 1) {
+            drop.discard();
         } else {
-            int take = Math.min(dropStack.getCount(), limit);
-            insertSorted(new BeltItem(dropStack.copyWithCount(take), 0.0D));
-            if (take >= dropStack.getCount()) {
-                drop.discard();
-            } else {
-                dropStack.setCount(dropStack.getCount() - take);
-            }
+            dropStack.setCount(dropStack.getCount() - 1);
         }
 
         setChanged();
@@ -781,24 +808,16 @@ public class ConveyorBlockEntity extends BlockEntity {
     // ========== 玩家交互 API ==========
 
     /**
-     * 起点放入物品（每次 1 个）：合并进起点同物包，或新建物品包。
+     * 起点放入物品（每次 1 个）：起点被占用则拒绝，否则新建独立物品包（永不合并）。
      *
      * @return true 表示成功放入
      */
     public boolean insertStack(ItemStack stack) {
         if (level == null || level.isClientSide()) return false;
 
-        int limit = getStackLimit();
         for (BeltItem item : items) {
             if (item.getProgress() < PACKAGE_PITCH) {
-                if (item.canMerge(stack, limit)) {
-                    item.merge(stack.copyWithCount(1), limit);
-                    setChanged();
-                    needsSync = true;
-                    syncToClient();
-                    return true;
-                }
-                return false; // 入口被异物品包占用
+                return false; // 入口被占用
             }
         }
 
@@ -957,7 +976,7 @@ public class ConveyorBlockEntity extends BlockEntity {
     }
 
     /**
-     * 内置 ItemHandler：起点注入（每次 1 个，可合并进起点包）、终点提取（按数量扣减）。
+     * 内置 ItemHandler：起点注入（每次 1 个，起点被占用则拒绝，永不合并）、终点提取（按数量扣减）。
      */
     private class ConveyorItemHandler implements IItemHandler {
 
@@ -977,26 +996,15 @@ public class ConveyorBlockEntity extends BlockEntity {
             if (stack.isEmpty()) return ItemStack.EMPTY;
             if (level == null || level.isClientSide()) return stack;
 
-            int limit = getStackLimit();
-
-            // 起点区域检查：可合并则记录，被异物品包占用则拒绝
-            BeltItem mergeTarget = null;
+            // 起点区域被任何包占用则拒绝（永不合并）
             for (BeltItem item : items) {
                 if (item.getProgress() < PACKAGE_PITCH) {
-                    if (item.canMerge(stack, limit)) {
-                        mergeTarget = item;
-                        break;
-                    }
                     return stack;
                 }
             }
 
             if (!simulate) {
-                if (mergeTarget != null) {
-                    mergeTarget.merge(stack.copyWithCount(1), limit);
-                } else {
-                    insertSorted(new BeltItem(stack.copyWithCount(1), 0.0D));
-                }
+                insertSorted(new BeltItem(stack.copyWithCount(1), 0.0D));
                 setChanged();
                 syncToClient();
             }
