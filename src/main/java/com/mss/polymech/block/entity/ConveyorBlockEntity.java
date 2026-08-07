@@ -450,9 +450,9 @@ public class ConveyorBlockEntity extends BlockEntity {
      * 每次调用最多拾取一个掉落物（整线拾取由 {@link TransportLine} 统一扫描调度）。
      * </p>
      * <p>
-     * <b>每次只取 1 个物品</b>：掉落物实体在原版里会自动聚合成大堆
-     * （前格弹出的多个包落地后会聚成 64 堆），若整堆吞入相当于变相
-     * 把多个包合并成一个，违背禁合并设计；每次 1 个、一包一独立批次。
+     * <b>临时对照实验</b>：整堆吞入（上限材质容量）已恢复。注意：掉落物实体
+     * 在原版里会自动聚合成大堆，整堆吞入等于变相把多个包合并成一个；
+     * 若实测确认这是“合并”现象的来源，改回每次 1 个。
      * </p>
      */
     boolean tryPickupItems(Level level, BlockPos pos) {
@@ -467,6 +467,7 @@ public class ConveyorBlockEntity extends BlockEntity {
 
         ItemEntity drop = drops.getFirst();
         ItemStack dropStack = drop.getItem();
+        int limit = getStackLimit();
 
         // 起点区域被任何包占用则拒绝（永不合并）
         for (BeltItem item : items) {
@@ -475,12 +476,12 @@ public class ConveyorBlockEntity extends BlockEntity {
             }
         }
 
-        // 每次只取 1 个（防止把原版聚合的掉落物堆变相合并成大包）
-        insertSorted(new BeltItem(dropStack.copyWithCount(1), 0.0D));
-        if (dropStack.getCount() <= 1) {
+        int take = Math.min(dropStack.getCount(), limit);
+        insertSorted(new BeltItem(dropStack.copyWithCount(take), 0.0D));
+        if (take >= dropStack.getCount()) {
             drop.discard();
         } else {
-            dropStack.setCount(dropStack.getCount() - 1);
+            dropStack.setCount(dropStack.getCount() - take);
         }
 
         setChanged();
