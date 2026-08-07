@@ -57,14 +57,20 @@ public class ConveyorBlockEntity extends BlockEntity {
     /** 排队间距（格）：同带相邻物品包的最小间隔 */
     public static final double PACKAGE_PITCH = 0.4D;
 
-    /** 直连入场检查区间：目标格 [0, 该值) 有包则拒绝（同物可合并） */
-    public static final double DIRECT_ENTRY_CHECK = 0.35D;
+    /**
+     * 直连入场检查区间：目标格 [0, 该值) 有包则拒绝（同物可合并）。
+     * 与间距对齐：入场进度≈0，前车至少在该值处才放包进入，间距恒 ≥ PITCH。
+     */
+    public static final double DIRECT_ENTRY_CHECK = PACKAGE_PITCH;
 
     /** 转弯（侧入）时物品进入目标格的进度 */
     public static final double SIDE_ENTRY_PROGRESS = 0.5D;
 
-    /** 转弯入场检查区间：目标格 [0, 该值) 有包则拒绝 */
-    public static final double SIDE_ENTRY_CHECK = 0.6D;
+    /**
+     * 转弯入场检查区间：目标格 [0, 该值) 有包则拒绝。
+     * = 入场进度 + 间距：侧入包落在 0.5 处，前车至少在 0.9 处，间距恒 ≥ PITCH。
+     */
+    public static final double SIDE_ENTRY_CHECK = SIDE_ENTRY_PROGRESS + PACKAGE_PITCH;
 
     /** 浮点容差 */
     static final double EPSILON = 1.0E-6D;
@@ -170,10 +176,24 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     // ========== 网络调试仪支持 ==========
 
-    /** 所属线路的身份标识（决定高亮颜色）；无线路时返回 -1 */
+    /**
+     * 所属线路的身份标识（决定高亮颜色）；无线路时返回 -1。
+     * <p>
+     * 使用<b>稳定键</b>（线首坐标 + 朝向 + 材质）而非线路对象身份哈希：
+     * 线路对象在区块装卸/拓扑变化时会重建，对象哈希会导致高亮颜色跳变；
+     * 稳定键保证同一条线在重建前后颜色一致。
+     * </p>
+     */
     public int getLineId() {
         TransportLine line = lineRef;
-        return line == null ? -1 : System.identityHashCode(line);
+        if (line == null || line.isEmpty()) return -1;
+        ConveyorBlockEntity head = line.head();
+        BlockPos headPos = head.getBlockPos();
+        Direction headFacing = head.getBlockState().getValue(ConveyorBlock.FACING);
+        long h = headPos.asLong();
+        h = h * 31L + headFacing.get3DDataValue();
+        h = h * 31L + line.getMaterial().getName().hashCode();
+        return (int) (h ^ (h >>> 32));
     }
 
     /** 本格是否为所属线路的线首 */
@@ -202,11 +222,15 @@ public class ConveyorBlockEntity extends BlockEntity {
         if (line.head() == be) {
             // 线首：驱动整条线
             line.tick(level);
-        } else if (!line.contains(be)) {
-            // 断链后的惰性修复：重建所属线路
-            be.refreshLine();
+        } else {
+            // 空转成员 O(1) 自愈检测：线路失效（不含本格 / 线首已移除 /
+            // 线首已脱离本线）时惰性重建——兜住挖掉线首等所有断链场景，
+            // 避免成员永久空转、物品只靠低频快照瞬移
+            ConveyorBlockEntity head = line.head();
+            if (!line.contains(be) || head == null || head.isRemoved() || head.lineRef != line) {
+                be.refreshLine();
+            }
         }
-        // 其余成员空转
     }
 
     /**
@@ -286,6 +310,14 @@ public class ConveyorBlockEntity extends BlockEntity {
         if (server) {
             setChanged();
             needsSync = true;
+        }
+
+        // 立即级联驱动接收线：若接收线本 tick 已先驱动过（BE tick 顺序不定），
+        // 新包会原地停一 tick，表现为“经过别的传送带卡一下”；级联驱动让新包
+        // 即刻启程，且双端行为与 BE tick 顺序无关（包上有每 tick 一步印记兼底）
+        TransportLine recvLine = lineRef;
+        if (recvLine != null && !recvLine.isEmpty()) {
+            recvLine.tick(level);
         }
         return true;
     }

@@ -32,7 +32,13 @@ import java.util.List;
  * <p>
  * 直接渲染 BE 内的 {@link BeltItem} 队列：prevProgress → progress 按 partialTick
  * 线性插值（客户端确定性模拟 + 快照对齐，纯移动零网络包也不抽搐）。
- * 物品平躺在带面上随带运动，转弯入场时平滑转向。
+ * 物品平躺在带面上随带运动。
+ * </p>
+ * <p>
+ * 转角（侧向馈入）平滑曲线：带 entryDir 且与本格朝向垂直的物品走一条二次贝塞尔
+ * 曲线——从入口边中点（恰为来源带路径终点，位置无缝衔接）经方块中心弯到出口边
+ * 中点，朝向沿曲线切线连续旋转，实现 Create 同款的丝滑转角运输动画。纯渲染层，
+ * 不改变任何逻辑坐标。
  * </p>
  */
 public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<ConveyorBlockEntity> {
@@ -76,7 +82,32 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
 
             double progress = Mth.clamp(
                     Mth.lerp(partialTick, item.getPrevProgress(), item.getProgress()), 0.0D, 1.0D);
-            ConveyorBlockEntity.computeItemPosition(pos, facing, type, progress, posOut);
+            byte entryDir = item.getEntryDir();
+
+            float itemYaw;
+            if (type == ConveyorType.HORIZONTAL && isCornerEntry(entryDir, facing)) {
+                // 转角平滑曲线：位置走贝塞尔弧，朝向沿切线连续旋转
+                Direction source = Direction.from3DDataValue(entryDir);
+                double t = Mth.clamp(
+                        (progress - ConveyorBlockEntity.SIDE_ENTRY_PROGRESS)
+                                / (1.0D - ConveyorBlockEntity.SIDE_ENTRY_PROGRESS),
+                        0.0D, 1.0D);
+                computeCornerPosition(pos, source, facing, t, posOut);
+                double tx = (1.0D - t) * source.getStepX() + t * facing.getStepX();
+                double tz = (1.0D - t) * source.getStepZ() + t * facing.getStepZ();
+                itemYaw = (float) Math.toDegrees(Math.atan2(tx, tz));
+            } else {
+                ConveyorBlockEntity.computeItemPosition(pos, facing, type, progress, posOut);
+
+                // 非转角入场（如垂直落入）的平滑转向：来源朝向 → 本格朝向
+                itemYaw = yaw;
+                if (entryDir != BeltItem.NO_ENTRY_TURN && progress < TURN_BLEND) {
+                    Direction source = Direction.from3DDataValue(entryDir);
+                    float sourceYaw = yawOf(source);
+                    float blend = (float) (progress / TURN_BLEND);
+                    itemYaw = sourceYaw + Mth.degreesDifference(sourceYaw, yaw) * blend;
+                }
+            }
 
             poseStack.pushPose();
             poseStack.translate(
@@ -84,15 +115,6 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
                     posOut[1] - pos.getY(),
                     posOut[2] - pos.getZ());
 
-            // 转弯入场平滑转向：来源朝向 → 本格朝向
-            float itemYaw = yaw;
-            byte entryDir = item.getEntryDir();
-            if (entryDir != BeltItem.NO_ENTRY_TURN && progress < TURN_BLEND) {
-                Direction source = Direction.from3DDataValue(entryDir);
-                float sourceYaw = yawOf(source);
-                float t = (float) (progress / TURN_BLEND);
-                itemYaw = sourceYaw + Mth.degreesDifference(sourceYaw, yaw) * t;
-            }
             poseStack.mulPose(Axis.YP.rotationDegrees(itemYaw));
 
             // 贴合带面：水平 -90°、上坡 -135°、下坡 -45°（绕局部 X 轴）
@@ -118,6 +140,39 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
     /** 让模型局部 +Z 指向给定水平方向的偏航角 */
     private static float yawOf(Direction facing) {
         return (float) Math.toDegrees(Math.atan2(facing.getStepX(), facing.getStepZ()));
+    }
+
+    /**
+     * 是否为转角入场：entryDir 有效、来源为水平方向且与本格朝向垂直。
+     * （同向直连入场不记 entryDir；垂直落入或迎面馈入不走转角曲线）
+     */
+    private static boolean isCornerEntry(byte entryDir, Direction facing) {
+        if (entryDir == BeltItem.NO_ENTRY_TURN) return false;
+        Direction source = Direction.from3DDataValue(entryDir);
+        return source.getAxis().isHorizontal() && source.getAxis() != facing.getAxis();
+    }
+
+    /**
+     * 转角二次贝塞尔曲线（Create 同款丝滑转角）。
+     * <p>
+     * P0 = 入口边中点（= 来源带路径终点，跨带衔接零跳变）；
+     * P1 = 方块中心（控制点）；P2 = 出口边中点（progress=1，切线 = 本格朝向）。
+     * t∈[0,1] 由格内进度 [SIDE_ENTRY_PROGRESS, 1] 线性映射，首尾切线分别
+     * 平行于来源朝向与本格朝向，保证位置与旋转双重连续。
+     * </p>
+     */
+    private static void computeCornerPosition(BlockPos pos, Direction source, Direction facing,
+                                              double t, double[] out) {
+        double c0x = pos.getX() + 0.5 - source.getStepX() * 0.5;
+        double c0z = pos.getZ() + 0.5 - source.getStepZ() * 0.5;
+        double pcx = pos.getX() + 0.5;
+        double pcz = pos.getZ() + 0.5;
+        double c1x = pos.getX() + 0.5 + facing.getStepX() * 0.5;
+        double c1z = pos.getZ() + 0.5 + facing.getStepZ() * 0.5;
+        double mt = 1.0D - t;
+        out[0] = mt * mt * c0x + 2.0D * t * mt * pcx + t * t * c1x;
+        out[2] = mt * mt * c0z + 2.0D * t * mt * pcz + t * t * c1z;
+        out[1] = pos.getY() + 4.0 / 16.0;
     }
 
     /**

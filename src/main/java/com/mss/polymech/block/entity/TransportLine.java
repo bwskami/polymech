@@ -58,6 +58,11 @@ class TransportLine {
         this.material = material;
     }
 
+    /** 线路材质 */
+    ConveyorMaterial getMaterial() {
+        return material;
+    }
+
     // ========== 成员管理 ==========
 
     boolean isEmpty() {
@@ -224,6 +229,11 @@ class TransportLine {
                     : (ownerBuf[orderBuf[pos + 1]] + flatBuf[orderBuf[pos + 1]].getProgress())
                             - ConveyorBlockEntity.PACKAGE_PITCH;
             double newGlobal = Math.min(global + speed, aheadLimit);
+            // 间距已被破坏（入场/快照对齐等残留）时只等待、绝不倒退，
+            // 避免物品被往回抽扯产生拉扯抖动；前车前进后间距自然恢复
+            if (newGlobal < global) {
+                newGlobal = global;
+            }
 
             boolean isTail = pos == total - 1;
             if (isTail && (newGlobal >= lineLength - ConveyorBlockEntity.EPSILON
