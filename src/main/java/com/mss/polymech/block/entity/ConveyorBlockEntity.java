@@ -276,6 +276,11 @@ public class ConveyorBlockEntity extends BlockEntity {
                     next.worldPosition.getX() - worldPosition.getX(),
                     next.worldPosition.getY() - worldPosition.getY(),
                     next.worldPosition.getZ() - worldPosition.getZ());
+            // 跨等级：包数量超出目标带容量上限 → 拆分为目标容量大小的
+            // 子包逐个发送（低→高或同等级不超限，直接整包交接）
+            if (item.getCount() > next.getStackLimit()) {
+                return trySplitInto(item, next, entryProgress, sideEntry, sourceDir, server);
+            }
             return next.acceptIncoming(item, entryProgress, sideEntry, sourceDir);
         }
 
@@ -291,6 +296,38 @@ public class ConveyorBlockEntity extends BlockEntity {
         if (server) {
             ejectAsItemEntity(level, pos, facing, item);
             return true;
+        }
+        return false;
+    }
+
+    /**
+     * 跨等级拆分（高等级大包 → 低等级带）：包数量超过目标带容量上限。
+     * <p>
+     * 每次目标入口空闲时切出一个目标容量大小的子包发送，最后的余数
+     * 再发一个不足上限的子包；<b>大包本体停在格尾边缘原位不动</b>
+     * （绝不回拉，回拉会造成来回抽搐），下一 tick 继续尝试发下一个子包。
+     * 双端执行同一套规则，确定性保证；子包经 acceptIncoming 入场，
+     * 同样受入口门/间距/永不合并约束。
+     * </p>
+     *
+     * @return true 表示大包已全部发出（调用方移除）；false 表示留本格下 tick 重试
+     */
+    boolean trySplitInto(BeltItem item, ConveyorBlockEntity next, double entryProgress,
+                         boolean sideEntry, Direction sourceDir, boolean server) {
+        int subSize = Math.min(item.getCount(), next.getStackLimit());
+        BeltItem sub = new BeltItem(item.getStack().copyWithCount(subSize), 0.0D);
+        if (!next.acceptIncoming(sub, entryProgress, sideEntry, sourceDir)) {
+            return false; // 目标入口被占用 → 终点等待，下 tick 重试
+        }
+        item.shrink(subSize);
+        if (item.isEmpty()) {
+            return true; // 全部发完（含余数包），调用方移除大包
+        }
+        // 未拆完：大包停在格尾边缘原位（不回拉），下 tick 继续发下一个子包
+        if (server) {
+            // 本格包数量变化（拆分缩减），需快照同步
+            setChanged();
+            syncToClient();
         }
         return false;
     }
