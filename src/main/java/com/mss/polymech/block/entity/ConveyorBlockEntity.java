@@ -71,28 +71,31 @@ public class ConveyorBlockEntity extends BlockEntity {
      */
     public static final double DIRECT_ENTRY_CHECK = PACKAGE_PITCH;
 
-    /** 转弯（侧入）时物品进入目标格的进度 */
+    /**
+     * 侧入时物品进入目标格的进度（Create 同款：段中点）
+     */
     public static final double SIDE_ENTRY_PROGRESS = 0.5D;
 
     /**
-     * 转弯入场检查区间：目标格 [0, 该值) 有包则拒绝。
+     * 侧入入场检查区间：目标格 [0, 该值) 有包则拒绝。
      * = 入场进度 + 间距：侧入包落在 0.5 处，前车位置足够靠前，间距恒 ≥ PITCH。
      */
     public static final double SIDE_ENTRY_CHECK = SIDE_ENTRY_PROGRESS + PACKAGE_PITCH;
 
-    /** 浮点容差 */
-    static final double EPSILON = 1.0E-6D;
-
     /**
-     * 转角加速倍率：侧入包在目标格内走贝塞尔转弯曲线期间，
-     * 以带速的该倍数推进，把半格长的转弯压缩成更短时间。
+     * 侧向汇入初始横向偏移 = 带半宽 0.5（目标格边缘 = 来源带出口边中心）。
      * <p>
-     * 转弯慢会拖住入口门（整格清空才放下一包），侧向排队依次转入时
-     * 前后包间隔被拉长；加速后路口吞吐提高，转入后的间距回归正常排队间距。
-     * 双端执行同一套 drive，确定性不受影响。
+     * <b>注意：不是 Create 的 0.675</b>——Create 的 0.675（带半宽 + 超边量 0.175）
+     * 语义是“漏斗从带外投递”（物品在带面外起步）；而带对带侧入时，来源带
+     * 出口边的物品就在目标格边缘，用 0.675 会让侧入起点缩回来源带末端格内
+     * 0.175，交接瞬间向后回缩 → 来源带尽头“抽搐”。0.5 恰好与来源带出口边
+     * 重合，零跳变，且横向滑入动画与左右符号配对不受影响。
      * </p>
      */
-    public static final double CORNER_TURN_SPEED_MULT = 2.0D;
+    public static final double SIDE_OFFSET_START = 0.5D;
+
+    /** 浮点容差 */
+    static final double EPSILON = 1.0E-6D;
 
     /** 拾取掉落物的水平半径 */
     static final double PICKUP_RADIUS = 0.35D;
@@ -354,15 +357,20 @@ public class ConveyorBlockEntity extends BlockEntity {
      * 接收来自前一格传送带的物品包（双端规则一致，保证确定性）。
      * <p>
      * 入口检查：直连时目标格 [0, {@link #DIRECT_ENTRY_CHECK}) 区域必须空闲；
-     * 转弯时 [0, {@link #SIDE_ENTRY_CHECK}) 必须空闲。占用则拒绝（前格终点等待）。
+     * 侧入时 [0, {@link #SIDE_ENTRY_CHECK}) 必须空闲。占用则拒绝（前格终点等待）。
      * </p>
      * <p>
      * <b>永不合并</b>：传送带上不存在包合并，每批独立通过，保护特地设计的
      * 物流分批；合并需求由专门的设备承担。
      * </p>
+     * <p>
+     * <b>侧入动画（Create 同款 sideOffset）</b>：侧入包从来源侧（目标格边缘
+     * ±{@link #SIDE_OFFSET_START} = 来源带出口边中心）横向滑入中线，符号与
+     * Create 原版一致，保证物品总是从来源带所在一侧入场（绝不左右颠倒）。
+     * </p>
      *
      * @param incoming  来源物品包（交接后由调用方移除）
-     * @param sourceDir 来源方向（从来源格指向本格），转弯时记录到包上供客户端平滑旋转
+     * @param sourceDir 来源方向（从来源格指向本格），侧入时决定初始横向偏移的符号
      */
     public boolean acceptIncoming(BeltItem incoming, double entryProgress, boolean sideEntry,
                                   Direction sourceDir) {
@@ -376,12 +384,26 @@ public class ConveyorBlockEntity extends BlockEntity {
             }
         }
 
-        BeltItem created = new BeltItem(incoming.getStack().copy(), Math.min(entryProgress, 0.99D));
-        created.setEntryDir(sideEntry ? (byte) sourceDir.get3DDataValue() : BeltItem.NO_ENTRY_TURN);
+        double progress = Math.min(entryProgress, 0.99D);
+        BeltItem created = new BeltItem(incoming.getStack().copy(), progress);
         created.setLastDrivenTick(level.getGameTime()); // 印记：下一 tick 起步（双端节奏确定）
-        // 插值连续性：prev 取入口前一步，新包从入口边平滑滑入；
-        // 若 prev==progress 会静止一帧再跳变 = 视觉“卡一下”
-        created.setPrevProgress(Math.min(entryProgress, 0.99D) - getBeltSpeed());
+        // Create 同款（prevBeltPosition = beltPosition）：prev 取当前值，
+        // 创建当 tick 静止，下一 tick 由 drive 统一推进——双端插值起点天然一致，
+        // 不做任何“入口前一步”的预位移（那会与侧向滑入动画叠加出跳变）
+        created.setPrevProgress(progress);
+        if (sideEntry) {
+            // Create 同款初始偏移公式（BeltBlockEntity.tryInsertingFromSide）：
+            //   off = sourceDir 轴方向步长 * SIDE_OFFSET_START，X 轴侧入取反
+            // 注意：起点取 0.5（目标格边缘 = 来源带出口边），而非 Create 的
+            // 0.675——0.675 会使起点缩回来源带末端格内 0.175（尽头抽搐），
+            // sourceDir 是来源格→本格方向，入场侧边在来源格所在一侧（其反方向），
+            // 该公式与渲染侧的横向坐标换算配对后，物品恒从来源侧滑入中线
+            double off = sourceDir.getAxisDirection().getStep() * SIDE_OFFSET_START;
+            if (sourceDir.getAxis() == Direction.Axis.X) off = -off;
+            created.setSideOffset(off);
+            // prev 取当前值：创建当 tick 横向也静止（与 prevProgress 同节奏）
+            created.setPrevSideOffset(off);
+        }
         insertSorted(created);
         if (server) {
             // 接收格不在发送线的 changed 列表里，须单独同步（无周期校准兜底）；

@@ -13,8 +13,11 @@ import net.minecraft.world.item.ItemStack;
  * <ul>
  *   <li>{@code progress}：本 tick 结束时的进度</li>
  *   <li>{@code prevProgress}：上一 tick 的进度，供渲染 partialTick 插值</li>
- *   <li>{@code entryDir}：转弯入场的来源方向（3D data value），渲染平滑转向用；
- *       {@link #NO_ENTRY_TURN} 表示直线入场</li>
+ *   <li>{@code sideOffset}：侧向汇入的横向偏移（Create 同款）。侧入包从来源侧
+ *       （±0.5 = 目标格边缘 = 来源带出口边中心，零跳变；不用 Create 的 0.675，
+ *       那会缩回来源带内 0.175 造成尽头抽搐）起步，随带移动按实际位移比例
+ *       收敛到中线 0</li>
+ *   <li>{@code prevSideOffset}：上一 tick 的横向偏移，供渲染 partialTick 插值</li>
  *   <li>{@code lastDrivenTick}：创建 tick 印记——跨线交接新建的包在创建当 tick
  *       不移动（下一 tick 起步），双端节奏确定、与 BE tick 顺序无关</li>
  * </ul>
@@ -25,13 +28,11 @@ import net.minecraft.world.item.ItemStack;
  */
 public class BeltItem {
 
-    /** entryDir 的特殊值：直线入场（无转弯） */
-    public static final byte NO_ENTRY_TURN = -1;
-
     private ItemStack stack;
     private double progress;
     private double prevProgress;
-    private byte entryDir = NO_ENTRY_TURN;
+    private double sideOffset;
+    private double prevSideOffset;
     private long lastDrivenTick = -1L;
 
     public BeltItem(ItemStack stack, double progress) {
@@ -72,12 +73,20 @@ public class BeltItem {
         this.prevProgress = prevProgress;
     }
 
-    public byte getEntryDir() {
-        return entryDir;
+    public double getSideOffset() {
+        return sideOffset;
     }
 
-    public void setEntryDir(byte entryDir) {
-        this.entryDir = entryDir;
+    public void setSideOffset(double sideOffset) {
+        this.sideOffset = sideOffset;
+    }
+
+    public double getPrevSideOffset() {
+        return prevSideOffset;
+    }
+
+    public void setPrevSideOffset(double prevSideOffset) {
+        this.prevSideOffset = prevSideOffset;
     }
 
     public long getLastDrivenTick() {
@@ -96,7 +105,8 @@ public class BeltItem {
         // PrevPos 一并序列化（Create 同款）：客户端收到快照后直接用服务端的
         // prev→progress 继续插值，不会因 prev==progress 冻结一帧产生顿挫
         tag.putDouble("PrevPos", prevProgress);
-        tag.putByte("EntryDir", entryDir);
+        tag.putDouble("SideOffset", sideOffset);
+        tag.putDouble("PrevSideOffset", prevSideOffset);
         tag.putLong("LastDrivenTick", lastDrivenTick);
         return tag;
     }
@@ -107,8 +117,11 @@ public class BeltItem {
         if (tag.contains("PrevPos")) {
             item.prevProgress = tag.getDouble("PrevPos");
         }
-        if (tag.contains("EntryDir")) {
-            item.entryDir = tag.getByte("EntryDir");
+        if (tag.contains("SideOffset")) {
+            item.sideOffset = tag.getDouble("SideOffset");
+        }
+        if (tag.contains("PrevSideOffset")) {
+            item.prevSideOffset = tag.getDouble("PrevSideOffset");
         }
         if (tag.contains("LastDrivenTick")) {
             item.lastDrivenTick = tag.getLong("LastDrivenTick");

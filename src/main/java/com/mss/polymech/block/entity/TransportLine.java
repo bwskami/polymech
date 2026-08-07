@@ -4,6 +4,7 @@ import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.ConveyorType;
 import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -231,20 +232,14 @@ class TransportLine {
                 continue;
             }
             item.setPrevProgress(item.getProgress());
-
-            // 转角加速：侧入包在目标格走贝塞尔转弯曲线期间以倍速推进，
-            // 缩短转弯时间、提高路口吞吐（否则入口门被拖住，依次转入的
-            // 侧向包间隔被拉长）；双端同一套规则，确定性不受影响
-            double itemSpeed = isCornerBlending(item, members.get(own))
-                    ? speed * ConveyorBlockEntity.CORNER_TURN_SPEED_MULT
-                    : speed;
+            item.setPrevSideOffset(item.getSideOffset());
 
             double global = own + item.getProgress();
             double aheadLimit = (pos == total - 1)
                     ? lineLength - ConveyorBlockEntity.EPSILON
                     : (ownerBuf[orderBuf[pos + 1]] + flatBuf[orderBuf[pos + 1]].getProgress())
                             - ConveyorBlockEntity.PACKAGE_PITCH;
-            double newGlobal = Math.min(global + itemSpeed, aheadLimit);
+            double newGlobal = Math.min(global + speed, aheadLimit);
             // 间距已被破坏（入场/快照对齐等残留）时只等待、绝不倒退，
             // 避免物品被往回抽扯产生拉扯抖动；前车前进后间距自然恢复
             if (newGlobal < global) {
@@ -266,6 +261,18 @@ class TransportLine {
             }
 
             if (newGlobal > global) {
+                // Create 同款 sideOffset 收敛（BeltInventory.tick）：
+                // 按实际位移比例收敛到中线 0（diffToMiddle * moved * 6 钳制到
+                // 剩余差值）；被前方包完全阻塞（moved=0）时不收敛。
+                double moved = newGlobal - global;
+                double side = item.getSideOffset();
+                if (side != 0.0D) {
+                    double diffToMiddle = -side; // 目标 = 中线 0
+                    double clamped = Mth.clamp(diffToMiddle * moved * 6.0D,
+                            -Math.abs(diffToMiddle), Math.abs(diffToMiddle));
+                    item.setSideOffset(side + clamped);
+                }
+
                 int newOwner = (int) Math.floor(newGlobal);
                 if (newOwner != own) {
                     // 线内跨格：直接换列表，无入口检查（前方包已让位）。
@@ -276,12 +283,14 @@ class TransportLine {
                     ConveyorBlockEntity from = members.get(own);
                     ConveyorBlockEntity to = members.get(newOwner);
                     from.items.remove(item);
-                    // 渲染插值连续性：prev 换算到新格坐标 = newProgress - 本 tick 步长
-                    // （转弯包为加速步长；可为小负值，几何上就是来源格出口边 =
-                    // 新格入口边同一点）；渲染器不钳制，跨边界帧间零跳变
-                    item.setPrevProgress(newProgress - itemSpeed);
+                    // 渲染插值连续性：prev 换算到新格坐标 = newProgress - 本 tick 实际位移
+                    // （被前车部分阻塞时实际位移 < 理论步长；可为小负值，几何上就是
+                    // 来源格出口边 = 新格入口边同一点）；渲染器不钳制，跨边界帧间零跳变
+                    item.setPrevProgress(newProgress - moved);
                     item.setProgress(newProgress);
-                    item.setEntryDir(BeltItem.NO_ENTRY_TURN);
+                    // 跨格后横向偏移清零：侧入滑行早已结束（连续多 tick 收敛），
+                    // 清零防止快照残留的微小偏移被带入后续格（双端同规则，确定）
+                    item.setSideOffset(0.0D);
                     to.insertSorted(item);
                     ownerBuf[o] = newOwner;
                 } else {
@@ -298,19 +307,6 @@ class TransportLine {
         Direction facing = state.getValue(ConveyorBlock.FACING);
         ConveyorType type = state.getValue(ConveyorBlock.TYPE);
         return tail.tryHandoff(level, tail.getBlockPos(), state, facing, type, item, newProgress, server);
-    }
-
-    /**
-     * 包是否正在走转角曲线：侧入（entryDir 有效）且来源方向与本格朝向垂直。
-     * 与渲染器的 isCornerEntry 判定一致：只有走贝塞尔曲线的包才加速；
-     * 跨格后 entryDir 被清除，加速自动终止（双端规则相同）。
-     */
-    private static boolean isCornerBlending(BeltItem item, ConveyorBlockEntity be) {
-        byte entryDir = item.getEntryDir();
-        if (entryDir == BeltItem.NO_ENTRY_TURN) return false;
-        Direction source = Direction.from3DDataValue(entryDir);
-        Direction facing = be.getBlockState().getValue(ConveyorBlock.FACING);
-        return source.getAxis().isHorizontal() && source.getAxis() != facing.getAxis();
     }
 
     /** 无装箱归并排序（orderBuf 按线内坐标升序） */
