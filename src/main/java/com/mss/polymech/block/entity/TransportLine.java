@@ -154,6 +154,20 @@ class TransportLine {
     }
 
     private void tickClient(Level level) {
+        // 客户端镜像拾取：与服务端同一套 tryPickupItems 规则（同降频、同入口门、
+        // 同整堆吞入），双端规则一致 → 确定性不受影响。
+        // 必须本地拾取：服务端拾取快照只发给 BE 跟踪范围内的客户端，SP 内置服务器
+        // 下可能收不到，客户端若不自己拾取，屏幕上掉落物会永远躺在带子上不被吸
+        // 走（短带/孤立带尤其明显——shift 右键单放的带子）。
+        if (++pickupCooldown >= ConveyorBlockEntity.PICKUP_INTERVAL) {
+            pickupCooldown = 0;
+            // 拾取成功额外延迟一轮（与服务端 tickServer 完全一致的节奏，
+            // 避免快照到达时双端包数分歧）；客户端 pickup 返回的
+            // changed 列表仅用于服务端同步，这里只借用其扫描逻辑
+            if (!pickup(level).isEmpty()) {
+                pickupCooldown = -ConveyorBlockEntity.PICKUP_INTERVAL;
+            }
+        }
         drive(level, null, false);
     }
 
@@ -394,8 +408,11 @@ class TransportLine {
         double stepX = facing.getStepX();
         double stepZ = facing.getStepZ();
         double along = drop.getX() * stepX + drop.getZ() * stepZ;
-        double headCenter = head.getBlockPos().getX() * stepX
-                + head.getBlockPos().getZ() * stepZ + 0.5;
+        // 线首中心的沿线坐标：必须先加 0.5 取块中心再乘方向步长。
+        // （旧式 pos*step + 0.5 在负向朝 NORTH/WEST 时符号错误，
+        // 投影整体偏移一个成员，掉落物永远定不到本格 → 拾取失效）
+        double headCenter = (head.getBlockPos().getX() + 0.5) * stepX
+                + (head.getBlockPos().getZ() + 0.5) * stepZ;
         double offset = along - headCenter;
         int idx = (int) Math.floor(offset + 0.5);
         if (idx < 0 || idx >= members.size()) return -1;

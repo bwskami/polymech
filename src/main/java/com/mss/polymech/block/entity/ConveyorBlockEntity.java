@@ -617,8 +617,10 @@ public class ConveyorBlockEntity extends BlockEntity {
             return frontBelow;
         }
 
-        // 3. 前方任意传送带（侧向馈入）
-        if (frontState.getBlock() instanceof ConveyorBlock) {
+        // 3. 前方任意传送带（侧向馈入）：仅限水平带。坡道（UP/DOWN）是斜面，
+        // 侧边几何上没有入口，禁止侧入（视为无下一格 → 前方被占终点等待）
+        if (frontState.getBlock() instanceof ConveyorBlock
+                && frontState.getValue(ConveyorBlock.TYPE) == ConveyorType.HORIZONTAL) {
             return front;
         }
 
