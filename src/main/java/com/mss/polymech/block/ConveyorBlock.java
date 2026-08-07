@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
@@ -319,6 +320,12 @@ public class ConveyorBlock extends BaseEntityBlock {
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level,
                                                BlockPos pos, Player player, InteractionHand hand,
                                                BlockHitResult hitResult) {
+        // 潜行右键 + 手持方块：放行给原版默认交互（正常建造放置）；
+        // 普通右键（无论是否方块）一律走“放入传送带”交互（见下方 insertItem）。
+        if (player.isShiftKeyDown() && stack.getItem() instanceof BlockItem) {
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+
         if (level.isClientSide()) {
             return ItemInteractionResult.SUCCESS;
         }
@@ -369,7 +376,10 @@ public class ConveyorBlock extends BaseEntityBlock {
 
         ItemStack toInsert = stack.copy();
         if (!be.insertStack(toInsert)) {
-            return ItemInteractionResult.FAIL; // 起点被异物品包占用
+            // 放不下（起点被占用/传送带满）：返回 SUCCESS 而非 FAIL——
+            // FAIL 在本版本交互链路中不阻止物品侧继续执行，手持方块时会
+            // 触发 BlockItem 把方块建造（放置）到传送带上方（误触建造）
+            return ItemInteractionResult.SUCCESS;
         }
         stack.shrink(1);
         return ItemInteractionResult.SUCCESS;

@@ -4,7 +4,6 @@ import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.ConveyorType;
 import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -261,16 +260,17 @@ class TransportLine {
             }
 
             if (newGlobal > global) {
-                // Create 同款 sideOffset 收敛（BeltInventory.tick）：
-                // 按实际位移比例收敛到中线 0（diffToMiddle * moved * 6 钳制到
-                // 剩余差值）；被前方包完全阻塞（moved=0）时不收敛。
                 double moved = newGlobal - global;
+                // sideOffset 线性快速收敛（替代 Create 的 moved×6 指数式）：
+                // 指数式在慢速带上每 tick 收敛量 = |side|×moved×6 极小，
+                // 轨迹呈圆弧形、迟迟不进中线；改为每 tick 固定收敛
+                // SIDE_OFFSET_CONVERGE_STEP（与带速无关），轨迹近直线，
+                // 0.5 起点 2 tick 即到中心。被阻塞（moved=0）时不收敛。
                 double side = item.getSideOffset();
                 if (side != 0.0D) {
-                    double diffToMiddle = -side; // 目标 = 中线 0
-                    double clamped = Mth.clamp(diffToMiddle * moved * 6.0D,
-                            -Math.abs(diffToMiddle), Math.abs(diffToMiddle));
-                    item.setSideOffset(side + clamped);
+                    double step = Math.copySign(
+                            Math.min(Math.abs(side), ConveyorBlockEntity.SIDE_OFFSET_CONVERGE_STEP), -side);
+                    item.setSideOffset(side + step);
                 }
 
                 int newOwner = (int) Math.floor(newGlobal);

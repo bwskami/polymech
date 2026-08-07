@@ -94,6 +94,16 @@ public class ConveyorBlockEntity extends BlockEntity {
      */
     public static final double SIDE_OFFSET_START = 0.5D;
 
+    /**
+     * 侧向滑入收敛速度（格/tick）：每 tick 向中线收敛的固定量（线性收敛）。
+     * <p>
+     * 不用 Create 的 moved×6 指数式收敛——慢速带上每 tick 收敛量
+     * = |side|×moved×6 极小，轨迹呈圆弧形且迟迟不进中线；线性固定步长
+     * 与带速无关，轨迹近直线，0.5 起点下 2 tick 即到中心。
+     * </p>
+     */
+    public static final double SIDE_OFFSET_CONVERGE_STEP = 0.25D;
+
     /** 浮点容差 */
     static final double EPSILON = 1.0E-6D;
 
