@@ -7,21 +7,32 @@ import com.mss.polymech.fluid.ElementFluid;
 import com.mss.polymech.fluid.FluidInfo;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
+import com.mss.polymech.fluid.ModElements;
 import com.mss.polymech.item.ModItems;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Deque;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -29,12 +40,13 @@ import java.util.Map;
  * <p>
  * 所有tooltip追加逻辑统一在此处维护，包括：
  * <ol>
- *   <li>装有化学流体/熔融金属/等离子体的容器（桶、流体单元、储罐等）：化学式（黄色下标）、物态、温度、危险警示；</li>
- *   <li>模组材料物品（锭、粉、板等材料形态）与材料存储块：黄色下标化学式；</li>
- *   <li>原版矿物相关物品（矿石方块、粗矿、锭/粒、金属存储块、煤/钻石/石英等）：黄色下标化学式。</li>
+ *   <li>装有化学流体/熔融金属/等离子体的容器（桶、流体单元、储罐等）：化学式、物态、温度、危险警示；</li>
+ *   <li>模组材料物品（锭、粉、板等材料形态）与材料存储块：化学式；</li>
+ *   <li>原版矿物相关物品（矿石方块、粗矿、锭/粒、金属存储块、煤/钻石/石英等）：化学式。</li>
  * </ol>
  * 机器、流体单元本体、管道等功能性物品不在化学式查找表中，不会显示。
- * 化学式数字统一使用Unicode下标（如H₂SO₄），与GTM及化学惯例一致。
+ * 化学式数字统一使用Unicode下标（如H₂SO₄），元素符号按元素周期表配色染色
+ * （见{@link ElementColors}）；按住Shift额外显示各元素的质量百分比。
  * </p>
  */
 public class ModTooltipCenter {
@@ -61,9 +73,119 @@ public class ModTooltipCenter {
         return new String(chars);
     }
 
-    /** 化学式提示行：黄色、下标数字、无"化学式"前缀（与GTM一致） */
+    /**
+     * 化学式提示行：元素符号按元素周期表配色染色，数字转Unicode下标（保持黄色），
+     * 括号与分隔符保持黄色，无"化学式"前缀（与GTM一致）。
+     */
     public static Component formulaComponent(String formula) {
-        return Component.literal(toSubscript(formula)).withStyle(ChatFormatting.YELLOW);
+        MutableComponent result = Component.empty();
+        int i = 0, n = formula.length();
+        while (i < n) {
+            char c = formula.charAt(i);
+            if (Character.isUpperCase(c)) {
+                int start = i++;
+                if (i < n && Character.isLowerCase(formula.charAt(i))) i++; // 第二字母小写，如Fe
+                String symbol = formula.substring(start, i);
+                StringBuilder digits = new StringBuilder();
+                while (i < n && Character.isDigit(formula.charAt(i))) digits.append(formula.charAt(i++));
+                int color = ElementColors.getColor(symbol);
+                result.append(Component.literal(symbol).withStyle(style -> style.withColor(color)));
+                if (digits.length() > 0) {
+                    result.append(Component.literal(toSubscript(digits.toString()))
+                            .withStyle(ChatFormatting.YELLOW));
+                }
+            } else {
+                result.append(Component.literal(String.valueOf(c)).withStyle(ChatFormatting.YELLOW));
+                i++;
+            }
+        }
+        return result;
+    }
+
+    // ========== 化学式解析与成分百分比 ==========
+
+    /**
+     * 解析化学式为元素符号→原子数映射（保持出现顺序）。
+     * 支持括号分组乘数（如Ca3(PO4)2）与'.'/'·'/'-'等分隔符（如NH3.H2O）。
+     */
+    public static Map<String, Integer> parseFormula(String formula) {
+        Deque<Map<String, Integer>> stack = new ArrayDeque<>();
+        Map<String, Integer> root = new LinkedHashMap<>();
+        stack.push(root);
+        int i = 0, n = formula.length();
+        while (i < n) {
+            char c = formula.charAt(i);
+            if (c == '(' || c == '[') {
+                stack.push(new LinkedHashMap<>());
+                i++;
+            } else if (c == ')' || c == ']') {
+                i++;
+                StringBuilder digits = new StringBuilder();
+                while (i < n && Character.isDigit(formula.charAt(i))) digits.append(formula.charAt(i++));
+                int mult = digits.length() > 0 ? Integer.parseInt(digits.toString()) : 1;
+                Map<String, Integer> group = stack.size() > 1 ? stack.pop() : stack.peek();
+                Map<String, Integer> target = stack.peek();
+                group.forEach((sym, cnt) -> target.merge(sym, cnt * mult, Integer::sum));
+            } else if (Character.isUpperCase(c)) {
+                int start = i++;
+                if (i < n && Character.isLowerCase(formula.charAt(i))) i++;
+                String symbol = formula.substring(start, i);
+                StringBuilder digits = new StringBuilder();
+                while (i < n && Character.isDigit(formula.charAt(i))) digits.append(formula.charAt(i++));
+                int count = digits.length() > 0 ? Integer.parseInt(digits.toString()) : 1;
+                stack.peek().merge(symbol, count, Integer::sum);
+            } else {
+                i++; // 跳过'.'、'·'、'-'等分隔符与其它未知字符
+            }
+        }
+        // 防御：未闭合的括号内容也并入结果
+        while (stack.size() > 1) {
+            Map<String, Integer> group = stack.pop();
+            Map<String, Integer> target = stack.peek();
+            group.forEach((sym, cnt) -> target.merge(sym, cnt, Integer::sum));
+        }
+        return root;
+    }
+
+    /** 客户端是否按住Shift（仅客户端有效） */
+    private static boolean isShiftDown() {
+        return FMLEnvironment.dist == Dist.CLIENT && Screen.hasShiftDown();
+    }
+
+    /**
+     * 在化学式行之后追加成分信息：
+     * 未按住Shift时显示灰色提示；按住Shift时按质量百分比降序显示各元素占比
+     * （元素符号带颜色，如"O 60.0%  Si 15.0%"）。单元素化学式不显示。
+     */
+    private static void appendComposition(List<Component> tooltip, int index, String formula) {
+        Map<String, Integer> counts = parseFormula(formula);
+        record Entry(String symbol, double mass) {}
+        List<Entry> entries = new ArrayList<>();
+        double totalMass = 0;
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            ModElements element = ElementColors.bySymbol(e.getKey());
+            if (element == null) continue;
+            double mass = element.getAtomicMass() * e.getValue();
+            entries.add(new Entry(e.getKey(), mass));
+            totalMass += mass;
+        }
+        if (entries.size() <= 1 || totalMass <= 0) return;
+        if (isShiftDown()) {
+            entries.sort(Comparator.comparingDouble(Entry::mass).reversed());
+            MutableComponent line = Component.translatable("tooltip.poly_mech.formula.composition")
+                    .withStyle(ChatFormatting.GRAY);
+            for (Entry entry : entries) {
+                double pct = entry.mass() / totalMass * 100.0;
+                int color = ElementColors.getColor(entry.symbol());
+                line.append(Component.literal(entry.symbol()).withStyle(style -> style.withColor(color)));
+                line.append(Component.literal(" " + String.format(Locale.ROOT, "%.1f%%", pct) + "  ")
+                        .withStyle(ChatFormatting.GRAY));
+            }
+            tooltip.add(index, line);
+        } else {
+            tooltip.add(index, Component.translatable("tooltip.poly_mech.formula.shift_hint")
+                    .withStyle(ChatFormatting.DARK_GRAY));
+        }
     }
 
     // ========== 通用化学式注册表（物品 → 化学式） ==========
@@ -132,6 +254,7 @@ public class ModTooltipCenter {
         String formula = lookupFormula(stack.getItem());
         if (formula != null && !formula.isEmpty()) {
             tooltip.add(1, formulaComponent(formula));
+            appendComposition(tooltip, 2, formula);
         }
     }
 
@@ -160,10 +283,11 @@ public class ModTooltipCenter {
         return null;
     }
 
-    /** 流体完整信息：化学式 + 物态 + 温度 + 危险警示 */
+    /** 流体完整信息：化学式（含成分百分比）+ 物态 + 温度 + 危险警示 */
     private static void appendFluidInfo(List<Component> tooltip, FluidInfo info) {
-        // 化学式（黄色下标，不带前缀）
+        // 化学式（元素染色、下标数字，不带前缀）
         tooltip.add(1, formulaComponent(info.getFormula()));
+        appendComposition(tooltip, 2, info.getFormula());
         // 物态：液体 / 气体 / 等离子体
         String stateKey = switch (info.getState()) {
             case LIQUID -> "tooltip.poly_mech.fluid.state_liquid";

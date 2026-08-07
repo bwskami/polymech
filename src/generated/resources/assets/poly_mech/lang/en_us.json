@@ -1135,5 +1135,7 @@
   "tooltip.poly_mech.fluid_cell.empty": "Empty",
   "tooltip.poly_mech.fluid_cell.limit": "Capacity limited to %d/%d mB",
   "tooltip.poly_mech.fluid_cell.stored": "Contains: %s (%d/%d mB)",
+  "tooltip.poly_mech.formula.composition": "Composition: ",
+  "tooltip.poly_mech.formula.shift_hint": "Hold SHIFT to show composition",
   "tooltip.poly_mech.hazardous": "⚠ Hazardous"
 }

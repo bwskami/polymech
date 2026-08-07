@@ -1135,5 +1135,7 @@
   "tooltip.poly_mech.fluid_cell.empty": "空的",
   "tooltip.poly_mech.fluid_cell.limit": "容量上限已设为 %d/%d mB",
   "tooltip.poly_mech.fluid_cell.stored": "内含：%s（%d/%d mB）",
+  "tooltip.poly_mech.formula.composition": "成分比例：",
+  "tooltip.poly_mech.formula.shift_hint": "按住 Shift 查看成分比例",
   "tooltip.poly_mech.hazardous": "⚠ 危险物质"
 }

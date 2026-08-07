@@ -422,6 +422,9 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("tooltip.poly_mech.fluid.state_plasma", "物态：等离子体");
         add("tooltip.poly_mech.fluid.temperature", "温度：%d K");
         add("tooltip.poly_mech.hazardous", "⚠ 危险物质");
+        // 化学式成分百分比（Shift显示）
+        add("tooltip.poly_mech.formula.shift_hint", "按住 Shift 查看成分比例");
+        add("tooltip.poly_mech.formula.composition", "成分比例：");
 
         // 侧面方块类型
         add("side_type.poly_mech.normal", "机器外壳");

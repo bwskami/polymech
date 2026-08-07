@@ -289,19 +289,12 @@ public class ConveyorBlockEntity extends BlockEntity {
                     next.worldPosition.getX() - worldPosition.getX(),
                     next.worldPosition.getY() - worldPosition.getY(),
                     next.worldPosition.getZ() - worldPosition.getZ());
-            // 渲染插值连续性（跨线交接同款 prev 换算，与线内跨格一致）：
-            // 包在来源带的最后一帧位置映射到目标格坐标 = 入口进度 - 本 tick
-            // 实际位移（item.getProgress() 在 drive 中未更新，仍是来源格最后位置）。
-            // 创建当 tick 虽静止（lastDrivenTick 确定性），渲染却从来源带最后位置
-            // 平滑滑到入口，交接瞬间零瞬移、零卡顿（“末尾停顿”在视觉上消失）
-            double moved = newProgress - item.getProgress();
-            double prevProgress = entryProgress - moved;
             // 跨等级：包数量超出目标带容量上限 → 拆分为目标容量大小的
             // 子包逐个发送（低→高或同等级不超限，直接整包交接）
             if (item.getCount() > next.getStackLimit()) {
-                return trySplitInto(item, next, entryProgress, prevProgress, sideEntry, sourceDir, server);
+                return trySplitInto(item, next, entryProgress, sideEntry, sourceDir, server);
             }
-            return next.acceptIncoming(item, entryProgress, prevProgress, sideEntry, sourceDir);
+            return next.acceptIncoming(item, entryProgress, sideEntry, sourceDir);
         }
 
         // 3. 无下一格：
@@ -333,10 +326,10 @@ public class ConveyorBlockEntity extends BlockEntity {
      * @return true 表示大包已全部发出（调用方移除）；false 表示留本格下 tick 重试
      */
     boolean trySplitInto(BeltItem item, ConveyorBlockEntity next, double entryProgress,
-                         double prevProgress, boolean sideEntry, Direction sourceDir, boolean server) {
+                         boolean sideEntry, Direction sourceDir, boolean server) {
         int subSize = Math.min(item.getCount(), next.getStackLimit());
         BeltItem sub = new BeltItem(item.getStack().copyWithCount(subSize), 0.0D);
-        if (!next.acceptIncoming(sub, entryProgress, prevProgress, sideEntry, sourceDir)) {
+        if (!next.acceptIncoming(sub, entryProgress, sideEntry, sourceDir)) {
             return false; // 目标入口被占用 → 终点等待，下 tick 重试
         }
         item.shrink(subSize);
@@ -387,12 +380,10 @@ public class ConveyorBlockEntity extends BlockEntity {
      * </p>
      *
      * @param incoming  来源物品包（交接后由调用方移除）
-     * @param prevProgress 渲染插值起点（来源带最后一帧位置在目标格的坐标，可为小负值；
-     *                     创建当 tick 静止期间渲染从该值平滑滑到入口进度，跨线零瞬移）
      * @param sourceDir 来源方向（从来源格指向本格），侧入时决定初始横向偏移的符号
      */
-    public boolean acceptIncoming(BeltItem incoming, double entryProgress, double prevProgress,
-                                  boolean sideEntry, Direction sourceDir) {
+    public boolean acceptIncoming(BeltItem incoming, double entryProgress, boolean sideEntry,
+                                  Direction sourceDir) {
         if (level == null) return false;
         boolean server = !level.isClientSide();
 
@@ -406,11 +397,10 @@ public class ConveyorBlockEntity extends BlockEntity {
         double progress = Math.min(entryProgress, 0.99D);
         BeltItem created = new BeltItem(incoming.getStack().copy(), progress);
         created.setLastDrivenTick(level.getGameTime()); // 印记：下一 tick 起步（双端节奏确定）
-        // 渲染插值连续性（与线内跨格同款 prev 换算）：prev = 入口进度 - 本 tick 实际位移，
-        // 即来源带最后一帧位置在目标格的坐标（可为小负值，渲染器不钳制）。
-        // 创建当 tick 静止（确定性），但渲染从来源带最后位置平滑滑到入口，
-        // 交接瞬间零瞬移零卡顿——不做任何“入口前一步”的预位移（那会叠加出跳变）
-        created.setPrevProgress(prevProgress);
+        // Create 同款（prevBeltPosition = beltPosition）：prev 取当前值，
+        // 创建当 tick 静止，下一 tick 由 drive 统一推进——双端插值起点天然一致，
+        // 不做任何“入口前一步”的预位移（那会与侧向滑入动画叠加出跳变）
+        created.setPrevProgress(progress);
         if (sideEntry) {
             // Create 同款初始偏移公式（BeltBlockEntity.tryInsertingFromSide）：
             //   off = sourceDir 轴方向步长 * SIDE_OFFSET_START，X 轴侧入取反

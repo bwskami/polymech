@@ -267,6 +267,9 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("tooltip.poly_mech.fluid.state_plasma", "State: Plasma");
         add("tooltip.poly_mech.fluid.temperature", "Temperature: %d K");
         add("tooltip.poly_mech.hazardous", "⚠ Hazardous");
+        // 化学式成分百分比（Shift显示）
+        add("tooltip.poly_mech.formula.shift_hint", "Hold SHIFT to show composition");
+        add("tooltip.poly_mech.formula.composition", "Composition: ");
 
         // 侧面方块类型
         add("side_type.poly_mech.normal", "Machine Casing");
