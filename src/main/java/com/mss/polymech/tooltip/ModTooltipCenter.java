@@ -1,5 +1,6 @@
 package com.mss.polymech.tooltip;
 
+import com.mojang.datafixers.util.Either;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.fluid.ChemicalFluid;
@@ -21,6 +22,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.client.event.RenderTooltipEvent;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.FluidUtil;
@@ -32,7 +34,6 @@ import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -46,7 +47,8 @@ import java.util.Map;
  * </ol>
  * 机器、流体单元本体、管道等功能性物品不在化学式查找表中，不会显示。
  * 化学式数字统一使用Unicode下标（如H₂SO₄），元素符号按元素周期表配色染色
- * （见{@link ElementColors}）；按住Shift额外显示各元素的质量百分比。
+ * （见{@link ElementColors}）；按住Shift额外显示成分饼图（左侧图例+右侧饼图，
+ * 见{@link CompositionPieTooltipComponent}）。
  * </p>
  */
 public class ModTooltipCenter {
@@ -152,12 +154,42 @@ public class ModTooltipCenter {
         return FMLEnvironment.dist == Dist.CLIENT && Screen.hasShiftDown();
     }
 
+    // ========== 成分饼图缓存（ItemTooltipEvent与RenderTooltipEvent.GatherComponents同帧先后触发） ==========
+
+    /** 最近一次计算饼图数据的物品栈 */
+    private static ItemStack lastPieStack = ItemStack.EMPTY;
+    /** 最近一次计算的饼图切片（按质量占比降序） */
+    private static List<CompositionPieTooltipComponent.Slice> lastPieSlices = List.of();
+
+    /**
+     * 供RenderTooltipEvent.GatherComponents调用：悬停物品有成分饼图数据（按住Shift）时
+     * 返回饼图组件，由调用方插入tooltip元素列表；否则返回null。
+     */
+    public static CompositionPieTooltipComponent getCompositionPie(ItemStack stack) {
+        if (!isShiftDown() || stack.isEmpty() || lastPieSlices.isEmpty()) return null;
+        if (!ItemStack.matches(stack, lastPieStack)) return null;
+        return new CompositionPieTooltipComponent(lastPieSlices);
+    }
+
+    /**
+     * RenderTooltipEvent.GatherComponents监听器（游戏总线事件，由PolymechClient在客户端
+     * 手动注册到NeoForge.EVENT_BUS）：按住Shift悬停含化学式成分的物品时，
+     * 向tooltip元素列表插入成分饼图组件（左侧图例+右侧饼图，参考GregTech样式）。
+     */
+    public static void onGatherTooltipComponents(RenderTooltipEvent.GatherComponents event) {
+        CompositionPieTooltipComponent pie = getCompositionPie(event.getItemStack());
+        if (pie != null) {
+            event.getTooltipElements().add(Either.right(pie));
+        }
+    }
+
     /**
      * 在化学式行之后追加成分信息：
-     * 未按住Shift时显示灰色提示；按住Shift时按质量百分比降序显示各元素占比
-     * （元素符号带颜色，如"O 60.0%  Si 15.0%"）。单元素化学式不显示。
+     * 未按住Shift时显示灰色提示；按住Shift时缓存各元素质量占比切片，
+     * 由RenderTooltipEvent.GatherComponents插入饼图组件渲染
+     * （左侧图例+右侧饼图，参考GregTech样式）。单元素化学式不显示。
      */
-    private static void appendComposition(List<Component> tooltip, int index, String formula) {
+    private static void appendComposition(List<Component> tooltip, int index, String formula, ItemStack stack) {
         Map<String, Integer> counts = parseFormula(formula);
         record Entry(String symbol, double mass) {}
         List<Entry> entries = new ArrayList<>();
@@ -172,16 +204,15 @@ public class ModTooltipCenter {
         if (entries.size() <= 1 || totalMass <= 0) return;
         if (isShiftDown()) {
             entries.sort(Comparator.comparingDouble(Entry::mass).reversed());
-            MutableComponent line = Component.translatable("tooltip.poly_mech.formula.composition")
-                    .withStyle(ChatFormatting.GRAY);
+            List<CompositionPieTooltipComponent.Slice> slices = new ArrayList<>();
             for (Entry entry : entries) {
                 double pct = entry.mass() / totalMass * 100.0;
-                int color = ElementColors.getColor(entry.symbol());
-                line.append(Component.literal(entry.symbol()).withStyle(style -> style.withColor(color)));
-                line.append(Component.literal(" " + String.format(Locale.ROOT, "%.1f%%", pct) + "  ")
-                        .withStyle(ChatFormatting.GRAY));
+                slices.add(new CompositionPieTooltipComponent.Slice(
+                        entry.symbol(), ElementColors.getColor(entry.symbol()), pct));
             }
-            tooltip.add(index, line);
+            lastPieStack = stack;
+            lastPieSlices = slices;
+            // 饼图组件在RenderTooltipEvent.GatherComponents中插入，此处不再追加文本行
         } else {
             tooltip.add(index, Component.translatable("tooltip.poly_mech.formula.shift_hint")
                     .withStyle(ChatFormatting.DARK_GRAY));
@@ -246,7 +277,7 @@ public class ModTooltipCenter {
         // 1. 容器物品携带化学物质/熔融金属/等离子体（桶、流体单元、储罐、其它模组容器等）
         FluidInfo fluidInfo = findFluidInfo(stack);
         if (fluidInfo != null) {
-            appendFluidInfo(tooltip, fluidInfo);
+            appendFluidInfo(tooltip, fluidInfo, stack);
             return;
         }
 
@@ -254,7 +285,7 @@ public class ModTooltipCenter {
         String formula = lookupFormula(stack.getItem());
         if (formula != null && !formula.isEmpty()) {
             tooltip.add(1, formulaComponent(formula));
-            appendComposition(tooltip, 2, formula);
+            appendComposition(tooltip, 2, formula, stack);
         }
     }
 
@@ -283,11 +314,11 @@ public class ModTooltipCenter {
         return null;
     }
 
-    /** 流体完整信息：化学式（含成分百分比）+ 物态 + 温度 + 危险警示 */
-    private static void appendFluidInfo(List<Component> tooltip, FluidInfo info) {
+    /** 流体完整信息：化学式（含成分饼图）+ 物态 + 温度 + 危险警示 */
+    private static void appendFluidInfo(List<Component> tooltip, FluidInfo info, ItemStack stack) {
         // 化学式（元素染色、下标数字，不带前缀）
         tooltip.add(1, formulaComponent(info.getFormula()));
-        appendComposition(tooltip, 2, info.getFormula());
+        appendComposition(tooltip, 2, info.getFormula(), stack);
         // 物态：液体 / 气体 / 等离子体
         String stateKey = switch (info.getState()) {
             case LIQUID -> "tooltip.poly_mech.fluid.state_liquid";

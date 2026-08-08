@@ -5,8 +5,11 @@ import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
 import com.mss.polymech.client.renderer.MachineGeoRenderer;
+import com.mss.polymech.client.tooltip.ClientCompositionPieTooltipComponent;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.machine.common.MachineRegistry;
+import com.mss.polymech.tooltip.CompositionPieTooltipComponent;
+import com.mss.polymech.tooltip.ModTooltipCenter;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -17,17 +20,24 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.client.model.DynamicFluidContainerModel;
 import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.common.NeoForge;
 
 @Mod(value = Polymech.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class PolymechClient {
     public PolymechClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        // 注册成分饼图tooltip组件工厂（RegisterClientTooltipComponentFactoriesEvent在MOD总线）
+        container.getEventBus().addListener(RegisterClientTooltipComponentFactoriesEvent.class, event ->
+                event.register(CompositionPieTooltipComponent.class, ClientCompositionPieTooltipComponent::new));
+        // GatherComponents是游戏总线事件：@EventBusSubscriber默认挂在MOD总线收不到，需手动注册
+        NeoForge.EVENT_BUS.addListener(ModTooltipCenter::onGatherTooltipComponents);
     }
 
     @SubscribeEvent
