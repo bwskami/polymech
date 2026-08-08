@@ -1,0 +1,255 @@
+name	field	kind	temp	color	element	formula	en	zh
+acetic_acid	AceticAcid	liquid		0xC8B4A0		C2H4O2	Acetic Acid	乙酸
+acidic_enriched_naquadah_solution	AcidicEnrichedNaquadahSolution	liquid		0x3DD63D			Acidic Enriched Naquadah Solution	酸性富集硅岩溶液
+acidic_naquadria_solution	AcidicNaquadriaSolution	liquid		0x70D670			Acidic Naquadria Solution	酸性超能硅岩溶液
+acidic_osmium_solution	AcidicOsmiumSolution	liquid		0xDAC5C5		H3ClO5Os	Acidic Osmium Solution	酸性锇溶液
+air	Air	gas		0xA9D0F5		Ar9N78O21	Air	空气
+aluminium	Aluminium	liquid	933	0x7db9d8	Al	Al	Aluminium	铝
+americium	Americium	liquid+plasma	1449	0x287869	Am	Am	Americium	镅
+ammonia	Ammonia	gas		0x4465a2		H3N	Ammonia	氨
+ammonium_formate	AmmoniumFormate	gas		0x93badb		CH5NO2	Ammonium Formate	甲酸铵
+annealed_copper	AnnealedCopper	liquid	1358	0xf2c079		Cu	Annealed Copper	退火铜
+antimony	Antimony	liquid	904	0xeaeaff	Sb	Sb	Antimony	锑
+aqua_regia	AquaRegia	liquid		0xFFB132		H3Cl2NO3	Aqua Regia	王水
+argon	Argon	gas+plasma		0x00FF00	Ar	Ar	Argon	氩
+arsenic	Arsenic	gas	887	0x9c9c8d	As	As	Arsenic	砷
+battery_alloy	BatteryAlloy	liquid	660	0xcac0ff		Pb4Sb	Battery Alloy	电池合金
+beryllium	Beryllium	liquid	1560	0x73d73d	Be	Be	Beryllium	铍
+biomass	Biomass	liquid		0x00FF00			Biomass	生物质
+bismuth	Bismuth	liquid	545	0x5fdddd	Bi	Bi	Bismuth	铋
+bismuth_bronze	BismuthBronze	liquid	1036	0xffd26f		BiCu3Zn	Bismuth Bronze	铋青铜
+black_bronze	BlackBronze	liquid	1328	0x8b7c70		AgAuCu3	Black Bronze	黑青铜
+blaze	Blaze	liquid	4000			CS	Blaze	烈焰
+blue_alloy	BlueAlloy	liquid	1400	0x64B4FF		Ag5Al8Au4Cr4Fe20Hg12O12S40Si4	Blue Alloy	蓝色合金
+borosilicate_glass	BorosilicateGlass	liquid	1921	0xFAFAFA		BO14Si7	Borosilicate Glass	硼硅玻璃
+brass	Brass	liquid	1160	0xffe36e		Cu3Zn	Brass	黄铜
+bromine	Bromine	liquid		0x912200	Br	Br	Bromine	溴
+bronze	Bronze	liquid	1357	0xffc370		Cu3Sn	Bronze	青铜
+butadiene	Butadiene	gas		0xB55A10		C4H6	Butadiene	丁二烯
+butane	Butane	gas		0xB6371E		C4H10	Butane	丁烷
+butene	Butene	gas		0xCF5005		C4H8	Butene	丁烯
+carbon	Carbon	liquid	4600	0x333030	C	C	Carbon	碳
+carbon_dioxide	CarbonDioxide	gas		0xA9D0F5		CO2	Carbon Dioxide	二氧化碳
+carbon_monoxide	CarbonMonoxide	gas		0x0E4880		CO	Carbon Monoxide	一氧化碳
+cerium	Cerium	liquid	1068	0x87917D	Ce	Ce	Cerium	铈
+cetane_boosted_diesel	CetaneBoostedDiesel	liquid		0xC8FF00			Cetane Boosted Diesel	高十六烷值柴油
+chlorine	Chlorine	gas			Cl	Cl	Chlorine	氯
+chloromethane	Chloromethane	gas		0xC82CA0		CH3Cl	Chloromethane	氯甲烷
+chromium	Chromium	liquid	2180	0xf3e0ea	Cr	Cr	Chromium	铬
+coal_gas	CoalGas	gas		0x333333			Coal Gas	煤气
+cobalt	Cobalt	liquid	1768	0x5050FA	Co	Co	Cobalt	钴
+cobalt_brass	CobaltBrass	liquid	1202	0xbaa365		AlCoCu21Zn7	Cobalt Brass	钴黄铜
+concrete	Concrete	liquid	286	0xfaf3e8			Concrete	混凝土
+copper	Copper	liquid	1358	0xe77c56	Cu	Cu	Copper	铜
+cracked_bauxite_slurry	CrackedBauxiteSlurry	liquid		0x052C50			Cracked Bauxite Slurry	裂化铝土浆液
+creosote	Creosote	liquid		0x804000			Creosote	杂酚油
+cumene	Cumene	gas		0x552200		C9H12	Cumene	异丙苯
+cupronickel	Cupronickel	liquid	1542	0xffda8a		CuNi	Cupronickel	白铜
+depleted_uranium_hexafluoride	DepletedUraniumHexafluoride	gas		0x74BA66		F6U238	Depleted Uranium Hexafluoride	枯竭六氟化铀
+deuterium	Deuterium	gas			D	D	Deuterium	氘
+dichloroethane	Dichloroethane	liquid		0xafc979		C2H4Cl2	Dichloroethane	二氯乙烷
+diesel	Diesel	liquid					Diesel	柴油
+diethylenetriamine	Diethylenetriamine	liquid		0xa9d9a7		C4H13N3	Diethylenetriamine	二乙烯三胺
+diethylenetriamine_pentaacetonitrile	DiethylenetriaminePentaacetonitrile	liquid		0xcbbfd6		C14H18N8	Diethylenetriamine Pentaacetonitrile	二乙烯三胺五乙腈
+diluted_hydrochloric_acid	DilutedHydrochloricAcid	liquid		0x99A7A3		H3ClO	Diluted Hydrochloric Acid	稀盐酸
+diluted_sulfuric_acid	DilutedSulfuricAcid	liquid		0xC07820		H6O9S2	Diluted Sulfuric Acid	稀硫酸
+dimethylamine	Dimethylamine	gas		0x554469		C2H7N	Dimethylamine	二甲胺
+dimethyldichlorosilane	Dimethyldichlorosilane	gas		0x441650		C2H6Cl2Si	Dimethyldichlorosilane	二甲基二氯硅烷
+dinitrogen_tetroxide	DinitrogenTetroxide	gas		0x004184		N2O4	Dinitrogen Tetroxide	四氧化二氮
+duranium	Duranium	liquid	7500	0xf3e7a9	Dr	Dr	Duranium	铿铀
+electrum	Electrum	liquid	1285	0xffff8b		AgAu	Electrum	琥珀金
+ender_air	EnderAir	gas		0x283454		D21N78O156Xe9	Ender Air	末地空气
+enriched_naquadah	NaquadahEnriched	liquid			Nq1	Nq+	Enriched Naquadah	富集硅岩
+enriched_naquadah_trinium_europium_duranide	EnrichedNaquadahTriniumEuropiumDuranide	liquid	5930	0xc6b083		DrEu2Ke3Nq+4	Enriched Naquadah Trinium Europium Duranide	富集硅岩凯金铕铿铀合金
+enriched_uranium_hexafluoride	EnrichedUraniumHexafluoride	gas		0x4BF52A		F6U235	Enriched Uranium Hexafluoride	富集六氟化铀
+epichlorohydrin	Epichlorohydrin	liquid		0x712400		C3H5ClO	Epichlorohydrin	环氧氯丙烷
+epoxy	Epoxy	liquid	400	0xf6fabd		C21H25ClO5	Epoxy	环氧树脂
+ethane	Ethane	gas		0xC8C8FF		C2H6	Ethane	乙烷
+ethanol	Ethanol	liquid				C2H6O	Ethanol	乙醇
+ethylene	Ethylene	gas		0xE1E1E1		C2H4	Ethylene	乙烯
+europium	Europium	liquid	1099	0x20FFFF	Eu	Eu	Europium	铕
+fermented_biomass	FermentedBiomass	liquid	300	0x445500			Fermented Biomass	发酵生物质
+fluorine	Fluorine	gas			F	F	Fluorine	氟
+fluoroantimonic_acid	FluoroantimonicAcid	liquid				H2F7Sb	Fluoroantimonic Acid	氟锑酸
+formaldehyde	Formaldehyde	liquid		0xddeced		CH2O	Formaldehyde	甲醛
+formamide	Formamide	liquid		0x5cccb6		CH3NO	Formamide	甲酰胺
+formic_acid	FormicAcid	liquid		0xa6a6a6		CH2O2	Formic Acid	甲酸
+gallium	Gallium	liquid	303	0x7a84ca	Ga	Ga	Gallium	镓
+gallium_arsenide	GalliumArsenide	liquid	1511	0x938fff		AsGa	Gallium Arsenide	砷化镓
+glass	Glass	liquid	1200	0xffffff		O2Si	Glass	玻璃
+glowstone	Glowstone	liquid	500	0xfcb34c			Glowstone	荧石
+glue	Glue	liquid					Glue	胶水
+glyceryl_trinitrate	GlycerylTrinitrate	liquid				C3H5N3O9	Glyceryl Trinitrate	硝酸甘油
+glycolonitrile	Glycolonitrile	liquid		0x5b8c8f		C2H3NO	Glycolonitrile	乙腈
+gold	Gold	liquid	1337	0xfdf55f	Au	Au	Gold	金
+heavy_fuel	HeavyFuel	liquid					Heavy Fuel	重燃油
+heavy_oil	HeavyOil	liquid		0x0A0A0A			Heavy Oil	
+helium	Helium	gas+plasma	4	0xFCFF90	He	He	Helium	氦
+helium_3	Helium3	gas			He3	He3	Helium 3	氦-3
+hydro_cracked_butadiene	HydroCrackedButadiene	gas	775	0xAD5203			Hydro Cracked Butadiene	加氢裂化丁二烯
+hydro_cracked_butane	HydroCrackedButane	gas	775	0x852C18			Hydro Cracked Butane	加氢裂化丁烷
+hydro_cracked_butene	HydroCrackedButene	gas	775	0x993E05			Hydro Cracked Butene	加氢裂化丁烯
+hydro_cracked_ethane	HydroCrackedEthane	gas	775	0x9696BC			Hydro Cracked Ethane	加氢裂化乙烷
+hydro_cracked_ethylene	HydroCrackedEthylene	gas	775	0xA3A3A0			Hydro Cracked Ethylene	加氢裂化乙烯
+hydro_cracked_propane	HydroCrackedPropane	gas	775	0xBEA540			Hydro Cracked Propane	加氢裂化丙烷
+hydro_cracked_propene	HydroCrackedPropene	gas	775	0xBEA540			Hydro Cracked Propene	加氢裂化丙烯
+hydrochloric_acid	HydrochloricAcid	liquid				HCl	Hydrochloric Acid	盐酸
+hydrofluoric_acid	HydrofluoricAcid	liquid		0x0088AA		HF	Hydrofluoric Acid	氢氟酸
+hydrogen	Hydrogen	gas		0x0000B5	H	H	Hydrogen	氢
+hydrogen_cyanide	HydrogenCyanide	gas		0x72dbd4		CHN	Hydrogen Cyanide	氰化氢
+hydrogen_peroxide	HydrogenPeroxide	liquid		0x0cbdd7		H2O2	Hydrogen Peroxide	过氧化氢
+hydrogen_sulfide	HydrogenSulfide	gas				H2S	Hydrogen Sulfide	硫化氢
+hypochlorous_acid	HypochlorousAcid	liquid		0x6F8A91		HClO	Hypochlorous Acid	次氯酸
+ice	Ice	liquid	273			H2O	Ice	冰
+indium	Indium	liquid	430	0x5c3588	In	In	Indium	铟
+indium_concentrate	IndiumConcentrate	liquid		0x0E2950			Indium Concentrate	铟富集溶液
+indium_gallium_phosphide	IndiumGalliumPhosphide	liquid	350	0xa77bd7		GaInP	Indium Gallium Phosphide	磷化铟镓
+indium_tin_barium_titanium_cuprate	IndiumTinBariumTitaniumCuprate	liquid	1012	0x686760		Ba2Cu7In4O14Sn2Ti	Indium Tin Barium Titanium Cuprate	铟锡钡钛铜氧化物
+invar	Invar	liquid	1916	0xe2e8e1		Fe2Ni	Invar	殷钢
+iridium	Iridium	liquid	2719	0x99fede	Ir	Ir	Iridium	铱
+iron	Iron	liquid+plasma	1811	0xeeeeee	Fe	Fe	Iron	铁
+iron_ii_chloride	Iron2Chloride	liquid		0xe8e0be		Cl2Fe	Iron Ii Chloride	氯化亚铁
+iron_iii_chloride	Iron3Chloride	liquid		0x060B0B		Cl3Fe	Iron Iii Chloride	氯化铁
+kanthal	Kanthal	liquid	1708	0xC2D2DF		AlCrFe	Kanthal	坎塔尔合金
+krypton	Krypton	gas		0x80FF80	Kr	Kr	Krypton	氪
+lanthanum	Lanthanum	liquid	1193	0xd17d50	La	La	Lanthanum	镧
+lead	Lead	liquid	600	0x7e6f82	Pb	Pb	Lead	铅
+lead_zinc_solution	LeadZincSolution	liquid				H2AgOPbS3Zn	Lead Zinc Solution	铅锌溶液
+light_fuel	LightFuel	liquid					Light Fuel	轻燃油
+light_oil	LightOil	liquid		0x0A0A0A			Light Oil	
+lightly_hydro_cracked_gas	LightlyHydroCrackedGas	gas	775	0xA0A0A0			Lightly Hydro Cracked Gas	轻度加氢裂化炼油气
+lightly_hydro_cracked_heavy_fuel	LightlyHydroCrackedHeavyFuel	liquid	775	0xFFFF00			Lightly Hydro Cracked Heavy Fuel	轻度加氢裂化重燃油
+lightly_hydro_cracked_light_fuel	LightlyHydroCrackedLightFuel	liquid	775	0xB7AF08			Lightly Hydro Cracked Light Fuel	轻度加氢裂化轻燃油
+lightly_hydro_cracked_naphtha	LightlyHydroCrackedNaphtha	liquid	775	0xBFB608			Lightly Hydro Cracked Naphtha	轻度加氢裂化石脑油
+lightly_steam_cracked_gas	LightlySteamCrackedGas	gas	775	0xE0E0E0			Lightly Steam Cracked Gas	轻度蒸汽裂化炼油气
+lightly_steam_cracked_heavy_fuel	LightlySteamCrackedHeavyFuel	liquid	775				Lightly Steam Cracked Heavy Fuel	轻度蒸汽裂化重燃油
+lightly_steam_cracked_light_fuel	LightlySteamCrackedLightFuel	liquid	775				Lightly Steam Cracked Light Fuel	轻度蒸汽裂化轻燃油
+lightly_steam_cracked_naphtha	LightlySteamCrackedNaphtha	liquid	775	0xBFB608			Lightly Steam Cracked Naphtha	轻度蒸汽裂化石脑油
+liquid_air	LiquidAir	liquid	97	0xA9D0F5		C5H2ArHe2N70O33	Liquid Air	液态空气
+liquid_ender_air	LiquidEnderAir	liquid	36	0x283454		BeD50He15K4KrN127O244RnT10Xe	Liquid Ender Air	液态末地空气
+liquid_nether_air	LiquidNetherAir	liquid	58	0x4C3434		C145H30He35NeO174S30	Liquid Nether Air	液态下界空气
+lithium	Lithium	liquid	454	0xd7e7ee	Li	Li	Lithium	锂
+lpg	LPG	liquid		0xFCFCAC			Lpg	液化石油气
+lubricant	Lubricant	liquid					Lubricant	润滑油
+lutetium	Lutetium	liquid	1925	0x00ccff	Lu	Lu	Lutetium	镥
+magnalium	Magnalium	liquid	929	0x98b9e9		Al2Mg	Magnalium	镁铝合金
+magnesium	Magnesium	liquid	923	0xd6e3ff	Mg	Mg	Magnesium	镁
+magnesium_diboride	MagnesiumDiboride	liquid	1103	0x603c1a		B2Mg	Magnesium Diboride	二硼化镁
+manganese	Manganese	liquid	1519	0x88a669	Mn	Mn	Manganese	锰
+manganese_phosphide	ManganesePhosphide	liquid	1368	0xE1B454		MnP	Manganese Phosphide	磷化锰
+mc_guffium_239	McGuffium239	liquid					Mc Guffium 239	麦高芬-239
+mercury_barium_calcium_cuprate	MercuryBariumCalciumCuprate	liquid	1075	0x928547		Ba2Ca2Cu3HgO8	Mercury Barium Calcium Cuprate	汞钡钙铜氧化物
+methane	Methane	gas		0xFF0078		CH4	Methane	甲烷
+milk	Milk	liquid	295	0xfffbf0			Milk	牛奶
+molybdenum	Molybdenum	liquid	2896	0xc1c1ce	Mo	Mo	Molybdenum	钼
+monochloramine	Monochloramine	gas		0x3F9F80		H2ClN	Monochloramine	氯胺
+naphtha	Naphtha	liquid					Naphtha	石脑油
+naquadah	Naquadah	liquid			Nq	Nq	Naquadah	硅岩
+naquadria	Naquadria	liquid			Nq2	*Nq*	Naquadria	超能硅岩
+natural_gas	NaturalGas	gas					Natural Gas	天然气
+neon	Neon	gas		0xFAB4B4	Ne	Ne	Neon	氖
+nether_air	NetherAir	gas		0x4C3434		C78H42Ne9O78S21	Nether Air	下界空气
+neutronium	Neutronium	liquid		0xFFFFFF	Nt	Nt	Neutronium	中子素
+nichrome	Nichrome	liquid	1818	0xaf94b2		CrNi4	Nichrome	镍铬合金
+nickel	Nickel	liquid+plasma	1728	0xccdff5	Ni	Ni	Nickel	镍
+nickel_zinc_ferrite	NickelZincFerrite	liquid	1410	0x3f2821		Fe4NiO8Zn	Nickel Zinc Ferrite	镍锌铁氧体
+niobium_titanium	NiobiumTitanium	liquid	2345	0xd2d9f9		NbTi	Niobium Titanium	铌钛合金
+nitration_mixture	NitrationMixture	liquid		0xE6E2AB		H3NO7S	Nitration Mixture	硝酸混酸
+nitric_acid	NitricAcid	liquid		0xCCCC00		HNO3	Nitric Acid	硝酸
+nitric_oxide	NitricOxide	gas		0x7DC8F0		NO	Nitric Oxide	一氧化氮
+nitrobenzene	Nitrobenzene	gas		0x704936		C6H5NO2	Nitrobenzene	硝基苯
+nitrogen	Nitrogen	gas+plasma		0x00BFC1	N	N	Nitrogen	氮
+nitrogen_dioxide	NitrogenDioxide	gas		0x85FCFF		NO2	Nitrogen Dioxide	二氧化氮
+nitrosyl_chloride	NitrosylChloride	gas		0xF3F100		ClNO	Nitrosyl Chloride	亚硝酰氯
+nitrous_oxide	NitrousOxide	gas		0x7DC8FF		N2O	Nitrous Oxide	一氧化二氮
+oil	Oil	liquid		0x0A0A0A			Oil	石油
+osmiridium	Osmiridium	liquid	3012	0x47adb6		Ir3Os	Osmiridium	铱锇合金
+osmium	Osmium	liquid	3306	0x54afff	Os	Os	Osmium	锇
+oxygen	Oxygen	gas+plasma	85	0x6688DD	O	O	Oxygen	氧
+phosphoric_acid	PhosphoricAcid	liquid		0xDCDC01		H3O4P	Phosphoric Acid	磷酸
+phthalic_acid	PhthalicAcid	liquid		0xD1D1D1		C8H6O4	Phthalic Acid	邻苯二甲酸
+platinum	Platinum	liquid	2041	0xfff4ba	Pt	Pt	Platinum	铂
+plutonium_239	Plutonium239	liquid	913	0xba2727	Pu239	Pu239	Plutonium 239	
+plutonium_241	Plutonium241	liquid	913	0xff4c4c	Pu241	Pu241	Plutonium 241	钚-241
+polybenzimidazole	Polybenzimidazole	liquid	1450	0x464441		C20H12N4	Polybenzimidazole	聚苯并咪唑
+polycaprolactam	Polycaprolactam	liquid	493	0x3f3d2d		C6H11NO	Polycaprolactam	聚己内酰胺
+polyethylene	Polyethylene	liquid	408	0xC8C8C8		C2H4	Polyethylene	聚乙烯
+polyphenylene_sulfide	PolyphenyleneSulfide	liquid	500	0x5e5e08		C6H4S	Polyphenylene Sulfide	聚苯硫醚
+polytetrafluoroethylene	Polytetrafluoroethylene	liquid	600	0x6e6e6e		C2F4	Polytetrafluoroethylene	聚四氟乙烯
+polyvinyl_chloride	PolyvinylChloride	liquid	373	0xFF9955		C2H3Cl	Polyvinyl Chloride	聚氯乙烯
+potassium	Potassium	liquid	337	0xd2e1f2	K	K	Potassium	钾
+potin	Potin	liquid	1084	0xaaada3		Cu6PbSn2	Potin	粗青铜合金
+propane	Propane	gas		0xFAE250		C3H8	Propane	丙烷
+propene	Propene	gas		0xFFDD55		C3H6	Propene	丙烯
+radon	Radon	gas		0xFF39FF	Rn	Rn	Radon	氡
+raw_oil	RawOil	liquid		0x0A0A0A			Raw Oil	
+red_alloy	RedAlloy	liquid	1400	0xc55252		Al8Cr4CuFe20Hg12O12S40Si4	Red Alloy	红色合金
+redstone	Redstone	liquid	500	0xff0000		Al2CrFe5Hg3O3S10Si	Redstone	红石
+refinery_gas	RefineryGas	gas		0xB4B4B4			Refinery Gas	炼油气
+reinforced_epoxy_resin	ReinforcedEpoxyResin	liquid	600	0x9ecaad		C6H4O	Reinforced Epoxy Resin	强化环氧树脂
+rhodium_sulfate	RhodiumSulfate	liquid	1128	0xEEAA55		O12Rh2S3	Rhodium Sulfate	硫酸铑
+rose_gold	RoseGold	liquid	1341	0xecd5b8		Au4Cu	Rose Gold	玫瑰金
+rubber	Rubber	liquid	400	0x353529		C5H8	Rubber	橡胶
+ruthenium_trinium_americium_neutronate	RutheniumTriniumAmericiumNeutronate	liquid	23691	0x897b76		AmKe2Nt2O8Ru	Ruthenium Trinium Americium Neutronate	钌凯金镅中子素氧化物
+samarium	Samarium	liquid	1345	0xc2c289	Sm	Sm	Samarium	钐
+samarium_iron_arsenic_oxide	SamariumIronArsenicOxide	liquid	1347	0x850e85		AsFeOSm	Samarium Iron Arsenic Oxide	钐铁砷氧化物
+seed_oil	SeedOil	liquid		0xFFFFFF			Seed Oil	种子油
+severely_hydro_cracked_gas	SeverelyHydroCrackedGas	gas	775	0xC8C8C8			Severely Hydro Cracked Gas	重度加氢裂化炼油气
+severely_hydro_cracked_heavy_fuel	SeverelyHydroCrackedHeavyFuel	liquid	775	0xFFFF00			Severely Hydro Cracked Heavy Fuel	重度加氢裂化重燃油
+severely_hydro_cracked_light_fuel	SeverelyHydroCrackedLightFuel	liquid	775	0xB7AF08			Severely Hydro Cracked Light Fuel	重度加氢裂化轻燃油
+severely_hydro_cracked_naphtha	SeverelyHydroCrackedNaphtha	liquid	775	0xBFB608			Severely Hydro Cracked Naphtha	重度加氢裂化石脑油
+severely_steam_cracked_gas	SeverelySteamCrackedGas	gas	775	0xE0E0E0			Severely Steam Cracked Gas	重度蒸汽裂化炼油气
+severely_steam_cracked_heavy_fuel	SeverelySteamCrackedHeavyFuel	liquid	775				Severely Steam Cracked Heavy Fuel	重度蒸汽裂化重燃油
+severely_steam_cracked_light_fuel	SeverelySteamCrackedLightFuel	liquid	775				Severely Steam Cracked Light Fuel	重度蒸汽裂化轻燃油
+severely_steam_cracked_naphtha	SeverelySteamCrackedNaphtha	liquid	775	0xBFB608			Severely Steam Cracked Naphtha	重度蒸汽裂化石脑油
+silicone_rubber	SiliconeRubber	liquid	900	0xF0F0F0		C2H6OSi	Silicone Rubber	硅橡胶
+silver	Silver	liquid	1235	0xDCDCFF	Ag	Ag	Silver	银
+sodium_persulfate	SodiumPersulfate	liquid				Na2O8S2	Sodium Persulfate	过硫酸钠
+soldering_alloy	SolderingAlloy	liquid	544	0x8c8ca7		Pb3SbSn6	Soldering Alloy	焊锡
+stainless_steel	StainlessSteel	liquid	2011	0xededfd		CrFe6MnNi	Stainless Steel	不锈钢
+steam	Steam	gas	373			H2O	Steam	蒸汽
+steam_cracked_butadiene	SteamCrackedButadiene	gas	775	0xAD5203			Steam Cracked Butadiene	蒸汽裂化丁二烯
+steam_cracked_butane	SteamCrackedButane	gas	775	0x852C18			Steam Cracked Butane	蒸汽裂化丁烷
+steam_cracked_butene	SteamCrackedButene	gas	775	0x993E05			Steam Cracked Butene	蒸汽裂化丁烯
+steam_cracked_ethane	SteamCrackedEthane	gas	775	0x9696BC			Steam Cracked Ethane	蒸汽裂化乙烷
+steam_cracked_ethylene	SteamCrackedEthylene	gas	775	0xA3A3A0			Steam Cracked Ethylene	蒸汽裂化乙烯
+steam_cracked_propane	SteamCrackedPropane	gas	775	0xBEA540			Steam Cracked Propane	蒸汽裂化丙烷
+steam_cracked_propene	SteamCrackedPropene	gas	775	0xBEA540			Steam Cracked Propene	蒸汽裂化丙烯
+steel	Steel	liquid	2046	0xa7a7a7		Fe	Steel	钢
+sterling_silver	SterlingSilver	liquid	1258	0xfaf4dc		Ag4Cu	Sterling Silver	标准纯银
+styrene_butadiene_rubber	StyreneButadieneRubber	liquid	1000	0x34312b		C20H26	Styrene Butadiene Rubber	丁苯橡胶
+sulfur_dioxide	SulfurDioxide	gas		0x0E4880		O2S	Sulfur Dioxide	二氧化硫
+sulfur_trioxide	SulfurTrioxide	gas		0xA0A014		O3S	Sulfur Trioxide	三氧化硫
+sulfuric_acid	SulfuricAcid	liquid				H2O4S	Sulfuric Acid	硫酸
+sulfuric_copper_solution	SulfuricCopperSolution	liquid		0x48A5C0		H2CuO5S	Sulfuric Copper Solution	硫酸铜溶液
+sulfuric_gas	SulfuricGas	gas		0xECDCCC			Sulfuric Gas	含硫炼油气
+sulfuric_heavy_fuel	SulfuricHeavyFuel	liquid					Sulfuric Heavy Fuel	含硫重燃油
+sulfuric_light_fuel	SulfuricLightFuel	liquid					Sulfuric Light Fuel	含硫轻燃油
+sulfuric_naphtha	SulfuricNaphtha	liquid					Sulfuric Naphtha	含硫石脑油
+sulfuric_nickel_solution	SulfuricNickelSolution	liquid		0x3EB640		H2NiO5S	Sulfuric Nickel Solution	硫酸镍溶液
+tantalum	Tantalum	liquid	3290	0xa8a7c6	Ta	Ta	Tantalum	钽
+tetrafluoroethylene	Tetrafluoroethylene	gas		0x7D7D7D		C2F4	Tetrafluoroethylene	四氟乙烯
+thorium	Thorium	liquid	2023	0x25411b	Th	Th	Thorium	钍
+tin	Tin	liquid+plasma	505	0xfafeff	Sn	Sn	Tin	锡
+tin_alloy	TinAlloy	liquid	1258	0xC8C8C8		FeSn	Tin Alloy	锡铁合金
+titanium_tetrachloride	TitaniumTetrachloride	liquid		0xD40D5C		Cl4Ti	Titanium Tetrachloride	四氯化钛
+toluene	Toluene	liquid				C7H8	Toluene	甲苯
+tritanium	Tritanium	liquid		0xc35769	Tr	Tr	Tritanium	三钛
+tritium	Tritium	gas		0xff316b	T	T	Tritium	氚
+tungsten	Tungsten	liquid	3695	0x3b3a32	W	W	Tungsten	钨
+ultimet	Ultimet	liquid	1980	0x9f9fb1		Co5Cr2MoNi	Ultimet	哈氏合金
+uranium_235	Uranium235	liquid	1405	0x46FA46	U235	U235	Uranium 235	铀-235
+uranium_238	Uranium238	liquid	1405	0x1d891d	U238	U238	Uranium 238	
+uranium_hexafluoride	UraniumHexafluoride	gas		0x42D126		F6U238	Uranium Hexafluoride	六氟化铀
+uranium_rhodium_dinaquadide	UraniumRhodiumDinaquadide	liquid	3410	0x232020		Nq2RhU238	Uranium Rhodium Dinaquadide	铀铑硅岩合金
+uranium_triplatinum	UraniumTriplatinum	liquid	1882	0x457045		Pt3U238	Uranium Triplatinum	三铂化铀
+uu_matter	UUMatter	liquid	300				Uu Matter	UU物质
+vanadium_gallium	VanadiumGallium	liquid	1712	0x89aeec		GaV3	Vanadium Gallium	钒镓合金
+vanadium_steel	VanadiumSteel	liquid	2073	0xb59fcc		CrFe7V	Vanadium Steel	钒钢
+vinyl_chloride	VinylChloride	gas		0xE1F0F0		C2H3Cl	Vinyl Chloride	氯乙烯
+water	Water	liquid	300	0x0000FF		H2O	Water	水
+wood_gas	WoodGas	gas		0xDECD87			Wood Gas	木煤气
+wrought_iron	WroughtIron	liquid	2011	0xbcbcbc		Fe	Wrought Iron	锻铁
+xenon	Xenon	gas		0x00FFFF	Xe	Xe	Xenon	氙
+yttrium_barium_cuprate	YttriumBariumCuprate	liquid	1799	0x796d72		Ba2Cu3O7Y	Yttrium Barium Cuprate	钇钡铜氧化物
+zinc	Zinc	liquid	693	0xEBEBFA	Zn	Zn	Zinc	锌
