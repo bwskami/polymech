@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mss.polymech.tooltip.CompositionPieTooltipComponent;
 import com.mss.polymech.tooltip.CompositionPieTooltipComponent.Slice;
+import com.mss.polymech.tooltip.CompositionStructureTooltipComponent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -26,6 +27,7 @@ import java.util.Locale;
  * 布局：饼图居中，各元素标签按其扇区位置分布在饼图<b>左侧或右侧</b>，
  * 每个标签用一条白色引线连接到对应扇区的弧边中点，直观指示归属。
  * 扇区从正上方开始按质量占比降序顺时针排列。
+ * 若数据携带分子结构式，结构式同屏绘制在饼图右侧（垂直居中对齐）。
  * </p>
  */
 public class ClientCompositionPieTooltipComponent implements ClientTooltipComponent {
@@ -34,6 +36,8 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
     private static final int PIE_DIAMETER = 60;
     /** 标签列与饼图之间的间距（含引线空间） */
     private static final int SIDE_GAP = 12;
+    /** 饼图与右侧分子结构式之间的间距 */
+    private static final int STRUCTURE_GAP = 10;
     /** 标签单行高度 */
     private static final int ROW_HEIGHT = 10;
     /** 引线终点所在的半径比例（扇面半径的90%处） */
@@ -45,6 +49,11 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
 
     private final List<Layout> layouts;
     private final int leftLabelWidth;
+    /** 饼图本体（含两侧标签）的宽高 */
+    private final int pieWidth;
+    private final int pieHeight;
+    /** 可选的分子结构式子组件（绘制在饼图右侧），无则null */
+    private final ClientMoleculeStructureTooltipComponent structureComp;
     private final int width;
     private final int height;
 
@@ -64,21 +73,31 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
             angle += sweep;
         }
         this.leftLabelWidth = leftW;
-        this.width = leftW + SIDE_GAP + PIE_DIAMETER + SIDE_GAP + rightW;
+        this.pieWidth = leftW + SIDE_GAP + PIE_DIAMETER + SIDE_GAP + rightW;
         // 以饼图圆心为原点解算标签垂直位置（相对坐标），
-        // 再按最大扩展范围决定组件高度，保证被推开的标签也放得下
+        // 再按最大扩展范围决定饼图本体高度，保证被推开的标签也放得下
         double radius = PIE_DIAMETER / 2.0;
         float[] relY = new float[tmp.size()];
         double maxExtent = Math.max(resolveSide(tmp, relY, true, radius),
                 resolveSide(tmp, relY, false, radius));
-        this.height = Math.max(PIE_DIAMETER, (int) Math.ceil(2 * maxExtent) + ROW_HEIGHT);
+        this.pieHeight = Math.max(PIE_DIAMETER, (int) Math.ceil(2 * maxExtent) + ROW_HEIGHT);
         List<Layout> resolved = new ArrayList<>();
         for (int i = 0; i < tmp.size(); i++) {
             Layout l = tmp.get(i);
             resolved.add(new Layout(l.slice(), l.midAngle(), l.rightSide(), l.labelWidth(),
-                    height / 2.0f + relY[i]));
+                    pieHeight / 2.0f + relY[i]));
         }
         this.layouts = resolved;
+        // 携带结构式时：总宽=饼图+间距+结构式，总高取两者较大者（各自垂直居中）
+        this.structureComp = data.structure() == null ? null
+                : new ClientMoleculeStructureTooltipComponent(new CompositionStructureTooltipComponent(data.structure()));
+        if (structureComp != null) {
+            this.width = pieWidth + STRUCTURE_GAP + structureComp.getWidth(font);
+            this.height = Math.max(pieHeight, structureComp.getHeight());
+        } else {
+            this.width = pieWidth;
+            this.height = pieHeight;
+        }
     }
 
     /**
@@ -153,13 +172,23 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
 
     @Override
     public void renderImage(Font font, int x, int y, GuiGraphics guiGraphics) {
+        // 饼图本体在组合组件内垂直居中（携带较高结构式时留出上下空隙）
+        float pieY = y + (height - pieHeight) / 2.0f;
         float radius = PIE_DIAMETER / 2.0f;
         float cx = x + leftLabelWidth + SIDE_GAP + radius;
-        float cy = y + height / 2.0f;
+        float cy = pieY + pieHeight / 2.0f;
 
         guiGraphics.flush();
         drawPie(guiGraphics, cx, cy, radius);
-        drawLabelsAndLines(font, guiGraphics, cx, cy, radius, x, y);
+        drawLabelsAndLines(font, guiGraphics, cx, cy, radius, x, pieY);
+
+        // 分子结构式绘制在饼图右侧，同样垂直居中
+        if (structureComp != null) {
+            guiGraphics.flush();
+            int sx = x + pieWidth + STRUCTURE_GAP;
+            int sy = y + (height - structureComp.getHeight()) / 2;
+            structureComp.renderImage(font, sx, sy, guiGraphics);
+        }
     }
 
     /** 按切片占比绘制扇区（每片一个TRIANGLE_FAN，避免顶点颜色插值串色） */
@@ -199,7 +228,7 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
 
     /** 绘制左右两侧标签及指向对应扇区弧边中点的白色正交引线 */
     private void drawLabelsAndLines(Font font, GuiGraphics guiGraphics, float cx, float cy,
-                                    float radius, int x, int y) {
+                                    float radius, int x, float y) {
         Matrix4f matrix = guiGraphics.pose().last().pose();
         // 用细长四边形画引线（与饼图同一渲染路径，GL_LINES在GUI中不可靠）
         BufferBuilder lines = Tesselator.getInstance()

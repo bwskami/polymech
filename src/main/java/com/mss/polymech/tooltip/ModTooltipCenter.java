@@ -164,12 +164,13 @@ public class ModTooltipCenter {
 
     /**
      * 供RenderTooltipEvent.GatherComponents调用：悬停物品有成分饼图数据（按住Shift）时
-     * 返回饼图组件，由调用方插入tooltip元素列表；否则返回null。
+     * 返回饼图组件（可选携带分子结构式，由客户端绘制在饼图右侧），
+     * 由调用方插入tooltip元素列表；否则返回null。
      */
-    public static CompositionPieTooltipComponent getCompositionPie(ItemStack stack) {
+    public static CompositionPieTooltipComponent getCompositionPie(ItemStack stack, MoleculeStructure structure) {
         if (!isShiftDown() || stack.isEmpty() || lastPieSlices.isEmpty()) return null;
         if (!ItemStack.matches(stack, lastPieStack)) return null;
-        return new CompositionPieTooltipComponent(lastPieSlices);
+        return new CompositionPieTooltipComponent(lastPieSlices, structure);
     }
 
     // ========== 分子结构式缓存（与饼图同机制：ItemTooltipEvent缓存，GatherComponents同帧消费） ==========
@@ -200,17 +201,17 @@ public class ModTooltipCenter {
 
     /**
      * RenderTooltipEvent.GatherComponents监听器（游戏总线事件，由PolymechClient在客户端
-     * 手动注册到NeoForge.EVENT_BUS）：按住Shift悬停时，先插入分子结构式组件
-     * （仅已登记结构的物质，显示在上方），再插入成分饼图组件（参考GregTech样式）。
+     * 手动注册到NeoForge.EVENT_BUS）：按住Shift悬停时插入成分饼图组件（参考GregTech样式），
+     * 已登记结构式的物质其结构式随饼图组件一并携带，客户端绘制在饼图右侧；
+     * 无饼图数据但有结构式时退回单独的结构式组件。
      */
     public static void onGatherTooltipComponents(RenderTooltipEvent.GatherComponents event) {
         MoleculeStructure structure = getMoleculeStructure(event.getItemStack());
-        if (structure != null) {
-            event.getTooltipElements().add(Either.right(new CompositionStructureTooltipComponent(structure)));
-        }
-        CompositionPieTooltipComponent pie = getCompositionPie(event.getItemStack());
+        CompositionPieTooltipComponent pie = getCompositionPie(event.getItemStack(), structure);
         if (pie != null) {
             event.getTooltipElements().add(Either.right(pie));
+        } else if (structure != null) {
+            event.getTooltipElements().add(Either.right(new CompositionStructureTooltipComponent(structure)));
         }
     }
 
