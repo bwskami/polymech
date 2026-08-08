@@ -70,7 +70,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
             // 合金
             Map.entry("brass", "黄铜"),
             Map.entry("bronze", "青铜"),
-            Map.entry("ivar", "殷钢"),
+            Map.entry("invar", "殷钢"),
             Map.entry("cupronickel", "白铜"),
             Map.entry("stainless_steel", "不锈钢"),
             Map.entry("electrum", "琥珀金"),
@@ -382,6 +382,21 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("gui.poly_mech.output_ash", "灰烬");
         add("gui.poly_mech.button.enable", "开机");
         add("gui.poly_mech.button.disable", "关机");
+
+        // 锅炉/加工机器状态与进度条悬停提示
+        add("gui.poly_mech.status.running", "运行中");
+        add("gui.poly_mech.status.stopped", "已停止");
+        add("gui.poly_mech.status.idle", "待机");
+        add("gui.poly_mech.machine.generation", "发电: %d /t");
+        add("gui.poly_mech.machine.progress", "运行中: %d / %d");
+        add("gui.poly_mech.boiler.tooltip.temperature", "温度: %d K / %d K");
+        add("gui.poly_mech.boiler.tooltip.steam_output", "产汽: %d mB/t");
+        add("gui.poly_mech.boiler.tooltip.water_level", "水位: %d / %d mB");
+        add("gui.poly_mech.boiler.tooltip.steam", "蒸汽: %d / %d mB");
+        add("gui.poly_mech.boiler.tooltip.steam_rate", "产汽速率: %d mB/t");
+        add("gui.poly_mech.boiler.temperature", "温度: %d K");
+        add("gui.poly_mech.boiler.efficiency", "预期效率: %d mB/t");
+        add("gui.poly_mech.boiler.burn_time", "燃烧: %d s");
 
         // 蒸汽流体
         add("fluid.poly_mech.steam", "蒸汽");

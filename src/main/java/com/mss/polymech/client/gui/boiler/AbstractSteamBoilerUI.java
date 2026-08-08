@@ -20,6 +20,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.network.MachineTogglePacket;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -59,8 +60,10 @@ public abstract class AbstractSteamBoilerUI {
         tempBar.bar(b -> b.style(st -> st.backgroundTexture(ColorPattern.ORANGE.rectTexture())));
         tempBar.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) ->
                 event.hoverTooltips = new HoverTooltips(List.of(
-                        Component.literal("§e温度: " + be.getTemperature() + "K / 773K"),
-                        Component.literal("§3产汽: " + be.getTotalSteamOutput() + " mB/t")
+                        Component.translatable("gui.poly_mech.boiler.tooltip.temperature", be.getTemperature(), 773)
+                                .withStyle(ChatFormatting.YELLOW),
+                        Component.translatable("gui.poly_mech.boiler.tooltip.steam_output", be.getTotalSteamOutput())
+                                .withStyle(ChatFormatting.DARK_AQUA)
                 ), null, null, null));
 
         var waterBar = new ProgressBar();
@@ -69,7 +72,8 @@ public abstract class AbstractSteamBoilerUI {
         waterBar.bar(b -> b.style(st -> st.backgroundTexture(ColorPattern.LIGHT_BLUE.rectTexture())));
         waterBar.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) ->
                 event.hoverTooltips = new HoverTooltips(List.of(
-                        Component.literal("§b水位: " + be.getWaterAmount() + " / " + be.getWaterCapacity() + " mB")
+                        Component.translatable("gui.poly_mech.boiler.tooltip.water_level", be.getWaterAmount(), be.getWaterCapacity())
+                                .withStyle(ChatFormatting.AQUA)
                 ), null, null, null));
 
         var steamBar = new ProgressBar();
@@ -78,8 +82,10 @@ public abstract class AbstractSteamBoilerUI {
         steamBar.bar(b -> b.style(st -> st.backgroundTexture(ColorPattern.CYAN.rectTexture())));
         steamBar.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) ->
                 event.hoverTooltips = new HoverTooltips(List.of(
-                        Component.literal("§3蒸汽: " + be.getSteamAmount() + " / " + be.getSteamCapacity() + " mB"),
-                        Component.literal("§7产汽速率: " + be.getTotalSteamOutput() + " mB/t")
+                        Component.translatable("gui.poly_mech.boiler.tooltip.steam", be.getSteamAmount(), be.getSteamCapacity())
+                                .withStyle(ChatFormatting.DARK_AQUA),
+                        Component.translatable("gui.poly_mech.boiler.tooltip.steam_rate", be.getTotalSteamOutput())
+                                .withStyle(ChatFormatting.GRAY)
                 ), null, null, null));
 
         // === 开关机按钮（书签标签风格，在面板外面右下角） ===
@@ -123,18 +129,22 @@ public abstract class AbstractSteamBoilerUI {
                         new UIElement().layout(l -> l.flex(1).height(70).gapAll(2).paddingAll(4)).addClass("panel_bg").setOverflowVisible(false).addChildren(
                                 smallLabel().setText(Component.translatable(getTitleKey())),
                                 smallLabel().bind(DataBindingBuilder.componentS2C(() -> {
-                                    String status = be.isEnable() ? "§a运行中" : "§c已停止";
-                                    return Component.literal(status);
+                                    boolean running = be.isEnable();
+                                    return Component.translatable(running ? "gui.poly_mech.status.running" : "gui.poly_mech.status.stopped")
+                                            .withStyle(running ? ChatFormatting.GREEN : ChatFormatting.RED);
                                 }).build()),
                                 smallLabel().bind(DataBindingBuilder.componentS2C(() ->
-                                        Component.literal("§e温度: " + be.getTemperature() + "K")
+                                        Component.translatable("gui.poly_mech.boiler.temperature", be.getTemperature())
+                                                .withStyle(ChatFormatting.YELLOW)
                                 ).build()),
                                 smallLabel().bind(DataBindingBuilder.componentS2C(() ->
-                                        Component.literal("§3预期效率: " + be.getTotalSteamOutput() + " mB/t")
+                                        Component.translatable("gui.poly_mech.boiler.efficiency", be.getTotalSteamOutput())
+                                                .withStyle(ChatFormatting.DARK_AQUA)
                                 ).build()),
                                 smallLabel().bind(DataBindingBuilder.componentS2C(() -> {
                                     int burnTicks = be.getFuelBurnTimeRemaining();
-                                    return Component.literal("§6燃烧: " + (burnTicks / 20) + "s");
+                                    return Component.translatable("gui.poly_mech.boiler.burn_time", burnTicks / 20)
+                                            .withStyle(ChatFormatting.GOLD);
                                 }).build())
                         ),
                         steamBar

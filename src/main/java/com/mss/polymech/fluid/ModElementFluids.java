@@ -85,7 +85,7 @@ public class ModElementFluids {
             Map.entry("plutonium", 913),
             Map.entry("brass", 1173),
             Map.entry("bronze", 1223),
-            Map.entry("ivar", 1700),
+            Map.entry("invar", 1700),
             Map.entry("cupronickel", 1515),
             Map.entry("stainless_steel", 1683),
             Map.entry("electrum", 1285),

@@ -51,7 +51,7 @@ public class ModItemTypes {
     
     /* 合金材料列表 */
     private static final Set<String> ALLOYS = Set.of(
-        "brass", "bronze", "ivar", "cupronickel", "stainless_steel", "electrum"
+        "brass", "bronze", "invar", "cupronickel", "stainless_steel", "electrum"
     );
 
     /* 粉状金属：碱金属/碱土金属/稀土等活泼金属，只生成粉，不生成锭及其它形态（参考GTM的dust-only材料） */

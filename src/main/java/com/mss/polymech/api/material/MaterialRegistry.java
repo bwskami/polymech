@@ -113,7 +113,7 @@ public class MaterialRegistry {
         // ========== 合金 ==========
         MATERIAL_NAMES.add("brass");           // 黄铜（铜锌合金）
         MATERIAL_NAMES.add("bronze");          // 青铜（铜锡合金）
-        MATERIAL_NAMES.add("ivar");            // 因瓦合金（铁镍合金）
+        MATERIAL_NAMES.add("invar");           // 因瓦合金（铁镍合金）
         MATERIAL_NAMES.add("cupronickel");     // 白铜（铜镍合金）
         MATERIAL_NAMES.add("stainless_steel"); // 不锈钢
         MATERIAL_NAMES.add("electrum");        // 琥珀金（金银合金，GTM抄录）
@@ -201,7 +201,7 @@ public class MaterialRegistry {
             // 合金
             Map.entry("brass", "CuZn"),                     // 黄铜
             Map.entry("bronze", "Cu3Sn"),                   // 青铜
-            Map.entry("ivar", "Fe2Ni"),                     // 因瓦合金
+            Map.entry("invar", "Fe2Ni"),                    // 因瓦合金
             Map.entry("cupronickel", "CuNi"),               // 白铜
             Map.entry("stainless_steel", "Fe6CrMnNi"),      // 不锈钢
             Map.entry("electrum", "AuAg")                   // 琥珀金
@@ -253,7 +253,7 @@ public class MaterialRegistry {
             // 合金：组分平均原子质量
             Map.entry("brass", 64.46),
             Map.entry("bronze", 77.39),
-            Map.entry("ivar", 56.80),
+            Map.entry("invar", 56.80),
             Map.entry("cupronickel", 61.12),
             Map.entry("stainless_steel", 56.25),
             Map.entry("electrum", 152.43)

@@ -19,6 +19,7 @@ import com.mss.polymech.machine.production.AbstractProcessingBlockEntity;
 import com.mss.polymech.machine.production.AbstractTurbineGeneratorBlockEntity;
 import com.mss.polymech.network.MachineTogglePacket;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -132,13 +133,15 @@ public class ProcessingMachineUI {
     /** 状态行：发电机显示发电量，加工机器显示进度 */
     private static Component statusLine(AbstractProcessingBlockEntity machine) {
         if (!machine.isEnable()) {
-            return Component.literal("§c已停止");
+            return Component.translatable("gui.poly_mech.status.stopped").withStyle(ChatFormatting.RED);
         }
         if (machine instanceof AbstractTurbineGeneratorBlockEntity gen) {
-            return Component.literal("§e发电: " + gen.getCurrentGeneration() + " /t");
+            return Component.translatable("gui.poly_mech.machine.generation", gen.getCurrentGeneration())
+                    .withStyle(ChatFormatting.YELLOW);
         }
         return machine.isWorkingState()
-                ? Component.literal("§a运行中: " + machine.getProgress() + " / " + machine.getMaxProgress())
-                : Component.literal("§7待机");
+                ? Component.translatable("gui.poly_mech.machine.progress", machine.getProgress(), machine.getMaxProgress())
+                        .withStyle(ChatFormatting.GREEN)
+                : Component.translatable("gui.poly_mech.status.idle").withStyle(ChatFormatting.GRAY);
     }
 }

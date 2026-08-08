@@ -10,7 +10,7 @@
     "zinc": { "colors": ["#ffa2ddc2", "#ff858834", "#e8f2fff9"] },
     "brass": { "colors": ["#ffffce49", "#e5bc3f00", "#abfffcf5"] },
     "bronze": { "colors": ["#fff08040", "#e5c05020", "#abffd840"] },
-    "ivar": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
+    "invar": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
     "cupronickel": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
     "stainless_steel": { "colors": ["#ffCDD7E4", "#ff9b75c1", "#fffdfbff"] },
     "coke": { "colors": ["#ff3a3a3f", "#ff1f1f24", "#ff5a5a62"] },
@@ -88,7 +88,7 @@
     "zinc_block": { "colors": ["#ffa2ddc2", "#ff858834", "#e8f2fff9"] },
     "brass_block": { "colors": ["#ffffce49", "#ffbc3f00", "#ffEEE4CD"] },
     "bronze_block": { "colors": ["#fff08040", "#ffc05020", "#ffE1C865"] },
-    "ivar_block": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
+    "invar_block": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
     "cupronickel_block": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
     "stainless_steel_block": { "colors": ["#ffCDD7E4", "#ffEFE6F7", "#ffF0E7F9"] },
 
@@ -134,7 +134,7 @@
     "zinc_ingot": "zinc",
     "brass_ingot": "brass",
     "bronze_ingot": "bronze",
-    "ivar_ingot": "ivar",
+    "invar_ingot": "invar",
     "cupronickel_ingot": "cupronickel",
     "stainless_steel_ingot": "stainless_steel",
 

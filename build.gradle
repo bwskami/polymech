@@ -128,9 +128,51 @@ configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
 
+// 独立的CDK依赖配置：供mergeCdk收集构件，不混入主运行时类路径
+// （散装CDK子模块若直接进dev类路径，BootstrapLauncher的PackageTracker会因
+//  cdk-legacy与子模块包名重叠互相剔除类文件，导致运行时ClassNotFoundException）
+configurations {
+    cdkLibs
+}
+dependencies {
+    cdkLibs 'org.openscience.cdk:cdk-bundle:2.9'
+    // CDK运行时必需的传递依赖：vecmath（坐标类）、beam（SMILES解析内核）
+    cdkLibs 'javax.vecmath:vecmath:1.5.2'
+    cdkLibs 'uk.ac.ebi.beam:beam-core:1.3.5'
+    cdkLibs 'uk.ac.ebi.beam:beam-func:1.3.5'
+}
+
+// 合并CDK全部子模块为单个fat jar（cdk-bundle只是空聚合包，类分散在50+个子模块中）
+// 排除签名文件、module-info与重复清单，避免jar-in-jar加载冲突
+def mergeCdk = tasks.register("mergeCdk", Jar) {
+    archiveBaseName = 'cdk-all'
+    archiveVersion = '2.9'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.cdkLibs.incoming.artifactView {
+        attributes {
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+        }
+    }.files.collect { zipTree(it) })
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class', 'META-INF/MANIFEST.MF'
+    manifest {
+        // 标记为库类型，确保jar-in-jar被FML按库加载；
+        // Automatic-Module-Name是ModDevGradle嵌入本地文件的强制要求
+        attributes 'FMLModType': 'LIBRARY', 'Automatic-Module-Name': 'org.openscience.cdk'
+    }
+}
+
 dependencies {
     implementation("com.lowdragmc.ldlib2:ldlib2-neoforge-${minecraft_version}:${ldlib2_version}:all")
     implementation "software.bernie.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+
+    // CDK化学信息学库（SMILES解析与2D坐标生成），仅编译期使用；
+    // 运行时统一使用下方mergeCdk产出的单个fat jar（避免50+子模块在模块层的split-package问题）
+    compileOnly 'org.openscience.cdk:cdk-bundle:2.9'
+    // 开发环境运行（runClient）：把合并后的cdk-all fat jar加入类路径，
+    // 单个模块持有全部CDK包，无包重叠，可被mod模块正常读取
+    additionalRuntimeClasspath files(mergeCdk)
+    // 生产环境：fat jar经jar-in-jar嵌入mod jar，由FML按LIBRARY加载
+    jarJar files(mergeCdk)
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime

@@ -190,6 +190,21 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("gui.poly_mech.button.enable", "Enable");
         add("gui.poly_mech.button.disable", "Disable");
 
+        // Boiler / processing machine status and progress-bar hover tooltips
+        add("gui.poly_mech.status.running", "Running");
+        add("gui.poly_mech.status.stopped", "Stopped");
+        add("gui.poly_mech.status.idle", "Idle");
+        add("gui.poly_mech.machine.generation", "Generation: %d /t");
+        add("gui.poly_mech.machine.progress", "Progress: %d / %d");
+        add("gui.poly_mech.boiler.tooltip.temperature", "Temperature: %d K / %d K");
+        add("gui.poly_mech.boiler.tooltip.steam_output", "Steam Output: %d mB/t");
+        add("gui.poly_mech.boiler.tooltip.water_level", "Water Level: %d / %d mB");
+        add("gui.poly_mech.boiler.tooltip.steam", "Steam: %d / %d mB");
+        add("gui.poly_mech.boiler.tooltip.steam_rate", "Steam Rate: %d mB/t");
+        add("gui.poly_mech.boiler.temperature", "Temperature: %d K");
+        add("gui.poly_mech.boiler.efficiency", "Expected Efficiency: %d mB/t");
+        add("gui.poly_mech.boiler.burn_time", "Burn Time: %d s");
+
         // 蒸汽流体
         add("fluid.poly_mech.steam", "Steam");
         add("item.poly_mech.steam_bucket", "Steam Bucket");

@@ -6,9 +6,11 @@ import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
 import com.mss.polymech.client.renderer.MachineGeoRenderer;
 import com.mss.polymech.client.tooltip.ClientCompositionPieTooltipComponent;
+import com.mss.polymech.client.tooltip.ClientMoleculeStructureTooltipComponent;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.tooltip.CompositionPieTooltipComponent;
+import com.mss.polymech.tooltip.CompositionStructureTooltipComponent;
 import com.mss.polymech.tooltip.ModTooltipCenter;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
@@ -34,8 +36,10 @@ public class PolymechClient {
     public PolymechClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         // 注册成分饼图tooltip组件工厂（RegisterClientTooltipComponentFactoriesEvent在MOD总线）
-        container.getEventBus().addListener(RegisterClientTooltipComponentFactoriesEvent.class, event ->
-                event.register(CompositionPieTooltipComponent.class, ClientCompositionPieTooltipComponent::new));
+        container.getEventBus().addListener(RegisterClientTooltipComponentFactoriesEvent.class, event -> {
+            event.register(CompositionPieTooltipComponent.class, ClientCompositionPieTooltipComponent::new);
+            event.register(CompositionStructureTooltipComponent.class, ClientMoleculeStructureTooltipComponent::new);
+        });
         // GatherComponents是游戏总线事件：@EventBusSubscriber默认挂在MOD总线收不到，需手动注册
         NeoForge.EVENT_BUS.addListener(ModTooltipCenter::onGatherTooltipComponents);
     }

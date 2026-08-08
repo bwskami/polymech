@@ -11,11 +11,11 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "poly_mech:ivar_pipe"
+          "name": "poly_mech:invar_block"
         }
       ],
       "rolls": 1.0
     }
   ],
-  "random_sequence": "poly_mech:blocks/ivar_pipe"
+  "random_sequence": "poly_mech:blocks/invar_block"
 }

@@ -172,12 +172,42 @@ public class ModTooltipCenter {
         return new CompositionPieTooltipComponent(lastPieSlices);
     }
 
+    // ========== 分子结构式缓存（与饼图同机制：ItemTooltipEvent缓存，GatherComponents同帧消费） ==========
+
+    /** 最近一次命中结构式注册表的物品栈 */
+    private static ItemStack lastStructureStack = ItemStack.EMPTY;
+    /** 最近一次命中的分子结构 */
+    private static MoleculeStructure lastStructure;
+
+    /** 化学式已登记结构式且按住Shift时缓存，供同帧GatherComponents插入 */
+    private static void cacheStructure(String formula, ItemStack stack) {
+        MoleculeStructure structure = MoleculeStructures.get(formula);
+        if (structure != null && isShiftDown()) {
+            lastStructureStack = stack;
+            lastStructure = structure;
+        }
+    }
+
+    /**
+     * 供RenderTooltipEvent.GatherComponents调用：悬停物品已登记分子结构式（按住Shift）时
+     * 返回结构数据，由调用方插入tooltip元素列表；否则返回null。
+     */
+    public static MoleculeStructure getMoleculeStructure(ItemStack stack) {
+        if (!isShiftDown() || stack.isEmpty() || lastStructure == null) return null;
+        if (!ItemStack.matches(stack, lastStructureStack)) return null;
+        return lastStructure;
+    }
+
     /**
      * RenderTooltipEvent.GatherComponents监听器（游戏总线事件，由PolymechClient在客户端
-     * 手动注册到NeoForge.EVENT_BUS）：按住Shift悬停含化学式成分的物品时，
-     * 向tooltip元素列表插入成分饼图组件（左侧图例+右侧饼图，参考GregTech样式）。
+     * 手动注册到NeoForge.EVENT_BUS）：按住Shift悬停时，先插入分子结构式组件
+     * （仅已登记结构的物质，显示在上方），再插入成分饼图组件（参考GregTech样式）。
      */
     public static void onGatherTooltipComponents(RenderTooltipEvent.GatherComponents event) {
+        MoleculeStructure structure = getMoleculeStructure(event.getItemStack());
+        if (structure != null) {
+            event.getTooltipElements().add(Either.right(new CompositionStructureTooltipComponent(structure)));
+        }
         CompositionPieTooltipComponent pie = getCompositionPie(event.getItemStack());
         if (pie != null) {
             event.getTooltipElements().add(Either.right(pie));
@@ -265,6 +295,8 @@ public class ModTooltipCenter {
         registerFormula(Items.DIAMOND_BLOCK, "C");
         registerFormula(Items.QUARTZ, "SiO2");
         registerFormula(Items.QUARTZ_BLOCK, "SiO2");
+        // 有机物：糖（蔗糖）
+        registerFormula(Items.SUGAR, "C12H22O11");
     }
 
     // ========== tooltip事件入口 ==========
@@ -287,6 +319,7 @@ public class ModTooltipCenter {
         if (formula != null && !formula.isEmpty()) {
             tooltip.add(1, formulaComponent(formula));
             appendComposition(tooltip, 2, formula, stack);
+            cacheStructure(formula, stack);
         }
     }
 
@@ -320,6 +353,7 @@ public class ModTooltipCenter {
         // 化学式（元素染色、下标数字，不带前缀）
         tooltip.add(1, formulaComponent(info.getFormula()));
         appendComposition(tooltip, 2, info.getFormula(), stack);
+        cacheStructure(info.getFormula(), stack);
         // 物态：液体 / 气体 / 等离子体
         String stateKey = switch (info.getState()) {
             case LIQUID -> "tooltip.poly_mech.fluid.state_liquid";

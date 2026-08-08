@@ -8,7 +8,7 @@ public enum MaterialSet {
     ZINC("zinc", ItemLayerTemplates.INGOT, BlockLayerTemplates.PIPE),
     BRASS("brass", ItemLayerTemplates.ALLOY, BlockLayerTemplates.PIPE),
     BRONZE("bronze", ItemLayerTemplates.ALLOY, BlockLayerTemplates.PIPE),
-    IVAR("ivar", ItemLayerTemplates.ALLOY, BlockLayerTemplates.PIPE),
+    INVAR("invar", ItemLayerTemplates.ALLOY, BlockLayerTemplates.PIPE),
     CUPRONICKEL("cupronickel", ItemLayerTemplates.ALLOY, BlockLayerTemplates.PIPE),
     STAINLESS_STEEL("stainless_steel", ItemLayerTemplates.ALLOY, BlockLayerTemplates.PIPE);
 
