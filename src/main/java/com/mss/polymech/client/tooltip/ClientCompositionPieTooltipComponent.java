@@ -38,8 +38,6 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
     private static final int ROW_HEIGHT = 10;
     /** 引线终点所在的半径比例（扇面半径的90%处） */
     private static final double END_RADIUS_RATIO = 0.9;
-    /** 引线颜色（白色） */
-    private static final int LINE_COLOR = 0xFFFFFF;
 
     /** 单个切片的布局信息（扇区中点角度、所在侧、标签宽度、解算后的标签垂直中心） */
     private record Layout(Slice slice, double midAngle, boolean rightSide, int labelWidth, float labelCenterYRel) {
@@ -209,6 +207,8 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
 
         for (Layout layout : layouts) {
             String text = labelText(layout.slice());
+            // 标签文字按元素周期表配色染色（与扇区同色），引线保持白色
+            int textColor = layout.slice().color();
             // 引线终点：扇面半径90%处沿扇区中点角度方向的弧边中点
             float endX = (float) (cx + Math.cos(layout.midAngle()) * radius * END_RADIUS_RATIO);
             float endY = (float) (cy + Math.sin(layout.midAngle()) * radius * END_RADIUS_RATIO);
@@ -218,12 +218,12 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
             if (layout.rightSide()) {
                 int tx = x + leftLabelWidth + SIDE_GAP + PIE_DIAMETER + SIDE_GAP;
                 guiGraphics.drawString(font, text, tx,
-                        (int) (lineY - font.lineHeight / 2.0f), LINE_COLOR);
+                        (int) (lineY - font.lineHeight / 2.0f), textColor);
                 drawLeaderLine(lines, matrix, tx - 2, lineY, endX, endY);
             } else {
                 int tx = x + leftLabelWidth - layout.labelWidth(); // 右对齐
                 guiGraphics.drawString(font, text, tx,
-                        (int) (lineY - font.lineHeight / 2.0f), LINE_COLOR);
+                        (int) (lineY - font.lineHeight / 2.0f), textColor);
                 drawLeaderLine(lines, matrix, x + leftLabelWidth + 2, lineY, endX, endY);
             }
         }

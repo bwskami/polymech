@@ -76,8 +76,8 @@ public class ModTooltipCenter {
     }
 
     /**
-     * 化学式提示行：元素符号按元素周期表配色染色，数字转Unicode下标（保持黄色），
-     * 括号与分隔符保持黄色，无"化学式"前缀（与GTM一致）。
+     * 化学式提示行：元素符号按元素周期表配色染色，数字转Unicode下标
+     * （下标数字跟随其前方元素的颜色），括号与分隔符保持黄色，无"化学式"前缀（与GTM一致）。
      */
     public static Component formulaComponent(String formula) {
         MutableComponent result = Component.empty();
@@ -93,8 +93,9 @@ public class ModTooltipCenter {
                 int color = ElementColors.getColor(symbol);
                 result.append(Component.literal(symbol).withStyle(style -> style.withColor(color)));
                 if (digits.length() > 0) {
+                    // 下标数字跟随元素颜色，如Fe₃中的₃与Fe同色
                     result.append(Component.literal(toSubscript(digits.toString()))
-                            .withStyle(ChatFormatting.YELLOW));
+                            .withStyle(style -> style.withColor(color)));
                 }
             } else {
                 result.append(Component.literal(String.valueOf(c)).withStyle(ChatFormatting.YELLOW));
