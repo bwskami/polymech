@@ -36,6 +36,8 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
     private static final int SIDE_GAP = 12;
     /** 标签单行高度 */
     private static final int ROW_HEIGHT = 10;
+    /** 引线终点所在的半径比例（扇面半径的90%处） */
+    private static final double END_RADIUS_RATIO = 0.9;
     /** 引线颜色（白色） */
     private static final int LINE_COLOR = 0xFFFFFF;
 
@@ -51,79 +53,89 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
     public ClientCompositionPieTooltipComponent(CompositionPieTooltipComponent data) {
         Font font = Minecraft.getInstance().font;
         List<Layout> tmp = new ArrayList<>();
-        int leftW = 0, rightW = 0, leftCount = 0, rightCount = 0;
+        int leftW = 0, rightW = 0;
         double angle = -Math.PI / 2; // 从正上方开始，顺时针
         for (Slice slice : data.slices()) {
             double sweep = slice.pct() / 100.0 * Math.PI * 2;
             double mid = angle + sweep / 2;
             boolean right = Math.cos(mid) >= 0; // 扇区中点位于右半平面则标签放右侧
             int lw = font.width(labelText(slice));
-            if (right) {
-                rightW = Math.max(rightW, lw);
-                rightCount++;
-            } else {
-                leftW = Math.max(leftW, lw);
-                leftCount++;
-            }
+            if (right) rightW = Math.max(rightW, lw);
+            else leftW = Math.max(leftW, lw);
             tmp.add(new Layout(slice, mid, right, lw, 0));
             angle += sweep;
         }
         this.leftLabelWidth = leftW;
         this.width = leftW + SIDE_GAP + PIE_DIAMETER + SIDE_GAP + rightW;
-        this.height = Math.max(PIE_DIAMETER, Math.max(leftCount, rightCount) * ROW_HEIGHT);
-        this.layouts = resolveLabelPositions(tmp);
+        // 以饼图圆心为原点解算标签垂直位置（相对坐标），
+        // 再按最大扩展范围决定组件高度，保证被推开的标签也放得下
+        double radius = PIE_DIAMETER / 2.0;
+        float[] relY = new float[tmp.size()];
+        double maxExtent = Math.max(resolveSide(tmp, relY, true, radius),
+                resolveSide(tmp, relY, false, radius));
+        this.height = Math.max(PIE_DIAMETER, (int) Math.ceil(2 * maxExtent) + ROW_HEIGHT);
+        List<Layout> resolved = new ArrayList<>();
+        for (int i = 0; i < tmp.size(); i++) {
+            Layout l = tmp.get(i);
+            resolved.add(new Layout(l.slice(), l.midAngle(), l.rightSide(), l.labelWidth(),
+                    height / 2.0f + relY[i]));
+        }
+        this.layouts = resolved;
     }
 
     /**
-     * 解算标签垂直位置：目标高度为对应扇区弧边中点的高度（与图二一致），
-     * 同侧标签若重叠则按最小行高推开，保证引线不共线、不交叉。
+     * 单侧标签垂直位置解算（相对饼图圆心，向下为正）。
+     * <p>
+     * 目标高度=引线终点y（对齐时为直连水平线）；标签因避让被推开时，
+     * 沿远离圆心的方向推到圆外：要求 |y| > sqrt(r² - endX偏移²)，
+     * 即L形拐点(endX, lineY)落在饼图圆外。同侧按目标高度排序推开，
+     * 保证标签顺序与扇区一致、引线互不相交。
+     * </p>
+     *
+     * @return 该侧最大垂直扩展范围（含半行高），用于确定组件高度
      */
-    private List<Layout> resolveLabelPositions(List<Layout> tmp) {
-        float top = ROW_HEIGHT / 2.0f;
-        float bottom = height - ROW_HEIGHT / 2.0f;
-        float[] resolved = new float[tmp.size()];
-        resolveSide(tmp, resolved, true, top, bottom);
-        resolveSide(tmp, resolved, false, top, bottom);
-        List<Layout> result = new ArrayList<>();
-        for (int i = 0; i < tmp.size(); i++) {
-            Layout l = tmp.get(i);
-            result.add(new Layout(l.slice(), l.midAngle(), l.rightSide(), l.labelWidth(), resolved[i]));
-        }
-        return result;
-    }
-
-    /** 单侧标签位置解算：目标y=弧边中点y，正向推开保证行距，越界时反向回收 */
-    private void resolveSide(List<Layout> tmp, float[] resolved, boolean rightSide,
-                             float top, float bottom) {
+    private double resolveSide(List<Layout> tmp, float[] relY, boolean rightSide, double radius) {
         List<Integer> idx = new ArrayList<>();
         for (int i = 0; i < tmp.size(); i++) {
             if (tmp.get(i).rightSide() == rightSide) idx.add(i);
         }
+        int n = idx.size();
+        if (n == 0) return 0;
         // 按目标高度自上而下排序，保证标签顺序与扇区位置一致
         idx.sort(Comparator.comparingDouble(k -> Math.sin(tmp.get(k).midAngle())));
-        int n = idx.size();
-        if (n == 0) return;
-        double radius = PIE_DIAMETER / 2.0;
+        double[] target = new double[n];
+        double[] clear = new double[n]; // 圆心到“终点x处圆上弦”的垂直距离（拐点出圆的门槛）
+        for (int k = 0; k < n; k++) {
+            double mid = tmp.get(idx.get(k)).midAngle();
+            target[k] = Math.sin(mid) * radius * END_RADIUS_RATIO;
+            double dx = Math.cos(mid) * radius * END_RADIUS_RATIO;
+            clear[k] = Math.sqrt(Math.max(0, radius * radius - dx * dx));
+        }
         double[] ys = new double[n];
+        // 下半区标签：自上而下处理，避让时向下（远离圆心）推开
+        double prev = Double.NEGATIVE_INFINITY;
         for (int k = 0; k < n; k++) {
-            ys[k] = height / 2.0 + Math.sin(tmp.get(idx.get(k)).midAngle()) * radius;
+            if (target[k] <= 0) continue;
+            double yv = Math.max(target[k], prev + ROW_HEIGHT);
+            if (yv - target[k] > 0.5) yv = Math.max(yv, clear[k] + 1); // 被推开→拐点必须在圆外
+            ys[k] = yv;
+            prev = yv;
         }
-        // 正向推开：与上一个标签至少间隔一行
+        // 上半区标签：自下而上处理（先离圆心近的），避让时向上推开
+        prev = Double.POSITIVE_INFINITY;
+        for (int k = n - 1; k >= 0; k--) {
+            if (target[k] > 0) continue;
+            double yv = Math.min(target[k], prev - ROW_HEIGHT);
+            if (target[k] - yv > 0.5) yv = Math.min(yv, -(clear[k] + 1)); // 被推开→拐点必须在圆外
+            ys[k] = yv;
+            prev = yv;
+        }
+        double extent = 0;
         for (int k = 0; k < n; k++) {
-            double minY = k == 0 ? top : ys[k - 1] + ROW_HEIGHT;
-            if (ys[k] < minY) ys[k] = minY;
+            relY[idx.get(k)] = (float) ys[k];
+            extent = Math.max(extent, Math.abs(ys[k]) + ROW_HEIGHT / 2.0);
         }
-        // 越过下边界时反向回收
-        if (ys[n - 1] > bottom) {
-            ys[n - 1] = bottom;
-            for (int k = n - 2; k >= 0; k--) {
-                double maxY = ys[k + 1] - ROW_HEIGHT;
-                if (ys[k] > maxY) ys[k] = maxY;
-            }
-        }
-        for (int k = 0; k < n; k++) {
-            resolved[idx.get(k)] = (float) ys[k];
-        }
+        return extent;
     }
 
     /** 标签文本："百分比 + 元素符号"，如"66.9% Fe" */
@@ -197,27 +209,22 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
 
         for (Layout layout : layouts) {
             String text = labelText(layout.slice());
-            // 引线终点：扇面半径70%处沿扇区中点角度方向的点
-            float endX = (float) (cx + Math.cos(layout.midAngle()) * radius * 0.7);
-            float endY = (float) (cy + Math.sin(layout.midAngle()) * radius * 0.7);
-            // 标签垂直中心：目标即弧边中点高度，重叠时已推开
+            // 引线终点：扇面半径90%处沿扇区中点角度方向的弧边中点
+            float endX = (float) (cx + Math.cos(layout.midAngle()) * radius * END_RADIUS_RATIO);
+            float endY = (float) (cy + Math.sin(layout.midAngle()) * radius * END_RADIUS_RATIO);
+            // 标签垂直中心：目标即引线终点高度（重叠时已推开）
             float lineY = y + layout.labelCenterYRel();
 
             if (layout.rightSide()) {
                 int tx = x + leftLabelWidth + SIDE_GAP + PIE_DIAMETER + SIDE_GAP;
                 guiGraphics.drawString(font, text, tx,
                         (int) (lineY - font.lineHeight / 2.0f), LINE_COLOR);
-                // L形引线：先水平后垂直，只拐一次弯
-                addQuadLine(lines, matrix, tx - 2, lineY, endX, lineY);
-                addQuadLine(lines, matrix, endX, lineY, endX, endY);
+                drawLeaderLine(lines, matrix, tx - 2, lineY, endX, endY);
             } else {
                 int tx = x + leftLabelWidth - layout.labelWidth(); // 右对齐
                 guiGraphics.drawString(font, text, tx,
                         (int) (lineY - font.lineHeight / 2.0f), LINE_COLOR);
-                // L形引线：先水平后垂直，只拐一次弯
-                float labelEnd = x + leftLabelWidth + 2;
-                addQuadLine(lines, matrix, labelEnd, lineY, endX, lineY);
-                addQuadLine(lines, matrix, endX, lineY, endX, endY);
+                drawLeaderLine(lines, matrix, x + leftLabelWidth + 2, lineY, endX, endY);
             }
         }
 
@@ -234,7 +241,25 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
         RenderSystem.depthFunc(org.lwjgl.opengl.GL11.GL_LEQUAL);
     }
 
-    /** 用细长四边形（宽约1.5px）绘制一条引线，两端点任意 */
+    /**
+     * 绘制单条引线（严格L形，最多拐一次弯，先横后竖）：
+     * 与终点同高时直连（纯水平线，无拐弯）；
+     * 标签因避让被推开时：先水平延伸到终点正上方/下方的x处，
+     * 再垂直穿入扇面到达终点——拐点(endX, lineY)已由位置解算推到饼图圆外，
+     * 水平段与标签同高不穿过圆，全程只拐一次弯。
+     */
+    private void drawLeaderLine(BufferBuilder lines, Matrix4f matrix,
+                                float startX, float lineY, float endX, float endY) {
+        if (Math.abs(lineY - endY) < 0.5f) {
+            addQuadLine(lines, matrix, startX, lineY, endX, endY);
+            return;
+        }
+        // L形：先横后竖，拐点(endX, lineY)在圆外
+        addQuadLine(lines, matrix, startX, lineY, endX, lineY);
+        addQuadLine(lines, matrix, endX, lineY, endX, endY);
+    }
+
+    /** 用细长四边形（宽约1px）绘制一条引线，两端点任意 */
     private static void addQuadLine(BufferBuilder builder, Matrix4f matrix,
                                     float x1, float y1, float x2, float y2) {
         double dx = x2 - x1, dy = y2 - y1;
