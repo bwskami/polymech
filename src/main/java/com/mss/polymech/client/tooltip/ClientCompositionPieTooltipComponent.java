@@ -27,7 +27,7 @@ import java.util.Locale;
  * 布局：饼图居中，各元素标签按其扇区位置分布在饼图<b>左侧或右侧</b>，
  * 每个标签用一条白色引线连接到对应扇区的弧边中点，直观指示归属。
  * 扇区从正上方开始按质量占比降序顺时针排列。
- * 若数据携带分子结构式，结构式同屏绘制在饼图右侧（垂直居中对齐）。
+ * 若数据携带结构式（含离子化合物的各离子结构），结构式同屏并排绘制在饼图右侧（垂直居中对齐）。
  * </p>
  */
 public class ClientCompositionPieTooltipComponent implements ClientTooltipComponent {
@@ -52,7 +52,7 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
     /** 饼图本体（含两侧标签）的宽高 */
     private final int pieWidth;
     private final int pieHeight;
-    /** 可选的分子结构式子组件（绘制在饼图右侧），无则null */
+    /** 可选的结构式子组件（绘制在饼图右侧，含各离子结构并排），无则null */
     private final ClientMoleculeStructureTooltipComponent structureComp;
     private final int width;
     private final int height;
@@ -88,9 +88,9 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
                     pieHeight / 2.0f + relY[i]));
         }
         this.layouts = resolved;
-        // 携带结构式时：总宽=饼图+间距+结构式，总高取两者较大者（各自垂直居中）
-        this.structureComp = data.structure() == null ? null
-                : new ClientMoleculeStructureTooltipComponent(new CompositionStructureTooltipComponent(data.structure()));
+        // 携带结构式时：总宽=饼图+间距+结构式（多个并排），总高取两者较大者（各自垂直居中）
+        this.structureComp = data.structures().isEmpty() ? null
+                : new ClientMoleculeStructureTooltipComponent(new CompositionStructureTooltipComponent(data.structures()));
         if (structureComp != null) {
             this.width = pieWidth + STRUCTURE_GAP + structureComp.getWidth(font);
             this.height = Math.max(pieHeight, structureComp.getHeight());
@@ -182,7 +182,7 @@ public class ClientCompositionPieTooltipComponent implements ClientTooltipCompon
         drawPie(guiGraphics, cx, cy, radius);
         drawLabelsAndLines(font, guiGraphics, cx, cy, radius, x, pieY);
 
-        // 分子结构式绘制在饼图右侧，同样垂直居中
+        // 结构式（可多个并排）绘制在饼图右侧，同样垂直居中
         if (structureComp != null) {
             guiGraphics.flush();
             int sx = x + pieWidth + STRUCTURE_GAP;

@@ -1,5 +1,6 @@
 package com.mss.polymech.tooltip;
 
+import com.mss.polymech.tooltip.CompositionStructureTooltipComponent.StructureEntry;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 
 import java.util.List;
@@ -11,13 +12,13 @@ import java.util.List;
  * {@link net.neoforged.neoforge.client.event.RenderTooltipEvent.GatherComponents}
  * 插入tooltip元素列表，客户端侧由对应的ClientTooltipComponent
  * 渲染为"左侧图例（百分比+彩色元素符号）+ 中间饼图"，
- * 若物质已登记分子结构式，结构式同屏绘制在饼图右侧。
+ * 若物质已登记结构式（含离子化合物的各离子结构），结构式同屏并排绘制在饼图右侧。
  * </p>
  *
- * @param slices    饼图切片列表（按质量占比降序）
- * @param structure 可选的分子结构数据（已登记时为结构数据，否则null）
+ * @param slices     饼图切片列表（按质量占比降序）
+ * @param structures 结构式条目列表（含离子电荷，无已登记结构式时为空列表）
  */
-public record CompositionPieTooltipComponent(List<Slice> slices, MoleculeStructure structure) implements TooltipComponent {
+public record CompositionPieTooltipComponent(List<Slice> slices, List<StructureEntry> structures) implements TooltipComponent {
 
     /**
      * 单个饼图切片。

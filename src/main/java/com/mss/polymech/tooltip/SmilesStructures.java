@@ -41,6 +41,9 @@ public final class SmilesStructures {
 
     /** 环内双键示意线向环心收缩比例 */
     private static final float RING_LINE_INSET = 0.8f;
+    /** 星型配位重排的配体圆半径（网格单位）：大于默认键长1.0，
+     *  给键线两端被原子标签裁剪后仍留出可见线段 */
+    private static final float STAR_RADIUS = 1.5f;
 
     /** 生成成功的结构缓存（按化学式） */
     private static final Map<String, MoleculeStructure> CACHE = new HashMap<>();
@@ -88,12 +91,48 @@ public final class SmilesStructures {
         sdg.setMolecule(mol);
         sdg.generateCoordinates();
         mol = sdg.getMolecule();
+        // 星型配位离子（如SbF6^-）CDK坐标生成不均匀（缺角/重叠），改为均匀圆形重排
+        relayoutStar(mol);
         return convert(mol);
+    }
+
+    /**
+     * 星型拓扑重排：单一中心原子连接所有其它原子（且其它原子均为端基）时，
+     * 将中心置于原点、周边原子自正上方起逆时针均匀分布在单位圆上，
+     * 保证SbF6^-等超价配位离子各配体均匀环绕中心。
+     */
+    private static void relayoutStar(IAtomContainer mol) {
+        int n = mol.getAtomCount();
+        if (n < 5) return; // 至少4个配体才需要重排
+        int center = -1;
+        for (int i = 0; i < n; i++) {
+            if (mol.getConnectedBondsCount(mol.getAtom(i)) == n - 1) {
+                center = i;
+                break;
+            }
+        }
+        if (center < 0) return;
+        // 确认纯星型：其余原子均为单键端基
+        for (int i = 0; i < n; i++) {
+            if (i != center && mol.getConnectedBondsCount(mol.getAtom(i)) != 1) return;
+        }
+        mol.getAtom(center).setPoint2d(new Point2d(0, 0));
+        int leaves = n - 1, idx = 0;
+        for (int i = 0; i < n; i++) {
+            if (i == center) continue;
+            double theta = Math.PI / 2 + 2 * Math.PI * idx / leaves;
+            mol.getAtom(i).setPoint2d(new Point2d(
+                    Math.cos(theta) * STAR_RADIUS, Math.sin(theta) * STAR_RADIUS));
+            idx++;
+        }
     }
 
     /** 校验解析产物的分子式与登记化学式逐元素一致（含隐式氢） */
     private static boolean formulaMatches(String formula, IAtomContainer mol) {
-        Map<String, Integer> expected = ModTooltipCenter.parseFormula(formula);
+        // 离子结构键带"^电荷"后缀（如 SO4^2-、H2F^+）：先去掉，
+        // 避免电荷数字与原子个数混淆；中性化学式无此后缀，不受影响
+        String neutral = formula.replaceAll("\\^\\d*[+-]$", "");
+        Map<String, Integer> expected = ModTooltipCenter.parseFormula(neutral);
         IMolecularFormula mf = MolecularFormulaManipulator.getMolecularFormula(mol);
         for (Map.Entry<String, Integer> e : expected.entrySet()) {
             IElement element = mf.getBuilder().newInstance(IElement.class, e.getKey());

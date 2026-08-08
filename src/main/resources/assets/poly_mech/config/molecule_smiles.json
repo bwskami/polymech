@@ -24,5 +24,12 @@
   "C3H6": "CC=C",
   "C4H8": "CCC=C",
   "C4H6": "C=CC=C",
-  "C10H8": "c1ccc2ccccc2cc1"
+  "C10H8": "c1ccc2ccccc2cc1",
+  "comment_ions": "离子结构（供离子式tooltip并排显示）：键=中性离子式+^电荷后缀，如 SbF6^-、Cr2O7^2-；SMILES中用[原子±]表达形式电荷",
+  "H2F^+": "[H][F+][H]",
+  "SbF6^-": "F[Sb-](F)(F)(F)(F)F",
+  "SO4^2-": "O=S(=O)([O-])[O-]",
+  "NO3^-": "O=[N+]([O-])[O-]",
+  "OH^-": "[OH-]",
+  "S2O8^2-": "[O-]S(=O)(=O)OOS(=O)(=O)[O-]"
 }

@@ -51,7 +51,7 @@ public final class MoleculeStructures {
         try (var reader = new InputStreamReader(optional.get().open(), StandardCharsets.UTF_8)) {
             JsonObject root = new Gson().fromJson(reader, JsonObject.class);
             for (var entry : root.entrySet()) {
-                if ("comment".equals(entry.getKey())) continue;
+                if (entry.getKey().startsWith("comment")) continue;
                 try {
                     SMILES.put(entry.getKey(), entry.getValue().getAsString());
                 } catch (Exception e) {

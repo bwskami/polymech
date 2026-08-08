@@ -75,6 +75,12 @@ public class ModTooltipCenter {
         return new String(chars);
     }
 
+    /** 离子结构式查询键：中性式+"^电荷"后缀，如 "SbF6^-"、"Cr2O7^2-"（在molecule_smiles.json中登记） */
+    public static String ionStructureKey(IonFormulas.Ion ion) {
+        int mag = Math.abs(ion.charge());
+        return ion.formula() + "^" + (mag == 1 ? "" : String.valueOf(mag)) + (ion.charge() > 0 ? "+" : "-");
+    }
+
     /**
      * 化学式提示行：元素符号按元素周期表配色染色，数字转Unicode下标
      * （下标数字跟随其前方元素的颜色），括号与分隔符保持黄色，无"化学式"前缀（与GTM一致）。
@@ -164,54 +170,78 @@ public class ModTooltipCenter {
 
     /**
      * 供RenderTooltipEvent.GatherComponents调用：悬停物品有成分饼图数据（按住Shift）时
-     * 返回饼图组件（可选携带分子结构式，由客户端绘制在饼图右侧），
+     * 返回饼图组件（可选携带分子/离子结构式列表，由客户端绘制在饼图右侧），
      * 由调用方插入tooltip元素列表；否则返回null。
      */
-    public static CompositionPieTooltipComponent getCompositionPie(ItemStack stack, MoleculeStructure structure) {
+    public static CompositionPieTooltipComponent getCompositionPie(ItemStack stack, List<CompositionStructureTooltipComponent.StructureEntry> structures) {
         if (!isShiftDown() || stack.isEmpty() || lastPieSlices.isEmpty()) return null;
         if (!ItemStack.matches(stack, lastPieStack)) return null;
-        return new CompositionPieTooltipComponent(lastPieSlices, structure);
+        return new CompositionPieTooltipComponent(lastPieSlices, structures);
     }
 
     // ========== 分子结构式缓存（与饼图同机制：ItemTooltipEvent缓存，GatherComponents同帧消费） ==========
 
     /** 最近一次命中结构式注册表的物品栈 */
     private static ItemStack lastStructureStack = ItemStack.EMPTY;
-    /** 最近一次命中的分子结构 */
-    private static MoleculeStructure lastStructure;
+    /** 最近一次命中的结构式条目列表（主化学式结构或各多原子离子结构，含离子电荷） */
+    private static List<CompositionStructureTooltipComponent.StructureEntry> lastStructures = List.of();
+    /** 本次tooltip收集中的结构条目列表（null=未开始收集） */
+    private static List<CompositionStructureTooltipComponent.StructureEntry> collectingStructures;
 
-    /** 化学式已登记结构式且按住Shift时缓存，供同帧GatherComponents插入 */
-    private static void cacheStructure(String formula, ItemStack stack) {
+    /** 开始本次tooltip的结构式收集（按住Shift才收集） */
+    private static void beginStructureCache(ItemStack stack) {
+        if (!isShiftDown()) return;
+        lastStructureStack = stack;
+        collectingStructures = new ArrayList<>();
+    }
+
+    /** 收集主化学式的结构式（分子/化合物本体，电荷为0不画离子括号） */
+    private static void collectStructure(String formula) {
+        if (collectingStructures == null) return;
         MoleculeStructure structure = MoleculeStructures.get(formula);
-        if (structure != null && isShiftDown()) {
-            lastStructureStack = stack;
-            lastStructure = structure;
+        if (structure != null) collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, 0));
+    }
+
+    /** 收集离子式中各多原子离子的结构式（携带离子电荷，客户端据此画离子括号；单原子离子如K⁺无结构，跳过） */
+    private static void collectIonStructures(String ionic) {
+        if (collectingStructures == null) return;
+        for (IonFormulas.Ion ion : IonFormulas.parse(ionic)) {
+            if (ion.formula().chars().noneMatch(Character::isUpperCase)) continue;
+            MoleculeStructure structure = MoleculeStructures.get(ionStructureKey(ion));
+            if (structure != null) collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, ion.charge()));
         }
     }
 
+    /** 结束收集：有结构时记录供同帧GatherComponents插入 */
+    private static void finishStructureCache() {
+        if (collectingStructures == null) return;
+        lastStructures = collectingStructures.isEmpty() ? List.of() : List.copyOf(collectingStructures);
+        collectingStructures = null;
+    }
+
     /**
-     * 供RenderTooltipEvent.GatherComponents调用：悬停物品已登记分子结构式（按住Shift）时
-     * 返回结构数据，由调用方插入tooltip元素列表；否则返回null。
+     * 供RenderTooltipEvent.GatherComponents调用：悬停物品已登记结构式（按住Shift）时
+     * 返回结构数据列表，由调用方插入tooltip元素列表；否则返回空列表。
      */
-    public static MoleculeStructure getMoleculeStructure(ItemStack stack) {
-        if (!isShiftDown() || stack.isEmpty() || lastStructure == null) return null;
-        if (!ItemStack.matches(stack, lastStructureStack)) return null;
-        return lastStructure;
+    public static List<CompositionStructureTooltipComponent.StructureEntry> getMoleculeStructures(ItemStack stack) {
+        if (!isShiftDown() || stack.isEmpty() || lastStructures.isEmpty()) return List.of();
+        if (!ItemStack.matches(stack, lastStructureStack)) return List.of();
+        return lastStructures;
     }
 
     /**
      * RenderTooltipEvent.GatherComponents监听器（游戏总线事件，由PolymechClient在客户端
      * 手动注册到NeoForge.EVENT_BUS）：按住Shift悬停时插入成分饼图组件（参考GregTech样式），
-     * 已登记结构式的物质其结构式随饼图组件一并携带，客户端绘制在饼图右侧；
-     * 无饼图数据但有结构式时退回单独的结构式组件。
+     * 已登记结构式的物质其结构式（含离子化合物的各离子结构）随饼图组件一并携带，
+     * 客户端并排绘制在饼图右侧；无饼图数据但有结构式时退回单独的结构式组件。
      */
     public static void onGatherTooltipComponents(RenderTooltipEvent.GatherComponents event) {
-        MoleculeStructure structure = getMoleculeStructure(event.getItemStack());
-        CompositionPieTooltipComponent pie = getCompositionPie(event.getItemStack(), structure);
+        List<CompositionStructureTooltipComponent.StructureEntry> structures = getMoleculeStructures(event.getItemStack());
+        CompositionPieTooltipComponent pie = getCompositionPie(event.getItemStack(), structures);
         if (pie != null) {
             event.getTooltipElements().add(Either.right(pie));
-        } else if (structure != null) {
-            event.getTooltipElements().add(Either.right(new CompositionStructureTooltipComponent(structure)));
+        } else if (!structures.isEmpty()) {
+            event.getTooltipElements().add(Either.right(new CompositionStructureTooltipComponent(structures)));
         }
     }
 
@@ -320,7 +350,12 @@ public class ModTooltipCenter {
         if (formula != null && !formula.isEmpty()) {
             tooltip.add(1, formulaComponent(formula));
             appendComposition(tooltip, 2, formula, stack);
-            cacheStructure(formula, stack);
+            beginStructureCache(stack);
+            // 离子化合物：只显示各离子结构（带离子括号与电荷，与GTM一致），不叠加显示中性分子结构
+            String ionic = IonFormulas.get(formula);
+            if (ionic != null) collectIonStructures(ionic);
+            else collectStructure(formula);
+            finishStructureCache();
         }
     }
 
@@ -359,7 +394,12 @@ public class ModTooltipCenter {
             insertIndex++;
             appendComposition(tooltip, insertIndex, formula, stack);
             insertIndex++;
-            cacheStructure(formula, stack);
+            beginStructureCache(stack);
+            // 离子化合物：不显示离子式文字行，仅将各离子结构式（带离子括号与电荷）并入饼图右侧展示
+            String ionic = IonFormulas.get(formula);
+            if (ionic != null) collectIonStructures(ionic);
+            else collectStructure(formula);
+            finishStructureCache();
         }
         // 物态：液体 / 气体 / 等离子体
         String stateKey = switch (info.getState()) {
