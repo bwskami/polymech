@@ -351,10 +351,16 @@ public class ModTooltipCenter {
 
     /** 流体完整信息：化学式（含成分饼图）+ 物态 + 温度 + 危险警示 */
     private static void appendFluidInfo(List<Component> tooltip, FluidInfo info, ItemStack stack) {
-        // 化学式（元素染色、下标数字，不带前缀）
-        tooltip.add(1, formulaComponent(info.getFormula()));
-        appendComposition(tooltip, 2, info.getFormula(), stack);
-        cacheStructure(info.getFormula(), stack);
+        // 化学式（元素染色、下标数字，不带前缀）；混合物等无化学式物质跳过此行
+        String formula = info.getFormula();
+        int insertIndex = 1;
+        if (!formula.isEmpty()) {
+            tooltip.add(insertIndex, formulaComponent(formula));
+            insertIndex++;
+            appendComposition(tooltip, insertIndex, formula, stack);
+            insertIndex++;
+            cacheStructure(formula, stack);
+        }
         // 物态：液体 / 气体 / 等离子体
         String stateKey = switch (info.getState()) {
             case LIQUID -> "tooltip.poly_mech.fluid.state_liquid";
