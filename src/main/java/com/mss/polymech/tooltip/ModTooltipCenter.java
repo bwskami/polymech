@@ -35,6 +35,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 模组tooltip管理中心（参考GregTech Modern的TooltipsHandler）。
@@ -60,19 +61,9 @@ public class ModTooltipCenter {
 
     // ========== 化学式数字下标格式化（参考GTM FormattingUtil.toSmallDownNumbers） ==========
 
-    private static final int SUBSCRIPT_BASE = '\u2080'; // ₀
-    private static final char DIGIT_BASE = '0';
-
-    /** 将字符串中的数字转换为Unicode下标数字，如 "H2SO4" -> "H₂SO₄" */
+    /** 将字符串中的数字转换为Unicode下标数字，如 "H2SO4" -> "H₂SO₄"（委托给无游戏依赖的{@link Subscript}） */
     public static String toSubscript(String string) {
-        char[] chars = string.toCharArray();
-        for (int i = 0; i < chars.length; i++) {
-            int relative = chars[i] - DIGIT_BASE;
-            if (relative >= 0 && relative <= 9) {
-                chars[i] = (char) (SUBSCRIPT_BASE + relative);
-            }
-        }
-        return new String(chars);
+        return Subscript.toSubscript(string);
     }
 
     /** 离子结构式查询键：中性式+"^电荷"后缀，如 "SbF6^-"、"Cr2O7^2-"（在molecule_smiles.json中登记） */
@@ -84,13 +75,37 @@ public class ModTooltipCenter {
     /**
      * 化学式提示行：元素符号按元素周期表配色染色，数字转Unicode下标
      * （下标数字跟随其前方元素的颜色），括号与分隔符保持黄色，无"化学式"前缀（与GTM一致）。
+     * 同位素采用质量数前置写法（如"238U"，仅数据格式），渲染时质量数置于元素符号
+     * 右上角上标（显示为U²³⁸），避免后置数字被误当原子个数下标（U238会被读作238个铀）。
      */
     public static Component formulaComponent(String formula) {
         MutableComponent result = Component.empty();
         int i = 0, n = formula.length();
         while (i < n) {
             char c = formula.charAt(i);
-            if (Character.isUpperCase(c)) {
+            if (Character.isDigit(c)) {
+                // 出现在元素之前的数字串=同位素质量数（元素后的数字已在下方元素分支被消费为下标），
+                // 渲染为Unicode上标并置于元素符号右上角，颜色跟随元素
+                int start = i;
+                while (i < n && Character.isDigit(formula.charAt(i))) i++;
+                String mass = formula.substring(start, i);
+                if (i < n && Character.isUpperCase(formula.charAt(i))) {
+                    int elStart = i++;
+                    if (i < n && Character.isLowerCase(formula.charAt(i))) i++;
+                    String symbol = formula.substring(elStart, i);
+                    StringBuilder digits = new StringBuilder();
+                    while (i < n && Character.isDigit(formula.charAt(i))) digits.append(formula.charAt(i++));
+                    int color = ElementColors.getColor(symbol);
+                    result.append(Component.literal(symbol).withStyle(style -> style.withColor(color)));
+                    result.append(Component.literal(Subscript.toSuperscript(mass)).withStyle(style -> style.withColor(color)));
+                    if (digits.length() > 0) {
+                        result.append(Component.literal(toSubscript(digits.toString()))
+                                .withStyle(style -> style.withColor(color)));
+                    }
+                } else {
+                    result.append(Component.literal(mass).withStyle(ChatFormatting.YELLOW));
+                }
+            } else if (Character.isUpperCase(c)) {
                 int start = i++;
                 if (i < n && Character.isLowerCase(formula.charAt(i))) i++; // 第二字母小写，如Fe
                 String symbol = formula.substring(start, i);
@@ -99,9 +114,20 @@ public class ModTooltipCenter {
                 int color = ElementColors.getColor(symbol);
                 result.append(Component.literal(symbol).withStyle(style -> style.withColor(color)));
                 if (digits.length() > 0) {
-                    // 下标数字跟随元素颜色，如Fe₃中的₃与Fe同色
-                    result.append(Component.literal(toSubscript(digits.toString()))
-                            .withStyle(style -> style.withColor(color)));
+                    String seg = digits.toString();
+                    // 数字段后紧跟元素时，段尾可能是下一元素的同位素质量数（如"F6238U"），
+                    // 切出后退回给上方数字分支渲染为左上角上标，剩余部分才是原子个数下标
+                    if (i < n && Character.isUpperCase(formula.charAt(i))) {
+                        String mass = trimMassSuffix(seg);
+                        seg = seg.substring(0, seg.length() - mass.length());
+                        i -= mass.length();
+                    }
+                    if (!seg.isEmpty()) {
+                        // 下标数字跟随元素颜色，如Fe₃中的₃与Fe同色
+                        String finalSeg = seg;
+                        result.append(Component.literal(toSubscript(finalSeg))
+                                .withStyle(style -> style.withColor(color)));
+                    }
                 }
             } else {
                 result.append(Component.literal(String.valueOf(c)).withStyle(ChatFormatting.YELLOW));
@@ -139,9 +165,23 @@ public class ModTooltipCenter {
                 int start = i++;
                 if (i < n && Character.isLowerCase(formula.charAt(i))) i++;
                 String symbol = formula.substring(start, i);
-                StringBuilder digits = new StringBuilder();
-                while (i < n && Character.isDigit(formula.charAt(i))) digits.append(formula.charAt(i++));
-                int count = digits.length() > 0 ? Integer.parseInt(digits.toString()) : 1;
+                // 元素后数字段：既可能是该元素原子个数，也可能是下一元素的同位素质量数前置
+                //（如"F6238U"中6归F、238是U质量数）。规则：若数字段后紧跟元素符号，
+                // 按已知质量数集合从段尾切出质量数；否则整段为原子个数。
+                int dStart = i;
+                while (i < n && Character.isDigit(formula.charAt(i))) i++;
+                int count = 1;
+                if (i > dStart) {
+                    String seg = formula.substring(dStart, i);
+                    if (i < n && Character.isUpperCase(formula.charAt(i))) {
+                        String mass = trimMassSuffix(seg);
+                        String countPart = seg.substring(0, seg.length() - mass.length());
+                        count = countPart.isEmpty() ? 1 : Integer.parseInt(countPart);
+                        i = dStart + countPart.length(); // 质量数留给下一轮元素前分支消费
+                    } else {
+                        count = Integer.parseInt(seg);
+                    }
+                }
                 stack.peek().merge(symbol, count, Integer::sum);
             } else {
                 i++; // 跳过'.'、'·'、'-'等分隔符与其它未知字符
@@ -154,6 +194,18 @@ public class ModTooltipCenter {
             group.forEach((sym, cnt) -> target.merge(sym, cnt, Integer::sum));
         }
         return root;
+    }
+
+    /** 本项目登记的同位素质量数集合（用于解析时把元素间数字段尾部质量数切出来） */
+    private static final Set<String> KNOWN_MASS_NUMBERS = Set.of("3", "235", "238", "239", "241");
+
+    /** 从元素间数字段的尾部切出已知质量数（如"6238"->"238"），无匹配返回空串 */
+    private static String trimMassSuffix(String segment) {
+        for (int len = Math.min(3, segment.length()); len >= 1; len--) {
+            String tail = segment.substring(segment.length() - len);
+            if (KNOWN_MASS_NUMBERS.contains(tail)) return tail;
+        }
+        return "";
     }
 
     /** 客户端是否按住Shift（仅客户端有效） */
@@ -199,7 +251,7 @@ public class ModTooltipCenter {
     private static void collectStructure(String formula) {
         if (collectingStructures == null) return;
         MoleculeStructure structure = MoleculeStructures.get(formula);
-        if (structure != null) collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, 0));
+        if (structure != null) collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, 0, false));
     }
 
     /** 收集离子式中各多原子离子的结构式（携带离子电荷，客户端据此画离子括号；单原子离子如K⁺无结构，跳过） */
@@ -208,8 +260,23 @@ public class ModTooltipCenter {
         for (IonFormulas.Ion ion : IonFormulas.parse(ionic)) {
             if (ion.formula().chars().noneMatch(Character::isUpperCase)) continue;
             MoleculeStructure structure = MoleculeStructures.get(ionStructureKey(ion));
-            if (structure != null) collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, ion.charge()));
+            if (structure != null) collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, ion.charge(), false));
         }
+    }
+
+    /**
+     * 收集聚合物重复单元结构（按物质id查询{@link PolymerFormulas}，命中时标记polymer=true，
+     * 客户端画通高"[ ]"大括号+右下角"n"）。聚合物与单体化学式常相同
+     * （如聚乙烯与乙烯都是C2H4），故命中后不再叠加显示单体/中性结构。
+     *
+     * @return true=已命中并收集（调用方跳过普通结构收集）
+     */
+    private static boolean collectPolymerStructure(String id) {
+        if (collectingStructures == null || id == null) return false;
+        MoleculeStructure structure = PolymerFormulas.get(id);
+        if (structure == null) return false;
+        collectingStructures.add(new CompositionStructureTooltipComponent.StructureEntry(structure, 0, true));
+        return true;
     }
 
     /** 结束收集：有结构时记录供同帧GatherComponents插入 */
@@ -351,10 +418,13 @@ public class ModTooltipCenter {
             tooltip.add(1, formulaComponent(formula));
             appendComposition(tooltip, 2, formula, stack);
             beginStructureCache(stack);
-            // 离子化合物：只显示各离子结构（带离子括号与电荷，与GTM一致），不叠加显示中性分子结构
-            String ionic = IonFormulas.get(formula);
-            if (ionic != null) collectIonStructures(ionic);
-            else collectStructure(formula);
+            // 聚合物：显示重复单元（[ ]+n）而非单体结构；未登记时退回离子/普通结构
+            if (!collectPolymerStructure(lookupMaterialName(stack.getItem()))) {
+                // 离子化合物：只显示各离子结构（带离子括号与电荷，与GTM一致），不叠加显示中性分子结构
+                String ionic = IonFormulas.get(formula);
+                if (ionic != null) collectIonStructures(ionic);
+                else collectStructure(formula);
+            }
             finishStructureCache();
         }
     }
@@ -369,15 +439,21 @@ public class ModTooltipCenter {
         return elementFluid;
     }
 
-    /** 物品化学式查找：先查通用注册表，再查模组材料反查表，最后查材料存储块 */
-    private static String lookupFormula(Item item) {
-        String extra = EXTRA_FORMULAS.get(item);
-        if (extra != null) return extra;
+    /** 物品材料名反查：先查模组材料物品，再查材料存储块；非材料物品返回null */
+    private static String lookupMaterialName(Item item) {
         String materialName = ModItems.getMaterialOf(item);
         if (materialName == null && item instanceof BlockItem blockItem) {
             // 材料存储块（如 steel_block）：经方块反查材料名
             materialName = ModBlocks.getMaterialOfBlock(blockItem.getBlock());
         }
+        return materialName;
+    }
+
+    /** 物品化学式查找：先查通用注册表，再查模组材料反查表，最后查材料存储块 */
+    private static String lookupFormula(Item item) {
+        String extra = EXTRA_FORMULAS.get(item);
+        if (extra != null) return extra;
+        String materialName = lookupMaterialName(item);
         if (materialName != null) {
             return MaterialRegistry.getFormula(materialName);
         }
@@ -395,10 +471,14 @@ public class ModTooltipCenter {
             appendComposition(tooltip, insertIndex, formula, stack);
             insertIndex++;
             beginStructureCache(stack);
-            // 离子化合物：不显示离子式文字行，仅将各离子结构式（带离子括号与电荷）并入饼图右侧展示
-            String ionic = IonFormulas.get(formula);
-            if (ionic != null) collectIonStructures(ionic);
-            else collectStructure(formula);
+            // 聚合物流体（如熔融聚乙烯）：显示重复单元（[ ]+n）而非单体结构
+            String polymerId = info instanceof ChemicalFluid chemFluid ? chemFluid.getId() : null;
+            if (!collectPolymerStructure(polymerId)) {
+                // 离子化合物：不显示离子式文字行，仅将各离子结构式（带离子括号与电荷）并入饼图右侧展示
+                String ionic = IonFormulas.get(formula);
+                if (ionic != null) collectIonStructures(ionic);
+                else collectStructure(formula);
+            }
             finishStructureCache();
         }
         // 物态：液体 / 气体 / 等离子体

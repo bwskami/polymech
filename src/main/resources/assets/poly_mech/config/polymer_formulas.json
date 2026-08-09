@@ -1,0 +1,12 @@
+{
+  "comment": "聚合物重复单元结构注册表：键=流体id或材料名（聚合物与单体化学式常相同，如乙烯/聚乙烯都是C2H4，故不能用化学式作键）。值=重复单元SMILES，可选'|'后接链延续键锚点（SMILES原子序号+方向l/r/u/d：l=左穿左括号，r=右穿右括号，u/d=上/下穿出顶/底边，逗号分隔）。锚点原子有一个价被链占用，隐式氢自动减1（Si不会显示SiH、O不会显示OH）。锚点原子应位于重复单元两端。骨架式下碳不显示标签。解析失败的条目自动回退普通结构式。可被资源包覆盖。",
+  "polyethylene": "CC|0l,1r",
+  "polytetrafluoroethylene": "FC(F)C(F)F|1l,3r",
+  "polyvinyl_chloride": "CC(Cl)|0l,1r",
+  "silicone_rubber": "[Si](C)(C)O|0u,3d",
+  "rubber": "CC(C)=CC|0l,4r",
+  "styrene_butadiene_rubber": "CC=CCCC=CCCC=CCCC(c1ccccc1)|0l,13r",
+  "polycaprolactam": "NC(=O)CCCCC|0l,7r",
+  "polyphenylene_sulfide": "Sc1ccc(cc1)|0l,4r",
+  "polybenzimidazole": "c1cc2[nH]c(c3cc(c4nc5ccccc5[nH]4)ccc3)nc2cc1|23l,12r"
+}

@@ -9,5 +9,8 @@
   "NaOH": "[Na+][OH-]",
   "Na2O8S2": "[Na+]2[S2O82-]",
   "Cl2Fe": "[Fe2+][Cl-]2",
-  "Cl3Fe": "[Fe3+][Cl-]3"
+  "Cl3Fe": "[Fe3+][Cl-]3",
+  "CH5NO2": "[NH4+][CHO2-]",
+  "H2CuO5S": "[Cu2+][SO42-].H2O",
+  "H2NiO5S": "[Ni2+][SO42-].H2O"
 }

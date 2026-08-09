@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mss.polymech.tooltip.CompositionStructureTooltipComponent;
 import com.mss.polymech.tooltip.ElementColors;
 import com.mss.polymech.tooltip.MoleculeStructure;
+import com.mss.polymech.tooltip.MoleculeStructure.Anchor;
 import com.mss.polymech.tooltip.MoleculeStructure.Atom;
 import com.mss.polymech.tooltip.MoleculeStructure.Bond;
 import com.mss.polymech.tooltip.MoleculeStructure.BondType;
@@ -32,7 +33,9 @@ import java.util.Map;
  * 先画键线（立即上传），后绘制文字压在键线上方。
  * 支持多结构式（离子化合物的各离子结构）：水平并排、垂直居中对齐。
  * 离子结构（电荷非0）外围绘制黄色离子括号"[ ]"，"]"右上角标注电荷上标
- * （如⁺、²⁻），与GTM离子式画法一致。
+ * （如⁺、²⁻），与GTM离子式画法一致。聚合物重复单元（polymer=true）外围
+ * 绘制通高黄色大括号，"]"右下角标"n"，锚点原子向括号外画链延续键，
+ * 与GTM聚合物画法一致。
  * </p>
  */
 public class ClientMoleculeStructureTooltipComponent implements ClientTooltipComponent {
@@ -68,22 +71,24 @@ public class ClientMoleculeStructureTooltipComponent implements ClientTooltipCom
         return sb.toString();
     }
 
-    /** 单个结构式条目的预计算布局数据（标签宽度/颜色/裁剪半宽、自身宽高、离子括号与电荷） */
+    /** 单个结构式条目的预计算布局数据（标签宽度/颜色/裁剪半宽、自身宽高、离子括号/聚合物括号与电荷/n） */
     private final class Entry {
         final MoleculeStructure structure;
         /** 离子电荷（0=中性分子，不画括号） */
         final int charge;
+        /** 是否为聚合物重复单元（画通高"[ ]"大括号+右下角"n"） */
+        final boolean polymer;
         /** 结构本体宽高（不含括号） */
         final int width;
         final int height;
-        /** 总占宽（离子结构含两侧括号与右上角电荷上标） */
+        /** 总占宽（离子结构含右上角电荷上标，聚合物含右下角"n"） */
         final int totalWidth;
         /** 内容动态内边距（按边缘原子标签半宽收紧，使括号紧贴内容） */
         final int leftPad;
         final int rightPad;
         final int topPad;
         final int bottomPad;
-        /** 电荷上标文本（如"⁺"、"²⁻"）及其宽度 */
+        /** 电荷上标文本（如"⁺"、"²⁻"）及其宽度（聚合物时为"n"的宽度） */
         final String chargeText;
         final int chargeWidth;
         final int[] labelWidths;
@@ -95,6 +100,7 @@ public class ClientMoleculeStructureTooltipComponent implements ClientTooltipCom
         Entry(CompositionStructureTooltipComponent.StructureEntry data, Font font) {
             this.structure = data.structure();
             this.charge = data.charge();
+            this.polymer = data.polymer();
             List<Atom> atoms = structure.atoms();
             this.labelWidths = new int[atoms.size()];
             this.labelColors = new int[atoms.size()];
@@ -122,17 +128,39 @@ public class ClientMoleculeStructureTooltipComponent implements ClientTooltipCom
                 if (atom.y() == structure.minY()) tp = Math.max(tp, clipHalfH[i]);
                 if (atom.y() == structure.maxY()) bp = Math.max(bp, clipHalfH[i]);
             }
-            this.leftPad = (int) Math.ceil(lp) + 1;
-            this.rightPad = (int) Math.ceil(rp) + 1;
-            this.topPad = (int) Math.ceil(tp) + 1;
-            this.bottomPad = (int) Math.ceil(bp) + 1;
+            int lPad = (int) Math.ceil(lp) + 1;
+            int rPad = (int) Math.ceil(rp) + 1;
+            int tPad = (int) Math.ceil(tp) + 1;
+            int bPad = (int) Math.ceil(bp) + 1;
             int spanW = (int) Math.ceil((structure.maxX() - structure.minX()) * CELL);
             int spanH = (int) Math.ceil((structure.maxY() - structure.minY()) * CELL);
-            this.height = spanH + topPad + bottomPad;
+            int h = spanH + tPad + bPad;
+            // 带括号结构（离子/聚合物）的最小高度：小结构（如聚乙烯单键）不会被压扁到比一个字还矮，
+            // 额外高度上下均分，内容保持垂直居中
+            if (charge != 0 || polymer) {
+                int minH = font.lineHeight + 4;
+                if (h < minH) {
+                    int extra = minH - h;
+                    tPad += extra / 2;
+                    bPad += extra - extra / 2;
+                    h = minH;
+                }
+            }
+            this.leftPad = lPad;
+            this.rightPad = rPad;
+            this.topPad = tPad;
+            this.bottomPad = bPad;
+            this.height = h;
             if (charge != 0) {
                 // 布局：[括号] + 内边距 + 结构 + 内边距 + [括号] + 右上角电荷上标
                 this.chargeText = chargeSuperscript(charge);
                 this.chargeWidth = font.width(chargeText);
+                this.width = BRACKET_INSET * 2 + leftPad + spanW + rightPad;
+                this.totalWidth = width + chargeWidth + 1;
+            } else if (polymer) {
+                // 布局：[括号] + 内边距 + 重复单元 + 内边距 + [括号] + 右下角"n"
+                this.chargeText = "";
+                this.chargeWidth = font.width("n");
                 this.width = BRACKET_INSET * 2 + leftPad + spanW + rightPad;
                 this.totalWidth = width + chargeWidth + 1;
             } else {
@@ -191,13 +219,14 @@ public class ClientMoleculeStructureTooltipComponent implements ClientTooltipCom
         }
     }
 
-    /** 在指定左上角绘制单个结构式（离子结构绘制通高黄色"[ ]"括号与右上角电荷上标） */
+    /** 在指定左上角绘制单个结构式（离子结构画通高黄色"[ ]"括号与右上角电荷上标；聚合物画通高大括号、右下角"n"与链延续键） */
     private void renderStructure(Entry entry, Font font, int x, int y, GuiGraphics guiGraphics) {
         MoleculeStructure structure = entry.structure;
         List<Atom> atoms = structure.atoms();
         if (atoms.isEmpty()) return;
-        // 结构本体水平起始位置（离子结构在左括号之后）
-        int contentX = entry.charge != 0 ? x + BRACKET_INSET : x;
+        // 结构本体水平起始位置（离子/聚合物结构在左括号之后）
+        boolean bracketed = entry.charge != 0 || entry.polymer;
+        int contentX = bracketed ? x + BRACKET_INSET : x;
         // 网格坐标 → 像素坐标（结构式左上角偏移）
         float ox = contentX + entry.leftPad - structure.minX() * CELL;
         float oy = y + entry.topPad - structure.minY() * CELL;
@@ -234,9 +263,32 @@ public class ClientMoleculeStructureTooltipComponent implements ClientTooltipCom
                     ox + line.x1() * CELL, oy + line.y1() * CELL,
                     ox + line.x2() * CELL, oy + line.y2() * CELL, BOND_COLOR);
         }
+        // 聚合物链延续键：从锚点原子穿出括号（两端收缩到标签边缘）
+        for (Anchor anchor : structure.anchors()) {
+            int ia = anchor.atom();
+            if (ia < 0 || ia >= atoms.size()) continue;
+            switch (anchor.dir()) {
+                case LEFT -> {
+                    float startX = pxs[ia] - exitParam(-1, 0, entry.clipHalfW[ia], entry.clipHalfH[ia]);
+                    addQuadLine(lines, matrix, startX, pys[ia], x - 1.5f, pys[ia], BOND_COLOR);
+                }
+                case RIGHT -> {
+                    float startX = pxs[ia] + exitParam(1, 0, entry.clipHalfW[ia], entry.clipHalfH[ia]);
+                    addQuadLine(lines, matrix, startX, pys[ia], x + entry.width + 1.5f, pys[ia], BOND_COLOR);
+                }
+                case UP -> {
+                    float startY = pys[ia] - exitParam(0, -1, entry.clipHalfW[ia], entry.clipHalfH[ia]);
+                    addQuadLine(lines, matrix, pxs[ia], startY, pxs[ia], y - 1.5f, BOND_COLOR);
+                }
+                case DOWN -> {
+                    float startY = pys[ia] + exitParam(0, 1, entry.clipHalfW[ia], entry.clipHalfH[ia]);
+                    addQuadLine(lines, matrix, pxs[ia], startY, pxs[ia], y + entry.height + 1.5f, BOND_COLOR);
+                }
+            }
+        }
 
-        // 离子括号：与内容等高的黄色"[ ]"（竖线+上下短划线，与键线同一渲染路径）
-        if (entry.charge != 0) {
+        // 离子/聚合物括号：与内容等高的黄色"[ ]"（竖线+上下短划线，与键线同一渲染路径）
+        if (bracketed) {
             float top = y + 0.5f, bottom = y + entry.height - 1.5f;
             float lx = x + 0.5f, rx = x + entry.width - 1.5f;
             addQuadLine(lines, matrix, lx, top, lx, bottom, BRACKET_COLOR);
@@ -272,6 +324,10 @@ public class ClientMoleculeStructureTooltipComponent implements ClientTooltipCom
         if (entry.charge != 0) {
             guiGraphics.drawString(font, entry.chargeText,
                     x + entry.width, y - font.lineHeight / 2 + 2, BRACKET_COLOR);
+        } else if (entry.polymer) {
+            // 聚合度"n"：右括号下角外侧（略低于括号底端，呈下标样式）
+            guiGraphics.drawString(font, "n",
+                    x + entry.width, y + entry.height - font.lineHeight / 2 - 2, BRACKET_COLOR);
         }
     }
 

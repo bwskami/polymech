@@ -24,7 +24,9 @@ public record CompositionStructureTooltipComponent(List<StructureEntry> structur
      *
      * @param structure 结构式数据
      * @param charge    离子电荷（如+1、-2；0=中性分子，不画离子括号）
+     * @param polymer   是否为聚合物重复单元（true时画通高"[ ]"大括号+右下角"n"，
+     *                  并按structure中的锚点画穿出括号的链延续键，见{@link PolymerFormulas}）
      */
-    public record StructureEntry(MoleculeStructure structure, int charge) {
+    public record StructureEntry(MoleculeStructure structure, int charge, boolean polymer) {
     }
 }

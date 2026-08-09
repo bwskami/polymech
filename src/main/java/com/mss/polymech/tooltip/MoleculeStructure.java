@@ -42,18 +42,35 @@ public final class MoleculeStructure {
     public record RingLine(float x1, float y1, float x2, float y2) {
     }
 
+    /** 链方向：聚合物重复单元上穿出括号的链延续键方向（左右穿出侧括号，上下穿出顶/底边，如GTM硅橡胶） */
+    public enum Direction {
+        LEFT, RIGHT, UP, DOWN
+    }
+
+    /**
+     * 聚合物链延续键锚点：从指定原子向指定方向画一条穿出括号的短键，
+     * 表示高分子链在重复单元外继续延伸。
+     *
+     * @param atom 原子索引
+     * @param dir  链延伸方向（LEFT/RIGHT=穿出侧括号，UP/DOWN=穿出顶/底边）
+     */
+    public record Anchor(int atom, Direction dir) {
+    }
+
     private final List<Atom> atoms;
     private final List<Bond> bonds;
     private final List<RingLine> ringLines;
+    private final List<Anchor> anchors;
     private final float minX;
     private final float minY;
     private final float maxX;
     private final float maxY;
 
-    private MoleculeStructure(List<Atom> atoms, List<Bond> bonds, List<RingLine> ringLines) {
+    private MoleculeStructure(List<Atom> atoms, List<Bond> bonds, List<RingLine> ringLines, List<Anchor> anchors) {
         this.atoms = Collections.unmodifiableList(atoms);
         this.bonds = Collections.unmodifiableList(bonds);
         this.ringLines = Collections.unmodifiableList(ringLines);
+        this.anchors = Collections.unmodifiableList(anchors);
         float mnx = Float.MAX_VALUE, mny = Float.MAX_VALUE, mxx = -Float.MAX_VALUE, mxy = -Float.MAX_VALUE;
         for (Atom atom : atoms) {
             mnx = Math.min(mnx, atom.x());
@@ -77,6 +94,11 @@ public final class MoleculeStructure {
 
     public List<RingLine> ringLines() {
         return ringLines;
+    }
+
+    /** 聚合物链延续键锚点列表（非聚合物为空） */
+    public List<Anchor> anchors() {
+        return anchors;
     }
 
     public float minX() {
@@ -105,6 +127,7 @@ public final class MoleculeStructure {
         private final List<Atom> atoms = new ArrayList<>();
         private final List<Bond> bonds = new ArrayList<>();
         private final List<RingLine> ringLines = new ArrayList<>();
+        private final List<Anchor> anchors = new ArrayList<>();
 
         private Builder() {
         }
@@ -133,8 +156,14 @@ public final class MoleculeStructure {
             return this;
         }
 
+        /** 添加聚合物链延续键锚点（从指定原子穿出离子括号） */
+        public Builder anchor(int atom, Direction dir) {
+            anchors.add(new Anchor(atom, dir));
+            return this;
+        }
+
         public MoleculeStructure build() {
-            return new MoleculeStructure(atoms, bonds, ringLines);
+            return new MoleculeStructure(atoms, bonds, ringLines, anchors);
         }
     }
 }

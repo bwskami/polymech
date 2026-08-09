@@ -146,7 +146,7 @@ public enum ChemicalFluid implements FluidInfo {
     MOLTEN_MAGNESIUM_DIBORIDE("magnesium_diboride", "B2Mg", 0xFF603C1A, 1103, 2600, 4000, State.LIQUID, false),
     MOLTEN_YTTRIUM_BARIUM_CUPRATE("yttrium_barium_cuprate", "Ba2Cu3O7Y", 0xFF796D72, 1799, 6400, 4000, State.LIQUID, false),
     MOLTEN_MERCURY_BARIUM_CALCIUM_CUPRATE("mercury_barium_calcium_cuprate", "Ba2Ca2Cu3HgO8", 0xFF928547, 1075, 7500, 4000, State.LIQUID, true),
-    MOLTEN_URANIUM_TRIPLATINUM("uranium_triplatinum", "Pt3U238", 0xFF457045, 1882, 19000, 4000, State.LIQUID, true),
+    MOLTEN_URANIUM_TRIPLATINUM("uranium_triplatinum", "Pt3238U", 0xFF457045, 1882, 19000, 4000, State.LIQUID, true),
     MOLTEN_SAMARIUM_IRON_ARSENIC_OXIDE("samarium_iron_arsenic_oxide", "AsFeOSm", 0xFF850E85, 1347, 7800, 4000, State.LIQUID, true),
     MOLTEN_INDIUM_TIN_BARIUM_TITANIUM_CUPRATE("indium_tin_barium_titanium_cuprate", "Ba2Cu7In4O14Sn2Ti", 0xFF686760, 1012, 7000, 4000, State.LIQUID, false),
 
@@ -192,10 +192,10 @@ public enum ChemicalFluid implements FluidInfo {
     RUBBER("rubber", "C5H8", 0xFF353529, 400, 920, 5000, State.LIQUID, false),
     SILICONE_RUBBER("silicone_rubber", "C2H6OSi", 0xFFF0F0F0, 900, 980, 5000, State.LIQUID, false),
     STYRENE_BUTADIENE_RUBBER("styrene_butadiene_rubber", "C20H26", 0xFF34312B, 1000, 940, 5000, State.LIQUID, false),
-    MOLTEN_URANIUM_235("uranium_235", "U235", 0xFF46FA46, 1405, 19000, 4000, State.LIQUID, true),
-    MOLTEN_URANIUM_238("uranium_238", "U238", 0xFF1D891D, 1405, 19000, 4000, State.LIQUID, true),
-    MOLTEN_PLUTONIUM_239("plutonium_239", "Pu239", 0xFFBA2727, 913, 19800, 4000, State.LIQUID, true),
-    MOLTEN_PLUTONIUM_241("plutonium_241", "Pu241", 0xFFFF4C4C, 913, 19800, 4000, State.LIQUID, true),
+    MOLTEN_URANIUM_235("uranium_235", "235U", 0xFF46FA46, 1405, 19000, 4000, State.LIQUID, true),
+    MOLTEN_URANIUM_238("uranium_238", "238U", 0xFF1D891D, 1405, 19000, 4000, State.LIQUID, true),
+    MOLTEN_PLUTONIUM_239("plutonium_239", "239Pu", 0xFFBA2727, 913, 19800, 4000, State.LIQUID, true),
+    MOLTEN_PLUTONIUM_241("plutonium_241", "241Pu", 0xFFFF4C4C, 913, 19800, 4000, State.LIQUID, true),
 
     // ========== 新增气体 ==========
     AIR("air", "Ar9N78O21", 0xFFA9D0F5, 295, 129, 300, State.GAS, false),
@@ -212,7 +212,7 @@ public enum ChemicalFluid implements FluidInfo {
     RADON("radon", "Rn", 0xFFFF39FF, 295, 920, 300, State.GAS, true),
     DEUTERIUM("deuterium", "D2", 0xFFB0C8FF, 295, 180, 300, State.GAS, true),
     TRITIUM("tritium", "T2", 0xFFFF316B, 295, 270, 300, State.GAS, true),
-    HELIUM_3("helium_3", "He3", 0xFFFFE0A0, 295, 13, 200, State.GAS, false),
+    HELIUM_3("helium_3", "3He", 0xFFFFE0A0, 295, 13, 200, State.GAS, false),
     SULFURIC_GAS("sulfuric_gas", "", 0xFFECDCCC, 295, 200, 350, State.GAS, true),
     REFINERY_GAS("refinery_gas", "", 0xFFB4B4B4, 295, 150, 350, State.GAS, true),
     NATURAL_GAS("natural_gas", "CH4", 0xFFD0E0C0, 295, 720, 300, State.GAS, true),
@@ -236,9 +236,9 @@ public enum ChemicalFluid implements FluidInfo {
     LIGHTLY_STEAM_CRACKED_GAS("lightly_steam_cracked_gas", "", 0xFFE0E0E0, 775, 150, 350, State.GAS, true),
     SEVERELY_HYDRO_CRACKED_GAS("severely_hydro_cracked_gas", "", 0xFFC8C8C8, 775, 150, 350, State.GAS, true),
     SEVERELY_STEAM_CRACKED_GAS("severely_steam_cracked_gas", "", 0xFFE0E0E0, 775, 150, 350, State.GAS, true),
-    URANIUM_HEXAFLUORIDE("uranium_hexafluoride", "F6U238", 0xFF42D126, 295, 510, 350, State.GAS, true),
-    ENRICHED_URANIUM_HEXAFLUORIDE("enriched_uranium_hexafluoride", "F6U235", 0xFF4BF52A, 295, 510, 350, State.GAS, true),
-    DEPLETED_URANIUM_HEXAFLUORIDE("depleted_uranium_hexafluoride", "F6U238", 0xFF74BA66, 295, 510, 350, State.GAS, true);
+    URANIUM_HEXAFLUORIDE("uranium_hexafluoride", "F6238U", 0xFF42D126, 295, 510, 350, State.GAS, true),
+    ENRICHED_URANIUM_HEXAFLUORIDE("enriched_uranium_hexafluoride", "F6235U", 0xFF4BF52A, 295, 510, 350, State.GAS, true),
+    DEPLETED_URANIUM_HEXAFLUORIDE("depleted_uranium_hexafluoride", "F6238U", 0xFF74BA66, 295, 510, 350, State.GAS, true);
 
     /** 物态（参考GregTech的FluidState，不含方块形态故无"固体"） */
     public enum State {
@@ -247,7 +247,7 @@ public enum ChemicalFluid implements FluidInfo {
 
     /** 注册名（流体id，液体桶为 id_bucket） */
     private final String id;
-    /** 化学式（纯文本，如 H2SO4，显示时统一转下标） */
+    /** 化学式（纯文本，如 H2SO4，显示时统一转下标；同位素质量数前置如"238U"，显示时转右上角上标为U²³⁸） */
     private final String formula;
     /** 流体渲染颜色（ARGB） */
     private final int color;

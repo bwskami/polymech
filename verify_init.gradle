@@ -1,0 +1,12 @@
+// 临时init脚本：注册verifyPolymers任务跑聚合物结构式验证（验证后连同PolymerVerify一起删除）
+projectsEvaluated {
+    def p = rootProject
+    def ss = p.extensions.getByName('sourceSets').getByName('main')
+    p.tasks.register('verifyPolymers', JavaExec) {
+        classpath = ss.output + p.configurations.getByName('compileClasspath') + p.configurations.getByName('cdkLibs')
+        mainClass = 'com.mss.polymech.tooltip.verify.PolymerVerify'
+        workingDir = p.projectDir
+        dependsOn p.tasks.named('classes')
+        standardOutput = System.out
+    }
+}
