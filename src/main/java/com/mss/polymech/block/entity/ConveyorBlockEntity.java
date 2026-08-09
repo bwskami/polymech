@@ -241,6 +241,12 @@ public class ConveyorBlockEntity extends BlockEntity {
      * </p>
      */
     public static void tick(Level level, BlockPos pos, BlockState state, ConveyorBlockEntity be) {
+        // 低频周期拓扑自愈（每 20 tick，按坐标错峰）：兜住 TYPE 更新包时序错乱等
+        // 边缘场景造成的线路碎片化；refreshLine 内置短路检查，稳态开销可忽略
+        if ((level.getGameTime() + Math.floorMod(be.worldPosition.asLong(), 20)) % 20 == 0) {
+            be.refreshLine();
+        }
+
         TransportLine line = be.lineRef;
         if (line == null || line.isEmpty()) {
             be.refreshLine();
@@ -670,6 +676,11 @@ public class ConveyorBlockEntity extends BlockEntity {
         containerCachePos = null;
         containerCacheSide = null;
         materialCache = null;
+        // 双端重组网：坡道 TYPE 变化（HORIZONTAL→UP/DOWN）在客户端只以纯状态包
+        // 到达（refreshSelfState/refreshNeighbors 客户端早退，不触发组网），
+        // 不在此重建线路，客户端线路会永久碎片化（上下坡各自成线、不组网）。
+        // refreshLine 幂等且自带 null/removed 保护，稳态短路开销可忽略
+        refreshLine();
     }
 
     // ========== 线路生命周期 ==========
@@ -1030,7 +1041,38 @@ public class ConveyorBlockEntity extends BlockEntity {
 
     @Override
     public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
+        // 客户端无回退合并：本地确定性模拟可能超前于服务端快照（双端拾取节奏
+        // 相位差——整堆掉落物被客户端提前拾取），直接覆盖会把物品包拉回，
+        // 入口处可见回弹抽搐。对每个快照包按“同物品+同组件+同数量”匹配本地包，
+        // 本地进度超前则保留本地版本（双端同轨迹，只会继续一致）；
+        // 未匹配的本地包视为服务端已移除（提取/交接/拆分），丢弃
+        ArrayList<BeltItem> local = new ArrayList<>(items);
         loadAdditional(tag, registries);
+        if (!local.isEmpty() && !items.isEmpty()) {
+            ArrayList<BeltItem> merged = new ArrayList<>(items.size());
+            for (BeltItem incoming : items) {
+                BeltItem best = null;
+                for (int i = 0; i < local.size(); i++) {
+                    BeltItem cand = local.get(i);
+                    if (cand == null) continue; // 已被前一个快照包匹配走
+                    // matches = 同物品 + 同组件 + 同数量（组件化版本的 isSameItemSameTags）
+                    if (!ItemStack.matches(cand.getStack(), incoming.getStack())) continue;
+                    if (cand.getProgress() <= incoming.getProgress() + EPSILON) continue; // 仅保留超前
+                    if (best == null || cand.getProgress() < best.getProgress()) {
+                        best = cand; // 取最接近的超前候选
+                    }
+                }
+                if (best != null) {
+                    local.set(local.indexOf(best), null); // 消耗匹配
+                    merged.add(best);
+                } else {
+                    merged.add(incoming);
+                }
+            }
+            items.clear();
+            items.addAll(merged);
+            items.sort(Comparator.comparingDouble(BeltItem::getProgress));
+        }
         requestModelDataUpdate();
     }
 
