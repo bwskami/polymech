@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -164,6 +165,19 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
             nodes.put(i, nodeAt(facing, vertical ? rotate(off, rot) : off));
         }
         return Map.copyOf(nodes);
+    }
+
+    /** 指定 nodeId 个体的碰撞盒（局部坐标）：让选择框精确包住选中的那一个个体 */
+    @Override
+    public AABB getNodeBox(BlockState state, int nodeId) {
+        int count = state.getValue(COUNT);
+        if (nodeId < 0 || nodeId >= count)
+            return null;
+        Offset off = OFFSETS[count - 1][nodeId];
+        Direction facing = state.getValue(FACING);
+        if (facing.getAxis().isVertical())
+            off = rotate(off, effectiveLayout(state));
+        return individual(facing, off).bounds();
     }
 
     /** 方块被破坏（或被替换）时，从电网中移除该格全部个体的电线连接 */

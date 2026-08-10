@@ -110,7 +110,7 @@ public class NodeSelectionRenderer {
 
         // 更新两个框的当前帧状态（复用 Entry 保持已满 alpha，新建则触发淡入）
         startEntry = start == null ? null
-                : entry(startEntry, boxOf(start.sourcePos()), COLOR_START, LINE_WIDTH, FACE_ALPHA_START, tick);
+                : entry(startEntry, nodeBoxOf(level, start), COLOR_START, LINE_WIDTH, FACE_ALPHA_START, tick);
 
         // 先保存上一帧的目标框（悬停同一节点时复用，保证淡入只触发一次；
         // 若每帧都新建 Entry，bornTick 恒为当前帧，alpha 永远停在 0，框将完全不可见）
@@ -119,12 +119,12 @@ public class NodeSelectionRenderer {
         if (hovered != null) {
             if (start == null) {
                 // 未选起点：瞄准即预览——与可连目标框同款的醒目绿框
-                targetEntry = entry(prevTarget, boxOf(hovered.sourcePos()),
+                targetEntry = entry(prevTarget, nodeBoxOf(level, hovered),
                         COLOR_VALID, LINE_WIDTH, FACE_ALPHA_VALID, tick);
             } else if (!hovered.equals(start)) {
                 // 已选起点：按可连接性变色
                 boolean valid = canConnect(level, start, hovered, wireType);
-                targetEntry = entry(prevTarget, boxOf(hovered.sourcePos()),
+                targetEntry = entry(prevTarget, nodeBoxOf(level, hovered),
                         valid ? COLOR_VALID : COLOR_INVALID,
                         LINE_WIDTH, valid ? FACE_ALPHA_VALID : FACE_ALPHA_INVALID, tick);
             }
@@ -223,9 +223,18 @@ public class NodeSelectionRenderer {
         return GridNodes.closestNode(level, bhr.getLocation(), GridNodes.NODE_HIT_THRESHOLD);
     }
 
-    /** 节点所在方块整格包围盒（微膨胀防 Z-fighting） */
-    private static AABB boxOf(BlockPos pos) {
-        return new AABB(pos).inflate(0.002);
+    /**
+     * 选中节点所在位置的包围盒：一格多节点的方块（如连接器）直接用该节点个体的碰撞箱，
+     * 精确包住选中的那一个；其余方块退回整格（微膨胀防 Z-fighting）。
+     */
+    private static AABB nodeBoxOf(Level level, GridNode node) {
+        BlockState state = level.getBlockState(node.sourcePos());
+        if (state.getBlock() instanceof GridNodeBlock gridBlock) {
+            AABB box = gridBlock.getNodeBox(state, node.nodeId());
+            if (box != null)
+                return box.move(node.sourcePos()).inflate(0.002);
+        }
+        return new AABB(node.sourcePos()).inflate(0.002);
     }
 
     /** 客户端可连接性预判（与服务端 WireSpoolItem 校验一致：非自身、未重复、未超距） */
