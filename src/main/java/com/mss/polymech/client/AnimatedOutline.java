@@ -51,8 +51,16 @@ public final class AnimatedOutline {
     private long lastNano;
 
     public AnimatedOutline(AABB box, int color, float lineWidth, float faceAlpha, long bornTick) {
-        this.box = box;
-        this.targetBox = box;
+        this(box, box, color, lineWidth, faceAlpha, bornTick);
+    }
+
+    /**
+     * 全参数构造：初始显示位置可与目标不同——新建后从 initialBox 平滑滑向 targetBox。
+     * 用于路径预览中“新格从上一格扩展生长”的动态铺设效果。
+     */
+    public AnimatedOutline(AABB initialBox, AABB targetBox, int color, float lineWidth, float faceAlpha, long bornTick) {
+        this.box = initialBox;
+        this.targetBox = targetBox;
         this.color = color;
         this.lineWidth = lineWidth;
         this.faceAlpha = faceAlpha;

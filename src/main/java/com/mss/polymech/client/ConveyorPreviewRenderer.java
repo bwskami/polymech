@@ -49,8 +49,11 @@ public class ConveyorPreviewRenderer {
     /** 路径框半透明面透明度 */
     private static final float FACE_ALPHA = 0.25F;
 
-    /** 动画框集合：位置 -> 框（新建淡入，复用 chase 滑动，Create outliner 同款手感） */
-    private static final Map<BlockPos, AnimatedOutline> outlines = new HashMap<>();
+    /** 动画框集合：身份 -> 框（"start"/"end" 固定键位置变化时 chase 滑动，Integer 中间格索引新格从上一格扩展生长） */
+    private static final Map<Object, AnimatedOutline> outlines = new HashMap<>();
+
+    /** 本帧目标框描述 */
+    private record OutlineTarget(AABB box, int color, float faceAlpha) {}
 
     public static void setStartPos(BlockPos pos) {
         startPos = pos;
@@ -98,8 +101,10 @@ public class ConveyorPreviewRenderer {
 
         long tick = mc.level.getGameTime();
 
-        // 收集本帧目标框：位置 -> 颜色（路径逐格一个框，起点/终点独立配色）
-        Map<BlockPos, Integer> targets = new LinkedHashMap<>();
+        // 收集本帧目标框：身份 -> 目标框
+        // 身份设计：起点/终点用固定键 "start"/"end"（位置变化时同框 chase 平滑滑动），
+        // 中间格按路径顺序索引（新格从上一格位置扩展生长，Create 同款动态铺设）
+        Map<Object, OutlineTarget> targets = new LinkedHashMap<>();
         if (startPos != null) {
             // 起点和目标必须在同一 Y 层
             if (startPos.getY() == targetPos.getY()) {
@@ -114,32 +119,42 @@ public class ConveyorPreviewRenderer {
 
                 boolean canAfford = emptyCount <= available;
 
-                targets.put(startPos, COLOR_A_POINT);
+                targets.put("start", new OutlineTarget(boxOf(startPos), COLOR_A_POINT, FACE_ALPHA));
 
                 if (!path.isEmpty() && canAfford) {
+                    int idx = 0;
                     for (BlockPos pos : path) {
                         if (pos.equals(startPos)) continue;
 
                         if (pos.equals(targetPos)) {
-                            targets.put(pos, COLOR_B_POINT);
+                            targets.put("end", new OutlineTarget(boxOf(pos), COLOR_B_POINT, FACE_ALPHA));
                         } else {
-                            targets.put(pos, COLOR_PATH);
+                            targets.put(idx++, new OutlineTarget(boxOf(pos), COLOR_PATH, FACE_ALPHA));
                         }
                     }
                 }
             }
         } else {
-            targets.put(targetPos, COLOR_A_POINT);
+            targets.put("start", new OutlineTarget(boxOf(targetPos), COLOR_A_POINT, FACE_ALPHA));
         }
 
-        // 同步动画框集合：新建触发淡入，复用目标位置触发 chase 滑动，消失的移除
+        // 同步动画框集合：身份复用（chase 滑动/变色），新建触发扩展生长 + 淡入，消失的移除
         outlines.keySet().removeIf(key -> !targets.containsKey(key));
-        for (Map.Entry<BlockPos, Integer> t : targets.entrySet()) {
+        AABB prevBox = null; // 路径顺序上一格的目标框（新中间格从它扩展生长）
+        for (Map.Entry<Object, OutlineTarget> t : targets.entrySet()) {
             AnimatedOutline o = outlines.get(t.getKey());
+            OutlineTarget tt = t.getValue();
             if (o == null) {
-                outlines.put(t.getKey(), new AnimatedOutline(boxOf(t.getKey()), t.getValue(), LINE_WIDTH, FACE_ALPHA, tick));
+                AABB initial = tt.box();
+                if (t.getKey() instanceof Integer && prevBox != null) {
+                    initial = prevBox; // 新中间格：从上一格位置平滑滑到本格，形成逐格扩展
+                }
+                outlines.put(t.getKey(), new AnimatedOutline(initial, tt.box(), tt.color(), LINE_WIDTH, tt.faceAlpha(), tick));
             } else {
-                o.chase(boxOf(t.getKey()), t.getValue(), LINE_WIDTH, FACE_ALPHA);
+                o.chase(tt.box(), tt.color(), LINE_WIDTH, tt.faceAlpha());
+            }
+            if (!"end".equals(t.getKey())) {
+                prevBox = tt.box();
             }
         }
 

@@ -161,6 +161,9 @@ public class MachinePreviewRenderer {
 
         PoseStack poseStack = event.getPoseStack();
         renderGhostModel(poseStack, event.getCamera(), machineBlock, previewState, targetPos);
+        // ★ 立即 flush 虚影模型（entityCutout 写深度、深度测试开启）：确保模型先画完，
+        // 之后框渲染保持深度测试开启，与模型的遮挡关系严格按空间前后判定（符合透视）
+        Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
 
         long tick = mc.level.getGameTime();
         List<OutlineTarget> targets = new ArrayList<>();
@@ -235,7 +238,9 @@ public class MachinePreviewRenderer {
 
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
-            RenderSystem.depthMask(false);
+            // 虚影必须写深度：entityCutout 的 WriteMaskState 未显式设置，flush（endBatch）时沿用全局 depthMask。
+            // 写深度后模型面间互相遮挡（外壳挡住内部，恢复幽灵预览效果），且框的深度测试可与模型正确穿插。
+            RenderSystem.depthMask(true);
 
             ghostRenderer.render(tempBe, 0, poseStack, bufferSource, 0xF000F0, 0);
 
@@ -306,7 +311,8 @@ public class MachinePreviewRenderer {
         }
 
         PoseStack poseStack = event.getPoseStack();
-        RenderSystem.disableDepthTest();
+        // 深度测试保持开启：虚影模型已先 flush 写深度，框在模型/方块前方的部分通过测试显示，
+        // 后方的部分被深度遮挡——空间穿插关系完全符合透视
         RenderSystem.depthMask(false);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
