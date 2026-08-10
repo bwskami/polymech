@@ -51,21 +51,21 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
     /** 个体布局偏移：h=沿墙面横向，v=沿墙面纵向（单位格，以格中心为原点） */
     private record Offset(double h, double v) {}
 
-    /** 各数量下的个体布局（与模型文件 connector_2/3/4 的偏移一一对应，nodeId 顺序=模型 groups 顺序） */
+    /** 各数量下的个体布局（与模型文件 connector_2/3/4 一一对应，nodeId 顺序=模型 groups 顺序；
+     *  偏移 = (模型个体中心 - 8) / 16，Blockbench 16×16×16 方块中心为 (8,8,8)） */
     private static final Offset[][] OFFSETS = {
-            { new Offset(0, 0) },                                                          // 1：居中
-            { new Offset(0, -0.25), new Offset(0, 0.25) },                                 // 2：上下两个
-            { new Offset(-0.25, -0.25), new Offset(-0.25, 0.25), new Offset(0.25, 0) },    // 3：左列两个+右中一个
+            { new Offset(0, 0) },                                                // 1：居中
+            { new Offset(0.25, 0), new Offset(-0.25, 0) },                       // 2：水平左右（模型中心 12/4）
+            { new Offset(-0.25, -0.25), new Offset(0.25, -0.25),
+              new Offset(0, 0.25) },                                             // 3：左下+右下+上中（模型中心 (4,4)/(12,4)/(8,12)）
             { new Offset(-0.3125, -0.3125), new Offset(-0.3125, 0.3125),
-              new Offset(0.3125, 0.3125), new Offset(0.3125, -0.3125) }                    // 4：2×2 四角
+              new Offset(0.3125, 0.3125), new Offset(0.3125, -0.3125) }          // 4：2×2 四角（模型中心 3/13）
     };
 
-    /** 个体半宽（格）：模型底座 4.75~11.25 单位 */
+    /** 个体半宽（格）：模型个体为 6.5 单位宽的方块，半宽 3.25/16 */
     private static final double HALF = 0.203125;
     /** 个体沿墙伸出深度（格）：模型 y 0~13 单位 */
     private static final double DEPTH = 0.8125;
-    /** 个体沿墙面起始坐标（格）：4.75/16 */
-    private static final double BASE = 0.296875;
 
     /** 各朝向×数量下的碰撞形状缓存 */
     private static final Map<Direction, VoxelShape[]> SHAPES = new EnumMap<>(Direction.class);
@@ -135,12 +135,12 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
         super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
-    /** 单个体的碰撞盒（模型空间坐标按 facing 旋转映射到世界坐标） */
+    /** 单个体的碰撞盒（个体中心 0.5+off，模型空间坐标按 facing 旋转映射到世界坐标） */
     private static VoxelShape individual(Direction facing, Offset off) {
-        double x1 = BASE + off.h();
-        double x2 = x1 + HALF * 2;
-        double z1 = BASE + off.v();
-        double z2 = z1 + HALF * 2;
+        double x1 = 0.5 + off.h() - HALF;
+        double x2 = 0.5 + off.h() + HALF;
+        double z1 = 0.5 + off.v() - HALF;
+        double z2 = 0.5 + off.v() + HALF;
         return switch (facing) {
             case UP    -> Shapes.box(x1, 0.0, z1, x2, DEPTH, z2);
             case DOWN  -> Shapes.box(x1, 1.0 - DEPTH, z1, x2, 1.0, z2);
