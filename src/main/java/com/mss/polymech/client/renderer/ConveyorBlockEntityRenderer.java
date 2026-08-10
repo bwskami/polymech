@@ -7,9 +7,10 @@ import com.mss.polymech.block.ConveyorBlock;
 import com.mss.polymech.block.ConveyorType;
 import com.mss.polymech.block.entity.BeltItem;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
+import com.mss.polymech.client.AnimatedOutline;
+import com.mss.polymech.client.BoxOutlineRenderer;
 import com.mss.polymech.item.NetworkToolItem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
@@ -24,8 +25,11 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import org.joml.Matrix4f;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 传送带物品包渲染器（Create 同款平滑）。
@@ -51,6 +55,21 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
     /** 物品模型缩放 */
     private static final float ITEM_SCALE = 0.55F;
 
+    /** 线路高亮框线宽（格）：与全模组选择框统一的实心方条棱 */
+    private static final float LINE_WIDTH = 0.06F;
+
+    /** 线路高亮主框（BE 渲染本地坐标，微膨胀防 Z-fighting） */
+    private static final AABB OUTLINE_BOX = new AABB(-0.001D, -0.001D, -0.001D, 1.001D, 1.001D, 1.001D);
+
+    /** 线首标记白框（内缩框） */
+    private static final AABB HEAD_BOX = new AABB(0.15D, 0.15D, 0.15D, 0.85D, 0.85D, 0.85D);
+
+    /** 线路高亮动画框：BE 位置 -> 主框（持工具时 upsert 淡入，Create 同款丝滑） */
+    private static final Map<BlockPos, AnimatedOutline> lineHighlights = new HashMap<>();
+
+    /** 线首标记白框：BE 位置 -> 框 */
+    private static final Map<BlockPos, AnimatedOutline> headHighlights = new HashMap<>();
+
     /** 抬离带面的高度（格） */
     private static final double LIFT = 0.06D;
 
@@ -67,6 +86,10 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
         // 网络调试仪：手持时高亮本格所属线路（每成员各画各的框，不受线首视锥影响）
         if (NetworkToolItem.isHolding(Minecraft.getInstance().player)) {
             renderLineHighlight(be, poseStack, bufferSource);
+        } else {
+            // 不持工具：移除本格动画框，下次持工具重新淡入
+            lineHighlights.remove(be.getBlockPos());
+            headHighlights.remove(be.getBlockPos());
         }
 
         List<BeltItem> items = be.getItemsForRender();
@@ -129,30 +152,55 @@ public class ConveyorBlockEntityRenderer implements BlockEntityRenderer<Conveyor
     /**
      * 线路高亮：同一条线同一颜色（色相由线路身份哈希决定）；
      * 线首额外叠加白色框标记流向起点；未组线时红色框报警。
+     * 动画框：新建淡入、颜色/线首状态变化即时切换（Create outliner 同款丝滑）。
      */
     private static void renderLineHighlight(ConveyorBlockEntity be, PoseStack poseStack,
                                             MultiBufferSource bufferSource) {
-        int lineId = be.getLineId();
-        float r, g, b;
-        if (lineId == -1) {
-            r = 1.0F; g = 0.15F; b = 0.15F; // 未组线：红色报警
+        BlockPos pos = be.getBlockPos();
+        long tick = be.getLevel() == null ? 0 : be.getLevel().getGameTime();
+
+        // upsert 主框：新建淡入，复用则更新颜色（线首/颜色变化即时生效）
+        AnimatedOutline main = upsert(lineHighlights, pos, OUTLINE_BOX, lineColor(be.getLineId()), tick);
+        AnimatedOutline head = null;
+        if (be.isLineHead()) {
+            head = upsert(headHighlights, pos, HEAD_BOX, 0xFFFFFFFF, tick);
         } else {
-            float hue = (lineId & 0x7FFFFFFF) % 360 / 360.0F;
-            int rgb = Mth.hsvToRgb(hue, 0.85F, 1.0F);
-            r = ((rgb >> 16) & 0xFF) / 255.0F;
-            g = ((rgb >> 8) & 0xFF) / 255.0F;
-            b = (rgb & 0xFF) / 255.0F;
+            headHighlights.remove(pos);
         }
 
         RenderSystem.disableDepthTest();
-        var consumer = bufferSource.getBuffer(RenderType.lines());
-        AABB box = new AABB(-0.001, -0.001, -0.001, 1.001, 1.001, 1.001);
-        LevelRenderer.renderLineBox(poseStack, consumer, box, r, g, b, 0.85F);
-        if (be.isLineHead()) {
-            // 线首标记：白色内框 + 略亮外框
-            LevelRenderer.renderLineBox(poseStack, consumer,
-                    new AABB(0.15, 0.15, 0.15, 0.85, 0.85, 0.85), 1.0F, 1.0F, 1.0F, 0.9F);
+        var consumer = bufferSource.getBuffer(RenderType.debugQuads());
+        Matrix4f matrix = poseStack.last().pose();
+
+        // chase 动画：每帧向目标位置指数平滑追赶（帧率无关，Create outliner 同款滑动）
+        main.tickChase();
+        main.appendEdges(consumer, matrix, tick);
+        if (head != null) {
+            head.tickChase();
+            head.appendEdges(consumer, matrix, tick);
         }
         RenderSystem.enableDepthTest();
+    }
+
+    /** 创建/复用动画框：新建记录出生 tick 触发淡入，复用更新目标与颜色 */
+    private static AnimatedOutline upsert(Map<BlockPos, AnimatedOutline> map, BlockPos pos,
+                                          AABB box, int color, long tick) {
+        AnimatedOutline o = map.get(pos);
+        if (o == null) {
+            o = new AnimatedOutline(box, color, LINE_WIDTH, 0, tick);
+            map.put(pos, o);
+        } else {
+            o.chase(box, color, LINE_WIDTH, 0);
+        }
+        return o;
+    }
+
+    /** 线路颜色：未组线红色报警，已组线色相由线路身份哈希决定 */
+    private static int lineColor(int lineId) {
+        if (lineId == -1) {
+            return 0xFF262626; // 未组线：红色报警（1.0, 0.15, 0.15）
+        }
+        float hue = (lineId & 0x7FFFFFFF) % 360 / 360.0F;
+        return 0xFF000000 | Mth.hsvToRgb(hue, 0.85F, 1.0F);
     }
 }

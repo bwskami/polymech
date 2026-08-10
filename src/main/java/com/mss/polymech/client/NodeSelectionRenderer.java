@@ -69,16 +69,10 @@ public class NodeSelectionRenderer {
     private static final float FACE_ALPHA_VALID = 0.35F;
     private static final float FACE_ALPHA_INVALID = 0.28F;
 
-    /** 淡入时长（tick，0.4s） */
-    private static final int FADE_IN_TICKS = 8;
-
-    /** chase 追赶时间常数（秒）：框从旧位置滑向新目标的速度（越小越快，Create 手感约 0.1s） */
-    private static final float CHASE_TIME_CONSTANT = 0.10F;
-
     /** 当前帧要渲染的起点框（null=不显示） */
-    private static Entry startEntry;
+    private static AnimatedOutline startEntry;
     /** 当前帧要渲染的目标/提示框（null=不显示） */
-    private static Entry targetEntry;
+    private static AnimatedOutline targetEntry;
 
     /** 诊断：事件是否已记录（每次会话一条，确认处理器被触发） */
     private static boolean loggedEventFired;
@@ -148,7 +142,7 @@ public class NodeSelectionRenderer {
 
         // 先保存上一帧的目标框（悬停同一节点时复用，保证淡入只触发一次；
         // 若每帧都新建 Entry，bornTick 恒为当前帧，alpha 永远停在 0，框将完全不可见）
-        Entry prevTarget = targetEntry;
+        AnimatedOutline prevTarget = targetEntry;
         targetEntry = null;
         if (hovered != null) {
             if (start == null) {
@@ -173,11 +167,6 @@ public class NodeSelectionRenderer {
         if (targetEntry != null)
             targetEntry.tickChase();
 
-        if (targetEntry != null && targetEntry.logged == null) {
-            LOGGER.info("NodeSelectionRenderer rendering frame box: {}", targetEntry.box);
-            targetEntry.logged = Boolean.TRUE;
-        }
-
         Vec3 cam = event.getCamera().getPosition();
         PoseStack poseStack = event.getPoseStack();
         poseStack.pushPose();
@@ -196,7 +185,7 @@ public class NodeSelectionRenderer {
             startEntry.appendFaces(faceBuf, matrix, tick);
         if (targetEntry != null)
             targetEntry.appendFaces(faceBuf, matrix, tick);
-        BufferUploader.drawWithShader(faceBuf.buildOrThrow());
+        AnimatedOutline.drawIfNotEmpty(faceBuf);
 
         // 第二轮：亮边线（十字双平面 quad 模拟线宽）
         BufferBuilder edgeBuf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
@@ -204,7 +193,7 @@ public class NodeSelectionRenderer {
             startEntry.appendEdges(edgeBuf, matrix, tick);
         if (targetEntry != null)
             targetEntry.appendEdges(edgeBuf, matrix, tick);
-        BufferUploader.drawWithShader(edgeBuf.buildOrThrow());
+        AnimatedOutline.drawIfNotEmpty(edgeBuf);
 
         RenderSystem.enableCull();
         RenderSystem.depthMask(true);
@@ -230,13 +219,10 @@ public class NodeSelectionRenderer {
     // ==================== 状态与校验 ====================
 
     /** 创建/复用框条目：新建时记录出生 tick 触发淡入；复用时更新颜色并把新位置设为追赶目标（平滑滑过去） */
-    private static Entry entry(Entry existing, AABB box, int color, float lineWidth, float faceAlpha, long tick) {
+    private static AnimatedOutline entry(AnimatedOutline existing, AABB box, int color, float lineWidth, float faceAlpha, long tick) {
         if (existing == null)
-            return new Entry(box, color, lineWidth, faceAlpha, tick);
-        existing.chase(box);
-        existing.color = color;
-        existing.lineWidth = lineWidth;
-        existing.faceAlpha = faceAlpha;
+            return new AnimatedOutline(box, color, lineWidth, faceAlpha, tick);
+        existing.chase(box, color, lineWidth, faceAlpha);
         return existing;
     }
 
@@ -279,296 +265,5 @@ public class NodeSelectionRenderer {
                 return false;
         }
         return GridNodes.distanceBetween(level, a, b) <= wireType.getMaxLength();
-    }
-
-    /** easeOutCubic 缓动：0.4s 内透明度从 0 平滑升至目标值（Create outliner 同款感觉） */
-    private static float easeOutCubic(float t) {
-        return 1 - (1 - t) * (1 - t) * (1 - t);
-    }
-
-    // ==================== 渲染 ====================
-
-    /** 单个选择框：半透明填充面 + 12 条亮边线（位置带 chase 追赶动画） */
-    private static class Entry {
-        AABB box;          // 当前显示位置（chase 追赶中，渲染用）
-        AABB targetBox;    // 目标位置（每帧向此指数平滑追赶）
-        int color;
-        float lineWidth;
-        float faceAlpha;
-        final long bornTick;
-        private long lastNano; // 上次追赶更新的纳秒时间戳（帧率无关计时）
-        /** 诊断：该框是否已记录首次渲染 */
-        Boolean logged;
-
-        Entry(AABB box, int color, float lineWidth, float faceAlpha, long bornTick) {
-            this.box = box;
-            this.targetBox = box;
-            this.color = color;
-            this.lineWidth = lineWidth;
-            this.faceAlpha = faceAlpha;
-            this.bornTick = bornTick;
-            this.lastNano = System.nanoTime();
-        }
-
-        /** 更新追赶目标：框从当前位置平滑滑向新目标（Create outliner 的 chaseAABB 效果） */
-        void chase(AABB target) {
-            targetBox = target;
-        }
-
-        /** 每帧向目标指数平滑追赶一次（时间常数 {@link #CHASE_TIME_CONSTANT}，帧率无关） */
-        void tickChase() {
-            if (box.equals(targetBox))
-                return;
-            long now = System.nanoTime();
-            float dt = (now - lastNano) / 1.0e9F;
-            lastNano = now;
-            if (dt <= 0)
-                return;
-            if (dt > 0.05F)
-                dt = 0.05F; // 卡顿/暂停保护：超长间隔按 0.05s 算，避免瞬移
-            float f = 1.0F - (float) Math.exp(-dt / CHASE_TIME_CONSTANT);
-            if (f >= 0.999F) {
-                box = targetBox;
-                return;
-            }
-            box = new AABB(
-                    box.minX + (targetBox.minX - box.minX) * f,
-                    box.minY + (targetBox.minY - box.minY) * f,
-                    box.minZ + (targetBox.minZ - box.minZ) * f,
-                    box.maxX + (targetBox.maxX - box.maxX) * f,
-                    box.maxY + (targetBox.maxY - box.maxY) * f,
-                    box.maxZ + (targetBox.maxZ - box.maxZ) * f);
-        }
-
-        /** 当前透明度倍率（淡入动画） */
-        float alphaMul(long tick) {
-            float t = Mth.clamp((tick - bornTick) / (float) FADE_IN_TICKS, 0, 1);
-            return easeOutCubic(t);
-        }
-
-        /** 追加 6 个半透明面（QUADS，逆时针绕序，背面剔除已关闭） */
-        void appendFaces(BufferBuilder buf, Matrix4f matrix, long tick) {
-            float a = faceAlpha * alphaMul(tick);
-            float r = ((color >> 16) & 0xFF) / 255.0F;
-            float g = ((color >> 8) & 0xFF) / 255.0F;
-            float b = (color & 0xFF) / 255.0F;
-            double minX = box.minX, minY = box.minY, minZ = box.minZ;
-            double maxX = box.maxX, maxY = box.maxY, maxZ = box.maxZ;
-
-            // +Z
-            quad(buf, matrix, minX, minY, maxZ, minX, maxY, maxZ, maxX, maxY, maxZ, maxX, minY, maxZ, r, g, b, a);
-            // -Z
-            quad(buf, matrix, maxX, minY, minZ, maxX, maxY, minZ, minX, maxY, minZ, minX, minY, minZ, r, g, b, a);
-            // +X
-            quad(buf, matrix, maxX, minY, maxZ, maxX, maxY, maxZ, maxX, maxY, minZ, maxX, minY, minZ, r, g, b, a);
-            // -X
-            quad(buf, matrix, minX, minY, minZ, minX, maxY, minZ, minX, maxY, maxZ, minX, minY, maxZ, r, g, b, a);
-            // +Y
-            quad(buf, matrix, minX, maxY, minZ, minX, maxY, maxZ, maxX, maxY, maxZ, maxX, maxY, minZ, r, g, b, a);
-            // -Y
-            quad(buf, matrix, minX, minY, maxZ, minX, minY, minZ, maxX, minY, minZ, maxX, minY, maxZ, r, g, b, a);
-        }
-
-        /** 追加 12 条实心方条棱 + 8 个角点立方体（任何视角完全闭合，无十字截面穿帮） */
-        void appendEdges(BufferBuilder buf, Matrix4f matrix, long tick) {
-            float a = 0.9F * alphaMul(tick);
-            float r = ((color >> 16) & 0xFF) / 255.0F;
-            float g = ((color >> 8) & 0xFF) / 255.0F;
-            float b = (color & 0xFF) / 255.0F;
-            float hw = lineWidth / 2.0F;
-            float x1 = (float) box.minX, y1 = (float) box.minY, z1 = (float) box.minZ;
-            float x2 = (float) box.maxX, y2 = (float) box.maxY, z2 = (float) box.maxZ;
-
-            // 底面
-            addBar(buf, matrix, x1, y1, z1, x2, y1, z1, hw, r, g, b, a);
-            addBar(buf, matrix, x2, y1, z1, x2, y1, z2, hw, r, g, b, a);
-            addBar(buf, matrix, x2, y1, z2, x1, y1, z2, hw, r, g, b, a);
-            addBar(buf, matrix, x1, y1, z2, x1, y1, z1, hw, r, g, b, a);
-            // 顶面
-            addBar(buf, matrix, x1, y2, z1, x2, y2, z1, hw, r, g, b, a);
-            addBar(buf, matrix, x2, y2, z1, x2, y2, z2, hw, r, g, b, a);
-            addBar(buf, matrix, x2, y2, z2, x1, y2, z2, hw, r, g, b, a);
-            addBar(buf, matrix, x1, y2, z2, x1, y2, z1, hw, r, g, b, a);
-            // 垂直边
-            addBar(buf, matrix, x1, y1, z1, x1, y2, z1, hw, r, g, b, a);
-            addBar(buf, matrix, x2, y1, z1, x2, y2, z1, hw, r, g, b, a);
-            addBar(buf, matrix, x2, y1, z2, x2, y2, z2, hw, r, g, b, a);
-            addBar(buf, matrix, x1, y1, z2, x1, y2, z2, hw, r, g, b, a);
-            // 8 个角点实心立方体衔接（棱端实心正方形与立方体面完全对齐，杜绝十字截面穿帮）
-            addCorner(buf, matrix, x1, y1, z1, hw, r, g, b, a);
-            addCorner(buf, matrix, x2, y1, z1, hw, r, g, b, a);
-            addCorner(buf, matrix, x2, y1, z2, hw, r, g, b, a);
-            addCorner(buf, matrix, x1, y1, z2, hw, r, g, b, a);
-            addCorner(buf, matrix, x1, y2, z1, hw, r, g, b, a);
-            addCorner(buf, matrix, x2, y2, z1, hw, r, g, b, a);
-            addCorner(buf, matrix, x2, y2, z2, hw, r, g, b, a);
-            addCorner(buf, matrix, x1, y2, z2, hw, r, g, b, a);
-        }
-    }
-
-    /** 提交一个四边形（POSITION_COLOR） */
-    private static void quad(BufferBuilder buf, Matrix4f matrix,
-                             double x1, double y1, double z1,
-                             double x2, double y2, double z2,
-                             double x3, double y3, double z3,
-                             double x4, double y4, double z4,
-                             float r, float g, float b, float a) {
-        buf.addVertex(matrix, (float) x1, (float) y1, (float) z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, (float) x2, (float) y2, (float) z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, (float) x3, (float) y3, (float) z3).setColor(r, g, b, a);
-        buf.addVertex(matrix, (float) x4, (float) y4, (float) z4).setColor(r, g, b, a);
-    }
-
-    /**
-     * 提交一条实心方条棱：以棱方向为轴、截面为 hw×hw 正方形的 4 侧面柱体（每面双面提交）。
-     * <p>
-     * 与 {@link #addCorner(BufferBuilder, Matrix4f, float, float, float, float, float, float, float, float)}
-     * 配合使用：棱端实心正方形截面与角点立方体面完全对齐，
-     * 任何视角都看不到十字截面或顶点空洞（替代旧十字双平面 quad 方案）。
-     * </p>
-     */
-    private static void addBar(BufferBuilder buf, Matrix4f matrix,
-                               float x1, float y1, float z1,
-                               float x2, float y2, float z2,
-                               float hw, float r, float g, float b, float a) {
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float dz = z2 - z1;
-        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (len < 1.0e-6F)
-            return;
-        // 单位方向向量
-        float ux = dx / len, uy = dy / len, uz = dz / len;
-        // 构造垂直于方向的截面正交基 v、w（v×w = 方向）
-        float vx, vy, vz;
-        if (Math.abs(uy) < 0.99F) {
-            vx = 0;
-            vy = 1;
-            vz = 0; // 参考世界 Y
-        } else {
-            vx = 1;
-            vy = 0;
-            vz = 0; // 方向接近 Y 时参考 X
-        }
-        // v = normalize(dir × up)
-        float tvx = uy * vz - uz * vy;
-        float tvy = uz * vx - ux * vz;
-        float tvz = ux * vy - uy * vx;
-        float tl = (float) Math.sqrt(tvx * tvx + tvy * tvy + tvz * tvz);
-        if (tl < 1.0e-6F)
-            return;
-        tvx /= tl;
-        tvy /= tl;
-        tvz /= tl;
-        // w = dir × v
-        float wx = uy * tvz - uz * tvy;
-        float wy = uz * tvx - ux * tvz;
-        float wz = ux * tvy - uy * tvx;
-
-        // 截面四角（乘 hw 后才是实际半宽偏移）：c1=-v-w, c2=+v-w, c3=+v+w, c4=-v+w
-        float c1x = (-tvx - wx) * hw, c1y = (-tvy - wy) * hw, c1z = (-tvz - wz) * hw;
-        float c2x = (tvx - wx) * hw, c2y = (tvy - wy) * hw, c2z = (tvz - wz) * hw;
-        float c3x = (tvx + wx) * hw, c3y = (tvy + wy) * hw, c3z = (tvz + wz) * hw;
-        float c4x = (-tvx + wx) * hw, c4y = (-tvy + wy) * hw, c4z = (-tvz + wz) * hw;
-
-        // 4 个侧面（双面提交，任何绕序/剔除状态下均可见）
-        // 面 -w（c1-c2）
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        // 面 +w（c4-c3）
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-        // 面 -v（c1-c4）
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        // 面 +v（c2-c3）
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-    }
-
-    /** 提交一个实心小立方体（6 面双面），用于衔接棱端、闭合框体顶点 */
-    private static void addCorner(BufferBuilder buf, Matrix4f matrix,
-                                  float cx, float cy, float cz,
-                                  float hw, float r, float g, float b, float a) {
-        float x1 = cx - hw, y1 = cy - hw, z1 = cz - hw;
-        float x2 = cx + hw, y2 = cy + hw, z2 = cz + hw;
-        // +Z
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        // -Z
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        // +X
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        // -X
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        // +Y
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        // -Y
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
     }
 }

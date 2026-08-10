@@ -2,7 +2,6 @@ package com.mss.polymech.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.Tesselator;
@@ -20,7 +19,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -28,8 +26,10 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -39,21 +39,27 @@ import software.bernie.geckolib.animatable.GeoAnimatable;
 import software.bernie.geckolib.model.GeoModel;
 import software.bernie.geckolib.renderer.GeoBlockRenderer;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class MachinePreviewRenderer {
 
-    private static final int COLOR_VALID = 0xFF00FF00;
     private static final int COLOR_INVALID = 0xFFFF0000;
-    private static final int COLOR_MAIN = 0xFF00FFFF;
-    private static final int COLOR_FILL_VALID = 0x4000FF00;
-    private static final int COLOR_FILL_INVALID = 0x40FF0000;
     private static final int COLOR_BOUNDS = 0xFFFFFF00;
 
     private static final float LINE_WIDTH = 0.06F;
+    /** 无效位置红框半透明面透明度 */
     private static final float FACE_ALPHA = 0.25F;
+
+    /** 动画框集合：key -> 框（BlockPos=无效位置红框，"bounds"=整体边界黄框；新建淡入，复用 chase 滑动） */
+    private static final Map<Object, AnimatedOutline> outlines = new HashMap<>();
+
+    /** 本帧目标框描述 */
+    private record OutlineTarget(Object key, AABB box, int color, float faceAlpha) {}
+
 
     private static final Map<BlockEntityType<?>, BlockEntity> tempBeCache = new HashMap<>();
     @SuppressWarnings("rawtypes")
@@ -153,57 +159,25 @@ public class MachinePreviewRenderer {
                                               BaseMachineBlock machineBlock, BlockState previewState, BlockPos targetPos) {
         BlockPos[] sidePositions = machineBlock.getSidePositions(previewState, targetPos);
 
-        boolean canPlace = canPlaceMachine(mc, targetPos, sidePositions);
-        
         PoseStack poseStack = event.getPoseStack();
-
         renderGhostModel(poseStack, event.getCamera(), machineBlock, previewState, targetPos);
 
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        RenderSystem.disableCull();
+        long tick = mc.level.getGameTime();
+        List<OutlineTarget> targets = new ArrayList<>();
 
         // 只在主位置被阻挡时渲染红色边框 + 半透明面
-        if (!mc.level.isEmptyBlock(targetPos) && !mc.level.getBlockState(targetPos).canBeReplaced()) {
-            poseStack.pushPose();
-            poseStack.translate(
-                    (double) targetPos.getX() - event.getCamera().getPosition().x(),
-                    (double) targetPos.getY() - event.getCamera().getPosition().y(),
-                    (double) targetPos.getZ() - event.getCamera().getPosition().z()
-            );
-            Matrix4f matrix = poseStack.last().pose();
-            float a = (float) ((COLOR_FILL_INVALID >> 24) & 0xFF) / 255.0F;
-            float r = (float) ((COLOR_FILL_INVALID >> 16) & 0xFF) / 255.0F;
-            float g = (float) ((COLOR_FILL_INVALID >> 8) & 0xFF) / 255.0F;
-            float b = (float) (COLOR_FILL_INVALID & 0xFF) / 255.0F;
-            renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
-            renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, COLOR_INVALID);
-            poseStack.popPose();
+        if (isBlocked(mc, targetPos)) {
+            targets.add(new OutlineTarget(targetPos, boxOf(targetPos), COLOR_INVALID, FACE_ALPHA));
         }
 
         // 只渲染被阻挡的侧面方块位置（棱 + 半透明面）
         for (BlockPos sidePos : sidePositions) {
-            if (!mc.level.isEmptyBlock(sidePos) && !mc.level.getBlockState(sidePos).canBeReplaced()) {
-                poseStack.pushPose();
-                poseStack.translate(
-                        (double) sidePos.getX() - event.getCamera().getPosition().x(),
-                        (double) sidePos.getY() - event.getCamera().getPosition().y(),
-                        (double) sidePos.getZ() - event.getCamera().getPosition().z()
-                );
-                Matrix4f matrix = poseStack.last().pose();
-                float a = (float) ((COLOR_FILL_INVALID >> 24) & 0xFF) / 255.0F;
-                float r = (float) ((COLOR_FILL_INVALID >> 16) & 0xFF) / 255.0F;
-                float g = (float) ((COLOR_FILL_INVALID >> 8) & 0xFF) / 255.0F;
-                float b = (float) (COLOR_FILL_INVALID & 0xFF) / 255.0F;
-                renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
-                renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, COLOR_INVALID);
-                poseStack.popPose();
+            if (isBlocked(mc, sidePos)) {
+                targets.add(new OutlineTarget(sidePos, boxOf(sidePos), COLOR_INVALID, FACE_ALPHA));
             }
         }
 
+        // 整体边界黄框（无面）
         int boundsMinX = targetPos.getX(), boundsMinY = targetPos.getY(), boundsMinZ = targetPos.getZ();
         int boundsMaxX = targetPos.getX(), boundsMaxY = targetPos.getY(), boundsMaxZ = targetPos.getZ();
         for (BlockPos sidePos : sidePositions) {
@@ -214,21 +188,19 @@ public class MachinePreviewRenderer {
             boundsMaxY = Math.max(boundsMaxY, sidePos.getY());
             boundsMaxZ = Math.max(boundsMaxZ, sidePos.getZ());
         }
-        renderBoundsOutline(poseStack, event.getCamera(), boundsMinX, boundsMinY, boundsMinZ, boundsMaxX + 1, boundsMaxY + 1, boundsMaxZ + 1, COLOR_BOUNDS);
+        targets.add(new OutlineTarget("bounds", new AABB(boundsMinX, boundsMinY, boundsMinZ,
+                boundsMaxX + 1, boundsMaxY + 1, boundsMaxZ + 1), COLOR_BOUNDS, 0));
 
-        // 只渲染被阻挡的填充区域
+        // 只渲染被阻挡的填充区域方块（棱 + 半透明面）
         Vec3i[][] fillRegions = machineBlock.getFillRegions();
         if (fillRegions != null) {
+            Direction facing = previewState.getValue(BaseMachineBlock.FACING);
             for (Vec3i[] region : fillRegions) {
-                Vec3i min = region[0];
-                Vec3i max = region[1];
-                renderFillRegion(poseStack, event.getCamera(), targetPos, previewState, min, max, false); // 总是传递false，只渲染被阻挡部分
+                collectFillTargets(targets, mc, targetPos, facing, region[0], region[1]);
             }
         }
 
-        RenderSystem.depthMask(true);
-        RenderSystem.enableCull();
-        RenderSystem.enableDepthTest();
+        renderOutlines(event, targets, tick);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -272,67 +244,6 @@ public class MachinePreviewRenderer {
         }
     }
 
-    private static boolean canPlaceMachine(Minecraft mc, BlockPos mainPos, BlockPos[] sidePositions) {
-        if (mc.level == null) return false;
-        if (!mc.level.isEmptyBlock(mainPos) && !mc.level.getBlockState(mainPos).canBeReplaced()) {
-            return false;
-        }
-        for (BlockPos sidePos : sidePositions) {
-            if (!mc.level.isEmptyBlock(sidePos) && !mc.level.getBlockState(sidePos).canBeReplaced()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static void renderFillRegion(PoseStack poseStack, net.minecraft.client.Camera camera,
-                                          BlockPos origin, BlockState state, Vec3i min, Vec3i max, boolean valid) {
-        int minX = Math.min(min.getX(), max.getX());
-        int minY = Math.min(min.getY(), max.getY());
-        int minZ = Math.min(min.getZ(), max.getZ());
-        int maxX = Math.max(min.getX(), max.getX());
-        int maxY = Math.max(min.getY(), max.getY());
-        int maxZ = Math.max(min.getZ(), max.getZ());
-
-        Direction facing = state.getValue(BaseMachineBlock.FACING);
-
-        // 修改逻辑：总是使用无效颜色，只渲染被阻挡的方块
-        int fillColor = COLOR_FILL_INVALID; // 总是使用红色填充
-        int outlineColor = COLOR_INVALID; // 总是使用红色边框
-
-        float a = (float) ((fillColor >> 24) & 0xFF) / 255.0F;
-        float r = (float) ((fillColor >> 16) & 0xFF) / 255.0F;
-        float g = (float) ((fillColor >> 8) & 0xFF) / 255.0F;
-        float b = (float) (fillColor & 0xFF) / 255.0F;
-
-        Minecraft mc = Minecraft.getInstance();
-
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
-                    Vec3i rotated = rotateVec3i(new Vec3i(x, y, z), facing);
-                    BlockPos pos = origin.offset(rotated);
-
-                    // 检查该位置是否被阻挡
-                    if (!mc.level.isEmptyBlock(pos) && !mc.level.getBlockState(pos).canBeReplaced()) {
-                        poseStack.pushPose();
-                        poseStack.translate(
-                                (double) pos.getX() - camera.getPosition().x(),
-                                (double) pos.getY() - camera.getPosition().y(),
-                                (double) pos.getZ() - camera.getPosition().z()
-                        );
-
-                        Matrix4f matrix = poseStack.last().pose();
-                        renderCubeFace(matrix, 0, 0, 0, 1, 1, 1, r, g, b, a);
-                        renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, outlineColor);
-
-                        poseStack.popPose();
-                    }
-                }
-            }
-        }
-    }
-
     private static Vec3i rotateVec3i(Vec3i offset, Direction facing) {
         int x = offset.getX();
         int z = offset.getZ();
@@ -345,262 +256,88 @@ public class MachinePreviewRenderer {
         };
     }
 
-    private static void renderBlockOutline(PoseStack poseStack, net.minecraft.client.Camera camera, BlockPos pos, int color) {
-        poseStack.pushPose();
-        poseStack.translate(
-                (double) pos.getX() - camera.getPosition().x(),
-                (double) pos.getY() - camera.getPosition().y(),
-                (double) pos.getZ() - camera.getPosition().z()
-        );
-
-        Matrix4f matrix = poseStack.last().pose();
-        renderCubeWireframe(matrix, 0, 0, 0, 1, 1, 1, color);
-
-        poseStack.popPose();
+    /** 方块整格包围盒（微膨胀防 Z-fighting） */
+    private static AABB boxOf(BlockPos pos) {
+        return new AABB(pos).inflate(0.002);
     }
 
-    private static void renderBoundsOutline(PoseStack poseStack, net.minecraft.client.Camera camera,
-                                              float x1, float y1, float z1,
-                                              float x2, float y2, float z2, int color) {
-        poseStack.pushPose();
-        poseStack.translate(
-                -camera.getPosition().x(),
-                -camera.getPosition().y(),
-                -camera.getPosition().z()
-        );
-
-        Matrix4f matrix = poseStack.last().pose();
-        renderCubeWireframe(matrix, x1, y1, z1, x2, y2, z2, color);
-
-        poseStack.popPose();
+    /** 位置是否被不可替换方块阻挡 */
+    private static boolean isBlocked(Minecraft mc, BlockPos pos) {
+        return mc.level != null && !mc.level.isEmptyBlock(pos) && !mc.level.getBlockState(pos).canBeReplaced();
     }
 
-    private static void renderCubeWireframe(Matrix4f matrix, float x1, float y1, float z1,
-                                             float x2, float y2, float z2, int color) {
-        float a = (float) ((color >> 24) & 0xFF) / 255.0F;
-        float r = (float) ((color >> 16) & 0xFF) / 255.0F;
-        float g = (float) ((color >> 8) & 0xFF) / 255.0F;
-        float b = (float) (color & 0xFF) / 255.0F;
+    /** 收集填充区域内被阻挡的方块位置（棱 + 半透明面） */
+    private static void collectFillTargets(List<OutlineTarget> targets, Minecraft mc, BlockPos origin,
+                                           Direction facing, Vec3i min, Vec3i max) {
+        int minX = Math.min(min.getX(), max.getX());
+        int minY = Math.min(min.getY(), max.getY());
+        int minZ = Math.min(min.getZ(), max.getZ());
+        int maxX = Math.max(min.getX(), max.getX());
+        int maxY = Math.max(min.getY(), max.getY());
+        int maxZ = Math.max(min.getZ(), max.getZ());
 
-        BufferBuilder buf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-
-        float hw = LINE_WIDTH / 2.0F;
-
-        // 12 条实心方条棱 + 8 个角点立方体（任何视角完全闭合，无十字截面穿帮）
-        addBar(buf, matrix, x1, y1, z1, x2, y1, z1, hw, r, g, b, a);
-        addBar(buf, matrix, x2, y1, z1, x2, y1, z2, hw, r, g, b, a);
-        addBar(buf, matrix, x2, y1, z2, x1, y1, z2, hw, r, g, b, a);
-        addBar(buf, matrix, x1, y1, z2, x1, y1, z1, hw, r, g, b, a);
-
-        addBar(buf, matrix, x1, y2, z1, x2, y2, z1, hw, r, g, b, a);
-        addBar(buf, matrix, x2, y2, z1, x2, y2, z2, hw, r, g, b, a);
-        addBar(buf, matrix, x2, y2, z2, x1, y2, z2, hw, r, g, b, a);
-        addBar(buf, matrix, x1, y2, z2, x1, y2, z1, hw, r, g, b, a);
-
-        addBar(buf, matrix, x1, y1, z1, x1, y2, z1, hw, r, g, b, a);
-        addBar(buf, matrix, x2, y1, z1, x2, y2, z1, hw, r, g, b, a);
-        addBar(buf, matrix, x2, y1, z2, x2, y2, z2, hw, r, g, b, a);
-        addBar(buf, matrix, x1, y1, z2, x1, y2, z2, hw, r, g, b, a);
-
-        addCorner(buf, matrix, x1, y1, z1, hw, r, g, b, a);
-        addCorner(buf, matrix, x2, y1, z1, hw, r, g, b, a);
-        addCorner(buf, matrix, x2, y1, z2, hw, r, g, b, a);
-        addCorner(buf, matrix, x1, y1, z2, hw, r, g, b, a);
-        addCorner(buf, matrix, x1, y2, z1, hw, r, g, b, a);
-        addCorner(buf, matrix, x2, y2, z1, hw, r, g, b, a);
-        addCorner(buf, matrix, x2, y2, z2, hw, r, g, b, a);
-        addCorner(buf, matrix, x1, y2, z2, hw, r, g, b, a);
-
-        BufferUploader.drawWithShader(buf.buildOrThrow());
-    }
-
-    private static void renderCubeFace(Matrix4f matrix, float x1, float y1, float z1,
-                                        float x2, float y2, float z2, float r, float g, float b, float a) {
-        BufferBuilder buf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-
-        BufferUploader.drawWithShader(buf.buildOrThrow());
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    Vec3i rotated = rotateVec3i(new Vec3i(x, y, z), facing);
+                    BlockPos pos = origin.offset(rotated);
+                    if (isBlocked(mc, pos)) {
+                        targets.add(new OutlineTarget(pos, boxOf(pos), COLOR_INVALID, FACE_ALPHA));
+                    }
+                }
+            }
+        }
     }
 
     /**
-     * 提交一条实心方条棱：以棱方向为轴、截面为 hw×hw 正方形的 4 侧面柱体（每面双面提交）。
-     * <p>
-     * 与 {@link #addCorner(BufferBuilder, Matrix4f, float, float, float, float, float, float, float, float)}
-     * 配合使用：棱端实心正方形截面与角点立方体面完全对齐，
-     * 任何视角都看不到十字截面或顶点空洞（替代旧十字双平面 quad 方案）。
-     * </p>
+     * 渲染动画框集合：新建触发淡入，复用目标触发 chase 滑动，消失的移除。
+     * 两轮提交：先半透明面、再亮边线，保证边线清晰可读。
      */
-    private static void addBar(BufferBuilder buf, Matrix4f matrix,
-                               float x1, float y1, float z1,
-                               float x2, float y2, float z2,
-                               float hw, float r, float g, float b, float a) {
-        float dx = x2 - x1;
-        float dy = y2 - y1;
-        float dz = z2 - z1;
-        float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (len < 1.0e-6F)
-            return;
-        // 单位方向向量
-        float ux = dx / len, uy = dy / len, uz = dz / len;
-        // 构造垂直于方向的截面正交基 v、w（v×w = 方向）
-        float vx, vy, vz;
-        if (Math.abs(uy) < 0.99F) {
-            vx = 0;
-            vy = 1;
-            vz = 0; // 参考世界 Y
-        } else {
-            vx = 1;
-            vy = 0;
-            vz = 0; // 方向接近 Y 时参考 X
+    private static void renderOutlines(RenderLevelStageEvent event, List<OutlineTarget> targets, long tick) {
+        // 同步动画框集合：新建淡入，复用 chase，消失的移除
+        outlines.keySet().removeIf(key -> targets.stream().noneMatch(t -> t.key().equals(key)));
+        for (OutlineTarget t : targets) {
+            AnimatedOutline o = outlines.get(t.key());
+            if (o == null) {
+                outlines.put(t.key(), new AnimatedOutline(t.box(), t.color(), LINE_WIDTH, t.faceAlpha(), tick));
+            } else {
+                o.chase(t.box(), t.color(), LINE_WIDTH, t.faceAlpha());
+            }
         }
-        // v = normalize(dir × up)
-        float tvx = uy * vz - uz * vy;
-        float tvy = uz * vx - ux * vz;
-        float tvz = ux * vy - uy * vx;
-        float tl = (float) Math.sqrt(tvx * tvx + tvy * tvy + tvz * tvz);
-        if (tl < 1.0e-6F)
-            return;
-        tvx /= tl;
-        tvy /= tl;
-        tvz /= tl;
-        // w = dir × v
-        float wx = uy * tvz - uz * tvy;
-        float wy = uz * tvx - ux * tvz;
-        float wz = ux * tvy - uy * tvx;
 
-        // 截面四角（乘 hw 后才是实际半宽偏移）：c1=-v-w, c2=+v-w, c3=+v+w, c4=-v+w
-        float c1x = (-tvx - wx) * hw, c1y = (-tvy - wy) * hw, c1z = (-tvz - wz) * hw;
-        float c2x = (tvx - wx) * hw, c2y = (tvy - wy) * hw, c2z = (tvz - wz) * hw;
-        float c3x = (tvx + wx) * hw, c3y = (tvy + wy) * hw, c3z = (tvz + wz) * hw;
-        float c4x = (-tvx + wx) * hw, c4y = (-tvy + wy) * hw, c4z = (-tvz + wz) * hw;
+        PoseStack poseStack = event.getPoseStack();
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.disableCull();
 
-        // 4 个侧面（双面提交，任何绕序/剔除状态下均可见）
-        // 面 -w（c1-c2）
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        // 面 +w（c4-c3）
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-        // 面 -v（c1-c4）
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c4x, y1 + c4y, z1 + c4z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c1x, y1 + c1y, z1 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c1x, y2 + c1y, z2 + c1z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c4x, y2 + c4y, z2 + c4z).setColor(r, g, b, a);
-        // 面 +v（c2-c3）
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c3x, y1 + c3y, z1 + c3z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1 + c2x, y1 + c2y, z1 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c2x, y2 + c2y, z2 + c2z).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2 + c3x, y2 + c3y, z2 + c3z).setColor(r, g, b, a);
-    }
+        poseStack.pushPose();
+        Vec3 cam = event.getCamera().getPosition();
+        poseStack.translate(-cam.x, -cam.y, -cam.z);
+        Matrix4f matrix = poseStack.last().pose();
 
-    /** 提交一个实心小立方体（6 面双面），用于衔接棱端、闭合框体顶点 */
-    private static void addCorner(BufferBuilder buf, Matrix4f matrix,
-                                  float cx, float cy, float cz,
-                                  float hw, float r, float g, float b, float a) {
-        float x1 = cx - hw, y1 = cy - hw, z1 = cz - hw;
-        float x2 = cx + hw, y2 = cy + hw, z2 = cz + hw;
-        // +Z
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        // -Z
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        // +X
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        // -X
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        // +Y
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y2, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y2, z2).setColor(r, g, b, a);
-        // -Y
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z2).setColor(r, g, b, a);
-        buf.addVertex(matrix, x1, y1, z1).setColor(r, g, b, a);
-        buf.addVertex(matrix, x2, y1, z1).setColor(r, g, b, a);
+        // chase 动画：每帧向目标位置指数平滑追赶（帧率无关，Create outliner 同款滑动）
+        for (AnimatedOutline o : outlines.values())
+            o.tickChase();
+
+        // 第一轮：半透明面
+        BufferBuilder faceBuf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        for (AnimatedOutline o : outlines.values())
+            o.appendFaces(faceBuf, matrix, tick);
+        AnimatedOutline.drawIfNotEmpty(faceBuf);
+
+        // 第二轮：亮边线（实心方条棱 + 角点立方体，任何视角完全闭合）
+        BufferBuilder edgeBuf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+        for (AnimatedOutline o : outlines.values())
+            o.appendEdges(edgeBuf, matrix, tick);
+        AnimatedOutline.drawIfNotEmpty(edgeBuf);
+
+        poseStack.popPose();
+
+        RenderSystem.depthMask(true);
+        RenderSystem.enableCull();
+        RenderSystem.enableDepthTest();
     }
 }
