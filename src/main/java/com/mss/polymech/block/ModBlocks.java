@@ -231,10 +231,7 @@ public class ModBlocks {
                             .blockEntityFactory(GasTurbineGeneratorBlockEntity::new)
                             .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
-                    (block, props) -> new MachineBlockItem(block, props,
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/gas_turbine_generator.geo.json"),
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gas_turbine_generator/gas_turbine_generator.png"),
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/gas_turbine_generator.animation.json")));
+                    MachineBlockItem::new);
 
     /* 蒸汽双联矿物跳汰机 */
     public static final MachineRegistrar.MachineRegistration STEAM_DUPLEX_MINERAL_JIG =
@@ -245,10 +242,7 @@ public class ModBlocks {
                             .blockEntityFactory(SteamDuplexMineralJigBlockEntity::new)
                             .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
                             .build(),
-                    (block, props) -> new MachineBlockItem(block, props,
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/steam_duplex_mineral_jig.geo.json"),
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/steam_duplex_mineral_jig/steam_duplex_mineral_jig.png"),
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/block/steam_duplex_mineral_jig.animation.json")));
+                    MachineBlockItem::new);
 
     /* 蒸汽锤 */
     public static final MachineRegistrar.MachineRegistration STEAM_HAMMER =
