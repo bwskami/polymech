@@ -1,0 +1,108 @@
+{
+  "variants": {
+    "count=1,facing=up": {
+      "model": "poly_mech:block/powergrid/connector"
+    },
+    "count=1,facing=down": {
+      "model": "poly_mech:block/powergrid/connector",
+      "x": 180
+    },
+    "count=1,facing=north": {
+      "model": "poly_mech:block/powergrid/connector",
+      "x": 90
+    },
+    "count=1,facing=south": {
+      "model": "poly_mech:block/powergrid/connector",
+      "x": 90,
+      "y": 180
+    },
+    "count=1,facing=east": {
+      "model": "poly_mech:block/powergrid/connector",
+      "x": 90,
+      "y": 90
+    },
+    "count=1,facing=west": {
+      "model": "poly_mech:block/powergrid/connector",
+      "x": 90,
+      "y": 270
+    },
+    "count=2,facing=up": {
+      "model": "poly_mech:block/powergrid/connector_2"
+    },
+    "count=2,facing=down": {
+      "model": "poly_mech:block/powergrid/connector_2",
+      "x": 180
+    },
+    "count=2,facing=north": {
+      "model": "poly_mech:block/powergrid/connector_2",
+      "x": 90
+    },
+    "count=2,facing=south": {
+      "model": "poly_mech:block/powergrid/connector_2",
+      "x": 90,
+      "y": 180
+    },
+    "count=2,facing=east": {
+      "model": "poly_mech:block/powergrid/connector_2",
+      "x": 90,
+      "y": 90
+    },
+    "count=2,facing=west": {
+      "model": "poly_mech:block/powergrid/connector_2",
+      "x": 90,
+      "y": 270
+    },
+    "count=3,facing=up": {
+      "model": "poly_mech:block/powergrid/connector_3"
+    },
+    "count=3,facing=down": {
+      "model": "poly_mech:block/powergrid/connector_3",
+      "x": 180
+    },
+    "count=3,facing=north": {
+      "model": "poly_mech:block/powergrid/connector_3",
+      "x": 90
+    },
+    "count=3,facing=south": {
+      "model": "poly_mech:block/powergrid/connector_3",
+      "x": 90,
+      "y": 180
+    },
+    "count=3,facing=east": {
+      "model": "poly_mech:block/powergrid/connector_3",
+      "x": 90,
+      "y": 90
+    },
+    "count=3,facing=west": {
+      "model": "poly_mech:block/powergrid/connector_3",
+      "x": 90,
+      "y": 270
+    },
+    "count=4,facing=up": {
+      "model": "poly_mech:block/powergrid/connector_4"
+    },
+    "count=4,facing=down": {
+      "model": "poly_mech:block/powergrid/connector_4",
+      "x": 180
+    },
+    "count=4,facing=north": {
+      "model": "poly_mech:block/powergrid/connector_4",
+      "x": 90
+    },
+    "count=4,facing=south": {
+      "model": "poly_mech:block/powergrid/connector_4",
+      "x": 90,
+      "y": 180
+    },
+    "count=4,facing=east": {
+      "model": "poly_mech:block/powergrid/connector_4",
+      "x": 90,
+      "y": 90
+    },
+    "count=4,facing=west": {
+      "model": "poly_mech:block/powergrid/connector_4",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

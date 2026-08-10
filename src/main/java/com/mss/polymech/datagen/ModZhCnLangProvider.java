@@ -10,6 +10,7 @@ import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.fluid.ChemicalFluid;
 import com.mss.polymech.fluid.ModElements;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.powergrid.GridWireType;
 import net.minecraft.data.PackOutput;
 import net.neoforged.neoforge.common.data.LanguageProvider;
 
@@ -627,6 +628,27 @@ public class ModZhCnLangProvider extends LanguageProvider {
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "蓝图");
         add(ModItems.COKE.get(), "焦煤");
+
+        // 电网（真实电线电网系统）
+        add(ModBlocks.CONNECTOR.get(), "连接器");
+        add(ModBlocks.CONCRETE_POLE.get(), "混凝土电杆");
+        add(ModBlocks.RELAY.get(), "继电器");
+        // 线轴（数据驱动：金属名共用MATERIAL_ZH_NAMES，绝缘变体加“绝缘”前缀）
+        for (GridWireType wireType : GridWireType.values()) {
+            String metalZh = MATERIAL_ZH_NAMES.getOrDefault(wireType.metalName(), wireType.metalName());
+            String name = wireType.isInsulated() ? metalZh + "绝缘线轴" : metalZh + "线轴";
+            add("item.poly_mech." + wireType.spoolItemName(), name);
+        }
+        add(ModItems.EMPTY_SPOOL.get(), "空线轴");
+        // 线轴交互提示
+        add("message.poly_mech.wire_spool.cancelled", "已取消选中起点");
+        add("message.poly_mech.wire_spool.selected", "已选中节点：%s");
+        add("message.poly_mech.wire_spool.same_node", "不能将节点连接到自身！");
+        add("message.poly_mech.wire_spool.already_connected", "这两个节点已经连接了！");
+        add("message.poly_mech.wire_spool.too_far", "距离太远！最大拉线长度：%s 格");
+        add("message.poly_mech.wire_spool.connected", "电线已连接！");
+        add("message.poly_mech.empty_spool.disconnected", "已断开 %d 根电线");
+        add("message.poly_mech.empty_spool.no_wire", "该节点没有连接电线");
 
         // 通用流体单元（四种规格）
         add(ModItems.SMALL_FLUID_CELL.get(), "小型流体单元");

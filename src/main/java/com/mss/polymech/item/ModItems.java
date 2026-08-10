@@ -4,6 +4,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
+import com.mss.polymech.powergrid.GridWireType;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -116,6 +117,38 @@ public class ModItems {
     @SuppressWarnings("unchecked")
     public static final List<DeferredItem<FluidCellItem>> ALL_FLUID_CELLS = List.of(
             SMALL_FLUID_CELL, UNIVERSAL_FLUID_CELL, MEDIUM_FLUID_CELL, HUGE_FLUID_CELL);
+
+    // ========== 电网物品（电线/线轴） ==========
+
+    /*
+     * 金属线轴：每种 {@link GridWireType} 对应一个线轴物品，数据驱动循环注册。
+     * 右键电网节点拉线，Shift+右键取消选中。物品名/电气参数均由枚举定义。
+     */
+    private static final Map<GridWireType, DeferredItem<WireSpoolItem>> WIRE_SPOOL_TABLE =
+            new EnumMap<>(GridWireType.class);
+
+    /** 所有电网线轴（按枚举声明顺序），供创造标签页遍历 */
+    public static final List<DeferredItem<WireSpoolItem>> ALL_WIRE_SPOOLS;
+
+    static {
+        for (GridWireType type : GridWireType.values()) {
+            WIRE_SPOOL_TABLE.put(type, ITEMS.register(type.spoolItemName(),
+                    () -> new WireSpoolItem(new Item.Properties().stacksTo(1), type)));
+        }
+        ALL_WIRE_SPOOLS = List.copyOf(WIRE_SPOOL_TABLE.values());
+    }
+
+    /* 空线轴：拆线工具，右键节点方块断开其全部电线连接 */
+    public static final DeferredItem<EmptySpoolItem> EMPTY_SPOOL =
+            ITEMS.register("empty_spool", () -> new EmptySpoolItem(new Item.Properties().stacksTo(16)));
+
+    /**
+     * 获取指定电线类型对应的线轴物品（GridWireType.getSpoolItem内部使用）。
+     */
+    public static Item getWireSpoolItem(GridWireType type) {
+        return WIRE_SPOOL_TABLE.get(type).get();
+    }
+
 
     // ========== 材料物品：数据驱动批量注册 ==========
     

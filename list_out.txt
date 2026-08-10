@@ -1,0 +1,30 @@
+﻿== src\main\resources\assets\poly_mech\textures\item ==
+copper_wire_spool.png
+electrum_wire_spool.png
+empty_spool.png
+iron_wire_spool.png
+== src\main\resources\assets\poly_mech\models\item ==
+copper_wire_spool.json
+electrum_wire_spool.json
+empty_spool.json
+iron_wire_spool.json
+== src\generated\resources\assets\poly_mech\models\item ==
+== lang grep wire_spool item names ==
+en_us.json: "item.poly_mech.copper_wire_spool": "Copper Wire Spool",
+en_us.json: "item.poly_mech.electrum_wire_spool": "Electrum Wire Spool",
+en_us.json: "item.poly_mech.iron_wire_spool": "Iron Wire Spool",
+en_us.json: "message.poly_mech.wire_spool.already_connected": "These nodes are already connected!",
+en_us.json: "message.poly_mech.wire_spool.cancelled": "Selection Cleared",
+en_us.json: "message.poly_mech.wire_spool.connected": "Wire connected!",
+en_us.json: "message.poly_mech.wire_spool.same_node": "Cannot connect a node to itself!",
+en_us.json: "message.poly_mech.wire_spool.selected": "Selected node: %s",
+en_us.json: "message.poly_mech.wire_spool.too_far": "Too far away! Maximum length: %s blocks",
+zh_cn.json: "item.poly_mech.copper_wire_spool": "铜线轴",
+zh_cn.json: "item.poly_mech.electrum_wire_spool": "琥珀金线轴",
+zh_cn.json: "item.poly_mech.iron_wire_spool": "铁线轴",
+zh_cn.json: "message.poly_mech.wire_spool.already_connected": "这两个节点已经连接了！",
+zh_cn.json: "message.poly_mech.wire_spool.cancelled": "已取消选中起点",
+zh_cn.json: "message.poly_mech.wire_spool.connected": "电线已连接！",
+zh_cn.json: "message.poly_mech.wire_spool.same_node": "不能将节点连接到自身！",
+zh_cn.json: "message.poly_mech.wire_spool.selected": "已选中节点：%s",
+zh_cn.json: "message.poly_mech.wire_spool.too_far": "距离太远！最大拉线长度：%s 格",

@@ -7,6 +7,7 @@ import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.PipeBlock;
+import com.mss.polymech.powergrid.GridWireType;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
 import com.mss.polymech.fluid.ModFluids;
@@ -76,6 +77,13 @@ public class ModItemModelsProvider extends ItemModelProvider {
 
         // 焦煤：复用粉尘染色模板，颜色由 colors.json 的 coke 材质条目提供
         ITEM_TYPE_OVERRIDES.put("coke", ItemLayerTemplates.DUST);
+
+        // 电网线轴（数据驱动：全部金属线缆），底层空线轴不染色、线圈三层按金属染色
+        for (GridWireType wireType : GridWireType.values()) {
+            ITEM_TYPE_OVERRIDES.put(wireType.spoolItemName(), ItemLayerTemplates.SPOOL);
+        }
+        // 空线轴：标准化单层模型（material_sets/spool/empty_spool），不染色
+        ITEM_TYPE_OVERRIDES.put("empty_spool", ItemLayerTemplates.EMPTY_SPOOL);
     }
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",

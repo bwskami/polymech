@@ -3,6 +3,7 @@ package com.mss.polymech.texture_data;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.mss.polymech.Polymech;
+import com.mss.polymech.powergrid.GridWireType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -33,6 +34,12 @@ public class ColorConfigLoader {
     /* 缓存：物品/方块 -> 最终颜色数组（用于快速查找） */
     private static final Map<Item, Integer[]> ITEM_COLOR_CACHE = new HashMap<>();
     private static final Map<Block, Integer[]> BLOCK_COLOR_CACHE = new HashMap<>();
+
+    /** 线轴物品后缀：{@code <metal>_wire_spool}，染色数组由对应金属材质派生，无需在colors.json中配置 */
+    private static final String WIRE_SPOOL_SUFFIX = "_wire_spool";
+
+    /** 绝缘线轴物品后缀：{@code <metal>_insulated_wire_spool}，派生时额外把颜色加深（与GridWireType同系数） */
+    private static final String INSULATED_WIRE_SPOOL_SUFFIX = "_insulated_wire_spool";
     
     private static boolean loaded = false;
 
@@ -179,7 +186,33 @@ public class ColorConfigLoader {
         ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
         if (itemId != null && itemId.getNamespace().equals(Polymech.MOD_ID)) {
             String path = itemId.getPath();
-            
+
+            // 绝缘线轴物品（<metal>_insulated_wire_spool）：取金属材质颜色加深后再加null前缀
+            if (path.endsWith(INSULATED_WIRE_SPOOL_SUFFIX)) {
+                String materialName = path.substring(0, path.length() - INSULATED_WIRE_SPOOL_SUFFIX.length());
+                Integer[] base = MATERIAL_COLORS.get(materialName);
+                if (base != null) {
+                    Integer[] colors = withUntintedFirstLayer(
+                            darkenColors(base, GridWireType.INSULATED_COLOR_FACTOR));
+                    ITEM_COLOR_CACHE.put(item, colors);
+                    Polymech.LOGGER.debug("Derived insulated spool color for item {}: material={}", path, materialName);
+                    return colors;
+                }
+            }
+
+            // 线轴物品（<metal>_wire_spool）不占用colors.json配置：
+            // 直接取对应金属材质的颜色数组并在前面加一个null（底层空线轴层不染色）
+            if (path.endsWith(WIRE_SPOOL_SUFFIX)) {
+                String materialName = path.substring(0, path.length() - WIRE_SPOOL_SUFFIX.length());
+                Integer[] base = MATERIAL_COLORS.get(materialName);
+                if (base != null) {
+                    Integer[] colors = withUntintedFirstLayer(base);
+                    ITEM_COLOR_CACHE.put(item, colors);
+                    Polymech.LOGGER.debug("Derived spool color for item {}: material={}", path, materialName);
+                    return colors;
+                }
+            }
+
             // 尝试从物品ID中提取材料名
             // 例如：steel_ingot -> steel, brass_alloy_ingot -> brass
             String materialName = extractMaterialName(path);
@@ -228,6 +261,32 @@ public class ColorConfigLoader {
         }
         
         return null;
+    }
+
+    /*
+     * 在材质颜色数组前面加一个null（不染色层）。
+     * <p>
+     * 用于线轴等多层模板：底层空线轴不染色（null），
+     * 后续各层按金属材质染色，与模型tintindex逐层对应。
+     * </p>
+     */
+    private static Integer[] withUntintedFirstLayer(Integer[] base) {
+        Integer[] colors = new Integer[base.length + 1];
+        colors[0] = null;
+        System.arraycopy(base, 0, colors, 1, base.length);
+        return colors;
+    }
+
+    /*
+     * 把颜色数组整体加深（RGB各通道×factor，null层保持null）。
+     * 用于绝缘线轴：与世界内绝缘电线的加深系数保持一致。
+     */
+    private static Integer[] darkenColors(Integer[] base, float factor) {
+        Integer[] colors = new Integer[base.length];
+        for (int i = 0; i < base.length; i++) {
+            colors[i] = base[i] == null ? null : GridWireType.darken(base[i], factor);
+        }
+        return colors;
     }
 
     /*

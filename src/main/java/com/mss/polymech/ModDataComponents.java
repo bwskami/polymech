@@ -1,5 +1,6 @@
 package com.mss.polymech;
 
+import com.mss.polymech.powergrid.GridNode;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -43,6 +44,18 @@ public class ModDataComponents {
             DATA_COMPONENTS.registerComponentType("capacity_limit", builder -> builder
                     .persistent(com.mojang.serialization.Codec.intRange(0, Integer.MAX_VALUE))
                     .networkSynchronized(ByteBufCodecs.VAR_INT));
+
+    /*
+     * 选中电网节点数据组件（线轴拉线起点）。
+     * <p>
+     * 由WireSpoolItem在选中节点时写入，服务端据此执行电线连接。
+     * 持久化与网络同步均使用GridNode的编解码器。
+     * </p>
+     */
+    public static final Supplier<DataComponentType<GridNode>> SELECTED_NODE =
+            DATA_COMPONENTS.registerComponentType("selected_node", builder -> builder
+                    .persistent(GridNode.CODEC)
+                    .networkSynchronized(GridNode.STREAM_CODEC));
 
     /*
      * 向NeoForge事件总线注册数据组件注册器。

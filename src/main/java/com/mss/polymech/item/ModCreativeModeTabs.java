@@ -180,6 +180,17 @@ public class ModCreativeModeTabs {
                         for (var conveyor : ModBlocks.CONVEYOR_BLOCKS) {
                             output.accept(conveyor.get());
                         }
+
+                        // 电网方块（连接器/继电器/混凝土电杆）
+                        output.accept(ModBlocks.CONNECTOR.get());
+                        output.accept(ModBlocks.RELAY.get());
+                        output.accept(ModBlocks.CONCRETE_POLE.get());
+
+                        // 电网线轴（铜/铁/银金合金）+ 空线轴
+                        for (var spool : ModItems.ALL_WIRE_SPOOLS) {
+                            output.accept(spool.get());
+                        }
+                        output.accept(ModItems.EMPTY_SPOOL.get());
                     }).build());
 
     /*

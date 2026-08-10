@@ -93,6 +93,20 @@ public enum ItemLayerTemplates {
             "item/material_sets/ring/ring",
             "item/material_sets/ring/ring_secondary",
             "item/material_sets/ring/ring_overlay"
+    ),
+    /**
+     * 线轴（满卷）：底层为空线轴（colors.json 中对应染色为 null 不染色），
+     * 其上三层为线圈图层，按金属材质染色。
+     */
+    SPOOL(
+            "item/material_sets/spool/empty_spool",
+            "item/material_sets/spool/spool",
+            "item/material_sets/spool/spool_secondary",
+            "item/material_sets/spool/spool_overlay"
+    ),
+    /** 空线轴：仅底层空线轴图层，不染色 */
+    EMPTY_SPOOL(
+            "item/material_sets/spool/empty_spool"
     );
 
 

@@ -26,6 +26,9 @@ import com.mss.polymech.machine.production.SteamDuplexMineralJigBlockEntity;
 import com.mss.polymech.machine.production.SteamHammerBlockEntity;
 import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
 import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
+import com.mss.polymech.powergrid.ConcretePoleBlock;
+import com.mss.polymech.powergrid.ConnectorBlock;
+import com.mss.polymech.powergrid.RelayBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.resources.ResourceLocation;
@@ -94,6 +97,38 @@ public class ModBlocks {
                     .strength(3.0F, 6.0F)
                     .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+
+    // ========== 电网方块（真实电线电网） ==========
+
+    /*
+     * 电气连接器：可贴在任意面的小挂墙连接端子，电网基本接入点。
+     * 节点位于方块中心，电线从中心向外拉出。
+     */
+    public static final DeferredBlock<ConnectorBlock> CONNECTOR =
+            registerBlocks("connector", () -> new ConnectorBlock(Block.Properties.of()
+                    .strength(1.5F, 6.0F)
+                    .sound(SoundType.COPPER)
+                    .noOcclusion()));
+
+    /*
+     * 混凝土电杆：高耸的输电线支撑杆，顶部提供单个电气节点，
+     * 适合架设跨距离的输电线路。
+     */
+    public static final DeferredBlock<ConcretePoleBlock> CONCRETE_POLE =
+            registerBlocks("concrete_pole", () -> new ConcretePoleBlock(Block.Properties.of()
+                    .strength(3.0F, 12.0F)
+                    .sound(SoundType.STONE)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+
+    /*
+     * 继电器：贴墙安装的小型配电继电器，传输路径中的中间分接/转向点。
+     */
+    public static final DeferredBlock<RelayBlock> RELAY =
+            registerBlocks("relay", () -> new RelayBlock(Block.Properties.of()
+                    .strength(1.5F, 6.0F)
+                    .sound(SoundType.METAL)
                     .noOcclusion()));
 
 

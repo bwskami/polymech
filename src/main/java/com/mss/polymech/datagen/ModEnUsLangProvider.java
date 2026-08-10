@@ -11,6 +11,7 @@ import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.fluid.ChemicalFluid;
 import com.mss.polymech.fluid.ModElements;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.powergrid.GridWireType;
 import net.minecraft.data.PackOutput;
 import net.neoforged.neoforge.common.data.LanguageProvider;
 
@@ -181,6 +182,27 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
         add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "Horizontal Steam Boiler");
+
+        // 电网（真实电线电网系统）
+        add(ModBlocks.CONNECTOR.get(), "Connector");
+        add(ModBlocks.CONCRETE_POLE.get(), "Concrete Pole");
+        add(ModBlocks.RELAY.get(), "Relay");
+        // Wire spools (data-driven: shared material names, insulated variants prefixed)
+        for (GridWireType wireType : GridWireType.values()) {
+            String name = formatMaterialName(wireType.metalName())
+                    + (wireType.isInsulated() ? " Insulated Wire Spool" : " Wire Spool");
+            add("item.poly_mech." + wireType.spoolItemName(), name);
+        }
+        add(ModItems.EMPTY_SPOOL.get(), "Empty Spool");
+        // 线轴交互提示
+        add("message.poly_mech.wire_spool.cancelled", "Selection Cleared");
+        add("message.poly_mech.wire_spool.selected", "Selected node: %s");
+        add("message.poly_mech.wire_spool.same_node", "Cannot connect a node to itself!");
+        add("message.poly_mech.wire_spool.already_connected", "These nodes are already connected!");
+        add("message.poly_mech.wire_spool.too_far", "Too far away! Maximum length: %s blocks");
+        add("message.poly_mech.wire_spool.connected", "Wire connected!");
+        add("message.poly_mech.empty_spool.disconnected", "Disconnected %d wire(s)");
+        add("message.poly_mech.empty_spool.no_wire", "No wires connected here");
 
         // 卧式蒸汽锅炉 GUI 翻译
         add("gui.poly_mech.input_liquid", "Input Liquid");

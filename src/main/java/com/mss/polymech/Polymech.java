@@ -28,6 +28,7 @@ import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
 import com.mss.polymech.network.SetCellCapacityPacket;
+import com.mss.polymech.network.WireSyncPacket;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -189,6 +190,12 @@ public class Polymech {
                 SetCellCapacityPacket.TYPE,
                 SetCellCapacityPacket.STREAM_CODEC,
                 SetCellCapacityPacket::handle
+        );
+        // 电网电线连接同步（服务端 → 客户端，登录/连接变化时推送渲染数据）
+        registrar.playToClient(
+                WireSyncPacket.TYPE,
+                WireSyncPacket.STREAM_CODEC,
+                WireSyncPacket::handle
         );
     }
 
