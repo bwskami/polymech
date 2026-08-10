@@ -90,10 +90,10 @@ public final class GridNodes {
     /** 生成点击位置周围的搜索偏移（按点击位置所在半区偏向最近邻域） */
     private static List<BlockPos> searchOffsets(Vec3 clickedPos) {
         List<BlockPos> offsets = new ArrayList<>(8);
-        Vec3 relative = new Vec3(clickedPos.x() % 1, clickedPos.y() % 1, clickedPos.z() % 1);
-        int xDir = relative.x < 0.5 ? -1 : 1;
-        int yDir = relative.y < 0.5 ? -1 : 1;
-        int zDir = relative.z < 0.5 ? -1 : 1;
+        // 用 floor 取小数部分保证 ∈ [0,1)（负数坐标下 % 会返回负值导致偏移方向判断错误）
+        int xDir = (clickedPos.x() - Math.floor(clickedPos.x())) < 0.5 ? -1 : 1;
+        int yDir = (clickedPos.y() - Math.floor(clickedPos.y())) < 0.5 ? -1 : 1;
+        int zDir = (clickedPos.z() - Math.floor(clickedPos.z())) < 0.5 ? -1 : 1;
         for (int x = 0; x < 2; x++)
             for (int y = 0; y < 2; y++)
                 for (int z = 0; z < 2; z++)
