@@ -192,8 +192,9 @@ public class ColorConfigLoader {
                 String materialName = path.substring(0, path.length() - INSULATED_WIRE_SPOOL_SUFFIX.length());
                 Integer[] base = MATERIAL_COLORS.get(materialName);
                 if (base != null) {
-                    Integer[] colors = withUntintedFirstLayer(
-                            darkenColors(base, GridWireType.INSULATED_COLOR_FACTOR));
+                    // 模型共5层：null(空线轴) + 3(加深线圈) + null(绝缘标识层不染色)
+                    Integer[] colors = appendUntintedLayer(
+                            withUntintedFirstLayer(darkenColors(base, GridWireType.INSULATED_COLOR_FACTOR)));
                     ITEM_COLOR_CACHE.put(item, colors);
                     Polymech.LOGGER.debug("Derived insulated spool color for item {}: material={}", path, materialName);
                     return colors;
@@ -274,6 +275,20 @@ public class ColorConfigLoader {
         Integer[] colors = new Integer[base.length + 1];
         colors[0] = null;
         System.arraycopy(base, 0, colors, 1, base.length);
+        return colors;
+    }
+
+    /*
+     * 在颜色数组末尾追加一个null（不染色层）。
+     * <p>
+     * 用于绝缘线轴：模型最后一层为 Insulated_logo 标识层，
+     * 该层应保持贴图原样显示，不参与金属染色。
+     * </p>
+     */
+    private static Integer[] appendUntintedLayer(Integer[] base) {
+        Integer[] colors = new Integer[base.length + 1];
+        System.arraycopy(base, 0, colors, 0, base.length);
+        colors[base.length] = null;
         return colors;
     }
 

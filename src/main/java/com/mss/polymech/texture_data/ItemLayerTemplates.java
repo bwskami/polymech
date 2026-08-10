@@ -104,6 +104,18 @@ public enum ItemLayerTemplates {
             "item/material_sets/spool/spool_secondary",
             "item/material_sets/spool/spool_overlay"
     ),
+    /**
+     * 绝缘线轴：在满卷线轴基础上追加一层绝缘标识（insulated_logo，不染色原样显示），
+     * 用于在物品图标上区分绝缘线缆变体。
+     * 注意：资源路径仅允许小写，贴图文件必须命名为 insulated_logo.png。
+     */
+    INSULATED_SPOOL(
+            "item/material_sets/spool/empty_spool",
+            "item/material_sets/spool/spool",
+            "item/material_sets/spool/spool_secondary",
+            "item/material_sets/spool/spool_overlay",
+            "item/material_sets/spool/insulated_logo"
+    ),
     /** 空线轴：仅底层空线轴图层，不染色 */
     EMPTY_SPOOL(
             "item/material_sets/spool/empty_spool"

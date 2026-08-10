@@ -4,6 +4,7 @@
     "layer0": "poly_mech:item/material_sets/spool/empty_spool",
     "layer1": "poly_mech:item/material_sets/spool/spool",
     "layer2": "poly_mech:item/material_sets/spool/spool_secondary",
-    "layer3": "poly_mech:item/material_sets/spool/spool_overlay"
+    "layer3": "poly_mech:item/material_sets/spool/spool_overlay",
+    "layer4": "poly_mech:item/material_sets/spool/insulated_logo"
   }
 }
