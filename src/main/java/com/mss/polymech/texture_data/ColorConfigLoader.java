@@ -65,7 +65,7 @@ public class ColorConfigLoader {
                     var colorsArray = entry.getValue().getAsJsonObject().getAsJsonArray("colors");
                     Integer[] colors = parseColors(colorsArray, materialName);
                     MATERIAL_COLORS.put(materialName, colors);
-                    Polymech.LOGGER.info("Loaded material {}: {}", materialName, colors);
+                    Polymech.LOGGER.debug("Loaded material {}: {}", materialName, colors);
                 }
             }
 
@@ -89,7 +89,7 @@ public class ColorConfigLoader {
                     }
                     
                     ITEM_MATERIAL_MAP.put(item, materialName);
-                    Polymech.LOGGER.info("Mapped item {} to material {}", itemName, materialName);
+                    Polymech.LOGGER.debug("Mapped item {} to material {}", itemName, materialName);
                 }
             }
 
@@ -113,7 +113,7 @@ public class ColorConfigLoader {
                     }
                     
                     BLOCK_MATERIAL_MAP.put(block, materialName);
-                    Polymech.LOGGER.info("Mapped block {} to material {}", blockName, materialName);
+                    Polymech.LOGGER.debug("Mapped block {} to material {}", blockName, materialName);
                 }
             }
 
@@ -121,7 +121,7 @@ public class ColorConfigLoader {
             buildColorCaches();
 
             loaded = true;
-            Polymech.LOGGER.info("Color config loaded! Materials: {}, Items: {}, Blocks: {}",
+            Polymech.LOGGER.debug("Color config loaded! Materials: {}, Items: {}, Blocks: {}",
                     MATERIAL_COLORS.size(), ITEM_MATERIAL_MAP.size(), BLOCK_MATERIAL_MAP.size());
         } catch (Exception e) {
             Polymech.LOGGER.error("Failed to load color config", e);

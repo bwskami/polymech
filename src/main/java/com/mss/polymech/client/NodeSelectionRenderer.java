@@ -27,11 +27,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderHighlightEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * 电线拉线选择框渲染器（仿机械动力 Outliner 的 AABBOutline 视觉）。
@@ -50,8 +47,6 @@ import java.util.Objects;
  */
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class NodeSelectionRenderer {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(NodeSelectionRenderer.class);
 
     // ===== Create 色系（catnip Outliner 常用配色） =====
     /** 起点框：柔和亮蓝（ARGB） */
@@ -74,13 +69,6 @@ public class NodeSelectionRenderer {
     /** 当前帧要渲染的目标/提示框（null=不显示） */
     private static AnimatedOutline targetEntry;
 
-    /** 诊断：事件是否已记录（每次会话一条，确认处理器被触发） */
-    private static boolean loggedEventFired;
-    /** 诊断：类激活是否已记录（每次会话一条） */
-    private static boolean loggedActive;
-    /** 诊断：上次记录的悬停节点（变化时打一条日志） */
-    private static GridNode lastLoggedHovered;
-
     private NodeSelectionRenderer() {}
 
     // ==================== 事件 ====================
@@ -95,14 +83,6 @@ public class NodeSelectionRenderer {
     @SubscribeEvent
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         Minecraft mc = Minecraft.getInstance();
-        if (!loggedEventFired) {
-            // 无条件一次性日志：确认事件处理器被触发、阶段匹配、主手物品与等级就绪
-            String item = mc.player == null ? "no-player" : String.valueOf(mc.player.getMainHandItem().getItem());
-            LOGGER.info("NodeSelectionRenderer event fired: stage={}, item={}, level={}",
-                    event.getStage(), item,
-                    mc.level == null ? "no-level" : mc.level.dimension().location());
-            loggedEventFired = true;
-        }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS)
             return;
 
@@ -112,10 +92,6 @@ public class NodeSelectionRenderer {
             return;
         if (!(mc.player.getMainHandItem().getItem() instanceof WireSpoolItem spool))
             return;
-        if (!loggedActive) {
-            LOGGER.info("NodeSelectionRenderer active: holding {}", spool);
-            loggedActive = true;
-        }
 
         GridWireType wireType = spool.getWireType();
         Level level = mc.level;
@@ -130,10 +106,6 @@ public class NodeSelectionRenderer {
         HitResult hitResult = mc.hitResult;
         if (hitResult instanceof BlockHitResult bhr && bhr.getType() != HitResult.Type.MISS) {
             hovered = findNodeAt(level, bhr);
-        }
-        if (hovered != null && !Objects.equals(hovered, lastLoggedHovered)) {
-            LOGGER.info("NodeSelectionRenderer hovered node: {} (start={})", hovered, start);
-            lastLoggedHovered = hovered;
         }
 
         // 更新两个框的当前帧状态（复用 Entry 保持已满 alpha，新建则触发淡入）

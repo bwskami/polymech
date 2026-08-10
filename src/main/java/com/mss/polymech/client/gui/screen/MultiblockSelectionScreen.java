@@ -267,11 +267,11 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
             
             if (rightButtonState == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
                 // 右键点击：打开上下文菜单
-                Polymech.LOGGER.info("Right click - Opening context menu for machine: {} ({})", machine.id(), machine.nameKey());
+                Polymech.LOGGER.debug("Right click - Opening context menu for machine: {} ({})", machine.id(), machine.nameKey());
                 openContextMenu(machine);
             } else if (leftButtonState == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
                 // 左键点击：选择机器
-                Polymech.LOGGER.info("Left click - Selected multiblock machine: {} ({})", machine.id(), machine.nameKey());
+                Polymech.LOGGER.debug("Left click - Selected multiblock machine: {} ({})", machine.id(), machine.nameKey());
                 BlueprintToolItem.setSelectedMachineId(machine.id());
                 Minecraft.getInstance().setScreen(null);
             }
@@ -282,7 +282,7 @@ public class MultiblockSelectionScreen extends ModularUIScreen {
 
     private void openContextMenu(MachineData machine) {
         // 这里可以创建一个上下文菜单，类似右键菜单
-        Polymech.LOGGER.info("Opening context menu for machine: {} ({})", machine.id(), machine.nameKey());
+        Polymech.LOGGER.debug("Opening context menu for machine: {} ({})", machine.id(), machine.nameKey());
         // 暂时显示一个聊天消息作为提示
         Minecraft.getInstance().player.displayClientMessage(
             Component.literal("上下文菜单 - 机器: " + Component.translatable(machine.nameKey()).getString()), false);

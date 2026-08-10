@@ -48,7 +48,8 @@ import java.util.Map;
 public class MachinePreviewRenderer {
 
     private static final int COLOR_INVALID = 0xFFFF0000;
-    private static final int COLOR_BOUNDS = 0xFFFFFF00;
+    /** 整体边界框淡蓝色（贴合蓝图风格，与电线起点框同款） */
+    private static final int COLOR_BOUNDS = 0xFF4D9EFF;
 
     private static final float LINE_WIDTH = 0.06F;
     /** 无效位置红框半透明面透明度 */
@@ -180,7 +181,7 @@ public class MachinePreviewRenderer {
             }
         }
 
-        // 整体边界黄框（无面）
+        // 整体边界框（淡蓝色 + 半透明面，与其他选择框视觉一致）
         int boundsMinX = targetPos.getX(), boundsMinY = targetPos.getY(), boundsMinZ = targetPos.getZ();
         int boundsMaxX = targetPos.getX(), boundsMaxY = targetPos.getY(), boundsMaxZ = targetPos.getZ();
         for (BlockPos sidePos : sidePositions) {
@@ -192,7 +193,7 @@ public class MachinePreviewRenderer {
             boundsMaxZ = Math.max(boundsMaxZ, sidePos.getZ());
         }
         targets.add(new OutlineTarget("bounds", new AABB(boundsMinX, boundsMinY, boundsMinZ,
-                boundsMaxX + 1, boundsMaxY + 1, boundsMaxZ + 1), COLOR_BOUNDS, 0));
+                boundsMaxX + 1, boundsMaxY + 1, boundsMaxZ + 1), COLOR_BOUNDS, FACE_ALPHA));
 
         // 只渲染被阻挡的填充区域方块（棱 + 半透明面）
         Vec3i[][] fillRegions = machineBlock.getFillRegions();

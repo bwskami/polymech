@@ -144,16 +144,7 @@ public class Polymech {
      * @param event 通用设置事件
      */
     private void commonSetup(FMLCommonSetupEvent event) {
-        LOGGER.info("HELLO FROM COMMON SETUP");
-
-        // 示例：读取配置并输出日志
-        if (Config.LOG_DIRT_BLOCK.getAsBoolean()) {
-            LOGGER.info("DIRT BLOCK >> {}", BuiltInRegistries.BLOCK.getKey(Blocks.DIRT));
-        }
-
-        LOGGER.info("{}{}", Config.MAGIC_NUMBER_INTRODUCTION.get(), Config.MAGIC_NUMBER.getAsInt());
-
-        Config.ITEM_STRINGS.get().forEach((item) -> LOGGER.info("ITEM >> {}", item));
+        // 模组初始化钩子（具体初始化由各模块完成，无额外日志）
     }
 
     /*
@@ -342,6 +333,6 @@ public class Polymech {
      */
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        LOGGER.info("HELLO from server starting");
+        // 服务端启动钩子（暂无需初始化内容）
     }
 }
