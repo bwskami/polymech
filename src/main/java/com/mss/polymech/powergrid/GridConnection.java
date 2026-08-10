@@ -55,6 +55,11 @@ public record GridConnection(GridNode node1, GridNode node2, GridWireType wireTy
         return node1.sourcePos().equals(pos) || node2.sourcePos().equals(pos);
     }
 
+    /** 判断连接是否与给定具体节点相关 */
+    public boolean touches(GridNode node) {
+        return node1.equals(node) || node2.equals(node);
+    }
+
     @Override
     public String toString() {
         return "GridConnection[" + node1 + " <-> " + node2 + " (" + wireType + ", " + (int) length + "m)]";

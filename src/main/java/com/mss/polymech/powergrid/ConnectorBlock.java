@@ -2,6 +2,9 @@ package com.mss.polymech.powergrid;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -15,6 +18,7 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
+import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -35,7 +39,9 @@ import java.util.Map;
  * <p>
  * 支持像原版海泡菜一样在同一格内堆叠多个（count=1~4，默认1）：
  * 手持连接器对已放置的连接器右键即可在格内增加数量，每个个体都是独立的
- * 电气节点（nodeId=个体序号），可分别接线；破坏时整格掉落对应数量。
+ * 电气节点（nodeId=个体序号），可分别接线；破坏时逐个敲掉：count&gt;1 时
+ * 每次挖掘只敲掉最后一个个体并掉落 1 个，剩余个体重新按新数量布局；
+ * 最后一个个体被破坏时走正常破坏流程（战利品表按 count 掉落）。
  * </p>
  * <p>
  * <b>布局朝向</b>：放在地面/天花板（FACING=UP/DOWN）时，个体排列方向
@@ -164,9 +170,30 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
-            WorldPowerGrid.get((net.minecraft.server.level.ServerLevel) level).removeNode(pos);
+            WorldPowerGrid.get((ServerLevel) level).removeNode(pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
+    }
+
+    /**
+     * 逐个敲掉：count&gt;1 时挖掘不破坏整格，而是敲掉最后一个个体（nodeId=count-1）：
+     * 移除其电线连接、掉落 1 个物品并把 count 减 1，剩余个体自动按新数量布局；
+     * count=1 时走正常破坏流程（战利品表按 count 掉落）。
+     * 返回 false 阻止方块被移除（客户端同样不预测移除）。
+     */
+    @Override
+    public boolean onDestroyedByPlayer(BlockState state, Level level, BlockPos pos, Player player,
+            boolean willHarvest, FluidState fluid) {
+        int count = state.getValue(COUNT);
+        if (count <= 1) {
+            return super.onDestroyedByPlayer(state, level, pos, player, willHarvest, fluid);
+        }
+        if (!level.isClientSide()) {
+            WorldPowerGrid.get((ServerLevel) level).removeNode(new GridNode(count - 1, pos));
+            Block.popResource(level, pos, new ItemStack(asItem()));
+            level.setBlock(pos, state.setValue(COUNT, count - 1), Block.UPDATE_ALL);
+        }
+        return false;
     }
 
     /** 单个体的碰撞盒（个体中心 0.5+off，模型空间坐标按 facing 旋转映射到世界坐标） */

@@ -190,14 +190,30 @@ public class WorldPowerGrid extends SavedData {
             if (c.touches(pos))
                 toRemove.add(c);
         }
+        removeConnections(toRemove);
+    }
+
+    /**
+     * 移除方块位置上的单个节点及其连接（同格多体方块敲掉其中一个个体时调用）。
+     */
+    public void removeNode(GridNode node) {
+        if (connections.isEmpty())
+            return;
+        List<GridConnection> toRemove = new ArrayList<>();
+        for (GridConnection c : connections) {
+            if (c.touches(node))
+                toRemove.add(c);
+        }
+        removeConnections(toRemove);
+    }
+
+    /** 从连接表/邻接表中移除指定连接并同步客户端 */
+    private void removeConnections(List<GridConnection> toRemove) {
         if (toRemove.isEmpty())
             return;
 
         connections.removeAll(toRemove);
         adjacency.entrySet().removeIf(e -> {
-            if (e.getKey().sourcePos().equals(pos)) {
-                return true;
-            }
             e.getValue().removeAll(toRemove);
             return e.getValue().isEmpty();
         });
