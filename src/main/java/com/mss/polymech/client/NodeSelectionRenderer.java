@@ -15,6 +15,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -24,6 +25,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderHighlightEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
@@ -35,9 +37,9 @@ import java.util.Map;
  * <p>
  * 手持线轴时，在电网连接器上显示类似 Create 胶水/蓝图预览的选择框：
  * <ul>
- *   <li><b>瞄准预览</b>：未选起点时，准星悬停节点即显示醒目绿色预览框（与选中后的可连目标框同款）</li>
- *   <li><b>起点框</b>：选中起点后常驻亮蓝色半透明面 + 粗亮边框（Create 风格柔和蓝）</li>
- *   <li><b>目标框</b>：准星悬停节点时实时变色——绿色（可连接）/ 红色（不可连接：自身、重复、超距）</li>
+ *   <li><b>瞄准预览</b>：未选起点时，准星悬停节点即显示醒目黄色预览框（与选中后的可连目标框同款）</li>
+ *   <li><b>起点框</b>：选中起点后常驻绿色半透明面 + 粗亮边框</li>
+ *   <li><b>目标框</b>：准星悬停节点时实时变色——黄色（可连接）/ 红色（不可连接：自身、重复、超距）</li>
  *   <li><b>chase 动画</b>：瞄准从一格移到另一格时框不瞬移，而是指数平滑滑向新位置（Create outliner 的 chaseAABB 手感）</li>
  * </ul>
  * 视觉细节对齐 Create 的 outliner：保留深度测试（被墙遮挡部分不显示）、
@@ -48,11 +50,11 @@ import java.util.Map;
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
 public class NodeSelectionRenderer {
 
-    // ===== Create 色系（catnip Outliner 常用配色） =====
-    /** 起点框：柔和亮蓝（ARGB） */
-    private static final int COLOR_START = 0xFF4D9EFF;
-    /** 目标可连接：Create 胶水高亮绿 */
-    private static final int COLOR_VALID = 0xFF68C586;
+    // ===== 选择框配色（ARGB） =====
+    /** 起点框：Create 胶水高亮绿 */
+    private static final int COLOR_START = 0xFF68C586;
+    /** 目标/预览可连接：金黄 */
+    private static final int COLOR_VALID = 0xFFF0C75E;
     /** 目标不可连接：柔和红 */
     private static final int COLOR_INVALID = 0xFFC5564D;
 
@@ -118,7 +120,7 @@ public class NodeSelectionRenderer {
         targetEntry = null;
         if (hovered != null) {
             if (start == null) {
-                // 未选起点：瞄准即预览——与可连目标框同款的醒目绿框
+                // 未选起点：瞄准即预览——与可连目标框同款的醒目黄框
                 targetEntry = entry(prevTarget, nodeBoxOf(level, hovered),
                         COLOR_VALID, LINE_WIDTH, FACE_ALPHA_VALID, tick);
             } else if (!hovered.equals(start)) {
@@ -171,6 +173,22 @@ public class NodeSelectionRenderer {
         RenderSystem.depthMask(true);
         RenderSystem.disableBlend();
         poseStack.popPose();
+    }
+
+    /**
+     * 客户端每 tick 清理失效起点：选中节点所在方块被拆除（连接器被敲掉）后
+     * 立即移除数据组件，手上的线轴附魔光效随之消失，不残留选中状态。
+     */
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null)
+            return;
+        for (ItemStack stack : new ItemStack[] { mc.player.getMainHandItem(), mc.player.getOffhandItem() }) {
+            GridNode node = stack.get(ModDataComponents.SELECTED_NODE.get());
+            if (node != null && GridNodes.getNodePosition(mc.level, node) == null)
+                stack.remove(ModDataComponents.SELECTED_NODE.get());
+        }
     }
 
     /**

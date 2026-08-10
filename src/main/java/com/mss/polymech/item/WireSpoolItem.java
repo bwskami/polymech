@@ -79,6 +79,12 @@ public class WireSpoolItem extends Item {
             if (originalNode == null)
                 return InteractionResult.SUCCESS;
 
+            // 起点节点已失效（连接器被拆除）：视为未选起点，把当前悬停节点重新设为起点
+            if (GridNodes.getNodePosition(level, originalNode) == null) {
+                heldItem.set(ModDataComponents.SELECTED_NODE.get(), hoveredNode);
+                return InteractionResult.SUCCESS;
+            }
+
             // 校验：自身连接
             if (hoveredNode.equals(originalNode)) {
                 player.displayClientMessage(Component.translatable("message.poly_mech.wire_spool.same_node"), true);
