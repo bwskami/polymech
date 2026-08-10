@@ -37,6 +37,11 @@ import java.util.Map;
  * 手持连接器对已放置的连接器右键即可在格内增加数量，每个个体都是独立的
  * 电气节点（nodeId=个体序号），可分别接线；破坏时整格掉落对应数量。
  * </p>
+ * <p>
+ * <b>布局朝向</b>：放在地面/天花板（FACING=UP/DOWN）时，个体排列方向
+ * （LAYOUT_FACING，即放置时玩家的水平朝向）跟随东西南北旋转；
+ * 贴墙放置时排列方向保持默认不旋转。
+ * </p>
  */
 public class ConnectorBlock extends Block implements GridNodeBlock {
 
@@ -47,6 +52,9 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
 
     /** 格内可堆叠的最大数量 */
     public static final int MAX_COUNT = 4;
+
+    /** 放置时的玩家水平朝向：决定地面/天花板上的个体排列方向（东西南北） */
+    public static final DirectionProperty LAYOUT_FACING = DirectionProperty.create("rotation", Direction.Plane.HORIZONTAL);
 
     /** 个体布局偏移：h=沿墙面横向，v=沿墙面纵向（单位格，以格中心为原点） */
     private record Offset(double h, double v) {}
@@ -67,31 +75,37 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
     /** 个体沿墙伸出深度（格）：模型 y 0~13 单位 */
     private static final double DEPTH = 0.8125;
 
-    /** 各朝向×数量下的碰撞形状缓存 */
-    private static final Map<Direction, VoxelShape[]> SHAPES = new EnumMap<>(Direction.class);
+    /** 各贴附朝向×布局朝向×数量下的碰撞形状缓存（贴墙时布局朝向固定为 SOUTH） */
+    private static final Map<Direction, Map<Direction, VoxelShape[]>> SHAPES = new EnumMap<>(Direction.class);
 
     static {
         for (Direction dir : Direction.values()) {
-            VoxelShape[] perCount = new VoxelShape[MAX_COUNT];
-            for (int c = 1; c <= MAX_COUNT; c++) {
-                VoxelShape shape = Shapes.empty();
-                for (Offset off : OFFSETS[c - 1]) {
-                    shape = Shapes.or(shape, individual(dir, off));
+            Map<Direction, VoxelShape[]> perRot = new EnumMap<>(Direction.class);
+            boolean vertical = dir.getAxis().isVertical();
+            for (Direction rot : Direction.Plane.HORIZONTAL) {
+                VoxelShape[] perCount = new VoxelShape[MAX_COUNT];
+                for (int c = 1; c <= MAX_COUNT; c++) {
+                    VoxelShape shape = Shapes.empty();
+                    for (Offset off : OFFSETS[c - 1]) {
+                        shape = Shapes.or(shape, individual(dir, vertical ? rotate(off, rot) : off));
+                    }
+                    perCount[c - 1] = shape.optimize();
                 }
-                perCount[c - 1] = shape.optimize();
+                perRot.put(rot, perCount);
             }
-            SHAPES.put(dir, perCount);
+            SHAPES.put(dir, perRot);
         }
     }
 
     public ConnectorBlock(Properties properties) {
         super(properties);
-        registerDefaultState(defaultBlockState().setValue(FACING, Direction.UP).setValue(COUNT, 1));
+        registerDefaultState(defaultBlockState().setValue(FACING, Direction.UP).setValue(COUNT, 1)
+                .setValue(LAYOUT_FACING, Direction.SOUTH));
     }
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING, COUNT);
+        builder.add(FACING, COUNT, LAYOUT_FACING);
     }
 
     @Override
@@ -107,12 +121,29 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
         if (existing.is(this) && existing.getValue(COUNT) < MAX_COUNT) {
             return existing.setValue(COUNT, existing.getValue(COUNT) + 1);
         }
-        return defaultBlockState().setValue(FACING, context.getClickedFace()).setValue(COUNT, 1);
+        // 新放置：记录玩家水平朝向，决定地面/天花板上的个体排列方向
+        return defaultBlockState().setValue(FACING, context.getClickedFace()).setValue(COUNT, 1)
+                .setValue(LAYOUT_FACING, context.getHorizontalDirection());
     }
 
     @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPES.get(state.getValue(FACING))[state.getValue(COUNT) - 1];
+        return SHAPES.get(state.getValue(FACING)).get(effectiveLayout(state))[state.getValue(COUNT) - 1];
+    }
+
+    /** 生效的布局朝向：仅地面/天花板（FACING 垂直）时使用 LAYOUT_FACING，贴墙时保持默认 SOUTH */
+    private static Direction effectiveLayout(BlockState state) {
+        return state.getValue(FACING).getAxis().isVertical() ? state.getValue(LAYOUT_FACING) : Direction.SOUTH;
+    }
+
+    /** 按布局朝向旋转个体偏移（与 blockstate 的 y 旋转一致，y90：(h,v)→(−v,h)） */
+    private static Offset rotate(Offset off, Direction rot) {
+        return switch (rot) {
+            case WEST -> new Offset(-off.v(), off.h());
+            case NORTH -> new Offset(-off.h(), -off.v());
+            case EAST -> new Offset(off.v(), -off.h());
+            default -> off; // SOUTH：不旋转
+        };
     }
 
     @Override
@@ -120,8 +151,11 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
         int count = state.getValue(COUNT);
         Direction facing = state.getValue(FACING);
         Map<Integer, Vec3> nodes = new HashMap<>(count);
+        Direction rot = effectiveLayout(state);
+        boolean vertical = facing.getAxis().isVertical();
         for (int i = 0; i < count; i++) {
-            nodes.put(i, nodeAt(facing, OFFSETS[count - 1][i]));
+            Offset off = OFFSETS[count - 1][i];
+            nodes.put(i, nodeAt(facing, vertical ? rotate(off, rot) : off));
         }
         return Map.copyOf(nodes);
     }
@@ -168,7 +202,8 @@ public class ConnectorBlock extends Block implements GridNodeBlock {
 
     @Override
     public BlockState rotate(BlockState state, Rotation rotation) {
-        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)))
+                .setValue(LAYOUT_FACING, rotation.rotate(state.getValue(LAYOUT_FACING)));
     }
 
     @Override
