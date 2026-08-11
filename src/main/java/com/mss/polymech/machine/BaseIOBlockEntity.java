@@ -1,6 +1,8 @@
 package com.mss.polymech.machine;
 
-import com.mss.polymech.power.PowerNetworkManager;
+import com.mss.polymech.powergrid.GridNode;
+import com.mss.polymech.powergrid.GridNodeBlock;
+import com.mss.polymech.powergrid.WorldPowerGrid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -109,17 +111,42 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
      */
     protected boolean usesRecipeCrafting() { return true; }
 
+    /** 本机注册到电网时使用的节点（首次注册时解析并缓存，注销时复用） */
+    @Nullable
+    protected GridNode powerNode;
+
+    /**
+     * 解析本机的电网节点：方块实现 {@link GridNodeBlock} 时取节点ID最小的节点。
+     * 非电网方块返回 null。
+     */
+    @Nullable
+    protected GridNode getGridNode() {
+        BlockState state = getBlockState();
+        if (state.getBlock() instanceof GridNodeBlock gridBlock) {
+            return gridBlock.getNodePositions(state).keySet().stream()
+                    .min(Integer::compareTo)
+                    .map(id -> new GridNode(id, getBlockPos()))
+                    .orElse(null);
+        }
+        return null;
+    }
+
     /**
      * 注册电网身份。默认为用电器；发电机子类可覆盖以额外注册为发电机。
      */
     protected void registerPowerMemberships(ServerLevel world) {
-        PowerNetworkManager.get(world).registerConsumer(
-                getBlockPos(), this::getRequiredPower, this::receiveElectricCharge);
+        powerNode = getGridNode();
+        if (powerNode != null) {
+            WorldPowerGrid.get(world).registerConsumer(powerNode, this::getRequiredPower, this::receiveElectricCharge);
+        }
     }
 
     /** 注销电网身份，与 {@link #registerPowerMemberships(ServerLevel)} 对称。 */
     protected void unregisterPowerMemberships(ServerLevel world) {
-        PowerNetworkManager.get(world).unregisterConsumer(getBlockPos());
+        if (powerNode != null) {
+            WorldPowerGrid.get(world).unregisterConsumer(powerNode);
+            powerNode = null;
+        }
     }
 
     /**

@@ -2,13 +2,17 @@ package com.mss.polymech.machine;
 
 import com.mojang.serialization.MapCodec;
 import com.mss.polymech.machine.common.MachineRegistry;
+import com.mss.polymech.powergrid.GridNodeBlock;
+import com.mss.polymech.powergrid.WorldPowerGrid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
@@ -18,12 +22,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public abstract class BaseMachineBlock extends BaseEntityBlock {
+public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNodeBlock {
 
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
@@ -234,6 +239,28 @@ public abstract class BaseMachineBlock extends BaseEntityBlock {
      */
     public static Collection<String> getMachineIds() {
         return MachineRegistry.getMachineIds();
+    }
+
+    // ========== 电网节点 ==========
+
+    /**
+     * 机器默认提供一个电网节点（ID=0，位于主方块中心），
+     * 支持线轴拉线连接与电力接入。需要多节点的机器子类可覆盖此方法。
+     */
+    @Override
+    public Map<Integer, Vec3> getNodePositions(BlockState state) {
+        return Map.of(0, new Vec3(0.5, 0.5, 0.5));
+    }
+
+    /**
+     * 机器被破坏/替换时，从电网移除该格节点的全部电线连接。
+     */
+    @Override
+    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
+        if (!state.is(newState.getBlock()) && !level.isClientSide()) {
+            WorldPowerGrid.get((ServerLevel) level).removeNode(pos);
+        }
+        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     // ========== 通用方块行为 ==========

@@ -1,6 +1,6 @@
 package com.mss.polymech.machine.production;
 
-import com.mss.polymech.power.PowerNetworkManager;
+import com.mss.polymech.powergrid.WorldPowerGrid;
 import com.mss.polymech.recipe.MachineRecipe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -41,12 +41,18 @@ public abstract class AbstractTurbineGeneratorBlockEntity extends AbstractProces
 
     @Override
     protected void registerPowerMemberships(ServerLevel world) {
-        PowerNetworkManager.get(world).registerGenerator(getBlockPos(), this::getCurrentGeneration);
+        powerNode = getGridNode();
+        if (powerNode != null) {
+            WorldPowerGrid.get(world).registerGenerator(powerNode, this::getCurrentGeneration);
+        }
     }
 
     @Override
     protected void unregisterPowerMemberships(ServerLevel world) {
-        PowerNetworkManager.get(world).unregisterGenerator(getBlockPos());
+        if (powerNode != null) {
+            WorldPowerGrid.get(world).unregisterGenerator(powerNode);
+            powerNode = null;
+        }
     }
 
     /** 电网每 tick 读取的发电量 */

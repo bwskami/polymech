@@ -30,7 +30,7 @@ import java.util.function.Supplier;
  *   <li><b>连接管理</b>：connect/disconnect/removeNode，结构变化时自动向客户端同步电线渲染数据</li>
  *   <li><b>功率分配</b>：按连通组件（BFS）把发电机功率分配给同组件内的消费者；
  *       未连入电网的发电机功率被丢弃，未被电网覆盖的消费者得不到供电</li>
- *   <li><b>全局电池</b>：全维度统一的储电缓冲（沿用PowerNetworkManager的电池设计）</li>
+ *   <li><b>全局电池</b>：全维度统一的储电缓冲，发电富余时充电、不足时放电</li>
  * </ul>
  * 每个维度独立实例，由 {@link #get(ServerLevel)} 获取。
  * </p>
