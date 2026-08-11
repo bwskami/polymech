@@ -186,7 +186,6 @@ public class ModEnUsLangProvider extends LanguageProvider {
         // 电网（真实电线电网系统）
         add(ModBlocks.CONNECTOR.get(), "Connector");
         add(ModBlocks.CONCRETE_POLE.get(), "Concrete Pole");
-        add(ModBlocks.RELAY.get(), "Relay");
         // Wire spools (data-driven: shared material names, insulated variants prefixed)
         for (GridWireType wireType : GridWireType.values()) {
             String name = formatMaterialName(wireType.metalName())

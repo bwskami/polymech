@@ -28,7 +28,6 @@ import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
 import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
 import com.mss.polymech.powergrid.ConcretePoleBlock;
 import com.mss.polymech.powergrid.ConnectorBlock;
-import com.mss.polymech.powergrid.RelayBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.resources.ResourceLocation;
@@ -112,8 +111,8 @@ public class ModBlocks {
                     .noOcclusion()));
 
     /*
-     * 混凝土电杆：高耸的输电线支撑杆，顶部提供单个电气节点，
-     * 适合架设跨距离的输电线路。
+     * 混凝土电杆：高耸的输电线支撑杆，用于支撑架设跨距离的输电线路。
+     * 纯支撑结构，本身不提供电网节点。
      */
     public static final DeferredBlock<ConcretePoleBlock> CONCRETE_POLE =
             registerBlocks("concrete_pole", () -> new ConcretePoleBlock(Block.Properties.of()
@@ -121,16 +120,6 @@ public class ModBlocks {
                     .sound(SoundType.STONE)
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
-
-    /*
-     * 继电器：贴墙安装的小型配电继电器，传输路径中的中间分接/转向点。
-     */
-    public static final DeferredBlock<RelayBlock> RELAY =
-            registerBlocks("relay", () -> new RelayBlock(Block.Properties.of()
-                    .strength(1.5F, 6.0F)
-                    .sound(SoundType.METAL)
-                    .noOcclusion()));
-
 
     // ========== Phase 1：大型机器方块注册（侧面方块和BE在Phase 2中补充） ==========
 

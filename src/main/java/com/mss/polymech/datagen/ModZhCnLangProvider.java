@@ -632,7 +632,6 @@ public class ModZhCnLangProvider extends LanguageProvider {
         // 电网（真实电线电网系统）
         add(ModBlocks.CONNECTOR.get(), "连接器");
         add(ModBlocks.CONCRETE_POLE.get(), "混凝土电杆");
-        add(ModBlocks.RELAY.get(), "继电器");
         // 线轴（数据驱动：金属名共用MATERIAL_ZH_NAMES，绝缘变体加“绝缘”前缀）
         for (GridWireType wireType : GridWireType.values()) {
             String metalZh = MATERIAL_ZH_NAMES.getOrDefault(wireType.metalName(), wireType.metalName());
