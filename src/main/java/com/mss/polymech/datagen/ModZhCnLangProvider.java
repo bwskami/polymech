@@ -543,6 +543,12 @@ public class ModZhCnLangProvider extends LanguageProvider {
                 add(ringItem.get(), zhName + "环");
             }
             
+            // 线材
+            var wireItem = ModItems.getMaterialItem(ModItemTypes.WIRE, materialName);
+            if (wireItem != null) {
+                add(wireItem.get(), zhName + "线");
+            }
+            
 
         }
 

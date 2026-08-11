@@ -255,6 +255,20 @@ public class ModItemTypes {
     ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
      .materialFilter(ModItemTypes::hasIngotMaterial));
 
+    /*
+     * 线材类型物品前缀。
+     * <p>
+     * 生成格式：{material}_wire，如copper_wire
+     * 本地化格式：{Material} Wire，如Copper Wire
+     * </p>
+     */
+    public static final ItemTagPrefix WIRE = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "wire"),
+        "%s_wire",
+        "%s Wire"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(ModItemTypes::hasIngotMaterial));
+
 
     /*
      * 注册物品前缀到全局列表。

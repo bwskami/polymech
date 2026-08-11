@@ -95,6 +95,15 @@ public enum ItemLayerTemplates {
             "item/material_sets/ring/ring_overlay"
     ),
     /**
+     * 线材（电线/线缆）：三层染色模板，按金属材质染色。
+     * 用于电线物品的贴图层渲染。
+     */
+    WIRE(
+            "item/material_sets/wire/wire",
+            "item/material_sets/wire/wire_secondary",
+            "item/material_sets/wire/wire_overlay"
+    ),
+    /**
      * 线轴（满卷）：底层为空线轴（colors.json 中对应染色为 null 不染色），
      * 其上三层为线圈图层，按金属材质染色。
      */

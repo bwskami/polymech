@@ -86,6 +86,11 @@ public class ModItemModelsProvider extends ItemModelProvider {
         }
         // 空线轴：标准化单层模型（material_sets/spool/empty_spool），不染色
         ITEM_TYPE_OVERRIDES.put("empty_spool", ItemLayerTemplates.EMPTY_SPOOL);
+
+        // 电线物品（数据驱动：全部材料），三层染色模板
+        for (String materialName : MaterialRegistry.getMaterialNames()) {
+            ITEM_TYPE_OVERRIDES.put(materialName + "_wire", ItemLayerTemplates.WIRE);
+        }
     }
     private static final String[] NORMAL_ITEMS = {
             "steel_ingot",

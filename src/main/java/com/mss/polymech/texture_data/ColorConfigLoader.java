@@ -345,7 +345,7 @@ public class ColorConfigLoader {
         // 处理常见后缀
         String[] suffixes = {"_ingot", "_dust", "_plate", "_nugget", "_stick", "_gear", 
                             "_small_gear", "_spring", "_screw", "_bolt", "_ring", "_foil",
-                            "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe", "_block"};
+                            "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe", "_block", "_wire"};
         
         for (String suffix : suffixes) {
             if (path.endsWith(suffix)) {

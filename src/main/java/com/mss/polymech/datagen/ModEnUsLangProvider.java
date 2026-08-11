@@ -117,6 +117,13 @@ public class ModEnUsLangProvider extends LanguageProvider {
                 String displayName = formatMaterialName(materialName) + " Ring";
                 add(ringItem.get(), displayName);
             }
+            
+            // 线材
+            var wireItem = ModItems.getMaterialItem(ModItemTypes.WIRE, materialName);
+            if (wireItem != null) {
+                String displayName = formatMaterialName(materialName) + " Wire";
+                add(wireItem.get(), displayName);
+            }
 
         }
         
