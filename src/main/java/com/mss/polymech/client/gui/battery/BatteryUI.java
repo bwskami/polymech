@@ -17,6 +17,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
 import com.mss.polymech.Polymech;
+import com.mss.polymech.client.gui.common.AbstractMachineUI;
 import com.mss.polymech.machine.production.BatteryBlockEntity;
 import com.mss.polymech.machine.production.CreativeBatteryBlockEntity;
 import com.mss.polymech.network.BatteryTogglePacket;
@@ -33,42 +34,35 @@ import java.util.Objects;
 /**
  * 蓄电池 UI — 像素级复刻 Mekanism EnergyCube GUI（176x166）。
  * <p>
+ * 继承 {@link AbstractMachineUI} 以复用通用机器 UI 组件：
+ * <ul>
+ *   <li>电源键（右侧书签）— 继承自基类</li>
+ *   <li>面配置 tab（左侧书签）— 继承自基类</li>
+ *   <li>悬浮面配置面板 — 继承自基类</li>
+ * </ul>
+ * </p>
+ * <p>
  * 布局对照（Mekanism GuiEnergyCube）：
  * <pre>
  *   (8,6)    标题
- *   (17,35)  放电槽位样式按钮（模式切换，MINUS 图标）
- *   (143,35) 充电槽位样式按钮（启用开关，PLUS 图标）
  *   (55,18)  能量 gauge 66x50（gauge_normal 九宫格背景）
- *   (56,19)  能量填充 64x48（energy 纹理自底向上，DOWN_TO_UP）
- *   (56,19)  gauge_wide 覆盖层
- *   (-26,6)  侧配置 tab 26x26（holder_left + configuration 图标）
- *   (-26,137) 能量 tab 26x26（energy_info，点击切换 FE/J/EU 单位）
+ *   (176,137) 电源键书签（基类组件）
+ *   (-26,6)  面配置 tab（基类组件）
+ *   (-26,137) 能量 tab 26x26（蓄电池特有）
  *   (8,72)   "物品栏" 文字
- *   (8,84)   玩家背包 3x9 + 快捷栏（槽位透明）
+ *   (8,84)   玩家背包 3x9 + 快捷栏
  * </pre>
- * 全部坐标与素材均取自 Mekanism 1.21.x 原版 GUI。
  * </p>
  */
-public class BatteryUI {
+public class BatteryUI extends AbstractMachineUI {
 
-    // ==================== 素材（Mekanism 原版贴图，已复制到本模组） ====================
+    // ==================== 蓄电池特有素材 ====================
 
-    private static final ResourceLocation TEX_BASE = ResourceLocation.fromNamespaceAndPath("ldlib2", "textures/gui/bordered_background.png");
     private static final ResourceLocation TEX_GAUGE_NORMAL = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/battery/gauge_normal.png");
     private static final ResourceLocation TEX_GAUGE_WIDE = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/battery/gauge_wide.png");
     private static final ResourceLocation TEX_ENERGY = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/battery/energy_fill.png");
-    private static final ResourceLocation TEX_HOLDER_LEFT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/common/holder_left.png");
-    private static final ResourceLocation TEX_HOLDER_RIGHT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/common/holder_right.png");
-    private static final ResourceLocation TEX_POWER_ON = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/common/on.png");
-    private static final ResourceLocation TEX_POWER_OFF = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/common/off.png");
-    private static final ResourceLocation TEX_CONFIGURATION = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/common/configuration.png");
     private static final ResourceLocation TEX_ENERGY_INFO = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/battery/tab_energy_info.png");
     private static final ResourceLocation TEX_SLOT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/battery/slot_normal.png");
-    private static final ResourceLocation TEX_SLOT_PLUS = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/battery/slot_overlay_plus.png");
-    /** Mekanism 标题文字颜色（深灰） */
-    private static final int TITLE_COLOR = 0xFF404040;
-    /** 按钮按下时轻微变暗的 tint */
-    private static final int PRESSED_TINT = 0xFFE0E0E0;
 
     // ==================== 构建 ====================
 
@@ -140,49 +134,6 @@ public class BatteryUI {
         });
         gaugePanel.addChild(gaugeOverlay);
 
-        // ===== 右侧电源键书签 tab (176,137) 26x26：holder_right + on/off 图标 =====
-        // 普通电池可开关；创造电池始终启用（图标固定 on，点击无效果）
-        final boolean[] enabledState = {be.isEnabled()};
-        {
-            Button enableBtn = new Button();
-            enableBtn.noText();
-            enableBtn.buttonStyle(s -> s.baseTexture(
-                            SpriteTexture.of(TEX_HOLDER_RIGHT).setSprite(0, 0, 26, 9).setBorder(4))
-                    .hoverTexture(SpriteTexture.of(TEX_HOLDER_RIGHT).setSprite(0, 0, 26, 9).setBorder(4))
-                    .pressedTexture(SpriteTexture.of(TEX_HOLDER_RIGHT).setSprite(0, 0, 26, 9).setBorder(4)
-                            .setColor(PRESSED_TINT)));
-            enableBtn.layout(l -> l.width(26).height(26).paddingAll(0)
-                    .positionType(TaffyPosition.ABSOLUTE).left(176).top(137));
-            enableBtn.setOnClick(e -> {
-                PacketDistributor.sendToServer(
-                        new BatteryTogglePacket(cfgPos, BatteryTogglePacket.Action.TOGGLE_ENABLE));
-                // 切换本地状态并更新图标
-                enabledState[0] = !enabledState[0];
-                updatePowerIcon(enableBtn, enabledState[0]);
-            });
-            enableBtn.addEventListener(UIEvents.HOVER_TOOLTIPS, (UIEvent event) -> {
-                List<Component> tips = new ArrayList<>();
-                if (isCreative) {
-                    tips.add(Component.translatable("gui.poly_mech.battery.creative_always_on")
-                            .withStyle(ChatFormatting.LIGHT_PURPLE));
-                } else {
-                    tips.add(Component.translatable("gui.poly_mech.button." +
-                                    (enabledState[0] ? "disable" : "enable"))
-                            .withStyle(enabledState[0] ? ChatFormatting.RED : ChatFormatting.GREEN));
-                    tips.add(Component.translatable("gui.poly_mech.battery.tooltip_enable")
-                            .withStyle(ChatFormatting.GRAY));
-                }
-                event.hoverTooltips = new HoverTooltips(tips, null, null, null);
-            });
-            // 电源图标 16x16 在相对位置 (3,5)，根据启用状态切换 on/off
-            final var powerIcon = new UIElement()
-                    .layout(l -> l.width(16).height(16).positionType(TaffyPosition.ABSOLUTE).left(3).top(5))
-                    .style(s -> s.backgroundTexture(SpriteTexture.of(
-                            enabledState[0] ? TEX_POWER_ON : TEX_POWER_OFF)));
-            enableBtn.addChild(powerIcon);
-            root.addChild(enableBtn);
-        }
-
         // ===== 背包文字 (8,72) =====
         var invLabel = new Label()
                 .setText(Component.translatable("container.inventory"))
@@ -195,38 +146,7 @@ public class BatteryUI {
         invSlots.layout(l -> l.width(162).height(76).positionType(TaffyPosition.ABSOLUTE).left(8).top(84));
         root.addChild(invSlots);
 
-        // ===== 左侧侧配置 tab (-26,6) 26x26（Mek GuiSideConfigurationTab: height=26, innerSize=18） =====
-        Button sideConfigTab = new Button();
-        sideConfigTab.noText();
-        sideConfigTab.buttonStyle(s -> s.baseTexture(
-                        SpriteTexture.of(TEX_HOLDER_LEFT).setSprite(0, 0, 26, 9).setBorder(4))
-                .hoverTexture(SpriteTexture.of(TEX_HOLDER_LEFT).setSprite(0, 0, 26, 9).setBorder(4))
-                .pressedTexture(SpriteTexture.of(TEX_HOLDER_LEFT).setSprite(0, 0, 26, 9).setBorder(4)
-                        .setColor(PRESSED_TINT)));
-        sideConfigTab.layout(l -> l.width(26).height(26).paddingAll(0)
-                .positionType(TaffyPosition.ABSOLUTE).left(-26).top(6));
-        // 预先创建悬浮面板（确保纹理在初始渲染时注册到 atlas），初始隐藏
-        // 注意：floatingPanel 必须在所有其他子元素之后添加，以保证 z-order 最上层
-        final UIElement[] floatingPanel = {null};
-        floatingPanel[0] = FloatingSideConfigPanel.create(cfgPos, cfgConfig, () -> {
-            floatingPanel[0].setVisible(false);
-        });
-        floatingPanel[0].setVisible(false);
-        
-        sideConfigTab.setOnClick(e -> {
-            if (floatingPanel[0].isVisible()) {
-                floatingPanel[0].setVisible(false);
-            } else {
-                floatingPanel[0].setVisible(true);
-            }
-        });
-        // Mek GuiInsetElement: icon 18x18 在 getButtonX=x+4+(left?1:-1)=-21、getButtonY=y+4 → 相对 (5,4)
-        sideConfigTab.addChild(new UIElement()
-                .layout(l -> l.width(18).height(18).positionType(TaffyPosition.ABSOLUTE).left(5).top(4))
-                .style(s -> s.backgroundTexture(SpriteTexture.of(TEX_CONFIGURATION))));
-        root.addChild(sideConfigTab);
-
-        // ===== 左侧能量 tab (-26,137) 26x26：点击切换 FE/J/EU 单位（Mek 能量单位切换） =====
+        // ===== 左侧能量 tab (-26,137) 26x26：点击切换 FE/J/EU 单位（蓄电池特有） =====
         final EnergyUnit[] unitState = {EnergyUnit.FE};
         Button energyTab = new Button();
         energyTab.noText();
@@ -266,27 +186,24 @@ public class BatteryUI {
         });
         root.addChild(energyTab);
 
-        // 悬浮面板最后添加，确保 z-order 最上层，能遮盖所有书签按钮
-        root.addChild(floatingPanel[0]);
+        // ===== 基类通用组件：电源键 + 面配置 tab + 悬浮面板 =====
+        // 电源键（右侧书签）
+        Button powerBtn = createPowerButton(cfgPos, be.isEnabled(), (pos, enabled) -> {
+            PacketDistributor.sendToServer(
+                    new BatteryTogglePacket(pos, BatteryTogglePacket.Action.TOGGLE_ENABLE));
+        });
+        root.addChild(powerBtn);
+
+        // 面配置 tab（左侧书签）+ 悬浮面板
+        // 注意：必须在所有其他子元素之后添加，以保证 z-order 最上层
+        UIElement[] panelRef = {null};
+        Button sideConfigTab = createSideConfigTab(panelRef);
+        addSideConfigComponents(root, cfgPos, cfgConfig, sideConfigTab);
 
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)), holder.player);
     }
 
-    /** 槽位样式按钮：18x18 slot_normal 背景 + overlay 图标（Mek 槽位像素级复刻） */
-    private static Button slotButton(ResourceLocation overlayTex, Pos pos) {
-        Button btn = new Button();
-        btn.noText();
-        btn.addPreIcon(SpriteTexture.of(overlayTex).setSprite(0, 0, 18, 18));
-        btn.buttonStyle(s -> s.baseTexture(SpriteTexture.of(TEX_SLOT).setSprite(0, 0, 18, 18))
-                .hoverTexture(SpriteTexture.of(TEX_SLOT).setSprite(0, 0, 18, 18))
-                .pressedTexture(SpriteTexture.of(TEX_SLOT).setSprite(0, 0, 18, 18).setColor(PRESSED_TINT)));
-        btn.layout(l -> l.width(18).height(18).paddingAll(0)
-                .positionType(TaffyPosition.ABSOLUTE).left(pos.x()).top(pos.y()));
-        return btn;
-    }
-
-    /** 简易坐标 record（避免元组依赖） */
-    private record Pos(int x, int y) {}
+    // ==================== 辅助方法 ====================
 
     /** 能量单位：FE 为基准，J = FE×2.5，EU = FE÷4（Mek 换算比例） */
     private enum EnergyUnit {
@@ -317,16 +234,5 @@ public class BatteryUI {
             return "\u221E";
         }
         return v == Math.floor(v) ? String.format("%.0f", v) : String.format("%.1f", v);
-    }
-
-    /** 更新电源键图标纹理 */
-    private static void updatePowerIcon(Button btn, boolean enabled) {
-        // 清除旧的图标子元素，重新添加新的
-        btn.clearAllChildren();
-        var powerIcon = new UIElement()
-                .layout(l -> l.width(16).height(16).positionType(TaffyPosition.ABSOLUTE).left(3).top(5))
-                .style(s -> s.backgroundTexture(SpriteTexture.of(
-                        enabled ? TEX_POWER_ON : TEX_POWER_OFF)));
-        btn.addChild(powerIcon);
     }
 }

@@ -15,27 +15,34 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
-import com.mss.polymech.client.gui.screen.SideConfigScreen;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.mss.polymech.client.gui.common.AbstractMachineUI;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.network.MachineTogglePacket;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 
 /**
- * 蒸汽锅炉共享 UI 基类。
+ * 蒸汽锅炉共享 UI 基类 — 继承 {@link AbstractMachineUI} 复用通用组件。
  * <p>
- * 大锅炉（6 槽）：左 3 槽 | 水位条 | 温度条+信息面板+蒸汽条 | 右 3 槽 | 开关按钮<br>
- * 小锅炉（3 槽）：左 3 槽 | 水位条 | 温度条+信息面板+蒸汽条 | 开关按钮
+ * 通用组件（来自基类）：
+ * <ul>
+ *   <li>电源键（右侧书签）— {@link #createPowerButton}</li>
+ *   <li>面配置 tab（左侧书签）— {@link #createSideConfigTab}</li>
+ *   <li>悬浮面配置面板 — {@link #addSideConfigComponents}</li>
+ * </ul>
+ * <p>
+ * 大锅炉（6 槽）：左 3 槽 | 水位条 | 温度条+信息面板+蒸汽条 | 右 3 槽<br>
+ * 小锅炉（3 槽）：左 3 槽 | 水位条 | 温度条+信息面板+蒸汽条
  * </p>
  */
-public abstract class AbstractSteamBoilerUI {
+public abstract class AbstractSteamBoilerUI extends AbstractMachineUI {
 
     /** 获取锅炉标题的翻译键 */
     protected abstract String getTitleKey();
@@ -54,6 +61,7 @@ public abstract class AbstractSteamBoilerUI {
         var be = getBoiler(holder);
         var itemHandler = be.getItemStackHandler();
         boolean hasRightSlots = be.getInventorySize() > 3;
+        final var cfgPos = holder.pos.immutable();
 
         // === 进度条 ===
         var tempBar = new ProgressBar();
@@ -90,25 +98,14 @@ public abstract class AbstractSteamBoilerUI {
                                 .withStyle(ChatFormatting.GRAY)
                 ), null, null, null));
 
-        // === 开关机按钮（书签标签风格，在面板外面右下角） ===
-        var toggleBtn = new Button()
-                .setText(Component.translatable(be.isEnable() ? "gui.poly_mech.button.disable" : "gui.poly_mech.button.enable"))
-                .setOnClick(e -> PacketDistributor.sendToServer(new MachineTogglePacket(holder.pos)))
-                .buttonStyle(s -> s.baseTexture(Sprites.RECT_RD))
-                .layout(l -> l.width(20).height(20));
+        // ===== 基类通用组件：电源键 + 面配置 tab + 悬浮面板 =====
+        // 电源键（右侧书签）— 使用基类默认位置 (176, 137)
+        Button powerBtn = createPowerButton(cfgPos, be.isEnable(), (pos, enabled) -> {
+            PacketDistributor.sendToServer(new MachineTogglePacket(pos));
+        });
 
-        // === 面配置 Tab（Mekanism 风格：主面板左侧 26x18 tab） ===
-        final var cfgPos = holder.pos.immutable();
-        final var cfgConfig = be.getSideConfig();
-        var sideConfigTab = new Button()
-                .setText(Component.literal("C").withStyle(ChatFormatting.RED))
-                .setOnClick(e -> {
-                    var mc = Minecraft.getInstance();
-                    var curScreen = mc.screen;
-                    mc.execute(() -> mc.setScreen(new SideConfigScreen(cfgPos, cfgConfig, curScreen)));
-                })
-                .buttonStyle(s -> s.baseTexture(Sprites.RECT_RD))
-                .layout(l -> l.width(26).height(18));
+        // 面配置 tab（左侧书签）— 大机器不需要
+        // Button sideConfigTab = createSideConfigTab(null);
 
         // === 主面板 ===
         var mainPanel = new UIElement();
@@ -183,31 +180,15 @@ public abstract class AbstractSteamBoilerUI {
         mainPanel.addChild(machineRow);
         mainPanel.addChild(new InventorySlots());
 
-        // === 外层容器：左侧 Tab + 面板 + 右侧按钮 ===
-        var wrapper = new UIElement();
-        wrapper.layout(l -> l.width(202).flexDirection(FlexDirection.ROW));
-
-        // 左侧 Tab 列（Mekanism: GuiSideConfigurationTab 在 (-26, 6)）
-        var leftTabCol = new UIElement();
-        leftTabCol.layout(l -> l.width(26).flexDirection(FlexDirection.COLUMN));
-        leftTabCol.addChildren(
-                new UIElement().layout(l -> l.height(6)),
-                sideConfigTab
-        );
-
-        // 右侧按钮列
-        var btnContainer = new UIElement();
-        btnContainer.layout(l -> l.width(20).flexDirection(FlexDirection.COLUMN));
-        btnContainer.addChildren(
-                new UIElement().layout(l -> l.flex(1)),
-                toggleBtn
-        );
-
-        wrapper.addChildren(leftTabCol, mainPanel, btnContainer);
-
+        // === 根容器：主面板 + 书签按钮（绝对定位叠加）+ 悬浮面板 ===
         var root = new UIElement();
-        root.layout(l -> l.paddingAll(7));
-        root.addChild(wrapper);
+        root.layout(l -> l.width(176).height(166));
+        root.style(s -> s.backgroundTexture(
+                SpriteTexture.of(TEX_BASE).setSprite(0, 0, 195, 136).setBorder(4)));
+        root.addChild(mainPanel);
+
+        // 大机器不需要面配置，仅添加电源键
+        root.addChild(powerBtn);
 
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)), holder.player);
     }

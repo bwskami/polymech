@@ -12,28 +12,34 @@ import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.ProgressBar;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.inventory.InventorySlots;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
 import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
-import com.mss.polymech.client.gui.screen.SideConfigScreen;
+import com.lowdragmc.lowdraglib2.gui.texture.SpriteTexture;
+import com.mss.polymech.client.gui.common.AbstractMachineUI;
 import com.mss.polymech.machine.production.AbstractProcessingBlockEntity;
 import com.mss.polymech.machine.production.AbstractTurbineGeneratorBlockEntity;
 import com.mss.polymech.network.MachineTogglePacket;
 import dev.vfyjxf.taffy.style.FlexDirection;
+import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * 通用加工机器 UI（LDLib2）。
+ * 通用加工机器 UI — 继承 {@link AbstractMachineUI} 复用通用组件。
+ * <p>
+ * 通用组件（来自基类）：
+ * <ul>
+ *   <li>电源键（右侧书签）— {@link #createPowerButton}</li>
+ *   <li>面配置 tab（左侧书签）— {@link #createSideConfigTab}</li>
+ *   <li>悬浮面配置面板 — {@link #addSideConfigComponents}</li>
+ * </ul>
  * <p>
  * 布局根据方块实体声明自动生成：
- * 标题 → 输入槽 | 进度条 | 输出槽 | 储罐 → 状态行 → 玩家物品栏，
- * 面板外右下角为开关机按钮（沿用锅炉 UI 规范）。
+ * 标题 → 输入槽 | 进度条 | 输出槽 | 储罐 → 状态行 → 玩家物品栏
  * </p>
  */
-public class ProcessingMachineUI {
+public class ProcessingMachineUI extends AbstractMachineUI {
 
     public static ModularUI create(BlockUIMenuType.BlockUIHolder holder) {
         var be = holder.player.level().getBlockEntity(holder.pos);
@@ -48,6 +54,18 @@ public class ProcessingMachineUI {
         int[] inputs = machine.getInputSlots();
         int[] outputs = machine.getOutputSlots();
         var tanks = machine.getTanks();
+        final var cfgPos = holder.pos.immutable();
+
+        // ===== 根窗口 176x166：主面板 + 九宫格背景 =====
+        var root = new UIElement();
+        root.layout(l -> l.width(176).height(166));
+        root.style(s -> s.backgroundTexture(
+                SpriteTexture.of(TEX_BASE).setSprite(0, 0, 195, 136).setBorder(4)));
+
+        // === 标题 ===
+        root.addChild(new Label().setText(machine.getDisplayName())
+                .textStyle(s -> s.textColor(TITLE_COLOR))
+                .layout(l -> l.width(160).positionType(TaffyPosition.ABSOLUTE).left(8).top(6)));
 
         // === 进度条 ===
         var progressBar = new ProgressBar();
@@ -58,33 +76,7 @@ public class ProcessingMachineUI {
                 .bind(DataBindingBuilder.floatValS2C(() -> (float) machine.getProgressPercent()).build())
                 .layout(l -> l.width(40).height(16));
 
-        // === 开关机按钮（书签标签风格，面板外右下角） ===
-        var toggleBtn = new Button()
-                .setText(Component.translatable(machine.isEnable() ? "gui.poly_mech.button.disable" : "gui.poly_mech.button.enable"))
-                .setOnClick(e -> PacketDistributor.sendToServer(new MachineTogglePacket(holder.pos)))
-                .buttonStyle(s -> s.baseTexture(Sprites.RECT_RD))
-                .layout(l -> l.width(20).height(20));
-
-        // === 面配置 Tab（Mekanism 风格：主面板左侧 26x18 tab） ===
-        final var cfgPos = holder.pos.immutable();
-        final var cfgConfig = machine.getSideConfig();
-        var sideConfigTab = new Button()
-                .setText(Component.literal("C").withStyle(ChatFormatting.RED))
-                .setOnClick(e -> {
-                    var mc = Minecraft.getInstance();
-                    var curScreen = mc.screen;
-                    mc.execute(() -> mc.setScreen(new SideConfigScreen(cfgPos, cfgConfig, curScreen)));
-                })
-                .buttonStyle(s -> s.baseTexture(Sprites.RECT_RD))
-                .layout(l -> l.width(26).height(18));
-
-        // === 主面板 ===
-        var mainPanel = new UIElement();
-        mainPanel.layout(l -> l.width(200).paddingAll(7).gapAll(4));
-        mainPanel.addClass("panel_bg");
-
-        mainPanel.addChild(new Label().setText(machine.getDisplayName()));
-
+        // === 主面板内容 ===
         var machineRow = new UIElement().layout(l -> l.flexDirection(FlexDirection.ROW).gapAll(6));
 
         // 输入槽（竖排）
@@ -118,38 +110,24 @@ public class ProcessingMachineUI {
             machineRow.addChild(tankRow);
         }
 
-        mainPanel.addChild(machineRow);
+        root.addChild(machineRow.layout(l -> l.positionType(TaffyPosition.ABSOLUTE).left(8).top(20)));
 
         // 状态行
-        mainPanel.addChild(new Label().bind(DataBindingBuilder.componentS2C(() -> statusLine(machine)).build()));
+        var statusLabel = new Label();
+        statusLabel.textStyle(s -> s.textColor(TITLE_COLOR));
+        statusLabel.bind(DataBindingBuilder.componentS2C(() -> statusLine(machine)).build());
+        statusLabel.layout(l -> l.width(160).positionType(TaffyPosition.ABSOLUTE).left(8).top(66));
+        root.addChild(statusLabel);
 
-        mainPanel.addChild(new InventorySlots());
+        // 玩家背包
+        root.addChild(new InventorySlots()
+                .layout(l -> l.positionType(TaffyPosition.ABSOLUTE).left(8).top(84)));
 
-        // === 外层容器：左侧 Tab + 面板 + 右侧按钮 ===
-        var wrapper = new UIElement();
-        wrapper.layout(l -> l.width(226).flexDirection(FlexDirection.ROW));
-
-        // 左侧 Tab 列（Mekanism: GuiSideConfigurationTab 在 (-26, 6)）
-        var leftTabCol = new UIElement();
-        leftTabCol.layout(l -> l.width(26).flexDirection(FlexDirection.COLUMN));
-        leftTabCol.addChildren(
-                new UIElement().layout(l -> l.height(6)),
-                sideConfigTab
-        );
-
-        // 右侧按钮列
-        var btnContainer = new UIElement();
-        btnContainer.layout(l -> l.width(20).flexDirection(FlexDirection.COLUMN));
-        btnContainer.addChildren(
-                new UIElement().layout(l -> l.flex(1)),
-                toggleBtn
-        );
-
-        wrapper.addChildren(leftTabCol, mainPanel, btnContainer);
-
-        var root = new UIElement();
-        root.layout(l -> l.paddingAll(7));
-        root.addChild(wrapper);
+        // ===== 基类通用组件：电源键（大机器不需要面配置）=====
+        Button powerBtn = createPowerButton(cfgPos, machine.isEnable(), (pos, enabled) -> {
+            PacketDistributor.sendToServer(new MachineTogglePacket(pos));
+        });
+        root.addChild(powerBtn);
 
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)), holder.player);
     }

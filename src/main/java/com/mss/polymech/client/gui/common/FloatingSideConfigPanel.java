@@ -1,4 +1,4 @@
-package com.mss.polymech.client.gui.battery;
+package com.mss.polymech.client.gui.common;
 
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
@@ -28,7 +28,8 @@ import java.util.List;
 /**
  * 悬浮可拖动面配置面板 — Mekanism 风格悬浮窗。
  * <p>
- * 作为 BatteryUI 的子元素悬浮显示，可通过标题栏拖动。
+ * 作为机器 UI 的子元素悬浮显示，可通过标题栏拖动。
+ * 所有需要面配置功能的机器 UI 均可复用此组件。
  * </p>
  */
 public class FloatingSideConfigPanel {
