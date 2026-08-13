@@ -6,6 +6,7 @@ import com.mss.polymech.Polymech;
 import com.mss.polymech.client.renderer.ClientWireCache;
 import com.mss.polymech.item.WireSpoolItem;
 import com.mss.polymech.ModDataComponents;
+import com.mss.polymech.powergrid.ConnectorBlock;
 import com.mss.polymech.powergrid.GridConnection;
 import com.mss.polymech.powergrid.GridNode;
 import com.mss.polymech.powergrid.GridNodeBlock;
@@ -192,7 +193,7 @@ public class NodeSelectionRenderer {
     }
 
     /**
-     * 取消原版白色方块瞄准框：手持线轴瞄准电网连接器时，
+     * 取消原版白色方块瞄准框：手持线轴瞄准连接器（唯一接线点）时，
      * 由本渲染器的彩色选择框取代原版白框，避免叠加杂乱（对齐 Create 轨道/胶水交互）。
      */
     @SubscribeEvent
@@ -202,7 +203,7 @@ public class NodeSelectionRenderer {
             return;
         if (!(mc.player.getMainHandItem().getItem() instanceof WireSpoolItem))
             return;
-        if (mc.level.getBlockState(event.getTarget().getBlockPos()).getBlock() instanceof GridNodeBlock)
+        if (mc.level.getBlockState(event.getTarget().getBlockPos()).getBlock() instanceof ConnectorBlock)
             event.setCanceled(true);
     }
 
@@ -217,17 +218,17 @@ public class NodeSelectionRenderer {
     }
 
     /**
-     * 查找准星命中的电网节点：优先直接检查瞄准方块本身，
+     * 查找准星命中的接线点：优先直接检查瞄准方块本身（只有连接器才是接线端子），
      * 未命中时兜底用邻域搜索（点击点可能偏到相邻格）。
      */
     private static GridNode findNodeAt(Level level, BlockHitResult bhr) {
         BlockPos aimed = bhr.getBlockPos();
         BlockState state = level.getBlockState(aimed);
-        if (state.getBlock() instanceof GridNodeBlock gridBlock) {
+        if (state.getBlock() instanceof ConnectorBlock connector) {
             Vec3 hit = bhr.getLocation();
             GridNode best = null;
             double bestDist = GridNodes.NODE_HIT_THRESHOLD;
-            for (Map.Entry<Integer, Vec3> e : gridBlock.getNodePositions(state).entrySet()) {
+            for (Map.Entry<Integer, Vec3> e : connector.getNodePositions(state).entrySet()) {
                 Vec3 nodePos = e.getValue().add(aimed.getX(), aimed.getY(), aimed.getZ());
                 double dist = nodePos.distanceTo(hit);
                 if (dist < bestDist) {

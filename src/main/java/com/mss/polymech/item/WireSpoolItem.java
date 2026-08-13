@@ -4,15 +4,20 @@ import com.mss.polymech.ModDataComponents;
 import com.mss.polymech.powergrid.GridNode;
 import com.mss.polymech.powergrid.GridNodes;
 import com.mss.polymech.powergrid.GridWireType;
+import com.mss.polymech.powergrid.VoltageTier;
 import com.mss.polymech.powergrid.WorldPowerGrid;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+
+import java.util.List;
 
 /**
  * 线轴：拉线工具。
@@ -39,6 +44,42 @@ public class WireSpoolItem extends Item {
     /** 线轴对应的电线类型 */
     public GridWireType getWireType() {
         return wireType;
+    }
+
+    /**
+     * 电气参数 tooltip：电压等级、最大电压、最大电流、最大传输功率、
+     * 线损电阻、最大拉线长度与绝缘标识。
+     */
+    @Override
+    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+        super.appendHoverText(stack, context, tooltip, flag);
+
+        VoltageTier tier = wireType.getVoltageTier();
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.tier", tier.getName())
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.max_voltage", wireType.getMaxVoltage())
+                .withStyle(ChatFormatting.GOLD));
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.max_amperage", wireType.getMaxAmperage())
+                .withStyle(ChatFormatting.AQUA));
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.max_power", wireType.getMaxPower())
+                .withStyle(ChatFormatting.YELLOW));
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.resistance", formatResistance(wireType.getResistance()))
+                .withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.loss_note")
+                .withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(Component.translatable("tooltip.poly_mech.wire.max_length", wireType.getMaxLength())
+                .withStyle(ChatFormatting.DARK_GRAY));
+        if (wireType.isInsulated()) {
+            tooltip.add(Component.translatable("tooltip.poly_mech.wire.insulated")
+                    .withStyle(ChatFormatting.WHITE));
+        }
+    }
+
+    /** 电阻显示格式化：去掉多余尾零（0.02 → "0.02"，0.008 → "0.008"） */
+    private static String formatResistance(double resistance) {
+        return resistance == Math.rint(resistance)
+                ? String.valueOf((long) resistance)
+                : String.valueOf(resistance);
     }
 
     /** 已选中起点时显示附魔光效 */

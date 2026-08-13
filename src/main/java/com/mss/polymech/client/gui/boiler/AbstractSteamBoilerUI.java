@@ -17,10 +17,12 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.impl.DataBindingBuilder;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.lowdragmc.lowdraglib2.gui.ui.styletemplate.Sprites;
 import com.lowdragmc.lowdraglib2.gui.ui.data.FillDirection;
+import com.mss.polymech.client.gui.screen.SideConfigScreen;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import com.mss.polymech.network.MachineTogglePacket;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -95,6 +97,19 @@ public abstract class AbstractSteamBoilerUI {
                 .buttonStyle(s -> s.baseTexture(Sprites.RECT_RD))
                 .layout(l -> l.width(20).height(20));
 
+        // === 面配置 Tab（Mekanism 风格：主面板左侧 26x18 tab） ===
+        final var cfgPos = holder.pos.immutable();
+        final var cfgConfig = be.getSideConfig();
+        var sideConfigTab = new Button()
+                .setText(Component.literal("C").withStyle(ChatFormatting.RED))
+                .setOnClick(e -> {
+                    var mc = Minecraft.getInstance();
+                    var curScreen = mc.screen;
+                    mc.execute(() -> mc.setScreen(new SideConfigScreen(cfgPos, cfgConfig, curScreen)));
+                })
+                .buttonStyle(s -> s.baseTexture(Sprites.RECT_RD))
+                .layout(l -> l.width(26).height(18));
+
         // === 主面板 ===
         var mainPanel = new UIElement();
         mainPanel.layout(l -> l.width(176).paddingAll(7).gapAll(4));
@@ -168,10 +183,19 @@ public abstract class AbstractSteamBoilerUI {
         mainPanel.addChild(machineRow);
         mainPanel.addChild(new InventorySlots());
 
-        // === 外层容器：面板 + 按钮 ===
+        // === 外层容器：左侧 Tab + 面板 + 右侧按钮 ===
         var wrapper = new UIElement();
-        wrapper.layout(l -> l.width(196).flexDirection(FlexDirection.ROW));
+        wrapper.layout(l -> l.width(202).flexDirection(FlexDirection.ROW));
 
+        // 左侧 Tab 列（Mekanism: GuiSideConfigurationTab 在 (-26, 6)）
+        var leftTabCol = new UIElement();
+        leftTabCol.layout(l -> l.width(26).flexDirection(FlexDirection.COLUMN));
+        leftTabCol.addChildren(
+                new UIElement().layout(l -> l.height(6)),
+                sideConfigTab
+        );
+
+        // 右侧按钮列
         var btnContainer = new UIElement();
         btnContainer.layout(l -> l.width(20).flexDirection(FlexDirection.COLUMN));
         btnContainer.addChildren(
@@ -179,7 +203,7 @@ public abstract class AbstractSteamBoilerUI {
                 toggleBtn
         );
 
-        wrapper.addChildren(mainPanel, btnContainer);
+        wrapper.addChildren(leftTabCol, mainPanel, btnContainer);
 
         var root = new UIElement();
         root.layout(l -> l.paddingAll(7));

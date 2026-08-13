@@ -23,12 +23,18 @@ import com.mss.polymech.pipenet.PipeFluidHandler;
 import com.mss.polymech.recipe.ModRecipeTypes;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
+import com.mss.polymech.network.BatteryTogglePacket;
+import com.mss.polymech.network.SideConfigPacket;
+import com.mss.polymech.network.AutoEjectPacket;
+import com.mss.polymech.network.BatchConfigPacket;
 import com.mss.polymech.network.ConveyorPlacementPacket;
 import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
 import com.mss.polymech.network.SetCellCapacityPacket;
 import com.mss.polymech.network.WireSyncPacket;
+import com.mss.polymech.machine.production.BatteryBlockEntity;
+import com.mss.polymech.powergrid.MachineEnergyStorage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
@@ -182,6 +188,26 @@ public class Polymech {
                 SetCellCapacityPacket.STREAM_CODEC,
                 SetCellCapacityPacket::handle
         );
+        registrar.playToServer(
+                BatteryTogglePacket.TYPE,
+                BatteryTogglePacket.STREAM_CODEC,
+                BatteryTogglePacket::handle
+        );
+        registrar.playToServer(
+                SideConfigPacket.TYPE,
+                SideConfigPacket.STREAM_CODEC,
+                SideConfigPacket::handle
+        );
+        registrar.playToServer(
+                AutoEjectPacket.TYPE,
+                AutoEjectPacket.STREAM_CODEC,
+                AutoEjectPacket::handle
+        );
+        registrar.playToServer(
+                BatchConfigPacket.TYPE,
+                BatchConfigPacket.STREAM_CODEC,
+                BatchConfigPacket::handle
+        );
         // 电网电线连接同步（服务端 → 客户端，登录/连接变化时推送渲染数据）
         registrar.playToClient(
                 WireSyncPacket.TYPE,
@@ -219,6 +245,18 @@ public class Polymech {
             var sideBE = entry.sideBlockEntity();
             if (mainBE == null || sideBE == null) continue;
 
+            // ===== 主方块: 能量能力（FE） =====
+            event.registerBlock(Capabilities.EnergyStorage.BLOCK, (level, pos, state, blockEntity, context) -> {
+                if (blockEntity instanceof BaseIOBlockEntity be) {
+                    // 面配置检查：有方向查询时，该面必须配置了能量 IO
+                    if (context != null && !be.isSideConfigAllowed(context, com.mss.polymech.machine.SideConfig.CapabilityType.ENERGY)) {
+                        return null;
+                    }
+                    return be.getEnergyStorage();
+                }
+                return null;
+            }, entry.mainBlock().get());
+
             // ===== 主方块: 物品能力 =====
             event.registerBlock(Capabilities.ItemHandler.BLOCK, (level, pos, state, blockEntity, context) -> {
                 if (blockEntity instanceof BaseIOBlockEntity be) {
@@ -245,9 +283,12 @@ public class Polymech {
                             if (proxy == null) return null;
                             // 声明了有效面时，仅允许从指定面访问（context==null 查询不过滤）
                             if (!proxy.allowsWorldFace(context, facing)) return null;
-                            // 能力层直接包装 BE 的内部 handler，只暴露指定槽位
+                            // 面配置检查：父方块的 ITEM 面配置必须允许该方向
                             var parent = sideEntity.getParentBlock();
                             if (parent instanceof BaseIOBlockEntity be) {
+                                if (context != null && !be.isSideConfigAllowed(context, com.mss.polymech.machine.SideConfig.CapabilityType.ITEM)) {
+                                    return null;
+                                }
                                 return new SlotFilteredItemHandler(be.getItemStackHandler(), proxy.slots());
                             }
                         }
@@ -271,11 +312,14 @@ public class Polymech {
                             if (proxy == null) return null;
                             // 声明了有效面时，仅允许从指定面访问（context==null 查询不过滤）
                             if (!proxy.allowsWorldFace(context, facing)) return null;
-                            int[] tanks = proxy.tanks();
-                            if (tanks.length == 0) return null;
-                            // BE 按索引提供实际储罐；多罐时拼接为组合 handler
+                            // 面配置检查：父方块的 FLUID 面配置必须允许该方向
                             var parent = sideEntity.getParentBlock();
                             if (parent instanceof BaseIOBlockEntity be) {
+                                if (context != null && !be.isSideConfigAllowed(context, com.mss.polymech.machine.SideConfig.CapabilityType.FLUID)) {
+                                    return null;
+                                }
+                                int[] tanks = proxy.tanks();
+                                if (tanks.length == 0) return null;
                                 IFluidHandler[] handlers = new IFluidHandler[tanks.length];
                                 for (int i = 0; i < tanks.length; i++) {
                                     handlers[i] = be.getFluidTank(tanks[i]);
@@ -300,6 +344,34 @@ public class Polymech {
                 return null;
             }, entry.mainBlock().get());
         }
+
+        // 蓄电池能量能力
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.BATTERY.get(),
+                (batteryBE, side) -> {
+                    if (batteryBE instanceof BatteryBlockEntity be) {
+                        return new MachineEnergyStorage(
+                                be::getEnergyStored,
+                                newVal -> { be.receiveCharge(newVal - be.getEnergyStored()); return be.getEnergyStored(); },
+                                be.getMaxEnergy(),
+                                be.getMaxChargeRate(),
+                                be.getMaxDischargeRate()
+                        );
+                    }
+                    return null;
+                });
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.CREATIVE_BATTERY.get(),
+                (batteryBE, side) -> {
+                    if (batteryBE instanceof BatteryBlockEntity be) {
+                        return new MachineEnergyStorage(
+                                be::getEnergyStored,
+                                newVal -> be.getEnergyStored(),
+                                be.getMaxEnergy(),
+                                0,
+                                be.getMaxDischargeRate()
+                        );
+                    }
+                    return null;
+                });
 
         // 通用流体单元物品流体能力：流体内容存储在fluid_content数据组件中，
         // 生效容量尊重玩家设置的capacity_limit上限（四种规格单元均注册）

@@ -54,16 +54,18 @@ public final class GridNodes {
     }
 
     /**
-     * 查找点击位置附近最近的节点（仿Create-Electro-Energetics的closestNode）。
+     * 查找点击位置附近最近的接线点（仿Create-Electro-Energetics的closestNode）。
      * <p>
-     * 在点击位置周围 2×2×2 的方块邻域内搜索所有电网节点，
+     * 接线点<b>只有连接器</b>：蓄电池、机器等电网方块必须通过贴附其上的连接器
+     * （自动桥接）接入电网，不可直接拉线。
+     * 在点击位置周围 2×2×2 的方块邻域内搜索所有连接器节点，
      * 返回与点击位置距离最近且在阈值内的节点。
      * </p>
      *
      * @param level       世界
      * @param clickedPos  点击的世界坐标（射线命中位置）
      * @param threshold   命中阈值（格）
-     * @return 命中的节点；未命中返回null
+     * @return 命中的连接器节点；未命中返回null
      */
     public static GridNode closestNode(Level level, Vec3 clickedPos, float threshold) {
         GridNode closest = null;
@@ -73,9 +75,10 @@ public final class GridNodes {
         for (BlockPos offset : searchOffsets(clickedPos)) {
             BlockPos pos = center.offset(offset);
             BlockState state = level.getBlockState(pos);
-            if (!(state.getBlock() instanceof GridNodeBlock gridBlock))
+            // 接线点只有连接器（连接器才是电气接线端子）
+            if (!(state.getBlock() instanceof ConnectorBlock connector))
                 continue;
-            for (Map.Entry<Integer, Vec3> e : gridBlock.getNodePositions(state).entrySet()) {
+            for (Map.Entry<Integer, Vec3> e : connector.getNodePositions(state).entrySet()) {
                 Vec3 nodePos = e.getValue().add(pos.getX(), pos.getY(), pos.getZ());
                 double dist = nodePos.distanceTo(clickedPos);
                 if (dist < closestDist) {

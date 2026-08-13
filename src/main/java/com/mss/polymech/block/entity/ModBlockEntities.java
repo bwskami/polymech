@@ -37,6 +37,16 @@ public class ModBlockEntities {
                     BlockEntityType.Builder.of(SmallSteamBoilerBlockEntity::new,
                             ModBlocks.SMALL_STEAM_BOILER.get()).build(null));
 
+    public static final Supplier<BlockEntityType<BatteryBlockEntity>> BATTERY =
+            BLOCK_ENTITIES.register("battery", () ->
+                    BlockEntityType.Builder.of(BatteryBlockEntity::new,
+                            ModBlocks.BATTERY.get()).build(null));
+
+    public static final Supplier<BlockEntityType<CreativeBatteryBlockEntity>> CREATIVE_BATTERY =
+            BLOCK_ENTITIES.register("creative_battery", () ->
+                    BlockEntityType.Builder.of(CreativeBatteryBlockEntity::new,
+                            ModBlocks.CREATIVE_BATTERY.get()).build(null));
+
     // ========== Phase 2a：大型机器主方块实体（带泛型，类型安全） ==========
 
     public static final Supplier<BlockEntityType<FillingUnitBlockEntity>> FILLING_UNIT =

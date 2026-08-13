@@ -1,5 +1,6 @@
 package com.mss.polymech.machine.production;
 
+import com.mss.polymech.powergrid.VoltageTier;
 import com.mss.polymech.powergrid.WorldPowerGrid;
 import com.mss.polymech.recipe.MachineRecipe;
 import net.minecraft.core.BlockPos;
@@ -39,11 +40,16 @@ public abstract class AbstractTurbineGeneratorBlockEntity extends AbstractProces
 
     // ==================== 电网：注册为发电机 ====================
 
+    /** 发电机默认输出电压等级（子类可覆盖） */
+    protected int getGeneratorVoltage() {
+        return VoltageTier.LV.getMaxVoltage();
+    }
+
     @Override
     protected void registerPowerMemberships(ServerLevel world) {
         powerNode = getGridNode();
         if (powerNode != null) {
-            WorldPowerGrid.get(world).registerGenerator(powerNode, this::getCurrentGeneration);
+            WorldPowerGrid.get(world).registerGenerator(powerNode, this::getCurrentGeneration, getGeneratorVoltage());
         }
     }
 

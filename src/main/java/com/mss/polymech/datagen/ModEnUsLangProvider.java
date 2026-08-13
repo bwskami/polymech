@@ -200,6 +200,76 @@ public class ModEnUsLangProvider extends LanguageProvider {
             add("item.poly_mech." + wireType.spoolItemName(), name);
         }
         add(ModItems.EMPTY_SPOOL.get(), "Empty Spool");
+        // Connector tooltip
+        add("tooltip.poly_mech.connector.node", "Power grid access point, can connect wires");
+        add("tooltip.poly_mech.connector.stack", "Right-click a placed connector to stack up to 4");
+        add("tooltip.poly_mech.connector.wire", "Use a wire spool to connect into the grid");
+        // Wire spool electrical tooltip
+        add("tooltip.poly_mech.wire.tier", "Voltage Tier: %s");
+        add("tooltip.poly_mech.wire.max_voltage", "Max Voltage: %d FE/t");
+        add("tooltip.poly_mech.wire.max_amperage", "Max Amperage: %d A");
+        add("tooltip.poly_mech.wire.max_power", "Max Power: %d FE/t");
+        add("tooltip.poly_mech.wire.resistance", "Loss Resistance: %s Ω/block");
+        add("tooltip.poly_mech.wire.loss_note", "Wire loss = current² × total resistance (accumulates with length)");
+        add("tooltip.poly_mech.wire.max_length", "Max Span: %d blocks");
+        add("tooltip.poly_mech.wire.insulated", "Insulated");
+
+        // Battery
+        add(ModBlocks.BATTERY.get(), "Battery");
+        add(ModBlocks.CREATIVE_BATTERY.get(), "Creative Battery");
+        add("gui.poly_mech.battery.energy", "Energy: %d / %d FE");
+        add("gui.poly_mech.battery.voltage", "Voltage Tier: %s (%d FE/t)");
+        add("gui.poly_mech.battery.grid_voltage", "Grid Voltage: %d FE/t");
+        add("gui.poly_mech.battery.rated_voltage", "Rated Voltage: %s (%d FE/t)");
+        add("gui.poly_mech.battery.input_rate", "Input Rate: %d FE/t");
+        add("gui.poly_mech.battery.output_rate", "Output Rate: %d FE/t");
+        add("gui.poly_mech.battery.tooltip_enable", "Click to toggle power");
+        add("gui.poly_mech.battery.energy_stored", "Energy: %s %s");
+        add("gui.poly_mech.battery.input_rate_u", "Input Rate: %s %s/t");
+        add("gui.poly_mech.battery.output_rate_u", "Output Rate: %s %s/t");
+        add("gui.poly_mech.battery.energy_tab", "Click to switch unit (current: %s)");
+
+        // Voltage Tiers
+        add("voltage_tier.poly_mech.ulv", "ULV");
+        add("voltage_tier.poly_mech.lv", "LV");
+        add("voltage_tier.poly_mech.mv", "MV");
+        add("voltage_tier.poly_mech.hv", "HV");
+        add("voltage_tier.poly_mech.ev", "EV");
+        add("voltage_tier.poly_mech.iv", "IV");
+        add("voltage_tier.poly_mech.luv", "LuV");
+        add("voltage_tier.poly_mech.zpm", "ZPM");
+        add("voltage_tier.poly_mech.uv", "UV");
+        add("voltage_tier.poly_mech.uhv", "UHV");
+
+        // Side Config
+        add("gui.poly_mech.side_config.title", "Side Config");
+        add("gui.poly_mech.side_config.config_type", "Config Type: %s");
+        add("gui.poly_mech.side_config.eject", "Auto-Eject: %s");
+        add("gui.poly_mech.side_config.eject_on", "On");
+        add("gui.poly_mech.side_config.eject_off", "Off");
+        add("gui.poly_mech.side_config.no_eject", "No Auto-Eject");
+        add("gui.poly_mech.side_config.auto_eject", "Auto-Eject");
+        add("gui.poly_mech.side_config.clear", "Clear Sides");
+        add("gui.poly_mech.side_config.clear_all", "Clear all sides on all types");
+        add("gui.poly_mech.side_config.increment", "Increment");
+        add("gui.poly_mech.side_config.cannot_eject", "This type cannot be auto-ejected");
+        add("gui.poly_mech.side_config.tab", "Open Side Config");
+        add("gui.poly_mech.side_config.tab_energy", "Energy");
+        add("gui.poly_mech.side_config.tab_item", "Item");
+        add("gui.poly_mech.side_config.tab_fluid", "Fluid");
+        add("gui.poly_mech.side_config.none", "None");
+        add("gui.poly_mech.side_config.in", "Input");
+        add("gui.poly_mech.side_config.out", "Output");
+        add("gui.poly_mech.side_config.face.up", "Top");
+        add("gui.poly_mech.side_config.face.down", "Bottom");
+        add("gui.poly_mech.side_config.face.north", "North");
+        add("gui.poly_mech.side_config.face.south", "South");
+        add("gui.poly_mech.side_config.face.east", "East");
+        add("gui.poly_mech.side_config.face.west", "West");
+                add("gui.poly_mech.side_config.back", "Back");
+        add("gui.poly_mech.side_config.close", "Close");
+        add("gui.poly_mech.side_config.bottom_label", "SLOTS");
+
         // 线轴交互提示
         add("message.poly_mech.wire_spool.cancelled", "Selection Cleared");
         add("message.poly_mech.wire_spool.selected", "Selected node: %s");

@@ -645,6 +645,76 @@ public class ModZhCnLangProvider extends LanguageProvider {
             add("item.poly_mech." + wireType.spoolItemName(), name);
         }
         add(ModItems.EMPTY_SPOOL.get(), "空线轴");
+        // 连接器tooltip
+        add("tooltip.poly_mech.connector.node", "电网接入点，可与电线相连");
+        add("tooltip.poly_mech.connector.stack", "右键已放置的连接器可堆叠至 4 个");
+        add("tooltip.poly_mech.connector.wire", "使用线轴右键拉线接入电网");
+        // 线轴电气参数tooltip
+        add("tooltip.poly_mech.wire.tier", "电压等级：%s");
+        add("tooltip.poly_mech.wire.max_voltage", "最大电压：%d FE/t");
+        add("tooltip.poly_mech.wire.max_amperage", "最大电流：%d A");
+        add("tooltip.poly_mech.wire.max_power", "最大传输功率：%d FE/t");
+        add("tooltip.poly_mech.wire.resistance", "线损电阻：%s Ω/格");
+        add("tooltip.poly_mech.wire.loss_note", "线损 = 电流² × 总电阻（随线长累积）");
+        add("tooltip.poly_mech.wire.max_length", "最大拉线长度：%d 格");
+        add("tooltip.poly_mech.wire.insulated", "绝缘线");
+
+        // 蓄电池
+        add(ModBlocks.BATTERY.get(), "蓄电池");
+        add(ModBlocks.CREATIVE_BATTERY.get(), "创造模式蓄电池");
+        add("gui.poly_mech.battery.energy", "储能: %d / %d FE");
+        add("gui.poly_mech.battery.voltage", "电压等级: %s (%d FE/t)");
+        add("gui.poly_mech.battery.grid_voltage", "电网电压: %d FE/t");
+        add("gui.poly_mech.battery.rated_voltage", "额定电压: %s (%d FE/t)");
+        add("gui.poly_mech.battery.input_rate", "输入速率: %d FE/t");
+        add("gui.poly_mech.battery.output_rate", "输出速率: %d FE/t");
+        add("gui.poly_mech.battery.tooltip_enable", "点击开机/关机");
+        add("gui.poly_mech.battery.energy_stored", "储能: %s %s");
+        add("gui.poly_mech.battery.input_rate_u", "输入速率: %s %s/t");
+        add("gui.poly_mech.battery.output_rate_u", "输出速率: %s %s/t");
+        add("gui.poly_mech.battery.energy_tab", "点击切换单位（当前: %s）");
+
+        // 电压等级
+        add("voltage_tier.poly_mech.ulv", "ULV");
+        add("voltage_tier.poly_mech.lv", "LV");
+        add("voltage_tier.poly_mech.mv", "MV");
+        add("voltage_tier.poly_mech.hv", "HV");
+        add("voltage_tier.poly_mech.ev", "EV");
+        add("voltage_tier.poly_mech.iv", "IV");
+        add("voltage_tier.poly_mech.luv", "LuV");
+        add("voltage_tier.poly_mech.zpm", "ZPM");
+        add("voltage_tier.poly_mech.uv", "UV");
+        add("voltage_tier.poly_mech.uhv", "UHV");
+
+        // 面配置
+        add("gui.poly_mech.side_config.title", "面配置");
+        add("gui.poly_mech.side_config.config_type", "配置类型：%s");
+        add("gui.poly_mech.side_config.eject", "自动弹出：%s");
+        add("gui.poly_mech.side_config.eject_on", "开");
+        add("gui.poly_mech.side_config.eject_off", "关");
+        add("gui.poly_mech.side_config.no_eject", "无自动弹出");
+        add("gui.poly_mech.side_config.auto_eject", "自动弹出");
+        add("gui.poly_mech.side_config.clear", "清除面");
+        add("gui.poly_mech.side_config.clear_all", "清除所有类型的所有面");
+        add("gui.poly_mech.side_config.increment", "递增");
+        add("gui.poly_mech.side_config.cannot_eject", "此类型无法自动弹出");
+        add("gui.poly_mech.side_config.tab", "打开面配置");
+        add("gui.poly_mech.side_config.tab_energy", "能源");
+        add("gui.poly_mech.side_config.tab_item", "物品");
+        add("gui.poly_mech.side_config.tab_fluid", "流体");
+        add("gui.poly_mech.side_config.none", "无");
+        add("gui.poly_mech.side_config.in", "输入");
+        add("gui.poly_mech.side_config.out", "输出");
+        add("gui.poly_mech.side_config.face.up", "顶面");
+        add("gui.poly_mech.side_config.face.down", "底面");
+        add("gui.poly_mech.side_config.face.north", "北面");
+        add("gui.poly_mech.side_config.face.south", "南面");
+        add("gui.poly_mech.side_config.face.east", "东面");
+        add("gui.poly_mech.side_config.face.west", "西面");
+        add("gui.poly_mech.side_config.back", "返回");
+        add("gui.poly_mech.side_config.close", "关闭");
+        add("gui.poly_mech.side_config.bottom_label", "槽位");
+
         // 线轴交互提示
         add("message.poly_mech.wire_spool.cancelled", "已取消选中起点");
         add("message.poly_mech.wire_spool.selected", "已选中节点：%s");

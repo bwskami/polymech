@@ -2,6 +2,7 @@ package com.mss.polymech.machine;
 
 import com.mss.polymech.powergrid.GridNode;
 import com.mss.polymech.powergrid.GridNodeBlock;
+import com.mss.polymech.powergrid.MachineEnergyStorage;
 import com.mss.polymech.powergrid.WorldPowerGrid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -38,13 +39,18 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
     protected int tickNum = 0;
     protected boolean isPowered = false;
-    protected int storedPower;
-    protected static final int MAX_STORED_POWER = 10000;
+    protected int internalEnergy;
+    protected static final int MAX_INTERNAL_ENERGY = 10000;
     protected boolean isWorking;
     protected boolean enable = false;
     protected int progress = 0;
     protected int maxProgress;
     protected boolean needsInit = true;
+
+    // ==================== 面配置（Mekanism 风格） ====================
+
+    /** 面 IO 配置，支持能源/物品/流体三种能力类型 */
+    protected final SideConfig sideConfig = new SideConfig();
 
     // ==================== 主动输出配置 ====================
 
@@ -81,6 +87,13 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
         super(type, pos, state);
         this.maxProgress = maxProgress;
         this.propertyDelegate = createPropertyDelegate();
+        // 面配置变更时触发方块更新和能力刷新
+        this.sideConfig.setChangeListener(() -> {
+            setChanged();
+            if (level != null) {
+                level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), 3);
+            }
+        });
     }
 
     protected abstract int getInvSize();
@@ -195,11 +208,11 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
             return;
         }
 
-        if (!be.isPowered && be.storedPower < be.getPowerCostPerTick() && !be.hasFuelPower()) return;
+        if (!be.isPowered && be.internalEnergy < be.getPowerCostPerTick() && !be.hasFuelPower()) return;
 
         if (be.isOutputSlotAvailable()) {
             boolean hasRecipe = be.hasCorrectRecipe(world);
-            boolean canRun = hasRecipe && (be.storedPower >= be.getPowerCostPerTick() || be.hasFuelPower());
+            boolean canRun = hasRecipe && (be.internalEnergy >= be.getPowerCostPerTick() || be.hasFuelPower());
             if (!canRun) {
                 be.isWorking = false;
             } else if (!be.isWorking) {
@@ -211,7 +224,7 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
             if (canRun) {
                 be.incrementProgress();
                 if (!be.hasFuelPower()) {
-                    be.storedPower -= be.getPowerCostPerTick();
+                    be.internalEnergy -= be.getPowerCostPerTick();
                 }
                 if (be.hasCraftingFinished()) {
                     be.craftItem(world);
@@ -266,13 +279,21 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public void receiveElectricCharge(int amount) {
-        storedPower = Math.min(storedPower + amount * 20, MAX_STORED_POWER);
+        // 面配置检查：仅从 IN 面接收能量
+        if (level != null && !level.isClientSide()) {
+            boolean hasInput = false;
+            for (Direction dir : Direction.values()) {
+                if (sideConfig.canInputEnergy(dir)) { hasInput = true; break; }
+            }
+            if (!hasInput) return;
+        }
+        internalEnergy = Math.min(internalEnergy + amount, MAX_INTERNAL_ENERGY);
     }
 
-    public boolean needsPower() { return storedPower < getPowerCostPerTick(); }
+    public boolean needsPower() { return internalEnergy < getPowerCostPerTick(); }
 
     public int getRequiredPower() {
-        if (isWorking || (isPowered && storedPower < MAX_STORED_POWER)) {
+        if (isWorking || (isPowered && internalEnergy < MAX_INTERNAL_ENERGY)) {
             return getPowerCostPerTick();
         }
         return 0;
@@ -291,9 +312,18 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
             // 槽位数不匹配时保留新创建的空 handler，旧物品数据丢失
         }
         progress = tag.getInt("progress");
-        storedPower = tag.getInt("storedPower");
+        // 兼容旧存档：同时检查新旧键名
+        if (tag.contains("internalEnergy")) {
+            internalEnergy = tag.getInt("internalEnergy");
+        } else {
+            internalEnergy = tag.getInt("storedPower");
+        }
         isWorking = tag.getBoolean("isWorking");
         enable = tag.getBoolean("enable");
+        // 加载面配置
+        if (tag.contains("SideConfig")) {
+            sideConfig.load(tag.getCompound("SideConfig"));
+        }
     }
 
     @Override
@@ -301,9 +331,11 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
         super.saveAdditional(tag, registries);
         tag.put("inventory", itemStackHandler.serializeNBT(registries));
         tag.putInt("progress", progress);
-        tag.putInt("storedPower", storedPower);
+        tag.putInt("internalEnergy", internalEnergy);
         tag.putBoolean("isWorking", isWorking);
         tag.putBoolean("enable", enable);
+        // 保存面配置
+        tag.put("SideConfig", sideConfig.save());
     }
 
     @Override
@@ -324,7 +356,25 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     public int getMaxProgress() { return maxProgress; }
     public boolean isEnable() { return enable; }
     public boolean isWorkingState() { return isWorking; }
-    public int getStoredPower() { return storedPower; }
+    public int getStoredPower() { return internalEnergy; }
+
+    /** 获取内部能量缓冲（FE） */
+    public int getInternalEnergy() { return internalEnergy; }
+    public int getMaxInternalEnergy() { return MAX_INTERNAL_ENERGY; }
+
+    /**
+     * 获取 IEnergyStorage 包装器，供 NeoForge 能力系统使用。
+     * 外部 Mod 可通过此接口与本机进行 FE 交互。
+     */
+    public MachineEnergyStorage getEnergyStorage() {
+        return new MachineEnergyStorage(
+                () -> internalEnergy,
+                newVal -> { internalEnergy = Math.max(0, Math.min(newVal, MAX_INTERNAL_ENERGY)); return internalEnergy; },
+                MAX_INTERNAL_ENERGY,
+                getPowerCostPerTick() * 20,  // maxReceive: 允许快速充入
+                getPowerCostPerTick() * 20   // maxExtract: 允许快速抽出
+        );
+    }
     public double getProgressPercent() {
         return maxProgress <= 0 ? 0.0 : progress / (double) maxProgress;
     }
@@ -342,6 +392,42 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
 
     public ItemStackHandler getItemStackHandler() { return itemStackHandler; }
 
+    /** 获取面配置（供 UI/网络包/能力注册使用） */
+    public SideConfig getSideConfig() { return sideConfig; }
+
+    // ==================== 面配置集成辅助 ====================
+
+    /**
+     * 检查指定能力类型是否在某方向上被 sideConfig 允许（IN 或 OUT）。
+     * 若所有面均为 NONE，则跳过检查（向后兼容未配置的情况）。
+     */
+    public boolean isSideConfigAllowed(Direction worldDir, SideConfig.CapabilityType capType) {
+        SideConfig.SideIO io = sideConfig.getConfig(capType, worldDir);
+        return io == SideConfig.SideIO.IN || io == SideConfig.SideIO.OUT;
+    }
+
+    /**
+     * 检查指定能力类型是否有任何面被配置为 OUTPUT。
+     * 若所有面均为 NONE（未配置），返回 true（向后兼容）。
+     */
+    public boolean hasAnyOutputFace(SideConfig.CapabilityType capType) {
+        for (Direction dir : Direction.values()) {
+            if (sideConfig.getConfig(capType, dir) == SideConfig.SideIO.OUT) return true;
+        }
+        // 所有面 NONE = 未配置 → 视为允许（向后兼容）
+        return true;
+    }
+
+    /**
+     * 检查指定能力类型是否有任何面被配置为 INPUT。
+     */
+    public boolean hasAnyInputFace(SideConfig.CapabilityType capType) {
+        for (Direction dir : Direction.values()) {
+            if (sideConfig.getConfig(capType, dir) == SideConfig.SideIO.IN) return true;
+        }
+        return true;
+    }
+
     // ==================== 主动输出（OUTPUT 代理面向外推送） ====================
 
     /**
@@ -349,6 +435,8 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
      * 主动推送到结构外部的相邻方块。跳过属于机器结构自身的相邻位置。
      */
     protected void exportProxyOutputs(Level world) {
+        // 面配置检查：若没有任何 OUTPUT 面，跳过主动输出
+        if (!hasAnyOutputFace(SideConfig.CapabilityType.ITEM) && !hasAnyOutputFace(SideConfig.CapabilityType.FLUID)) return;
         if (!(world.getBlockState(worldPosition).getBlock() instanceof BaseMachineBlock mb)) return;
         Direction facing = world.getBlockState(worldPosition).getValue(BaseMachineBlock.FACING);
         for (Vec3i local : mb.enumerateLocalOffsets()) {

@@ -8,6 +8,7 @@ import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.entity.FluidTankBlock;
 import com.mss.polymech.machine.boiler.SmallSteamBoilerBlock;
 import com.mss.polymech.machine.boiler.SmallSteamBoilerBlockEntity;
+import com.mss.polymech.item.ConnectorItem;
 import com.mss.polymech.item.MachineBlockItem;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.PipeItem;
@@ -15,17 +16,7 @@ import com.mss.polymech.item.ConveyorItem;
 import com.mss.polymech.machine.common.MachineConfig;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MachineRegistrar;
-import com.mss.polymech.machine.production.FillingUnitBlockEntity;
-import com.mss.polymech.machine.production.FlameReverberatoryFurnaceBlockEntity;
-import com.mss.polymech.machine.production.GasTurbineGeneratorBlockEntity;
-import com.mss.polymech.machine.production.HorizontalSteamBoilerBlock;
-import com.mss.polymech.machine.production.HorizontalSteamBoilerBlockEntity;
-import com.mss.polymech.machine.production.BeehiveCokeOvenBlockEntity;
-import com.mss.polymech.machine.production.PrimitiveBlastFurnaceBlockEntity;
-import com.mss.polymech.machine.production.SteamDuplexMineralJigBlockEntity;
-import com.mss.polymech.machine.production.SteamHammerBlockEntity;
-import com.mss.polymech.machine.production.SteamRollerCrusherBlockEntity;
-import com.mss.polymech.machine.production.SteamTurbineGeneratorBlockEntity;
+import com.mss.polymech.machine.production.*;
 import com.mss.polymech.powergrid.ConcretePoleBlock;
 import com.mss.polymech.powergrid.ConnectorBlock;
 import net.minecraft.world.item.BlockItem;
@@ -105,19 +96,33 @@ public class ModBlocks {
      * 节点位于方块中心，电线从中心向外拉出。
      */
     public static final DeferredBlock<ConnectorBlock> CONNECTOR =
-            registerBlocks("connector", () -> new ConnectorBlock(Block.Properties.of()
+            registerConnector("connector", () -> new ConnectorBlock(Block.Properties.of()
                     .strength(1.5F, 6.0F)
                     .sound(SoundType.COPPER)
                     .noOcclusion()));
 
-    /*
-     * 混凝土电杆：高耸的输电线支撑杆，用于支撑架设跨距离的输电线路。
+    /* 混凝土电杆：高耸的输电线支撑杆，用于支撑架设跨距离的输电线路。
      * 纯支撑结构，本身不提供电网节点。
      */
     public static final DeferredBlock<ConcretePoleBlock> CONCRETE_POLE =
             registerBlocks("concrete_pole", () -> new ConcretePoleBlock(Block.Properties.of()
                     .strength(3.0F, 12.0F)
                     .sound(SoundType.STONE)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+
+    /* 蓄电池（普通 + 创造模式） */
+    public static final DeferredBlock<BatteryBlock> BATTERY =
+            registerBlocks("battery", () -> new BatteryBlock(Block.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)
+                    .requiresCorrectToolForDrops()
+                    .noOcclusion()));
+
+    public static final DeferredBlock<CreativeBatteryBlock> CREATIVE_BATTERY =
+            registerBlocks("creative_battery", () -> new CreativeBatteryBlock(Block.Properties.of()
+                    .strength(3.0F, 6.0F)
+                    .sound(SoundType.METAL)
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
 
@@ -427,6 +432,18 @@ public class ModBlocks {
         DeferredBlock<T> blocks = BLOCKS.register(name, block);
         registerBlockItems(name, blocks);
         return blocks;
+    }
+
+    /*
+     * 注册连接器方块及其物品。
+     * <p>
+     * 连接器使用ConnectorItem而非普通BlockItem，以添加电网接入点说明tooltip。
+     * </p>
+     */
+    private static DeferredBlock<ConnectorBlock> registerConnector(String name, Supplier<ConnectorBlock> block) {
+        DeferredBlock<ConnectorBlock> connector = BLOCKS.register(name, block);
+        ModItems.ITEMS.register(name, () -> new ConnectorItem(connector.get(), new Item.Properties()));
+        return connector;
     }
 
     private static <T extends Block, I extends BlockItem> DeferredBlock<T> registerMachine(

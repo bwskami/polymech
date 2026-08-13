@@ -10,6 +10,7 @@ import net.minecraft.core.Vec3i;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
@@ -22,6 +23,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
@@ -330,6 +332,31 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
         if (player.level().getBlockEntity(pos) instanceof MenuProvider menuProvider) {
             player.openMenu(menuProvider, pos);
         }
+    }
+
+    /**
+     * Shift+右键打开面配置 UI（独立屏幕），普通右键打开机器 UI。
+     */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (player.isShiftKeyDown()) {
+            if (level.isClientSide()) {
+                var be = level.getBlockEntity(pos);
+                if (be instanceof BaseIOBlockEntity machine) {
+                    var mc = net.minecraft.client.Minecraft.getInstance();
+                    final var screenPos = pos.immutable();
+                    final var config = machine.getSideConfig();
+                    mc.execute(() -> mc.setScreen(
+                            new com.mss.polymech.client.gui.screen.SideConfigScreen(
+                                    screenPos, config)));
+                }
+            }
+            return InteractionResult.SUCCESS;
+        }
+        if (!level.isClientSide()) {
+            openMachineUI((ServerPlayer) player, pos);
+        }
+        return InteractionResult.SUCCESS;
     }
 
     public static Vec3i rotateVec3i(Vec3i offset, Direction facing) {

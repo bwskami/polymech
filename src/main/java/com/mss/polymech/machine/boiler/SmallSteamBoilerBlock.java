@@ -98,6 +98,20 @@ public class SmallSteamBoilerBlock extends BaseEntityBlock implements BlockUIMen
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (player.isShiftKeyDown()) {
+            if (level.isClientSide()) {
+                var be = level.getBlockEntity(pos);
+                if (be instanceof BaseIOBlockEntity machine) {
+                    var mc = net.minecraft.client.Minecraft.getInstance();
+                    final var screenPos = pos.immutable();
+                    final var config = machine.getSideConfig();
+                    mc.execute(() -> mc.setScreen(
+                            new com.mss.polymech.client.gui.screen.SideConfigScreen(
+                                    screenPos, config)));
+                }
+            }
+            return InteractionResult.SUCCESS;
+        }
         if (!level.isClientSide()) {
             BlockUIMenuType.openUI((net.minecraft.server.level.ServerPlayer) player, pos);
         }
