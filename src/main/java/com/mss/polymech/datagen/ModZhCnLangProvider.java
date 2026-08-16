@@ -646,6 +646,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         }
         add(ModItems.EMPTY_SPOOL.get(), "空线轴");
         add(ModItems.WIRE_CUTTER.get(), "剪线钳");
+        add(ModItems.CLAMP_METER.get(), "钳形表");
         // 连接器tooltip
         add("tooltip.poly_mech.connector.node", "电网接入点，可与电线相连");
         add("tooltip.poly_mech.connector.stack", "右键已放置的连接器可堆叠至 4 个");
@@ -665,6 +666,15 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("gui.poly_mech.wire_cutter.total_resistance", "总电阻: %s Ω");
         add("gui.poly_mech.wire_cutter.nodes", "端点: %s ⇔ %s");
         add("gui.poly_mech.wire_cutter.hint", "右键剪断");
+
+        // 钳形表
+        add("tooltip.poly_mech.clamp_meter", "对准电线右击测量电流/电压");
+        add("gui.poly_mech.clamp_meter.prompt", "对准电线右键测量");
+        add("gui.poly_mech.clamp_meter.wire", "电线: %s");
+        add("gui.poly_mech.clamp_meter.measuring", "测量中...");
+        add("gui.poly_mech.clamp_meter.voltage", "电压: %d FE/t");
+        add("gui.poly_mech.clamp_meter.current", "电流: %s A");
+        add("gui.poly_mech.clamp_meter.power", "功率: %s FE/t");
 
         add("tooltip.poly_mech.wire.insulated", "绝缘线");
 

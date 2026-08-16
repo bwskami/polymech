@@ -2,10 +2,11 @@ package com.mss.polymech.client;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.client.renderer.ClientWireCache;
-import com.mss.polymech.item.WireCutterItem;
+import com.mss.polymech.item.ClampMeterItem;
+import com.mss.polymech.powergrid.ClampMeterMeasurementState;
+import com.mss.polymech.powergrid.ClampMeterTargetCache;
 import com.mss.polymech.powergrid.GridConnection;
 import com.mss.polymech.powergrid.GridWireType;
-import com.mss.polymech.powergrid.WireTargetCache;
 import com.mss.polymech.powergrid.WireTargeting;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -25,24 +26,22 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 剪线钳高亮与信息面板。
+ * 钳形表客户端 HUD 与瞄准描边。
  * <p>
- * <ul>
- *   <li><b>描边</b>：持剪线钳时，把准星瞄准的电线渲染为外暗内亮的双层发光管</li>
- *   <li><b>屏幕信息</b>：类似机械动力工程师护目镜，在准星旁显示当前电线的详细电气参数</li>
- * </ul>
- * 目标连接由客户端每 tick 用 {@link WireTargeting} 从 {@link ClientWireCache} 中计算，
- * 写入 {@link WireTargetCache} 供物品本地预测与渲染使用。
+ * 每 tick 计算准星瞄准的电线并更新 {@link ClampMeterTargetCache}；
+ * 瞄准时显示与剪线钳相同的电线描边，并在准星旁显示电线参数；
+ * 右键后追加显示该电线当前电压/电流/功率。
  * </p>
  */
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT)
-public class WireCutterOverlay {
+public class ClampMeterOverlay {
 
     private static final double TARGET_REACH = WireTargeting.TARGET_REACH;
 
     private static GridConnection target;
+    private static GridConnection lastTarget;
 
-    private WireCutterOverlay() {}
+    private ClampMeterOverlay() {}
 
     // ==================== 目标更新 ====================
 
@@ -50,11 +49,10 @@ public class WireCutterOverlay {
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options.hideGui || mc.player.isSpectator()) {
-            setTarget(null);
             return;
         }
-        if (!isHoldingCutter(mc)) {
-            setTarget(null);
+        if (!isHoldingClampMeter(mc)) {
+            ClampMeterTargetCache.setClientTarget(null);
             return;
         }
 
@@ -63,17 +61,18 @@ public class WireCutterOverlay {
         double blockClip = WireTargeting.blockClipDistance(mc.level, mc.player, eye, look, TARGET_REACH);
         GridConnection found = WireTargeting.findConnection(
                 mc.level, ClientWireCache.getAll(), eye, look, TARGET_REACH, blockClip);
-        setTarget(found);
+        target = found;
+        ClampMeterTargetCache.setClientTarget(found);
+
+        if (!java.util.Objects.equals(found, lastTarget)) {
+            lastTarget = found;
+            ClampMeterMeasurementState.clear();
+        }
     }
 
-    private static void setTarget(GridConnection connection) {
-        target = connection;
-        WireTargetCache.setClientTarget(connection);
-    }
-
-    private static boolean isHoldingCutter(Minecraft mc) {
-        return mc.player.getMainHandItem().getItem() instanceof WireCutterItem
-                || mc.player.getOffhandItem().getItem() instanceof WireCutterItem;
+    private static boolean isHoldingClampMeter(Minecraft mc) {
+        return mc.player.getMainHandItem().getItem() instanceof ClampMeterItem
+                || mc.player.getOffhandItem().getItem() instanceof ClampMeterItem;
     }
 
     // ==================== 世界描边 ====================
@@ -85,7 +84,7 @@ public class WireCutterOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || target == null)
             return;
-        if (!isHoldingCutter(mc))
+        if (!isHoldingClampMeter(mc))
             return;
 
         WireHighlightRenderer.render(event, target);
@@ -98,14 +97,14 @@ public class WireCutterOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null || mc.options.hideGui || target == null)
             return;
-        if (!isHoldingCutter(mc))
+        if (!isHoldingClampMeter(mc))
             return;
 
         GuiGraphics guiGraphics = event.getGuiGraphics();
         Font font = mc.font;
         List<Component> lines = buildInfoLines(target);
 
-        drawPanel(guiGraphics, font, lines);
+        WireCutterOverlay.drawPanel(guiGraphics, font, lines);
     }
 
     private static List<Component> buildInfoLines(GridConnection connection) {
@@ -131,34 +130,26 @@ public class WireCutterOverlay {
         lines.add(Component.translatable("gui.poly_mech.wire_cutter.nodes",
                 WireTargeting.nodeLabel(connection.node1()), WireTargeting.nodeLabel(connection.node2()))
                 .withStyle(ChatFormatting.DARK_GRAY));
-        lines.add(Component.translatable("gui.poly_mech.wire_cutter.hint")
-                .withStyle(ChatFormatting.GREEN));
+
+        GridConnection measured = ClampMeterMeasurementState.connection();
+        if (measured != null && measured.equals(connection)) {
+            double current = ClampMeterMeasurementState.current();
+            int voltage = ClampMeterMeasurementState.voltage();
+            double power = voltage * current;
+            lines.add(Component.translatable("gui.poly_mech.clamp_meter.voltage", voltage)
+                    .withStyle(ChatFormatting.GOLD));
+            lines.add(Component.translatable("gui.poly_mech.clamp_meter.current",
+                    String.format(Locale.ROOT, "%.2f", current))
+                    .withStyle(ChatFormatting.AQUA));
+            lines.add(Component.translatable("gui.poly_mech.clamp_meter.power",
+                    String.format(Locale.ROOT, "%.1f", power))
+                    .withStyle(ChatFormatting.YELLOW));
+        } else {
+            lines.add(Component.translatable("gui.poly_mech.clamp_meter.prompt")
+                    .withStyle(ChatFormatting.GREEN));
+        }
 
         return lines;
-    }
-
-    static void drawPanel(GuiGraphics guiGraphics, Font font, List<Component> lines) {
-        int width = 0;
-        for (Component line : lines) {
-            width = Math.max(width, font.width(line));
-        }
-        int height = lines.size() * 10 + 8;
-        int x = guiGraphics.guiWidth() / 2 + 18;
-        int y = guiGraphics.guiHeight() / 2 - height / 2;
-        x = Math.min(x, guiGraphics.guiWidth() - width - 16);
-        y = Math.max(4, y);
-
-        guiGraphics.fill(x - 5, y - 5, x + width + 5, y + height + 5, 0x90101010);
-        guiGraphics.fill(x - 5, y - 5, x + width + 5, y - 4, 0xFFF0C75E);
-        guiGraphics.fill(x - 5, y + height + 4, x + width + 5, y + height + 5, 0xFFF0C75E);
-        guiGraphics.fill(x - 5, y - 5, x - 4, y + height + 5, 0xFFF0C75E);
-        guiGraphics.fill(x + width + 4, y - 5, x + width + 5, y + height + 5, 0xFFF0C75E);
-
-        int lineY = y;
-        for (Component line : lines) {
-            guiGraphics.drawString(font, line, x, lineY, 0xFFFFFFFF, false);
-            lineY += 10;
-        }
     }
 
     private static String formatResistance(double resistance) {

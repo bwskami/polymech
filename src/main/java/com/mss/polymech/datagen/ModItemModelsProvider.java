@@ -97,6 +97,7 @@ public class ModItemModelsProvider extends ItemModelProvider {
             "wrench",
             "blueprint",
             "wire_cutter",
+            "clamp_meter",
             // 在这里列出所有需要独立纹理的普通物品
     };
     private boolean isNormalItem(String path) {

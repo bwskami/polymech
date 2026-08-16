@@ -80,6 +80,10 @@ public class WorldPowerGrid extends SavedData {
     private final Map<GridNode, Double> nodeSupplyRatio = new HashMap<>();
     /** 每个节点所在连通组件的电网有效电压（FE/t，扣除线损电压降后） */
     private final Map<GridNode, Integer> nodeVoltage = new HashMap<>();
+    /** 每根电线最近一次分配计算出的实际电压（FE/t，过压判断用） */
+    private final Map<GridConnection, Integer> lineVoltages = new HashMap<>();
+    /** 每根电线最近一次分配计算出的实际电流（A，过载判断/钳形表测量用） */
+    private final Map<GridConnection, Double> lineCurrents = new HashMap<>();
     private int lastTotalGenerated = 0;
     private int lastTotalDemand = 0;
 
@@ -230,6 +234,10 @@ public class WorldPowerGrid extends SavedData {
             e.getValue().removeAll(toRemove);
             return e.getValue().isEmpty();
         });
+        for (GridConnection c : toRemove) {
+            lineVoltages.remove(c);
+            lineCurrents.remove(c);
+        }
         setDirty();
 
         PacketDistributor.sendToPlayersInDimension(level, new WireSyncPacket(toRemove, true, false));
@@ -702,6 +710,9 @@ public class WorldPowerGrid extends SavedData {
                             lineCurrent += ch.power() / (double) ch.voltage();
                         }
                     }
+                    // 记录每根线的实际电压/电流，供钳形表等测量设备查询
+                    lineVoltages.put(conn, lineV);
+                    lineCurrents.put(conn, lineCurrent);
                     if (lineCurrent > wt.getMaxAmperage()) {
                         double stress = lineCurrent / Math.max(1, wt.getMaxAmperage());
                         if (stress > fuseStress) {
@@ -753,6 +764,16 @@ public class WorldPowerGrid extends SavedData {
     public int getLastTotalDemand() { return lastTotalDemand; }
     public int getCurrentStoredEnergy() { return storedEnergy; }
     public int getMaxBatteryCapacity() { return maxBatteryCapacity; }
+
+    /** 获取指定电线最近一次分配计算出的实际电流（A，无数据时为 0） */
+    public double getConnectionCurrent(GridConnection connection) {
+        return lineCurrents.getOrDefault(connection, 0.0);
+    }
+
+    /** 获取指定电线最近一次分配计算出的实际电压（FE/t，无数据时为 0） */
+    public int getConnectionVoltage(GridConnection connection) {
+        return lineVoltages.getOrDefault(connection, 0);
+    }
 
     /** 获取指定节点所在连通组件的电网电压（FE/t） */
     public int getNodeVoltage(GridNode node) {

@@ -94,6 +94,13 @@ public class ModItems {
                     .stacksTo(1)));
 
     /*
+     * 钳形表（万用表）：钳口对准电线右击即可测量电流/电压，第一人称有使用动画。
+     */
+    public static final DeferredItem<ClampMeterItem> CLAMP_METER =
+            ITEMS.register("clamp_meter", () -> new ClampMeterItem(new Item.Properties()
+                    .stacksTo(1)));
+
+    /*
      * 焦煤，蜂窝焦炉的产物，用于原始高炉炼钢与高级燃料。
      * 模型复用粉尘染色模板，颜色由 colors.json 的 coke 材质条目提供。
      */

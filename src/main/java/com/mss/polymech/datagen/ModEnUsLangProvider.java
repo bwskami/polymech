@@ -1,4 +1,4 @@
-wpackage com.mss.polymech.datagen;
+package com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.item.ItemTagPrefix;
@@ -201,6 +201,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         }
         add(ModItems.EMPTY_SPOOL.get(), "Empty Spool");
         add(ModItems.WIRE_CUTTER.get(), "Wire Cutter");
+        add(ModItems.CLAMP_METER.get(), "Clamp Meter");
         // Connector tooltip
         add("tooltip.poly_mech.connector.node", "Power grid access point, can connect wires");
         add("tooltip.poly_mech.connector.stack", "Right-click a placed connector to stack up to 4");
@@ -221,6 +222,15 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("gui.poly_mech.wire_cutter.total_resistance", "Total Resistance: %s Ω");
         add("gui.poly_mech.wire_cutter.nodes", "Nodes: %s ⇔ %s");
         add("gui.poly_mech.wire_cutter.hint", "Right-click to cut");
+
+        // Clamp Meter
+        add("tooltip.poly_mech.clamp_meter", "Aim at a wire and right-click to measure");
+        add("gui.poly_mech.clamp_meter.prompt", "Aim at a wire and right-click to measure");
+        add("gui.poly_mech.clamp_meter.wire", "Wire: %s");
+        add("gui.poly_mech.clamp_meter.measuring", "Measuring...");
+        add("gui.poly_mech.clamp_meter.voltage", "Voltage: %d FE/t");
+        add("gui.poly_mech.clamp_meter.current", "Current: %s A");
+        add("gui.poly_mech.clamp_meter.power", "Power: %s FE/t");
 
         // Battery
         add(ModBlocks.BATTERY.get(), "Battery");

@@ -33,6 +33,7 @@ import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
 import com.mss.polymech.network.SetCellCapacityPacket;
 import com.mss.polymech.network.WireSyncPacket;
+import com.mss.polymech.network.ClampMeterMeasurementPacket;
 import com.mss.polymech.machine.production.BatteryBlockEntity;
 import com.mss.polymech.powergrid.MachineEnergyStorage;
 import net.minecraft.core.BlockPos;
@@ -213,6 +214,12 @@ public class Polymech {
                 WireSyncPacket.TYPE,
                 WireSyncPacket.STREAM_CODEC,
                 WireSyncPacket::handle
+        );
+        // 钳形表测量结果（服务端 → 客户端）
+        registrar.playToClient(
+                ClampMeterMeasurementPacket.TYPE,
+                ClampMeterMeasurementPacket.STREAM_CODEC,
+                ClampMeterMeasurementPacket::handle
         );
     }
 
