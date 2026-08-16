@@ -202,6 +202,7 @@ public class ModCreativeModeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.WRENCH.get());
                         output.accept(ModItems.NETWORK_TOOL.get());
+                        output.accept(ModItems.WIRE_CUTTER.get());
                         
                         // 如果有目标为TOOL的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {

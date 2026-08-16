@@ -645,6 +645,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
             add("item.poly_mech." + wireType.spoolItemName(), name);
         }
         add(ModItems.EMPTY_SPOOL.get(), "空线轴");
+        add(ModItems.WIRE_CUTTER.get(), "剪线钳");
         // 连接器tooltip
         add("tooltip.poly_mech.connector.node", "电网接入点，可与电线相连");
         add("tooltip.poly_mech.connector.stack", "右键已放置的连接器可堆叠至 4 个");
@@ -657,6 +658,14 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("tooltip.poly_mech.wire.resistance", "线损电阻：%s Ω/格");
         add("tooltip.poly_mech.wire.loss_note", "线损 = 电流² × 总电阻（随线长累积）");
         add("tooltip.poly_mech.wire.max_length", "最大拉线长度：%d 格");
+
+        // 剪线钳
+        add("tooltip.poly_mech.wire_cutter", "右键瞄准电线可查看并剪断连接");
+        add("gui.poly_mech.wire_cutter.length", "长度: %s 格");
+        add("gui.poly_mech.wire_cutter.total_resistance", "总电阻: %s Ω");
+        add("gui.poly_mech.wire_cutter.nodes", "端点: %s ⇔ %s");
+        add("gui.poly_mech.wire_cutter.hint", "右键剪断");
+
         add("tooltip.poly_mech.wire.insulated", "绝缘线");
 
         // 蓄电池
@@ -724,6 +733,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("message.poly_mech.wire_spool.connected", "电线已连接！");
         add("message.poly_mech.empty_spool.disconnected", "已断开 %d 根电线");
         add("message.poly_mech.empty_spool.no_wire", "该节点没有连接电线");
+        add("message.poly_mech.wire_cutter.cut", "已剪断电线连接");
 
         // 通用流体单元（四种规格）
         add(ModItems.SMALL_FLUID_CELL.get(), "小型流体单元");

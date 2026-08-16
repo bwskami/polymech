@@ -87,6 +87,13 @@ public class ModItems {
                     .stacksTo(1)));
 
     /*
+     * 剪线钳：瞄准世界中的真实电线时显示高亮与详细信息，右键剪断连接。
+     */
+    public static final DeferredItem<WireCutterItem> WIRE_CUTTER =
+            ITEMS.register("wire_cutter", () -> new WireCutterItem(new Item.Properties()
+                    .stacksTo(1)));
+
+    /*
      * 焦煤，蜂窝焦炉的产物，用于原始高炉炼钢与高级燃料。
      * 模型复用粉尘染色模板，颜色由 colors.json 的 coke 材质条目提供。
      */

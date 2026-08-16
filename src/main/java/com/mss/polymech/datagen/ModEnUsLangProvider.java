@@ -1,4 +1,4 @@
-package com.mss.polymech.datagen;
+wpackage com.mss.polymech.datagen;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.api.item.ItemTagPrefix;
@@ -200,6 +200,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
             add("item.poly_mech." + wireType.spoolItemName(), name);
         }
         add(ModItems.EMPTY_SPOOL.get(), "Empty Spool");
+        add(ModItems.WIRE_CUTTER.get(), "Wire Cutter");
         // Connector tooltip
         add("tooltip.poly_mech.connector.node", "Power grid access point, can connect wires");
         add("tooltip.poly_mech.connector.stack", "Right-click a placed connector to stack up to 4");
@@ -213,6 +214,13 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("tooltip.poly_mech.wire.loss_note", "Wire loss = current² × total resistance (accumulates with length)");
         add("tooltip.poly_mech.wire.max_length", "Max Span: %d blocks");
         add("tooltip.poly_mech.wire.insulated", "Insulated");
+
+        // Wire Cutter
+        add("tooltip.poly_mech.wire_cutter", "Right-click a wire to inspect and cut it");
+        add("gui.poly_mech.wire_cutter.length", "Length: %s blocks");
+        add("gui.poly_mech.wire_cutter.total_resistance", "Total Resistance: %s Ω");
+        add("gui.poly_mech.wire_cutter.nodes", "Nodes: %s ⇔ %s");
+        add("gui.poly_mech.wire_cutter.hint", "Right-click to cut");
 
         // Battery
         add(ModBlocks.BATTERY.get(), "Battery");
@@ -279,6 +287,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("message.poly_mech.wire_spool.connected", "Wire connected!");
         add("message.poly_mech.empty_spool.disconnected", "Disconnected %d wire(s)");
         add("message.poly_mech.empty_spool.no_wire", "No wires connected here");
+        add("message.poly_mech.wire_cutter.cut", "Wire connection cut");
 
         // 卧式蒸汽锅炉 GUI 翻译
         add("gui.poly_mech.input_liquid", "Input Liquid");
