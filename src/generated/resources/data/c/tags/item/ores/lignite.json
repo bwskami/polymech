@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:lignite_ore",
+    "poly_mech:deepslate_lignite_ore",
+    "poly_mech:lignite_limestone_ore",
+    "poly_mech:lignite_shale_ore",
+    "poly_mech:lignite_chalk_ore",
+    "poly_mech:lignite_chert_ore",
+    "poly_mech:lignite_claystone_ore",
+    "poly_mech:lignite_conglomerate_ore",
+    "poly_mech:lignite_dolomite_ore",
+    "poly_mech:lignite_tuff_ore",
+    "poly_mech:lignite_granite_ore",
+    "poly_mech:lignite_basalt_ore",
+    "poly_mech:lignite_rhyolite_ore",
+    "poly_mech:lignite_dacite_ore",
+    "poly_mech:lignite_diorite_ore",
+    "poly_mech:lignite_gabbro_ore",
+    "poly_mech:lignite_andesite_ore",
+    "poly_mech:lignite_marble_ore",
+    "poly_mech:lignite_gneiss_ore",
+    "poly_mech:lignite_schist_ore",
+    "poly_mech:lignite_slate_ore",
+    "poly_mech:lignite_phyllite_ore",
+    "poly_mech:lignite_quartzite_ore"
+  ]
+}

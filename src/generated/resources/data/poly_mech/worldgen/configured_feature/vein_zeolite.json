@@ -1,0 +1,82 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:basalt",
+      "poly_mech:andesite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.3,
+    "max_y": 32,
+    "min_y": -16,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:zeolite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:zeolite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_zeolite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 30,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:zeolite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:zeolite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_zeolite_ore"
+          }
+        }
+      ]
+    },
+    "seed": -3025996498521282370,
+    "size": 5,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:calcite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:calcite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_calcite_ore"
+          }
+        }
+      ]
+    }
+  }
+}

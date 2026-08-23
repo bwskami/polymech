@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:bornite_ore",
+    "poly_mech:deepslate_bornite_ore",
+    "poly_mech:bornite_limestone_ore",
+    "poly_mech:bornite_shale_ore",
+    "poly_mech:bornite_chalk_ore",
+    "poly_mech:bornite_chert_ore",
+    "poly_mech:bornite_claystone_ore",
+    "poly_mech:bornite_conglomerate_ore",
+    "poly_mech:bornite_dolomite_ore",
+    "poly_mech:bornite_tuff_ore",
+    "poly_mech:bornite_granite_ore",
+    "poly_mech:bornite_basalt_ore",
+    "poly_mech:bornite_rhyolite_ore",
+    "poly_mech:bornite_dacite_ore",
+    "poly_mech:bornite_diorite_ore",
+    "poly_mech:bornite_gabbro_ore",
+    "poly_mech:bornite_andesite_ore",
+    "poly_mech:bornite_marble_ore",
+    "poly_mech:bornite_gneiss_ore",
+    "poly_mech:bornite_schist_ore",
+    "poly_mech:bornite_slate_ore",
+    "poly_mech:bornite_phyllite_ore",
+    "poly_mech:bornite_quartzite_ore"
+  ]
+}

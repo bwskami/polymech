@@ -49,6 +49,56 @@ public enum ItemLayerTemplates {
             "item/material_sets/dust/dust_secondary",
             "item/material_sets/dust/dust_overlay"
     ),
+    /**
+     * 粗矿形态1（普通）：三层染色模板（主体/暗部/高光），按矿物配色染色。
+     * 贴图素材为用户提供的 raw1.png / raw1_secondary / raw1_overlay。
+     */
+    RAW_ORE_1(
+            "item/material_sets/raw_ore/raw1",
+            "item/material_sets/raw_ore/raw1_secondary",
+            "item/material_sets/raw_ore/raw1_overlay"
+    ),
+    /**
+     * 粗矿形态2（层状）
+     */
+    RAW_ORE_2(
+            "item/material_sets/raw_ore/raw2",
+            "item/material_sets/raw_ore/raw2_secondary",
+            "item/material_sets/raw_ore/raw2_overlay"
+    ),
+    /**
+     * 粗矿形态3（斜向小块分段）
+     */
+    RAW_ORE_3(
+            "item/material_sets/raw_ore/raw3",
+            "item/material_sets/raw_ore/raw3_secondary",
+            "item/material_sets/raw_ore/raw3_overlay"
+    ),
+    /**
+     * 粗矿形态4（大块状）
+     */
+    RAW_ORE_4(
+            "item/material_sets/raw_ore/raw4",
+            "item/material_sets/raw_ore/raw4_secondary",
+            "item/material_sets/raw_ore/raw4_overlay"
+    ),
+    /**
+     * 粉碎矿：三层染色模板（主体/暗部/高光），按矿物配色染色。
+     * 破碎机把粗矿破碎成粉碎矿（素材取自GregTech dull/crushed）。
+     */
+    CRUSHED(
+            "item/material_sets/crushed/crushed",
+            "item/material_sets/crushed/crushed_secondary",
+            "item/material_sets/crushed/crushed_overlay"
+    ),
+    /**
+     * 洗净矿：两层染色模板（主体/暗部），按矿物配色染色。
+     * 跳汰机/洗矿机把粉碎矿洗选成洗净矿（素材取自GregTech dull/crushed_purified）。
+     */
+    PURIFIED(
+            "item/material_sets/purified/purified",
+            "item/material_sets/purified/purified_secondary"
+    ),
     PLATE(
             "item/material_sets/ingot_plate/ingot_plate",
             "item/material_sets/ingot_plate/ingot_plate_secondary",
@@ -128,6 +178,16 @@ public enum ItemLayerTemplates {
     /** 空线轴：仅底层空线轴图层，不染色 */
     EMPTY_SPOOL(
             "item/material_sets/spool/empty_spool"
+    ),
+    /**
+     * 宝石/晶体：三层染色模板（主体/高光/暗部）。
+     * 中间高光层 colors.json 中配置为 null（不染色保持白色光泽），
+     * 与格雷宝石渲染一致。用于 {material}_gem 的物品图标。
+     */
+    GEM(
+            "item/material_sets/gem/gem",
+            "item/material_sets/gem/gem_overlay",
+            "item/material_sets/gem/gem_secondary"
     );
 
 

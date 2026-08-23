@@ -1,0 +1,129 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:andradite_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:andradite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:andradite_schist_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_andradite_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:marble",
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "minecraft:deepslate"
+    ],
+    "density": 0.45,
+    "max_y": 50,
+    "min_y": -10,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:red_garnet_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:red_garnet_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:red_garnet_schist_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_red_garnet_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 40,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:yellow_garnet_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:yellow_garnet_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:yellow_garnet_schist_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_yellow_garnet_ore"
+          }
+        }
+      ]
+    },
+    "seed": -6809292502150898818,
+    "size": 7,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:opal_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:opal_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:opal_schist_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_opal_ore"
+          }
+        }
+      ]
+    }
+  }
+}

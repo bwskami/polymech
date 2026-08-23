@@ -1,0 +1,129 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:pyrolusite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:pyrolusite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:pyrolusite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_pyrolusite_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.45,
+    "max_y": 0,
+    "min_y": -50,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:grossular_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:grossular_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:grossular_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_grossular_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 20,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:spessartine_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:spessartine_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:spessartine_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_spessartine_ore"
+          }
+        }
+      ]
+    },
+    "seed": -3742252083035503239,
+    "size": 7,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:tantalite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:tantalite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:tantalite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_tantalite_ore"
+          }
+        }
+      ]
+    }
+  }
+}

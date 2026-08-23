@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:sphalerite_ore",
+    "poly_mech:deepslate_sphalerite_ore",
+    "poly_mech:sphalerite_limestone_ore",
+    "poly_mech:sphalerite_shale_ore",
+    "poly_mech:sphalerite_chalk_ore",
+    "poly_mech:sphalerite_chert_ore",
+    "poly_mech:sphalerite_claystone_ore",
+    "poly_mech:sphalerite_conglomerate_ore",
+    "poly_mech:sphalerite_dolomite_ore",
+    "poly_mech:sphalerite_tuff_ore",
+    "poly_mech:sphalerite_granite_ore",
+    "poly_mech:sphalerite_basalt_ore",
+    "poly_mech:sphalerite_rhyolite_ore",
+    "poly_mech:sphalerite_dacite_ore",
+    "poly_mech:sphalerite_diorite_ore",
+    "poly_mech:sphalerite_gabbro_ore",
+    "poly_mech:sphalerite_andesite_ore",
+    "poly_mech:sphalerite_marble_ore",
+    "poly_mech:sphalerite_gneiss_ore",
+    "poly_mech:sphalerite_schist_ore",
+    "poly_mech:sphalerite_slate_ore",
+    "poly_mech:sphalerite_phyllite_ore",
+    "poly_mech:sphalerite_quartzite_ore"
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:gabbro",
+      "minecraft:deepslate"
+    ],
+    "density": 0.6,
+    "max_y": 0,
+    "min_y": -80,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:garnierite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_garnierite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 20,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:garnierite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_garnierite_ore"
+          }
+        }
+      ]
+    },
+    "seed": -6643142512267746991,
+    "size": 7
+  }
+}

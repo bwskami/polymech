@@ -1,0 +1,120 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:slate",
+      "poly_mech:phyllite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.2,
+    "max_y": -10,
+    "min_y": -64,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:redstone_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:redstone_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:slate",
+          "ore": {
+            "Name": "poly_mech:redstone_slate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:redstone_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_redstone_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 60,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:redstone_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:redstone_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:slate",
+          "ore": {
+            "Name": "poly_mech:redstone_slate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:redstone_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_redstone_ore"
+          }
+        }
+      ]
+    },
+    "seed": 7319294296413215434,
+    "size": 7,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:cinnabar_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:cinnabar_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:slate",
+          "ore": {
+            "Name": "poly_mech:cinnabar_slate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:cinnabar_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_cinnabar_ore"
+          }
+        }
+      ]
+    }
+  }
+}

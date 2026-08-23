@@ -1,0 +1,101 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:diorite",
+      "poly_mech:gabbro",
+      "minecraft:deepslate"
+    ],
+    "density": 0.3,
+    "max_y": 0,
+    "min_y": -80,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:garnierite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:garnierite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:garnierite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_garnierite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 25,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:garnierite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:garnierite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:garnierite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_garnierite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 4768737615721744246,
+    "size": 5,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:cobalt_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:cobalt_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:cobalt_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_cobalt_ore"
+          }
+        }
+      ]
+    }
+  }
+}

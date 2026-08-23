@@ -1,0 +1,138 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:shale",
+      "poly_mech:chalk",
+      "poly_mech:chert",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate",
+      "poly_mech:dolomite",
+      "poly_mech:tuff",
+      "minecraft:deepslate"
+    ],
+    "density": 0.85,
+    "max_y": -8,
+    "min_y": -20,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:lignite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:lignite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:lignite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:lignite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:lignite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:lignite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:lignite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:lignite_tuff_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_lignite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 160,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:lignite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:lignite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:lignite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:lignite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:lignite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:lignite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:lignite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:lignite_tuff_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_lignite_ore"
+          }
+        }
+      ]
+    },
+    "seed": -5343405815039907688,
+    "size": 8
+  }
+}

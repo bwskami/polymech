@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:sodalite_ore",
+    "poly_mech:deepslate_sodalite_ore",
+    "poly_mech:sodalite_limestone_ore",
+    "poly_mech:sodalite_shale_ore",
+    "poly_mech:sodalite_chalk_ore",
+    "poly_mech:sodalite_chert_ore",
+    "poly_mech:sodalite_claystone_ore",
+    "poly_mech:sodalite_conglomerate_ore",
+    "poly_mech:sodalite_dolomite_ore",
+    "poly_mech:sodalite_tuff_ore",
+    "poly_mech:sodalite_granite_ore",
+    "poly_mech:sodalite_basalt_ore",
+    "poly_mech:sodalite_rhyolite_ore",
+    "poly_mech:sodalite_dacite_ore",
+    "poly_mech:sodalite_diorite_ore",
+    "poly_mech:sodalite_gabbro_ore",
+    "poly_mech:sodalite_andesite_ore",
+    "poly_mech:sodalite_marble_ore",
+    "poly_mech:sodalite_gneiss_ore",
+    "poly_mech:sodalite_schist_ore",
+    "poly_mech:sodalite_slate_ore",
+    "poly_mech:sodalite_phyllite_ore",
+    "poly_mech:sodalite_quartzite_ore"
+  ]
+}

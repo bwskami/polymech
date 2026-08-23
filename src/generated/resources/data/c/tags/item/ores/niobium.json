@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:pyrochlore_ore",
+    "poly_mech:deepslate_pyrochlore_ore",
+    "poly_mech:pyrochlore_limestone_ore",
+    "poly_mech:pyrochlore_shale_ore",
+    "poly_mech:pyrochlore_chalk_ore",
+    "poly_mech:pyrochlore_chert_ore",
+    "poly_mech:pyrochlore_claystone_ore",
+    "poly_mech:pyrochlore_conglomerate_ore",
+    "poly_mech:pyrochlore_dolomite_ore",
+    "poly_mech:pyrochlore_tuff_ore",
+    "poly_mech:pyrochlore_granite_ore",
+    "poly_mech:pyrochlore_basalt_ore",
+    "poly_mech:pyrochlore_rhyolite_ore",
+    "poly_mech:pyrochlore_dacite_ore",
+    "poly_mech:pyrochlore_diorite_ore",
+    "poly_mech:pyrochlore_gabbro_ore",
+    "poly_mech:pyrochlore_andesite_ore",
+    "poly_mech:pyrochlore_marble_ore",
+    "poly_mech:pyrochlore_gneiss_ore",
+    "poly_mech:pyrochlore_schist_ore",
+    "poly_mech:pyrochlore_slate_ore",
+    "poly_mech:pyrochlore_phyllite_ore",
+    "poly_mech:pyrochlore_quartzite_ore"
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:shale",
+      "poly_mech:chalk",
+      "poly_mech:chert",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate",
+      "poly_mech:dolomite",
+      "poly_mech:tuff"
+    ],
+    "density": 0.3,
+    "max_y": 64,
+    "min_y": 0,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:goethite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:goethite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:goethite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:goethite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:goethite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:goethite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:goethite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:goethite_tuff_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 60,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:goethite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:goethite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:goethite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:goethite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:goethite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:goethite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:goethite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:goethite_tuff_ore"
+          }
+        }
+      ]
+    },
+    "seed": -6190137523190148437,
+    "size": 4,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_tuff_ore"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "type": "poly_mech:steam_roller_crusher",
+  "duration": 120,
+  "fluid_inputs": [
+    {
+      "amount": 100,
+      "fluid": "poly_mech:steam_source"
+    }
+  ],
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "poly_mech:malachite_purified"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 1,
+      "id": "poly_mech:copper_dust"
+    }
+  ]
+}

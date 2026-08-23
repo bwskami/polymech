@@ -1,0 +1,104 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:asbestos_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:asbestos_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:asbestos_conglomerate_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:chert",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate"
+    ],
+    "density": 0.4,
+    "max_y": 60,
+    "min_y": 30,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:cassiterite_sand_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:cassiterite_sand_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:cassiterite_sand_conglomerate_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 80,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:garnet_sand_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:garnet_sand_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:garnet_sand_conglomerate_ore"
+          }
+        }
+      ]
+    },
+    "seed": -5272290085586559299,
+    "size": 7,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:diatomite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:diatomite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:diatomite_conglomerate_ore"
+          }
+        }
+      ]
+    }
+  }
+}

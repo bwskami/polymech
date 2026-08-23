@@ -1,0 +1,154 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:neodymium_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:neodymium_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:neodymium_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:neodymium_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_neodymium_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.25,
+    "max_y": -16,
+    "min_y": -64,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:thorium_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:thorium_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:thorium_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:thorium_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_thorium_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 80,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:lithium_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:lithium_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:lithium_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:lithium_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_lithium_ore"
+          }
+        }
+      ]
+    },
+    "seed": 6835815020318073810,
+    "size": 5,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:tin_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:tin_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:tin_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:tin_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_tin_ore"
+          }
+        }
+      ]
+    }
+  }
+}

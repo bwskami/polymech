@@ -1,0 +1,104 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:bentonite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:bentonite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_bentonite_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:basalt",
+      "poly_mech:gabbro",
+      "minecraft:deepslate"
+    ],
+    "density": 0.25,
+    "max_y": 10,
+    "min_y": -20,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:olivine_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:olivine_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_olivine_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 20,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:magnesite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:magnesite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_magnesite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 9034210613814686318,
+    "size": 6,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:glauconite_sand_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:glauconite_sand_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_glauconite_sand_ore"
+          }
+        }
+      ]
+    }
+  }
+}

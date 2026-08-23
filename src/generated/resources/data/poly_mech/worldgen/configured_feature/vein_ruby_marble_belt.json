@@ -1,0 +1,291 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:calcite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:calcite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:calcite_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:calcite_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:calcite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:calcite_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:calcite_andesite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:calcite_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:calcite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:calcite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:slate",
+          "ore": {
+            "Name": "poly_mech:calcite_slate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:calcite_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:calcite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_calcite_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:basalt",
+      "poly_mech:rhyolite",
+      "poly_mech:dacite",
+      "poly_mech:diorite",
+      "poly_mech:gabbro",
+      "poly_mech:andesite",
+      "poly_mech:marble",
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:slate",
+      "poly_mech:phyllite",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.45,
+    "max_y": -4,
+    "min_y": -40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:ruby_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:ruby_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:ruby_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:ruby_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:ruby_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:ruby_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:ruby_andesite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:ruby_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:ruby_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:ruby_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:slate",
+          "ore": {
+            "Name": "poly_mech:ruby_slate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:ruby_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:ruby_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_ruby_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 16,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:ruby_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:ruby_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:ruby_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:ruby_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:ruby_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:ruby_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:ruby_andesite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:ruby_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:ruby_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:ruby_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:slate",
+          "ore": {
+            "Name": "poly_mech:ruby_slate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:ruby_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:ruby_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_ruby_ore"
+          }
+        }
+      ]
+    },
+    "seed": 6644161808907649710,
+    "size": 10
+  }
+}

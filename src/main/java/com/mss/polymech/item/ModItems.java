@@ -5,6 +5,7 @@ import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.powergrid.GridWireType;
+import com.mss.polymech.worldgen.ModMinerals;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -24,7 +25,7 @@ import java.util.*;
  * 
  * <h2>数据驱动注册流程：</h2>
  * <pre>{@code
- * // 1. 遍历所有物品类型前缀（INGOT, RAW_ORE等）
+ * // 1. 遍历所有物品类型前缀（INGOT, PLATE等）
  * for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {
  *     // 2. 遍历所有材料名称
  *     for (String materialName : MaterialRegistry.getMaterialNames()) {
@@ -98,6 +99,13 @@ public class ModItems {
      */
     public static final DeferredItem<ClampMeterItem> CLAMP_METER =
             ITEMS.register("clamp_meter", () -> new ClampMeterItem(new Item.Properties()
+                    .stacksTo(1)));
+
+    /*
+     * 探矿仪：格雷式勘探工具，右键打开勘探地图（岩石底图+矿物叠加）。
+     */
+    public static final DeferredItem<ProspectorItem> PROSPECTOR =
+            ITEMS.register("prospector", () -> new ProspectorItem(new Item.Properties()
                     .stacksTo(1)));
 
     /*
@@ -183,6 +191,19 @@ public class ModItems {
      */
     public static final List<DeferredItem<Item>> ALL_MATERIAL_ITEMS = new ArrayList<>();
 
+    /*
+     * 矿物加工产物查找表（粉碎矿/洗净矿）。
+     * <p>
+     * 结构与材料物品表相同，但键是矿物名（来自{@link ModMinerals}），
+     * 与材料系统并行：粗矿/粉碎矿/洗净矿都属于矿物而非材料，
+     * 化学式直接取自{@link com.mss.polymech.worldgen.ModMinerals.MineralDefinition#formula()}。
+     * </p>
+     */
+    private static final Map<ItemTagPrefix, Map<String, DeferredItem<Item>>> MINERAL_ITEMS_TABLE = new LinkedHashMap<>();
+
+    /** 所有矿物加工产物的扁平列表（创造模式标签页填充使用） */
+    public static final List<DeferredItem<Item>> ALL_MINERAL_ITEMS = new ArrayList<>();
+
     static {
         // 数据驱动批量注册流程
         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {
@@ -204,6 +225,56 @@ public class ModItems {
             // 存储不可修改的材料映射
             MATERIAL_ITEMS_TABLE.put(prefix, Collections.unmodifiableMap(materialMap));
         }
+
+        // 矿物加工中间产物（粉碎矿/洗净矿）：按矿物定义表批量注册。
+        // 煤炭等直接产物类型不加工（不注册），金属/宝石/粉末矿物均可加工。
+        for (ItemTagPrefix prefix : new ItemTagPrefix[]{ModItemTypes.CRUSHED, ModItemTypes.PURIFIED}) {
+            Map<String, DeferredItem<Item>> mineralMap = new LinkedHashMap<>();
+            for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
+                if (def.kind() == com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL) continue;
+                String itemName = prefix.getIdPattern().formatted(def.mineral());
+                DeferredItem<Item> item = ITEMS.register(itemName,
+                        () -> prefix.createItem(new Item.Properties()));
+                mineralMap.put(def.mineral(), item);
+                ALL_MINERAL_ITEMS.add(item);
+            }
+            MINERAL_ITEMS_TABLE.put(prefix, Collections.unmodifiableMap(mineralMap));
+        }
+    }
+
+    // ========== 粗矿物物品：矿物不属于材料系统，单独注册 ==========
+
+    /**
+     * 粗矿物物品查找表：矿物名 → 粗矿物物品（raw_{mineral}）。
+     * <p>
+     * 由{@link ModMinerals}定义表驱动。粗矿物是矿石方块的掉落物，
+     * 经破碎机/跳汰机选矿产出对应金属粉末——金属是矿物加工的产物，
+     * 不存在"粗锡石直接熔炼出锡锭"的捷径。
+     * </p>
+     */
+    public static final Map<String, DeferredItem<Item>> RAW_MINERAL_ITEMS;
+
+    /** 所有粗矿物物品的扁平列表（创造模式标签页填充使用） */
+    public static final List<DeferredItem<Item>> ALL_RAW_MINERAL_ITEMS;
+
+    static {
+        Map<String, DeferredItem<Item>> rawMinerals = new LinkedHashMap<>();
+        List<DeferredItem<Item>> rawMineralList = new ArrayList<>();
+        for (ModMinerals.MineralDefinition def : ModMinerals.getDefinitions()) {
+            // 仅金属矿物产粗矿；宝石矿直接掉宝石、粉矿直接掉粉、煤矿掉煤炭
+            if (def.kind() != ModMinerals.ProductKind.METAL) continue;
+            DeferredItem<Item> item = ITEMS.register(def.rawItemName(),
+                    () -> new Item(new Item.Properties()));
+            rawMinerals.put(def.mineral(), item);
+            rawMineralList.add(item);
+        }
+        RAW_MINERAL_ITEMS = Collections.unmodifiableMap(rawMinerals);
+        ALL_RAW_MINERAL_ITEMS = Collections.unmodifiableList(rawMineralList);
+    }
+
+    /** 按矿物名获取粗矿物物品；不存在返回null */
+    public static DeferredItem<Item> getRawMineral(String mineralName) {
+        return RAW_MINERAL_ITEMS.get(mineralName);
     }
 
     /*
@@ -222,8 +293,21 @@ public class ModItems {
         return MATERIAL_ITEMS_TABLE.get(prefix).get(materialName);
     }
 
+    /*
+     * 获取指定矿物加工类型和矿物的物品引用（粉碎矿/洗净矿等）。
+     *
+     * @param prefix 矿物加工前缀（ModItemTypes.CRUSHED / PURIFIED）
+     * @param mineralName 矿物名
+     * @return 对应的物品引用；不存在返回null
+     */
+    public static DeferredItem<Item> getMineralItem(ItemTagPrefix prefix, String mineralName) {
+        Map<String, DeferredItem<Item>> map = MINERAL_ITEMS_TABLE.get(prefix);
+        return map == null ? null : map.get(mineralName);
+    }
+
     /** 物品→材料名反查表（惰性构建，注册完成后才有意义） */
     private static volatile Map<Item, String> ITEM_MATERIAL_LOOKUP;
+    private static volatile Map<Item, String> ITEM_MINERAL_LOOKUP;
 
     /*
      * 反查物品对应的材料名（类似GregTech的ChemicalHelper.getMaterialEntry）。
@@ -245,6 +329,36 @@ public class ModItems {
                 }
             }
             ITEM_MATERIAL_LOOKUP = lookup;
+        }
+        return lookup.get(item);
+    }
+
+    /*
+     * 反查物品对应的矿物名（类似GT ChemicalHelper，但针对矿物加工产物）。
+     * <p>
+     * 覆盖：粗矿raw_{mineral}、粉碎矿{mineral}_crushed、洗净矿{mineral}_purified。
+     * 这些物品不属于材料系统（材料系统管金属/宝石/粉状单质），
+     * 化学式来自{@link ModMinerals.MineralDefinition}。
+     * </p>
+     *
+     * @param item 物品实例
+     * @return 矿物名；非矿物物品返回null
+     */
+    public static String getMineralOf(Item item) {
+        Map<Item, String> lookup = ITEM_MINERAL_LOOKUP;
+        if (lookup == null) {
+            lookup = new IdentityHashMap<>();
+            // 粗矿物
+            for (Map.Entry<String, DeferredItem<Item>> entry : RAW_MINERAL_ITEMS.entrySet()) {
+                lookup.put(entry.getValue().get(), entry.getKey());
+            }
+            // 矿物加工产物（粉碎矿/洗净矿）
+            for (Map<String, DeferredItem<Item>> mineralMap : MINERAL_ITEMS_TABLE.values()) {
+                for (Map.Entry<String, DeferredItem<Item>> entry : mineralMap.entrySet()) {
+                    lookup.put(entry.getValue().get(), entry.getKey());
+                }
+            }
+            ITEM_MINERAL_LOOKUP = lookup;
         }
         return lookup.get(item);
     }

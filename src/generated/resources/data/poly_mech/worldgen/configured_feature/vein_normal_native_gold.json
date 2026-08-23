@@ -1,0 +1,158 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:basalt",
+      "poly_mech:rhyolite",
+      "poly_mech:dacite",
+      "poly_mech:diorite",
+      "poly_mech:gabbro",
+      "poly_mech:andesite"
+    ],
+    "density": 0.25,
+    "max_y": 70,
+    "min_y": 0,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:native_gold_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:native_gold_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:native_gold_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:native_gold_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:native_gold_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:native_gold_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:native_gold_andesite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 90,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:native_gold_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:native_gold_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:native_gold_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:native_gold_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:native_gold_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:native_gold_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:native_gold_andesite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 565690890700483743,
+    "size": 5,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:gold_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:gold_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:gold_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:gold_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:gold_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:gold_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:gold_andesite_ore"
+          }
+        }
+      ]
+    }
+  }
+}

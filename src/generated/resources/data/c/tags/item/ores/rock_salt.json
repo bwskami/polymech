@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:rock_salt_ore",
+    "poly_mech:deepslate_rock_salt_ore",
+    "poly_mech:rock_salt_limestone_ore",
+    "poly_mech:rock_salt_shale_ore",
+    "poly_mech:rock_salt_chalk_ore",
+    "poly_mech:rock_salt_chert_ore",
+    "poly_mech:rock_salt_claystone_ore",
+    "poly_mech:rock_salt_conglomerate_ore",
+    "poly_mech:rock_salt_dolomite_ore",
+    "poly_mech:rock_salt_tuff_ore",
+    "poly_mech:rock_salt_granite_ore",
+    "poly_mech:rock_salt_basalt_ore",
+    "poly_mech:rock_salt_rhyolite_ore",
+    "poly_mech:rock_salt_dacite_ore",
+    "poly_mech:rock_salt_diorite_ore",
+    "poly_mech:rock_salt_gabbro_ore",
+    "poly_mech:rock_salt_andesite_ore",
+    "poly_mech:rock_salt_marble_ore",
+    "poly_mech:rock_salt_gneiss_ore",
+    "poly_mech:rock_salt_schist_ore",
+    "poly_mech:rock_salt_slate_ore",
+    "poly_mech:rock_salt_phyllite_ore",
+    "poly_mech:rock_salt_quartzite_ore"
+  ]
+}

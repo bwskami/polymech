@@ -55,6 +55,17 @@ public class ModElementFluids {
             Map.entry("zinc", 693),
             Map.entry("silver", 1235),
             Map.entry("lead", 601),
+            Map.entry("iron", 1811),
+            Map.entry("copper", 1358),
+            Map.entry("gold", 1337),
+            Map.entry("sulfur", 388),
+            Map.entry("graphite", 3823),
+            Map.entry("saltpeter", 607),
+            Map.entry("sylvite", 1043),
+            Map.entry("salt", 1074),
+            Map.entry("cinnabar", 853),
+            Map.entry("cryolite", 1289),
+            Map.entry("borax", 1013),
             Map.entry("chromium", 2180),
             Map.entry("titanium", 1941),
             Map.entry("tungsten", 3695),
@@ -142,9 +153,19 @@ public class ModElementFluids {
 
     private static final List<Entry> ENTRIES = new ArrayList<>();
 
+    /*
+     * 无熔融流体的材料：受热分解的硅酸盐/粘土类工业矿物
+     * （石膏/方解石/重晶石/云母/滑石/沸石等没有真实熔融态，不注册熔融流体）
+     */
+    private static final java.util.Set<String> SKIP_MOLTEN = java.util.Set.of(
+            "gypsum", "calcite", "barite", "asbestos", "mica", "talc",
+            "kyanite", "diatomite", "bentonite", "fullers_earth",
+            "zeolite", "phosphate");
+
     static {
         // 1. 熔融金属：每种材料一条（温度=熔点，颜色=金属锭底色）
         for (String material : MaterialRegistry.getMaterialNames()) {
+            if (SKIP_MOLTEN.contains(material)) continue;
             int color = MaterialColorConfig.getBaseColor(material, 0xB0B0B0);
             int meltingPoint = MELTING_POINTS.getOrDefault(material, 1200);
             boolean hazardous = RADIOACTIVE_MATERIALS.contains(material);

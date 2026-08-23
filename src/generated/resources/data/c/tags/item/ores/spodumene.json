@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:spodumene_ore",
+    "poly_mech:deepslate_spodumene_ore",
+    "poly_mech:spodumene_limestone_ore",
+    "poly_mech:spodumene_shale_ore",
+    "poly_mech:spodumene_chalk_ore",
+    "poly_mech:spodumene_chert_ore",
+    "poly_mech:spodumene_claystone_ore",
+    "poly_mech:spodumene_conglomerate_ore",
+    "poly_mech:spodumene_dolomite_ore",
+    "poly_mech:spodumene_tuff_ore",
+    "poly_mech:spodumene_granite_ore",
+    "poly_mech:spodumene_basalt_ore",
+    "poly_mech:spodumene_rhyolite_ore",
+    "poly_mech:spodumene_dacite_ore",
+    "poly_mech:spodumene_diorite_ore",
+    "poly_mech:spodumene_gabbro_ore",
+    "poly_mech:spodumene_andesite_ore",
+    "poly_mech:spodumene_marble_ore",
+    "poly_mech:spodumene_gneiss_ore",
+    "poly_mech:spodumene_schist_ore",
+    "poly_mech:spodumene_slate_ore",
+    "poly_mech:spodumene_phyllite_ore",
+    "poly_mech:spodumene_quartzite_ore"
+  ]
+}

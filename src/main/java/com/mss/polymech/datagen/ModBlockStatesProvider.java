@@ -30,6 +30,8 @@ public class ModBlockStatesProvider extends BlockStateProvider {
 
         generateConveyorBlockStates();
         generateMaterialBlocks();
+        generateOreBlocks();
+        generateRockBlocks();
 
         for (var materialEntry : ModBlocks.PIPE_TABLE.entrySet()) {
             for (var sizeEntry : materialEntry.getValue().entrySet()) {
@@ -68,6 +70,40 @@ public class ModBlockStatesProvider extends BlockStateProvider {
             ModelFile model = mass >= ModBlocks.MASS_THRESHOLD ? normalModel : heavyModel;
             simpleBlockWithItem(entry.getValue().get(), model);
         }
+    }
+
+    /*
+     * 矿石方块（格雷/群峦式岩种变体）：每种矿物×每种宿主岩一个方块状态/模型。
+     * <p>
+     * 模型为四层元素结构（OOP准则：岩石底图不染色）：
+     * <ol>
+     *   <li>底层完整立方体：岩石底图（原版石头/原版深板岩/群峦岩种贴图），
+     *       tintindex 0 —— 岩种与石头不染色，深板岩染色（见colors.json的deepslate）</li>
+     *   <li>矿石底图层：格雷ore贴图，按矿物主色染色（tintindex 1）</li>
+     *   <li>矿石阴影层：格雷ore_layer2（ore_shadow）贴图，按矿物辅色染色（tintindex 2）</li>
+     *   <li>矿石高光灯：格雷底图最亮像素提取（ore_highlight），不染色白色光泽（tintindex 3）</li>
+     * </ol>
+     * 矿石三层向外做微小偏移（0.01/0.02/0.03），避免与底层共面产生z-fighting。
+     * </p>
+     */
+    private void generateOreBlocks() {
+        // 矿石方块状态/物品模型/共享复合模型全部由客户端 OreDynamicResourcePack 运行时生成
+        // （neoforge:composite：岩石底 solid + 矿石层 translucent，见该类注释）。
+        // datagen 不再输出任何矿石模型文件。
+    }
+
+    /*
+     * 区域岩石：每种岩种使用独立的彩色贴图（贴图取自TerraFirmaCraft，
+     * 见TEXTURE_CREDITS.md），不再走"原版石头+染色"方案，因此无tintindex。
+     */
+    private void generateRockBlocks() {
+        for (var entry : ModBlocks.ROCKS.entrySet()) {
+            simpleBlockWithItem(entry.getValue().get(), buildRockModel(entry.getKey()));
+        }
+    }
+
+    private ModelFile buildRockModel(String rockName) {
+        return models().cubeAll(rockName, modLoc("block/rock/raw/" + rockName));
     }
 
     private String getTemplateName(PipeBlock.PipeSize size) {

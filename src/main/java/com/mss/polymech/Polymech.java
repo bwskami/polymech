@@ -2,6 +2,7 @@ package com.mss.polymech;
 
 import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.entity.ModBlockEntities;
+import com.mss.polymech.command.ModCommands;
 import com.mss.polymech.fluid.FluidCellFluidHandler;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
@@ -21,6 +22,7 @@ import com.mss.polymech.machine.common.SlotFilteredItemHandler;
 import com.mss.polymech.menu.ModMenuTypes;
 import com.mss.polymech.pipenet.PipeFluidHandler;
 import com.mss.polymech.recipe.ModRecipeTypes;
+import com.mss.polymech.worldgen.ModFeatures;
 import com.mss.polymech.block.entity.ConveyorBlockEntity;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.network.BatteryTogglePacket;
@@ -113,6 +115,8 @@ public class Polymech {
         ModItems.register(modEventBus);
         ModDataComponents.register(modEventBus);
         ModBlocks.register(modEventBus);
+        // 世界生成：自定义Feature（矿脉/岩层）
+        ModFeatures.register(modEventBus);
         ModFluids.register(modEventBus);
         ModChemicalFluids.register(modEventBus);
         ModElementFluids.register(modEventBus);
@@ -131,6 +135,9 @@ public class Polymech {
         // 注册NeoForge事件总线（用于服务器事件等）
         // 注意：只有当此类包含@SubscribeEvent注解的方法时才需要此行
         NeoForge.EVENT_BUS.register(this);
+
+        // 勘探命令套件（/polymech rock|veins|scan|find|expose，世界生成测试工具）
+        NeoForge.EVENT_BUS.addListener(ModCommands::register);
 
         // tooltip管理中心（化学流体信息 + 材料/原版矿物化学式）
         ModTooltipCenter.register();

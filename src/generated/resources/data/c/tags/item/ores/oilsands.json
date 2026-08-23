@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:oilsands_ore",
+    "poly_mech:deepslate_oilsands_ore",
+    "poly_mech:oilsands_limestone_ore",
+    "poly_mech:oilsands_shale_ore",
+    "poly_mech:oilsands_chalk_ore",
+    "poly_mech:oilsands_chert_ore",
+    "poly_mech:oilsands_claystone_ore",
+    "poly_mech:oilsands_conglomerate_ore",
+    "poly_mech:oilsands_dolomite_ore",
+    "poly_mech:oilsands_tuff_ore",
+    "poly_mech:oilsands_granite_ore",
+    "poly_mech:oilsands_basalt_ore",
+    "poly_mech:oilsands_rhyolite_ore",
+    "poly_mech:oilsands_dacite_ore",
+    "poly_mech:oilsands_diorite_ore",
+    "poly_mech:oilsands_gabbro_ore",
+    "poly_mech:oilsands_andesite_ore",
+    "poly_mech:oilsands_marble_ore",
+    "poly_mech:oilsands_gneiss_ore",
+    "poly_mech:oilsands_schist_ore",
+    "poly_mech:oilsands_slate_ore",
+    "poly_mech:oilsands_phyllite_ore",
+    "poly_mech:oilsands_quartzite_ore"
+  ]
+}

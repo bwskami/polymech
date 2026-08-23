@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:plutonium_239_ore",
+    "poly_mech:deepslate_plutonium_239_ore",
+    "poly_mech:plutonium_239_limestone_ore",
+    "poly_mech:plutonium_239_shale_ore",
+    "poly_mech:plutonium_239_chalk_ore",
+    "poly_mech:plutonium_239_chert_ore",
+    "poly_mech:plutonium_239_claystone_ore",
+    "poly_mech:plutonium_239_conglomerate_ore",
+    "poly_mech:plutonium_239_dolomite_ore",
+    "poly_mech:plutonium_239_tuff_ore",
+    "poly_mech:plutonium_239_granite_ore",
+    "poly_mech:plutonium_239_basalt_ore",
+    "poly_mech:plutonium_239_rhyolite_ore",
+    "poly_mech:plutonium_239_dacite_ore",
+    "poly_mech:plutonium_239_diorite_ore",
+    "poly_mech:plutonium_239_gabbro_ore",
+    "poly_mech:plutonium_239_andesite_ore",
+    "poly_mech:plutonium_239_marble_ore",
+    "poly_mech:plutonium_239_gneiss_ore",
+    "poly_mech:plutonium_239_schist_ore",
+    "poly_mech:plutonium_239_slate_ore",
+    "poly_mech:plutonium_239_phyllite_ore",
+    "poly_mech:plutonium_239_quartzite_ore"
+  ]
+}

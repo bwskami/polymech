@@ -72,6 +72,49 @@ public class ModCreativeModeTabs {
                                 }
                             }
                         }
+
+                        // 粗矿物（真实矿物系统，非材料前缀物品，手动加入）
+                        for (var rawMineral : ModItems.ALL_RAW_MINERAL_ITEMS) {
+                            output.accept(rawMineral.get());
+                        }
+
+                        // 矿物加工中间产物：粉碎矿/洗净矿（数据驱动注册）
+                        for (var mineralProduct : ModItems.ALL_MINERAL_ITEMS) {
+                            output.accept(mineralProduct.get());
+                        }
+                    }).build());
+
+    /*
+     * 矿物标签页：真实矿物系统的专属栏目。
+     * <p>
+     * 包含：全部矿物×岩种矿石方块、粗矿、粉碎矿、洗净矿、宝石。
+     * 与材料标签页分离——这里聚焦"矿物"（采掘/选矿），材料标签页聚焦"材料"（冶炼/加工）。
+     * </p>
+     */
+    public static final Supplier<CreativeModeTab> MINERAL_TAB =
+            CREATIVE_MODE_TABS.register("mineral_tab", () -> CreativeModeTab.builder()
+                    .icon(() -> new ItemStack(ModItems.getRawMineral("cassiterite").get()))
+                    .title(Component.translatable("itemGroup.mineral_tab"))
+                    .displayItems((parameters, output) -> {
+                        // 矿石方块：全部矿物×全部岩种变体（石头/深板岩/21种群峦岩种）
+                        for (var oreSet : ModBlocks.MINERAL_ORES.values()) {
+                            for (var oreBlock : oreSet.all()) {
+                                output.accept(oreBlock.get());
+                            }
+                        }
+                        // 粗矿（采掘直接产物）
+                        for (var rawMineral : ModItems.ALL_RAW_MINERAL_ITEMS) {
+                            output.accept(rawMineral.get());
+                        }
+                        // 粉碎矿/洗净矿（选矿中间产物）
+                        for (var mineralProduct : ModItems.ALL_MINERAL_ITEMS) {
+                            output.accept(mineralProduct.get());
+                        }
+                        // 宝石/晶体（宝石矿产物）
+                        for (String gem : com.mss.polymech.api.material.GemMaterials.getGems()) {
+                            var gemItem = ModItems.getMaterialItem(ModItemTypes.GEM, gem);
+                            if (gemItem != null) output.accept(gemItem.get());
+                        }
                     }).build());
 
     /*
@@ -116,6 +159,18 @@ public class ModCreativeModeTabs {
                         // 金属存储块（按材料名遍历）
                         for (var entry : ModBlocks.MATERIAL_BLOCKS.entrySet()) {
                             output.accept(entry.getValue().get());
+                        }
+
+                        // 矿石方块：每种矿物的全部岩种变体（石头/深板岩/21种群峦岩种）
+                        for (var oreSet : ModBlocks.MINERAL_ORES.values()) {
+                            for (var oreBlock : oreSet.all()) {
+                                output.accept(oreBlock.get());
+                            }
+                        }
+
+                        // 区域岩石（岩层系统的五种岩种）
+                        for (var rock : ModBlocks.ROCKS.values()) {
+                            output.accept(rock.get());
                         }
 
                         // 如果有目标为BLOCK的材料物品，也添加到这里
@@ -204,6 +259,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.NETWORK_TOOL.get());
                         output.accept(ModItems.WIRE_CUTTER.get());
                         output.accept(ModItems.CLAMP_METER.get());
+                        output.accept(ModItems.PROSPECTOR.get());
                         
                         // 如果有目标为TOOL的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {

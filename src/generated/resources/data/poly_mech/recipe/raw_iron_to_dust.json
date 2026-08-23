@@ -10,13 +10,13 @@
   "item_inputs": [
     {
       "count": 1,
-      "item": "minecraft:raw_iron"
+      "item": "poly_mech:raw_iron"
     }
   ],
   "item_outputs": [
     {
       "count": 1,
-      "id": "poly_mech:steel_dust"
+      "id": "poly_mech:iron_dust"
     }
   ]
 }

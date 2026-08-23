@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:hematite_ore",
+    "poly_mech:deepslate_hematite_ore",
+    "poly_mech:hematite_limestone_ore",
+    "poly_mech:hematite_shale_ore",
+    "poly_mech:hematite_chalk_ore",
+    "poly_mech:hematite_chert_ore",
+    "poly_mech:hematite_claystone_ore",
+    "poly_mech:hematite_conglomerate_ore",
+    "poly_mech:hematite_dolomite_ore",
+    "poly_mech:hematite_tuff_ore",
+    "poly_mech:hematite_granite_ore",
+    "poly_mech:hematite_basalt_ore",
+    "poly_mech:hematite_rhyolite_ore",
+    "poly_mech:hematite_dacite_ore",
+    "poly_mech:hematite_diorite_ore",
+    "poly_mech:hematite_gabbro_ore",
+    "poly_mech:hematite_andesite_ore",
+    "poly_mech:hematite_marble_ore",
+    "poly_mech:hematite_gneiss_ore",
+    "poly_mech:hematite_schist_ore",
+    "poly_mech:hematite_slate_ore",
+    "poly_mech:hematite_phyllite_ore",
+    "poly_mech:hematite_quartzite_ore"
+  ]
+}

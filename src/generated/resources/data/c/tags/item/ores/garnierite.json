@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:garnierite_ore",
+    "poly_mech:deepslate_garnierite_ore",
+    "poly_mech:garnierite_limestone_ore",
+    "poly_mech:garnierite_shale_ore",
+    "poly_mech:garnierite_chalk_ore",
+    "poly_mech:garnierite_chert_ore",
+    "poly_mech:garnierite_claystone_ore",
+    "poly_mech:garnierite_conglomerate_ore",
+    "poly_mech:garnierite_dolomite_ore",
+    "poly_mech:garnierite_tuff_ore",
+    "poly_mech:garnierite_granite_ore",
+    "poly_mech:garnierite_basalt_ore",
+    "poly_mech:garnierite_rhyolite_ore",
+    "poly_mech:garnierite_dacite_ore",
+    "poly_mech:garnierite_diorite_ore",
+    "poly_mech:garnierite_gabbro_ore",
+    "poly_mech:garnierite_andesite_ore",
+    "poly_mech:garnierite_marble_ore",
+    "poly_mech:garnierite_gneiss_ore",
+    "poly_mech:garnierite_schist_ore",
+    "poly_mech:garnierite_slate_ore",
+    "poly_mech:garnierite_phyllite_ore",
+    "poly_mech:garnierite_quartzite_ore"
+  ]
+}

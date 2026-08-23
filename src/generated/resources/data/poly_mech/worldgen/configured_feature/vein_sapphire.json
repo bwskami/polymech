@@ -1,0 +1,154 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:pyrope_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:pyrope_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:pyrope_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:pyrope_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_pyrope_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:marble",
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:phyllite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.25,
+    "max_y": 0,
+    "min_y": -40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:almandine_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:almandine_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:almandine_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:almandine_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_almandine_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 60,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:sapphire_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:sapphire_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:sapphire_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:sapphire_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_sapphire_ore"
+          }
+        }
+      ]
+    },
+    "seed": -3001217512571060858,
+    "size": 6,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:green_sapphire_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:green_sapphire_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:green_sapphire_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:green_sapphire_phyllite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_green_sapphire_ore"
+          }
+        }
+      ]
+    }
+  }
+}

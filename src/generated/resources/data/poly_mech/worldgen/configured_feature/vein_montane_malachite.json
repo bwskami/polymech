@@ -1,0 +1,73 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:chalk",
+      "poly_mech:dolomite",
+      "poly_mech:marble"
+    ],
+    "density": 0.25,
+    "max_y": 300,
+    "min_y": 40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:malachite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:malachite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:malachite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:malachite_marble_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 11,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:malachite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:malachite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:malachite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:malachite_marble_ore"
+          }
+        }
+      ]
+    },
+    "seed": 2452200315920214139,
+    "size": 5
+  }
+}

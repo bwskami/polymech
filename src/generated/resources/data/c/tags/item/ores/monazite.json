@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:monazite_ore",
+    "poly_mech:deepslate_monazite_ore",
+    "poly_mech:monazite_limestone_ore",
+    "poly_mech:monazite_shale_ore",
+    "poly_mech:monazite_chalk_ore",
+    "poly_mech:monazite_chert_ore",
+    "poly_mech:monazite_claystone_ore",
+    "poly_mech:monazite_conglomerate_ore",
+    "poly_mech:monazite_dolomite_ore",
+    "poly_mech:monazite_tuff_ore",
+    "poly_mech:monazite_granite_ore",
+    "poly_mech:monazite_basalt_ore",
+    "poly_mech:monazite_rhyolite_ore",
+    "poly_mech:monazite_dacite_ore",
+    "poly_mech:monazite_diorite_ore",
+    "poly_mech:monazite_gabbro_ore",
+    "poly_mech:monazite_andesite_ore",
+    "poly_mech:monazite_marble_ore",
+    "poly_mech:monazite_gneiss_ore",
+    "poly_mech:monazite_schist_ore",
+    "poly_mech:monazite_slate_ore",
+    "poly_mech:monazite_phyllite_ore",
+    "poly_mech:monazite_quartzite_ore"
+  ]
+}

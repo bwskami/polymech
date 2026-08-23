@@ -1,0 +1,138 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:shale",
+      "poly_mech:chalk",
+      "poly_mech:chert",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate",
+      "poly_mech:dolomite",
+      "poly_mech:tuff",
+      "minecraft:deepslate"
+    ],
+    "density": 0.9,
+    "max_y": -12,
+    "min_y": -35,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_tuff_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_bituminous_coal_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 210,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:bituminous_coal_tuff_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_bituminous_coal_ore"
+          }
+        }
+      ]
+    },
+    "seed": -1449303704055152725,
+    "size": 10
+  }
+}

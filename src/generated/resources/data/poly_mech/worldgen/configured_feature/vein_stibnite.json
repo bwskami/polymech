@@ -1,0 +1,101 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:gneiss",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.3,
+    "max_y": 16,
+    "min_y": -32,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:stibnite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:stibnite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:stibnite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_stibnite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 40,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:stibnite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:stibnite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:stibnite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_stibnite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 8401975845723915628,
+    "size": 6,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:native_gold_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:native_gold_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:native_gold_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_native_gold_ore"
+          }
+        }
+      ]
+    }
+  }
+}

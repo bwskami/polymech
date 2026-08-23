@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:realgar_ore",
+    "poly_mech:deepslate_realgar_ore",
+    "poly_mech:realgar_limestone_ore",
+    "poly_mech:realgar_shale_ore",
+    "poly_mech:realgar_chalk_ore",
+    "poly_mech:realgar_chert_ore",
+    "poly_mech:realgar_claystone_ore",
+    "poly_mech:realgar_conglomerate_ore",
+    "poly_mech:realgar_dolomite_ore",
+    "poly_mech:realgar_tuff_ore",
+    "poly_mech:realgar_granite_ore",
+    "poly_mech:realgar_basalt_ore",
+    "poly_mech:realgar_rhyolite_ore",
+    "poly_mech:realgar_dacite_ore",
+    "poly_mech:realgar_diorite_ore",
+    "poly_mech:realgar_gabbro_ore",
+    "poly_mech:realgar_andesite_ore",
+    "poly_mech:realgar_marble_ore",
+    "poly_mech:realgar_gneiss_ore",
+    "poly_mech:realgar_schist_ore",
+    "poly_mech:realgar_slate_ore",
+    "poly_mech:realgar_phyllite_ore",
+    "poly_mech:realgar_quartzite_ore"
+  ]
+}

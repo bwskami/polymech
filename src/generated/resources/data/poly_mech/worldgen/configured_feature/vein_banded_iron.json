@@ -1,0 +1,129 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:iron_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:iron_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:iron_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_iron_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.4,
+    "max_y": -8,
+    "min_y": -48,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:vanadium_magnetite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_vanadium_magnetite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 40,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:magnetite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:magnetite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:magnetite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_magnetite_ore"
+          }
+        }
+      ]
+    },
+    "seed": -7053908548590839516,
+    "size": 7,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:iron_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:iron_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:iron_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_iron_ore"
+          }
+        }
+      ]
+    }
+  }
+}

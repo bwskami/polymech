@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:bauxite_ore",
+    "poly_mech:deepslate_bauxite_ore",
+    "poly_mech:bauxite_limestone_ore",
+    "poly_mech:bauxite_shale_ore",
+    "poly_mech:bauxite_chalk_ore",
+    "poly_mech:bauxite_chert_ore",
+    "poly_mech:bauxite_claystone_ore",
+    "poly_mech:bauxite_conglomerate_ore",
+    "poly_mech:bauxite_dolomite_ore",
+    "poly_mech:bauxite_tuff_ore",
+    "poly_mech:bauxite_granite_ore",
+    "poly_mech:bauxite_basalt_ore",
+    "poly_mech:bauxite_rhyolite_ore",
+    "poly_mech:bauxite_dacite_ore",
+    "poly_mech:bauxite_diorite_ore",
+    "poly_mech:bauxite_gabbro_ore",
+    "poly_mech:bauxite_andesite_ore",
+    "poly_mech:bauxite_marble_ore",
+    "poly_mech:bauxite_gneiss_ore",
+    "poly_mech:bauxite_schist_ore",
+    "poly_mech:bauxite_slate_ore",
+    "poly_mech:bauxite_phyllite_ore",
+    "poly_mech:bauxite_quartzite_ore"
+  ]
+}

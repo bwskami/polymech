@@ -1,0 +1,101 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:sulfur_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:sulfur_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:sulfur_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_sulfur_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:rhyolite",
+      "poly_mech:dacite",
+      "poly_mech:andesite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.3,
+    "max_y": 32,
+    "min_y": -32,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:realgar_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:realgar_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:realgar_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_realgar_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 30,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:realgar_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:realgar_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:realgar_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_realgar_ore"
+          }
+        }
+      ]
+    },
+    "seed": -6798986239828089523,
+    "size": 5
+  }
+}

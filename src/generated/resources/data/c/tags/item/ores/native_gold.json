@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:native_gold_ore",
+    "poly_mech:deepslate_native_gold_ore",
+    "poly_mech:native_gold_limestone_ore",
+    "poly_mech:native_gold_shale_ore",
+    "poly_mech:native_gold_chalk_ore",
+    "poly_mech:native_gold_chert_ore",
+    "poly_mech:native_gold_claystone_ore",
+    "poly_mech:native_gold_conglomerate_ore",
+    "poly_mech:native_gold_dolomite_ore",
+    "poly_mech:native_gold_tuff_ore",
+    "poly_mech:native_gold_granite_ore",
+    "poly_mech:native_gold_basalt_ore",
+    "poly_mech:native_gold_rhyolite_ore",
+    "poly_mech:native_gold_dacite_ore",
+    "poly_mech:native_gold_diorite_ore",
+    "poly_mech:native_gold_gabbro_ore",
+    "poly_mech:native_gold_andesite_ore",
+    "poly_mech:native_gold_marble_ore",
+    "poly_mech:native_gold_gneiss_ore",
+    "poly_mech:native_gold_schist_ore",
+    "poly_mech:native_gold_slate_ore",
+    "poly_mech:native_gold_phyllite_ore",
+    "poly_mech:native_gold_quartzite_ore"
+  ]
+}

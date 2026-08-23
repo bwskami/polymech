@@ -1,0 +1,25 @@
+{
+  "values": [
+    "poly_mech:limestone",
+    "poly_mech:shale",
+    "poly_mech:chalk",
+    "poly_mech:chert",
+    "poly_mech:claystone",
+    "poly_mech:conglomerate",
+    "poly_mech:dolomite",
+    "poly_mech:tuff",
+    "poly_mech:granite",
+    "poly_mech:basalt",
+    "poly_mech:rhyolite",
+    "poly_mech:dacite",
+    "poly_mech:diorite",
+    "poly_mech:gabbro",
+    "poly_mech:andesite",
+    "poly_mech:marble",
+    "poly_mech:gneiss",
+    "poly_mech:schist",
+    "poly_mech:slate",
+    "poly_mech:phyllite",
+    "poly_mech:quartzite"
+  ]
+}

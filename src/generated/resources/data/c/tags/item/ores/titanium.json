@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:ilmenite_ore",
+    "poly_mech:deepslate_ilmenite_ore",
+    "poly_mech:ilmenite_limestone_ore",
+    "poly_mech:ilmenite_shale_ore",
+    "poly_mech:ilmenite_chalk_ore",
+    "poly_mech:ilmenite_chert_ore",
+    "poly_mech:ilmenite_claystone_ore",
+    "poly_mech:ilmenite_conglomerate_ore",
+    "poly_mech:ilmenite_dolomite_ore",
+    "poly_mech:ilmenite_tuff_ore",
+    "poly_mech:ilmenite_granite_ore",
+    "poly_mech:ilmenite_basalt_ore",
+    "poly_mech:ilmenite_rhyolite_ore",
+    "poly_mech:ilmenite_dacite_ore",
+    "poly_mech:ilmenite_diorite_ore",
+    "poly_mech:ilmenite_gabbro_ore",
+    "poly_mech:ilmenite_andesite_ore",
+    "poly_mech:ilmenite_marble_ore",
+    "poly_mech:ilmenite_gneiss_ore",
+    "poly_mech:ilmenite_schist_ore",
+    "poly_mech:ilmenite_slate_ore",
+    "poly_mech:ilmenite_phyllite_ore",
+    "poly_mech:ilmenite_quartzite_ore"
+  ]
+}

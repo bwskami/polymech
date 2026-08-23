@@ -1,0 +1,82 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:rhyolite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.3,
+    "max_y": 16,
+    "min_y": -48,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:beryllium_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:beryllium_rhyolite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_beryllium_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 30,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:thorium_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:thorium_rhyolite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_thorium_ore"
+          }
+        }
+      ]
+    },
+    "seed": 6574751774733730013,
+    "size": 5,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:emerald_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:emerald_rhyolite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_emerald_ore"
+          }
+        }
+      ]
+    }
+  }
+}

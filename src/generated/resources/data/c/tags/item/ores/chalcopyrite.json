@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:chalcopyrite_ore",
+    "poly_mech:deepslate_chalcopyrite_ore",
+    "poly_mech:chalcopyrite_limestone_ore",
+    "poly_mech:chalcopyrite_shale_ore",
+    "poly_mech:chalcopyrite_chalk_ore",
+    "poly_mech:chalcopyrite_chert_ore",
+    "poly_mech:chalcopyrite_claystone_ore",
+    "poly_mech:chalcopyrite_conglomerate_ore",
+    "poly_mech:chalcopyrite_dolomite_ore",
+    "poly_mech:chalcopyrite_tuff_ore",
+    "poly_mech:chalcopyrite_granite_ore",
+    "poly_mech:chalcopyrite_basalt_ore",
+    "poly_mech:chalcopyrite_rhyolite_ore",
+    "poly_mech:chalcopyrite_dacite_ore",
+    "poly_mech:chalcopyrite_diorite_ore",
+    "poly_mech:chalcopyrite_gabbro_ore",
+    "poly_mech:chalcopyrite_andesite_ore",
+    "poly_mech:chalcopyrite_marble_ore",
+    "poly_mech:chalcopyrite_gneiss_ore",
+    "poly_mech:chalcopyrite_schist_ore",
+    "poly_mech:chalcopyrite_slate_ore",
+    "poly_mech:chalcopyrite_phyllite_ore",
+    "poly_mech:chalcopyrite_quartzite_ore"
+  ]
+}

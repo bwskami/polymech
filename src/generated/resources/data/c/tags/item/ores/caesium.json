@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:pollucite_ore",
+    "poly_mech:deepslate_pollucite_ore",
+    "poly_mech:pollucite_limestone_ore",
+    "poly_mech:pollucite_shale_ore",
+    "poly_mech:pollucite_chalk_ore",
+    "poly_mech:pollucite_chert_ore",
+    "poly_mech:pollucite_claystone_ore",
+    "poly_mech:pollucite_conglomerate_ore",
+    "poly_mech:pollucite_dolomite_ore",
+    "poly_mech:pollucite_tuff_ore",
+    "poly_mech:pollucite_granite_ore",
+    "poly_mech:pollucite_basalt_ore",
+    "poly_mech:pollucite_rhyolite_ore",
+    "poly_mech:pollucite_dacite_ore",
+    "poly_mech:pollucite_diorite_ore",
+    "poly_mech:pollucite_gabbro_ore",
+    "poly_mech:pollucite_andesite_ore",
+    "poly_mech:pollucite_marble_ore",
+    "poly_mech:pollucite_gneiss_ore",
+    "poly_mech:pollucite_schist_ore",
+    "poly_mech:pollucite_slate_ore",
+    "poly_mech:pollucite_phyllite_ore",
+    "poly_mech:pollucite_quartzite_ore"
+  ]
+}

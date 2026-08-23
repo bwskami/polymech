@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:pentlandite_ore",
+    "poly_mech:deepslate_pentlandite_ore",
+    "poly_mech:pentlandite_limestone_ore",
+    "poly_mech:pentlandite_shale_ore",
+    "poly_mech:pentlandite_chalk_ore",
+    "poly_mech:pentlandite_chert_ore",
+    "poly_mech:pentlandite_claystone_ore",
+    "poly_mech:pentlandite_conglomerate_ore",
+    "poly_mech:pentlandite_dolomite_ore",
+    "poly_mech:pentlandite_tuff_ore",
+    "poly_mech:pentlandite_granite_ore",
+    "poly_mech:pentlandite_basalt_ore",
+    "poly_mech:pentlandite_rhyolite_ore",
+    "poly_mech:pentlandite_dacite_ore",
+    "poly_mech:pentlandite_diorite_ore",
+    "poly_mech:pentlandite_gabbro_ore",
+    "poly_mech:pentlandite_andesite_ore",
+    "poly_mech:pentlandite_marble_ore",
+    "poly_mech:pentlandite_gneiss_ore",
+    "poly_mech:pentlandite_schist_ore",
+    "poly_mech:pentlandite_slate_ore",
+    "poly_mech:pentlandite_phyllite_ore",
+    "poly_mech:pentlandite_quartzite_ore"
+  ]
+}

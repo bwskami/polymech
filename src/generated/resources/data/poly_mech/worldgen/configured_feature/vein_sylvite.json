@@ -1,0 +1,82 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:shale",
+      "poly_mech:chert",
+      "poly_mech:claystone"
+    ],
+    "density": 0.35,
+    "max_y": 100,
+    "min_y": 40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:sylvite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:sylvite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:sylvite_claystone_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 60,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:sylvite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:sylvite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:sylvite_claystone_ore"
+          }
+        }
+      ]
+    },
+    "seed": 6518144564756168252,
+    "size": 7,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:trona_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:trona_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:trona_claystone_ore"
+          }
+        }
+      ]
+    }
+  }
+}

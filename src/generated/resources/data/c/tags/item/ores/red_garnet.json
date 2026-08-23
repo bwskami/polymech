@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:red_garnet_ore",
+    "poly_mech:deepslate_red_garnet_ore",
+    "poly_mech:red_garnet_limestone_ore",
+    "poly_mech:red_garnet_shale_ore",
+    "poly_mech:red_garnet_chalk_ore",
+    "poly_mech:red_garnet_chert_ore",
+    "poly_mech:red_garnet_claystone_ore",
+    "poly_mech:red_garnet_conglomerate_ore",
+    "poly_mech:red_garnet_dolomite_ore",
+    "poly_mech:red_garnet_tuff_ore",
+    "poly_mech:red_garnet_granite_ore",
+    "poly_mech:red_garnet_basalt_ore",
+    "poly_mech:red_garnet_rhyolite_ore",
+    "poly_mech:red_garnet_dacite_ore",
+    "poly_mech:red_garnet_diorite_ore",
+    "poly_mech:red_garnet_gabbro_ore",
+    "poly_mech:red_garnet_andesite_ore",
+    "poly_mech:red_garnet_marble_ore",
+    "poly_mech:red_garnet_gneiss_ore",
+    "poly_mech:red_garnet_schist_ore",
+    "poly_mech:red_garnet_slate_ore",
+    "poly_mech:red_garnet_phyllite_ore",
+    "poly_mech:red_garnet_quartzite_ore"
+  ]
+}

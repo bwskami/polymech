@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:malachite_ore",
+    "poly_mech:deepslate_malachite_ore",
+    "poly_mech:malachite_limestone_ore",
+    "poly_mech:malachite_shale_ore",
+    "poly_mech:malachite_chalk_ore",
+    "poly_mech:malachite_chert_ore",
+    "poly_mech:malachite_claystone_ore",
+    "poly_mech:malachite_conglomerate_ore",
+    "poly_mech:malachite_dolomite_ore",
+    "poly_mech:malachite_tuff_ore",
+    "poly_mech:malachite_granite_ore",
+    "poly_mech:malachite_basalt_ore",
+    "poly_mech:malachite_rhyolite_ore",
+    "poly_mech:malachite_dacite_ore",
+    "poly_mech:malachite_diorite_ore",
+    "poly_mech:malachite_gabbro_ore",
+    "poly_mech:malachite_andesite_ore",
+    "poly_mech:malachite_marble_ore",
+    "poly_mech:malachite_gneiss_ore",
+    "poly_mech:malachite_schist_ore",
+    "poly_mech:malachite_slate_ore",
+    "poly_mech:malachite_phyllite_ore",
+    "poly_mech:malachite_quartzite_ore"
+  ]
+}

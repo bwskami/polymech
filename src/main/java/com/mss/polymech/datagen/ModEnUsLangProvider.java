@@ -54,6 +54,13 @@ public class ModEnUsLangProvider extends LanguageProvider {
                 String displayName = formatMaterialName(materialName) + " Dust";
                 add(dustItem.get(), displayName);
             }
+
+            // 宝石/晶体（仅宝石材料，见GemMaterials）
+            var gemItem = ModItems.getMaterialItem(ModItemTypes.GEM, materialName);
+            if (gemItem != null) {
+                String displayName = formatMaterialName(materialName) + " Gem";
+                add(gemItem.get(), displayName);
+            }
             
             // 板
             var plateItem = ModItems.getMaterialItem(ModItemTypes.PLATE, materialName);
@@ -126,10 +133,41 @@ public class ModEnUsLangProvider extends LanguageProvider {
             }
 
         }
+
+        // 真实矿物：矿石方块（全部岩种变体）与粗矿物（raw_{mineral}）
+        for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
+            String mineralName = formatMaterialName(def.mineral());
+            var oreSet = ModBlocks.MINERAL_ORES.get(def.mineral());
+            if (oreSet != null) {
+                for (var variantEntry : oreSet.byRock().entrySet()) {
+                    String host = variantEntry.getKey();
+                    String name = switch (host) {
+                        case "stone" -> mineralName + " Ore";
+                        case "deepslate" -> "Deepslate " + mineralName + " Ore";
+                        default -> mineralName + " " + formatMaterialName(host) + " Ore";
+                    };
+                    add(variantEntry.getValue().get(), name);
+                }
+            }
+            var rawItem = ModItems.getRawMineral(def.mineral());
+            if (rawItem != null) {
+                add(rawItem.get(), "Raw " + mineralName);
+            }
+            // 矿物加工中间产物：粉碎矿/洗净矿（煤炭等直接产物不加工）
+            if (def.kind() != com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL) {
+                var crushed = ModItems.getMineralItem(com.mss.polymech.api.item.ModItemTypes.CRUSHED, def.mineral());
+                var purified = ModItems.getMineralItem(com.mss.polymech.api.item.ModItemTypes.PURIFIED, def.mineral());
+                if (crushed != null) add(crushed.get(), mineralName + " Crushed");
+                if (purified != null) add(purified.get(), mineralName + " Purified");
+            }
+        }
         
 
         
         add(ModItems.WRENCH.get(), "Wrench");
+        add(ModItems.PROSPECTOR.get(), "Prospector");
+        add("gui.poly_mech.prospector.title", "Prospector");
+        add("gui.poly_mech.prospector.hint", "Rock types (base color) + mineral ores (overlay). Red box = your chunk.");
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "Blueprint");
@@ -188,6 +226,51 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
+
+        // 区域岩石（21种，贴图取自TerraFirmaCraft）
+        add(ModBlocks.ROCKS.get("limestone").get(), "Limestone");
+        add(ModBlocks.ROCKS.get("shale").get(), "Shale");
+        add(ModBlocks.ROCKS.get("chalk").get(), "Chalk");
+        add(ModBlocks.ROCKS.get("chert").get(), "Chert");
+        add(ModBlocks.ROCKS.get("claystone").get(), "Claystone");
+        add(ModBlocks.ROCKS.get("conglomerate").get(), "Conglomerate");
+        add(ModBlocks.ROCKS.get("dolomite").get(), "Dolomite");
+        add(ModBlocks.ROCKS.get("tuff").get(), "Tuff");
+        add(ModBlocks.ROCKS.get("granite").get(), "Granite");
+        add(ModBlocks.ROCKS.get("basalt").get(), "Basalt");
+        add(ModBlocks.ROCKS.get("rhyolite").get(), "Rhyolite");
+        add(ModBlocks.ROCKS.get("dacite").get(), "Dacite");
+        add(ModBlocks.ROCKS.get("diorite").get(), "Diorite");
+        add(ModBlocks.ROCKS.get("gabbro").get(), "Gabbro");
+        add(ModBlocks.ROCKS.get("andesite").get(), "Andesite");
+        add(ModBlocks.ROCKS.get("marble").get(), "Marble");
+        add(ModBlocks.ROCKS.get("gneiss").get(), "Gneiss");
+        add(ModBlocks.ROCKS.get("schist").get(), "Schist");
+        add(ModBlocks.ROCKS.get("slate").get(), "Slate");
+        add(ModBlocks.ROCKS.get("phyllite").get(), "Phyllite");
+        add(ModBlocks.ROCKS.get("quartzite").get(), "Quartzite");
+
+        // 勘探命令套件（世界生成测试工具）
+        add("command.poly_mech.rock.predicted", "Predicted rock type here: %s");
+        add("command.poly_mech.rock.actual", "Actual block underfoot: %s at %s");
+        add("command.poly_mech.rock.none", "No rock found within 64 blocks below (only air or fluid)");
+        add("command.poly_mech.veins.header", "=== PolyMech Vein Definitions ===");
+        add("command.poly_mech.veins.entry", "- %s: avg 1/%d chunks, Y %d~%d, size %d, density %s, hosts: %s");
+        add("command.poly_mech.veins.composition", "  Primary %s / Secondary %s / Between %s / Sporadic %s");
+        add("command.poly_mech.scan.result", "%s: %d blocks, nearest %s");
+        add("command.poly_mech.scan.total", "Total: %d ore blocks");
+        add("command.poly_mech.scan.none", "No PolyMech ores found in scan range");
+        add("command.poly_mech.scan.unloaded", "(%d columns skipped: chunks not loaded)");
+        add("command.poly_mech.find.found", "Nearest %s ore: %d blocks away %s");
+        add("command.poly_mech.find.none", "No %s ore found within %d blocks");
+        add("command.poly_mech.find.invalid", "Unknown ore material: %s (valid: %s)");
+        add("command.poly_mech.expose.done", "Removed %d blocks within a cubic radius of %d around you");
+        add("command.poly_mech.vein.cassiterite", "Cassiterite Vein");
+        add("command.poly_mech.vein.sphalerite", "Sphalerite Vein");
+        add("command.poly_mech.vein.galena", "Galena Vein");
+        add("command.poly_mech.vein.bauxite", "Bauxite Vein");
+        add("command.poly_mech.vein.laterite", "Laterite Vein");
+        add("command.poly_mech.vein.wolframite", "Wolframite Vein");
         add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "Horizontal Steam Boiler");
 
         // 电网（真实电线电网系统）
@@ -601,6 +684,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
         add("itemGroup.material_tab", "Ploy Mech:Material");
         add("itemGroup.block_tab", "Ploy Mech:Block");
+        add("itemGroup.mineral_tab", "Ploy Mech:Minerals");
         add("itemGroup.pipe_tab", "Ploy Mech:Pipes and Logistics");
         add("itemGroup.tool_tab", "Ploy Mech:Tool");
         add("itemGroup.fluid_cell_tab", "Ploy Mech:Fluid Cells");

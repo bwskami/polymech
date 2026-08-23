@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:magnesite_ore",
+    "poly_mech:deepslate_magnesite_ore",
+    "poly_mech:magnesite_limestone_ore",
+    "poly_mech:magnesite_shale_ore",
+    "poly_mech:magnesite_chalk_ore",
+    "poly_mech:magnesite_chert_ore",
+    "poly_mech:magnesite_claystone_ore",
+    "poly_mech:magnesite_conglomerate_ore",
+    "poly_mech:magnesite_dolomite_ore",
+    "poly_mech:magnesite_tuff_ore",
+    "poly_mech:magnesite_granite_ore",
+    "poly_mech:magnesite_basalt_ore",
+    "poly_mech:magnesite_rhyolite_ore",
+    "poly_mech:magnesite_dacite_ore",
+    "poly_mech:magnesite_diorite_ore",
+    "poly_mech:magnesite_gabbro_ore",
+    "poly_mech:magnesite_andesite_ore",
+    "poly_mech:magnesite_marble_ore",
+    "poly_mech:magnesite_gneiss_ore",
+    "poly_mech:magnesite_schist_ore",
+    "poly_mech:magnesite_slate_ore",
+    "poly_mech:magnesite_phyllite_ore",
+    "poly_mech:magnesite_quartzite_ore"
+  ]
+}

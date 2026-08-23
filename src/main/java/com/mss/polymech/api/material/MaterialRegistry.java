@@ -19,7 +19,7 @@ import java.util.*;
  * 
  * // 系统会自动生成：
  * // - copper_ingot（如果INGOT前缀存在）
- * // - raw_copper（如果RAW_ORE前缀存在且shouldGenerate返回true）
+ * // - copper_ingot（INGOT前缀，shouldGenerate检查材料是否有锭）
  * }</pre>
  * 
  * <h2>材料命名规范：</h2>
@@ -110,6 +110,35 @@ public class MaterialRegistry {
         MATERIAL_NAMES.add("neptunium");       // 镎 Np
         MATERIAL_NAMES.add("americium");       // 镅 Am
 
+        // ========== 原版三大金属（只产粉，不产锭：锭由原版提供） ==========
+        MATERIAL_NAMES.add("iron");            // 铁 Fe（粗矿破碎→铁粉→熔炼原版铁锭）
+        MATERIAL_NAMES.add("copper");          // 铜 Cu
+        MATERIAL_NAMES.add("gold");            // 金 Au
+
+        // ========== 非金属工业矿物（矿石直接产粉，格雷式） ==========
+        MATERIAL_NAMES.add("sulfur");          // 硫磺 S
+        MATERIAL_NAMES.add("graphite");        // 石墨 C
+        MATERIAL_NAMES.add("saltpeter");       // 硝石 KNO3
+        MATERIAL_NAMES.add("sylvite");         // 钾石盐 KCl
+        MATERIAL_NAMES.add("salt");            // 盐 NaCl（岩盐/salt共用）
+        MATERIAL_NAMES.add("gypsum");          // 石膏 CaSO4·2H2O
+        MATERIAL_NAMES.add("cinnabar");        // 朱砂 HgS
+        MATERIAL_NAMES.add("cryolite");        // 冰晶石 Na3AlF6
+        MATERIAL_NAMES.add("borax");           // 硼砂 Na2B4O7·10H2O
+        MATERIAL_NAMES.add("calcite");         // 方解石 CaCO3
+        MATERIAL_NAMES.add("barite");          // 重晶石 BaSO4
+        MATERIAL_NAMES.add("asbestos");        // 石棉
+        MATERIAL_NAMES.add("mica");            // 云母
+        MATERIAL_NAMES.add("talc");            // 滑石（皂石共用）
+        MATERIAL_NAMES.add("kyanite");         // 蓝晶石 Al2SiO5
+        MATERIAL_NAMES.add("diatomite");       // 硅藻土
+        MATERIAL_NAMES.add("bentonite");       // 膨润土
+        MATERIAL_NAMES.add("fullers_earth");   // 漂白土
+        MATERIAL_NAMES.add("zeolite");         // 沸石
+        MATERIAL_NAMES.add("phosphate");       // 磷酸盐（磷酸三钙产粉）
+        MATERIAL_NAMES.add("pyrite");          // 黄铁矿 FeS2
+        MATERIAL_NAMES.add("olivine");         // 橄榄石
+
         // ========== 合金 ==========
         MATERIAL_NAMES.add("brass");           // 黄铜（铜锌合金）
         MATERIAL_NAMES.add("bronze");          // 青铜（铜锡合金）
@@ -117,6 +146,12 @@ public class MaterialRegistry {
         MATERIAL_NAMES.add("cupronickel");     // 白铜（铜镍合金）
         MATERIAL_NAMES.add("stainless_steel"); // 不锈钢
         MATERIAL_NAMES.add("electrum");        // 琥珀金（金银合金，GTM抄录）
+
+        // ========== 宝石/晶体 ==========
+        // 形态为宝石(gem)与粉(dust)，不生成锭/板等金属形态（见GemMaterials）
+        for (String gem : GemMaterials.getGems()) {
+            MATERIAL_NAMES.add(gem);
+        }
 
     }
 
@@ -133,6 +168,33 @@ public class MaterialRegistry {
             Map.entry("nickel", "Ni"),                      // 镍
             Map.entry("tin", "Sn"),                         // 锡
             Map.entry("zinc", "Zn"),                        // 锌
+            // 原版三大金属（只产粉）
+            Map.entry("iron", "Fe"),
+            Map.entry("copper", "Cu"),
+            Map.entry("gold", "Au"),
+            // 非金属工业矿物
+            Map.entry("sulfur", "S"),
+            Map.entry("graphite", "C"),
+            Map.entry("saltpeter", "KNO3"),
+            Map.entry("sylvite", "KCl"),
+            Map.entry("salt", "NaCl"),
+            Map.entry("gypsum", "CaSO4·2H2O"),
+            Map.entry("cinnabar", "HgS"),
+            Map.entry("cryolite", "Na3AlF6"),
+            Map.entry("borax", "Na2B4O7·10H2O"),
+            Map.entry("calcite", "CaCO3"),
+            Map.entry("barite", "BaSO4"),
+            Map.entry("asbestos", "Mg3Si2O5(OH)4"),
+            Map.entry("mica", "KAl2(AlSi3O10)(F,OH)2"),
+            Map.entry("talc", "Mg3Si4O10(OH)2"),
+            Map.entry("kyanite", "Al2SiO5"),
+            Map.entry("diatomite", "SiO2"),
+            Map.entry("bentonite", "(Na,Ca)(Al,Mg)2Si4O10·nH2O"),
+            Map.entry("fullers_earth", "(Mg,Al)2Si4O10·nH2O"),
+            Map.entry("zeolite", "Na2Al2Si3O10·nH2O"),
+            Map.entry("phosphate", "Ca3(PO4)2"),
+            Map.entry("pyrite", "FeS2"),
+            Map.entry("olivine", "(Mg,Fe)2SiO4"),
             // 抄录的真实单质金属
             Map.entry("silver", "Ag"),
             Map.entry("lead", "Pb"),

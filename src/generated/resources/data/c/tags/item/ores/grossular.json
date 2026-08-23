@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:grossular_ore",
+    "poly_mech:deepslate_grossular_ore",
+    "poly_mech:grossular_limestone_ore",
+    "poly_mech:grossular_shale_ore",
+    "poly_mech:grossular_chalk_ore",
+    "poly_mech:grossular_chert_ore",
+    "poly_mech:grossular_claystone_ore",
+    "poly_mech:grossular_conglomerate_ore",
+    "poly_mech:grossular_dolomite_ore",
+    "poly_mech:grossular_tuff_ore",
+    "poly_mech:grossular_granite_ore",
+    "poly_mech:grossular_basalt_ore",
+    "poly_mech:grossular_rhyolite_ore",
+    "poly_mech:grossular_dacite_ore",
+    "poly_mech:grossular_diorite_ore",
+    "poly_mech:grossular_gabbro_ore",
+    "poly_mech:grossular_andesite_ore",
+    "poly_mech:grossular_marble_ore",
+    "poly_mech:grossular_gneiss_ore",
+    "poly_mech:grossular_schist_ore",
+    "poly_mech:grossular_slate_ore",
+    "poly_mech:grossular_phyllite_ore",
+    "poly_mech:grossular_quartzite_ore"
+  ]
+}

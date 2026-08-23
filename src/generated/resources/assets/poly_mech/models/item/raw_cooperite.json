@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "poly_mech:item/material_sets/raw_ore/raw1",
+    "layer1": "poly_mech:item/material_sets/raw_ore/raw1_secondary",
+    "layer2": "poly_mech:item/material_sets/raw_ore/raw1_overlay"
+  }
+}

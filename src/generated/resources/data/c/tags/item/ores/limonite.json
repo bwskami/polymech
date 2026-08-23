@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:limonite_ore",
+    "poly_mech:deepslate_limonite_ore",
+    "poly_mech:limonite_limestone_ore",
+    "poly_mech:limonite_shale_ore",
+    "poly_mech:limonite_chalk_ore",
+    "poly_mech:limonite_chert_ore",
+    "poly_mech:limonite_claystone_ore",
+    "poly_mech:limonite_conglomerate_ore",
+    "poly_mech:limonite_dolomite_ore",
+    "poly_mech:limonite_tuff_ore",
+    "poly_mech:limonite_granite_ore",
+    "poly_mech:limonite_basalt_ore",
+    "poly_mech:limonite_rhyolite_ore",
+    "poly_mech:limonite_dacite_ore",
+    "poly_mech:limonite_diorite_ore",
+    "poly_mech:limonite_gabbro_ore",
+    "poly_mech:limonite_andesite_ore",
+    "poly_mech:limonite_marble_ore",
+    "poly_mech:limonite_gneiss_ore",
+    "poly_mech:limonite_schist_ore",
+    "poly_mech:limonite_slate_ore",
+    "poly_mech:limonite_phyllite_ore",
+    "poly_mech:limonite_quartzite_ore"
+  ]
+}

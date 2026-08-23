@@ -10,6 +10,7 @@ import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
 import com.mss.polymech.fluid.ModElements;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.worldgen.ModMinerals;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -449,10 +450,39 @@ public class ModTooltipCenter {
         return materialName;
     }
 
-    /** 物品化学式查找：先查通用注册表，再查模组材料反查表，最后查材料存储块 */
+    /*
+     * 物品化学式查找（OOP/数据驱动，新增物品自动获得化学式tooltip）。
+     * <p>
+     * 解析优先级：
+     * <ol>
+     *   <li>矿物加工产物（raw_{mineral} / {mineral}_crushed / {mineral}_purified）：
+     *       自动从{@link ModMinerals.MineralDefinition#formula()}取化学式——矿物表新增即生效；</li>
+     *   <li>矿石方块（全部岩种变体）：同上自动从矿物定义表取化学式；</li>
+     *   <li>通用注册表（原版矿物/单质等特殊物品）；</li>
+     *   <li>材料物品（锭/粉/板/宝石等）：从{@link MaterialRegistry#getFormula}取材料化学式。</li>
+     * </ol>
+     * 不再为每个模组物品硬编码一条tooltip登记——数据都在各自的定义表里。
+     * </p>
+     */
     private static String lookupFormula(Item item) {
+        // 1. 矿物加工产物：矿物定义表驱动（粗矿/粉碎矿/洗净矿自动获得化学式）
+        String mineralName = ModItems.getMineralOf(item);
+        if (mineralName != null) {
+            var def = ModMinerals.getDefinition(mineralName);
+            if (def != null && !def.formula().isEmpty()) return def.formula();
+        }
+        // 2. 矿石方块（所有岩种变体）：矿物定义表驱动
+        if (item instanceof BlockItem blockItem) {
+            String oreMineral = ModBlocks.getMineralOfBlock(blockItem.getBlock());
+            if (oreMineral != null) {
+                var def = ModMinerals.getDefinition(oreMineral);
+                if (def != null && !def.formula().isEmpty()) return def.formula();
+            }
+        }
+        // 3. 通用注册表（原版矿物/单质等特殊物品）
         String extra = EXTRA_FORMULAS.get(item);
         if (extra != null) return extra;
+        // 4. 材料物品（锭/粉/板/宝石等）：材料定义表驱动
         String materialName = lookupMaterialName(item);
         if (materialName != null) {
             return MaterialRegistry.getFormula(materialName);

@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:galena_ore",
+    "poly_mech:deepslate_galena_ore",
+    "poly_mech:galena_limestone_ore",
+    "poly_mech:galena_shale_ore",
+    "poly_mech:galena_chalk_ore",
+    "poly_mech:galena_chert_ore",
+    "poly_mech:galena_claystone_ore",
+    "poly_mech:galena_conglomerate_ore",
+    "poly_mech:galena_dolomite_ore",
+    "poly_mech:galena_tuff_ore",
+    "poly_mech:galena_granite_ore",
+    "poly_mech:galena_basalt_ore",
+    "poly_mech:galena_rhyolite_ore",
+    "poly_mech:galena_dacite_ore",
+    "poly_mech:galena_diorite_ore",
+    "poly_mech:galena_gabbro_ore",
+    "poly_mech:galena_andesite_ore",
+    "poly_mech:galena_marble_ore",
+    "poly_mech:galena_gneiss_ore",
+    "poly_mech:galena_schist_ore",
+    "poly_mech:galena_slate_ore",
+    "poly_mech:galena_phyllite_ore",
+    "poly_mech:galena_quartzite_ore"
+  ]
+}

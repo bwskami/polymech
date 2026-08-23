@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "poly_mech:item/material_sets/purified/purified",
+    "layer1": "poly_mech:item/material_sets/purified/purified_secondary"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:marble",
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.4,
+    "max_y": 60,
+    "min_y": -30,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:graphite_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:graphite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:graphite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:graphite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_graphite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 20,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:graphite_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:graphite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:graphite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:graphite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_graphite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 2798428659864701710,
+    "size": 6
+  }
+}

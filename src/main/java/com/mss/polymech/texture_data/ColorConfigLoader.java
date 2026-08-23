@@ -249,7 +249,56 @@ public class ColorConfigLoader {
         ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(block);
         if (blockId != null && blockId.getNamespace().equals(Polymech.MOD_ID)) {
             String path = blockId.getPath();
-            
+
+            // 矿石方块（格雷/群峦式岩种变体）：
+            //   {mineral}_ore / deepslate_{mineral}_ore / {mineral}_{rock}_ore
+            // 模型共4层（OOP准则：岩石底图不染色）——
+            //   第0层 岩石底图：群峦岩种不染色；深板岩染色（群峦无深板岩，原版深板岩×染色）
+            //   第1层 矿石底图（格雷ore）：主色
+            //   第2层 矿石阴影（格雷ore_layer2）：辅色
+            //   第3层 矿石高光（最亮像素提取）：不染色白色光泽
+            if (path.endsWith("_ore")) {
+                String material;
+                Integer baseTint = null;
+                if (path.startsWith("deepslate_")) {
+                    material = path.substring("deepslate_".length(), path.length() - "_ore".length());
+                    Integer[] deepslateColor = MATERIAL_COLORS.get("deepslate");
+                    if (deepslateColor != null && deepslateColor.length > 0) {
+                        baseTint = deepslateColor[0];
+                    }
+                } else {
+                    // 岩种矿：去掉尾部 _{rock}_ore；否则为石头矿 {mineral}_ore
+                    material = null;
+                    for (com.mss.polymech.worldgen.ModRocks.RockType rock : com.mss.polymech.worldgen.ModRocks.ROCK_TYPES) {
+                        String suffix = "_" + rock.name() + "_ore";
+                        if (path.endsWith(suffix)) {
+                            material = path.substring(0, path.length() - suffix.length());
+                            break;
+                        }
+                    }
+                    if (material == null) {
+                        material = path.substring(0, path.length() - "_ore".length());
+                    }
+                }
+                Integer[] base = MATERIAL_COLORS.get(material);
+                if (base != null && base.length >= 2) {
+                    // 高光色：显式配置的高光色发白则弃用，否则尊重；缺失/发白时自动从主色提亮。
+                    // 这修复了矿石高光贴图呈"诡异白色斑点"的问题——高光应该是一层更亮的矿石色，
+                    // 而不是纯白覆盖层（基于贴图透明度 + 主色提亮混合）。
+                    // 专用高光色染色（与齿轮/锭物品模板一致）：colors[2] 就是高光色，
+                    // 高光贴图本身半透明，用 translucent 渲染后与底色自动 alpha 混合。
+                    // 宝石材料（diamond/garnet等）orders 为 主色/白色高光/暗部，colors[2]是暗部，
+                    // 所以宝石高光色保持 null（白色半透明光泽），由高光贴图透明度混色。
+                    boolean gem = com.mss.polymech.api.material.GemMaterials.hasGem(material);
+                    Integer[] colors = gem
+                            ? new Integer[]{baseTint, base[0], base.length > 2 ? base[2] : null, null}
+                            : new Integer[]{baseTint, base[0], base[1], base.length > 2 ? base[2] : null};
+                    BLOCK_COLOR_CACHE.put(block, colors);
+                    Polymech.LOGGER.debug("Derived ore block color for {}: material={}", path, material);
+                    return colors;
+                }
+            }
+
             // 尝试从方块ID中提取材料名
             String materialName = extractMaterialName(path);
             if (materialName != null && MATERIAL_COLORS.containsKey(materialName)) {
@@ -345,7 +394,8 @@ public class ColorConfigLoader {
         // 处理常见后缀
         String[] suffixes = {"_ingot", "_dust", "_plate", "_nugget", "_stick", "_gear", 
                             "_small_gear", "_spring", "_screw", "_bolt", "_ring", "_foil",
-                            "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe", "_block", "_wire"};
+                            "_gem", "_pipe", "_small_pipe", "_big_pipe", "_huge_pipe", "_block", "_wire",
+                            "_crushed", "_purified"};
         
         for (String suffix : suffixes) {
             if (path.endsWith(suffix)) {

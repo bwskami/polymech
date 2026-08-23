@@ -1,0 +1,154 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:chalcocite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:chalcocite_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:chalcocite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:chalcocite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_chalcocite_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:dacite",
+      "poly_mech:diorite",
+      "poly_mech:andesite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.35,
+    "max_y": 24,
+    "min_y": -40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:chalcopyrite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:chalcopyrite_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:chalcopyrite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:chalcopyrite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_chalcopyrite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 30,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:bornite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:bornite_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:bornite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:bornite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_bornite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 9025913238330866007,
+    "size": 8,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:copper_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:copper_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:copper_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:copper_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_copper_ore"
+          }
+        }
+      ]
+    }
+  }
+}

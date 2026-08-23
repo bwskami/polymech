@@ -1,0 +1,22 @@
+{
+  "type": "poly_mech:steam_duplex_mineral_jig",
+  "duration": 160,
+  "fluid_inputs": [
+    {
+      "amount": 200,
+      "fluid": "poly_mech:steam_source"
+    }
+  ],
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "poly_mech:raw_chalcopyrite"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 2,
+      "id": "poly_mech:copper_dust"
+    }
+  ]
+}

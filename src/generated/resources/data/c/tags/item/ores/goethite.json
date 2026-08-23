@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:goethite_ore",
+    "poly_mech:deepslate_goethite_ore",
+    "poly_mech:goethite_limestone_ore",
+    "poly_mech:goethite_shale_ore",
+    "poly_mech:goethite_chalk_ore",
+    "poly_mech:goethite_chert_ore",
+    "poly_mech:goethite_claystone_ore",
+    "poly_mech:goethite_conglomerate_ore",
+    "poly_mech:goethite_dolomite_ore",
+    "poly_mech:goethite_tuff_ore",
+    "poly_mech:goethite_granite_ore",
+    "poly_mech:goethite_basalt_ore",
+    "poly_mech:goethite_rhyolite_ore",
+    "poly_mech:goethite_dacite_ore",
+    "poly_mech:goethite_diorite_ore",
+    "poly_mech:goethite_gabbro_ore",
+    "poly_mech:goethite_andesite_ore",
+    "poly_mech:goethite_marble_ore",
+    "poly_mech:goethite_gneiss_ore",
+    "poly_mech:goethite_schist_ore",
+    "poly_mech:goethite_slate_ore",
+    "poly_mech:goethite_phyllite_ore",
+    "poly_mech:goethite_quartzite_ore"
+  ]
+}

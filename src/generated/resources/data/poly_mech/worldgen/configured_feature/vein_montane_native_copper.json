@@ -1,0 +1,73 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:basalt",
+      "poly_mech:rhyolite",
+      "poly_mech:dacite",
+      "poly_mech:andesite"
+    ],
+    "density": 0.25,
+    "max_y": 300,
+    "min_y": 100,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:native_copper_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:native_copper_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:native_copper_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:native_copper_andesite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 16,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:native_copper_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:native_copper_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:native_copper_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:native_copper_andesite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 3853958620833470685,
+    "size": 5
+  }
+}

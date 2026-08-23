@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:almandine_ore",
+    "poly_mech:deepslate_almandine_ore",
+    "poly_mech:almandine_limestone_ore",
+    "poly_mech:almandine_shale_ore",
+    "poly_mech:almandine_chalk_ore",
+    "poly_mech:almandine_chert_ore",
+    "poly_mech:almandine_claystone_ore",
+    "poly_mech:almandine_conglomerate_ore",
+    "poly_mech:almandine_dolomite_ore",
+    "poly_mech:almandine_tuff_ore",
+    "poly_mech:almandine_granite_ore",
+    "poly_mech:almandine_basalt_ore",
+    "poly_mech:almandine_rhyolite_ore",
+    "poly_mech:almandine_dacite_ore",
+    "poly_mech:almandine_diorite_ore",
+    "poly_mech:almandine_gabbro_ore",
+    "poly_mech:almandine_andesite_ore",
+    "poly_mech:almandine_marble_ore",
+    "poly_mech:almandine_gneiss_ore",
+    "poly_mech:almandine_schist_ore",
+    "poly_mech:almandine_slate_ore",
+    "poly_mech:almandine_phyllite_ore",
+    "poly_mech:almandine_quartzite_ore"
+  ]
+}

@@ -17,6 +17,8 @@ import com.mss.polymech.machine.common.MachineConfig;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.machine.common.MachineRegistrar;
 import com.mss.polymech.machine.production.*;
+import com.mss.polymech.worldgen.ModMinerals;
+import com.mss.polymech.worldgen.ModRocks;
 import com.mss.polymech.powergrid.ConcretePoleBlock;
 import com.mss.polymech.powergrid.ConnectorBlock;
 import net.minecraft.world.item.BlockItem;
@@ -307,6 +309,79 @@ public class ModBlocks {
 
     /** 方块→材料名 反查表（存储块化学式tooltip使用） */
     private static final Map<Block, String> BLOCK_MATERIAL_LOOKUP = new IdentityHashMap<>();
+    /** 矿石方块→矿物名反查（化学式tooltip用） */
+    private static final Map<Block, String> BLOCK_MINERAL_LOOKUP = new IdentityHashMap<>();
+
+    // ========== 矿石方块：数据驱动批量注册（格雷/群峦式岩种变体） ==========
+
+    /** 石头宿主键（原版石头底图变体） */
+    public static final String ORE_HOST_STONE = "stone";
+    /** 深板岩宿主键（群峦无深板岩岩石，用原版深板岩底图染色） */
+    public static final String ORE_HOST_DEEPSLATE = "deepslate";
+
+    /*
+     * 矿石方块组：一种矿物对应每种宿主岩一个方块（岩种变体）。
+     * <p>
+     * 变体键 = {@link #ORE_HOST_STONE} / {@link #ORE_HOST_DEEPSLATE} /
+     * 21种群峦岩种名（{@link ModRocks}）：
+     * <ul>
+     *   <li>stone → {mineral}_ore（原版石头底图，不染色）</li>
+     *   <li>deepslate → deepslate_{mineral}_ore（原版深板岩底图，染色）</li>
+     *   <li>{rock} → {mineral}_{rock}_ore（群峦岩石底图，不染色）</li>
+     * </ul>
+     * </p>
+     *
+     * @param mineral 矿物名
+     * @param byRock 宿主键→矿石方块 不可变映射
+     */
+    public record OreBlockSet(String mineral, Map<String, DeferredBlock<Block>> byRock) {
+        /** 石头矿方块（{mineral}_ore） */
+        public DeferredBlock<Block> stone() {
+            return byRock.get(ORE_HOST_STONE);
+        }
+
+        /** 深层矿方块（deepslate_{mineral}_ore） */
+        public DeferredBlock<Block> deepslate() {
+            return byRock.get(ORE_HOST_DEEPSLATE);
+        }
+
+        /** 按宿主岩名取岩种矿方块；不存在返回null */
+        public DeferredBlock<Block> forRock(String rock) {
+            return byRock.get(rock);
+        }
+
+        /** 全部岩种变体（含石头/深板岩） */
+        public java.util.Collection<DeferredBlock<Block>> all() {
+            return byRock.values();
+        }
+    }
+
+    /**
+     * 矿石方块查找表：矿物名 → 矿石方块组（每矿物23个岩种变体）。
+     * <p>
+     * 由{@link ModMinerals}的定义表×{@link ModRocks}岩种表驱动生成，
+     * 与粗矿物物品、世界生成、战利品表、配方等模块共享同一数据源。
+     * </p>
+     */
+    public static final Map<String, OreBlockSet> MINERAL_ORES;
+
+    /** 所有矿石方块的扁平列表（方块染色、渲染层设置等批量操作使用） */
+    public static final List<DeferredBlock<Block>> MINERAL_ORE_LIST;
+
+    // ========== 区域岩石方块：数据驱动批量注册 ==========
+
+    /**
+     * 区域岩石查找表：岩种名 → 岩石方块。
+     * <p>
+     * 由{@link ModRocks}的定义表驱动生成；岩石为单层染色方块
+     * （原版石头底图×岩种配色，见colors.json），
+     * 并被标记为stone_ore_replaceables使原版与模组矿石均可在其中生成。
+     * </p>
+     */
+    public static final Map<String, DeferredBlock<Block>> ROCKS;
+
+    /** 所有岩石方块的扁平列表（方块染色等批量操作使用） */
+    public static final List<DeferredBlock<Block>> ROCK_BLOCK_LIST;
 
     static {
         // 数据驱动批量注册流程
@@ -369,6 +444,62 @@ public class ModBlocks {
             materialBlocks.put(materialName, block);
         }
         MATERIAL_BLOCKS = Collections.unmodifiableMap(materialBlocks);
+
+        // 矿石方块：为每种矿物×每种宿主岩注册岩种变体（格雷/群峦式）
+        // 石头矿与原版矿石同硬度；深层矿更硬（参考原版深层铁矿 4.5）；
+        // 岩种矿硬度与群峦原矿一致（3.0），掉落物由产物类型决定（见战利品表）
+        Map<String, OreBlockSet> oreBlocks = new LinkedHashMap<>();
+        List<DeferredBlock<Block>> oreBlockList = new ArrayList<>();
+        for (ModMinerals.MineralDefinition def : ModMinerals.getDefinitions()) {
+            Map<String, DeferredBlock<Block>> byRock = new LinkedHashMap<>();
+
+            // 石头变体（原版石头底图，兼容保留）
+            DeferredBlock<Block> stoneOre = registerBlocks(def.stoneOreName(),
+                    () -> new Block(Block.Properties.of()
+                            .strength(3.0F, 3.0F)
+                            .sound(SoundType.STONE)
+                            .requiresCorrectToolForDrops()));
+            byRock.put(ORE_HOST_STONE, stoneOre);
+
+            // 深板岩变体（群峦无深板岩岩石→原版深板岩底图染色）
+            DeferredBlock<Block> deepslateOre = registerBlocks(def.deepslateOreName(),
+                    () -> new Block(Block.Properties.of()
+                            .strength(4.5F, 3.0F)
+                            .sound(SoundType.DEEPSLATE)
+                            .requiresCorrectToolForDrops()));
+            byRock.put(ORE_HOST_DEEPSLATE, deepslateOre);
+
+            // 21种群峦岩种变体（群峦式"看岩认矿"）
+            for (ModRocks.RockType rock : ModRocks.ROCK_TYPES) {
+                DeferredBlock<Block> rockOre = registerBlocks(def.rockOreName(rock.name()),
+                        () -> new Block(Block.Properties.of()
+                                .strength(3.0F, 6.0F)
+                                .sound(SoundType.STONE)
+                                .requiresCorrectToolForDrops()));
+                byRock.put(rock.name(), rockOre);
+            }
+
+            oreBlocks.put(def.mineral(), new OreBlockSet(def.mineral(),
+                    Collections.unmodifiableMap(byRock)));
+            oreBlockList.addAll(byRock.values());
+        }
+        MINERAL_ORES = Collections.unmodifiableMap(oreBlocks);
+        MINERAL_ORE_LIST = Collections.unmodifiableList(oreBlockList);
+
+        // 区域岩石：为每种岩种注册单层染色石头方块
+        Map<String, DeferredBlock<Block>> rocks = new LinkedHashMap<>();
+        List<DeferredBlock<Block>> rockList = new ArrayList<>();
+        for (ModRocks.RockType rock : ModRocks.ROCK_TYPES) {
+            DeferredBlock<Block> rockBlock = registerBlocks(rock.name(),
+                    () -> new Block(Block.Properties.of()
+                            .strength(2.0F, 6.0F)
+                            .sound(SoundType.STONE)
+                            .requiresCorrectToolForDrops()));
+            rocks.put(rock.name(), rockBlock);
+            rockList.add(rockBlock);
+        }
+        ROCKS = Collections.unmodifiableMap(rocks);
+        ROCK_BLOCK_LIST = Collections.unmodifiableList(rockList);
     }
 
     /**
@@ -381,6 +512,24 @@ public class ModBlocks {
             }
         }
         return BLOCK_MATERIAL_LOOKUP.get(block);
+    }
+
+    /**
+     * 方块→矿物名反查（用于矿石方块化学式tooltip）；非矿石方块返回null。
+     * <p>
+     * 矿石方块按矿物×宿主岩全量注册，全部变体（石头/深板岩/21种群峦岩种）
+     * 都映射回矿物名，化学式取自{@link ModMinerals.MineralDefinition}。
+     * </p>
+     */
+    public static String getMineralOfBlock(Block block) {
+        if (BLOCK_MINERAL_LOOKUP.isEmpty() && !MINERAL_ORES.isEmpty()) {
+            for (var entry : MINERAL_ORES.entrySet()) {
+                for (var oreBlock : entry.getValue().all()) {
+                    BLOCK_MINERAL_LOOKUP.put(oreBlock.get(), entry.getKey());
+                }
+            }
+        }
+        return BLOCK_MINERAL_LOOKUP.get(block);
     }
 
     /*

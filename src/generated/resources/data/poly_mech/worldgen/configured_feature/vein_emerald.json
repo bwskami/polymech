@@ -1,0 +1,73 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:diorite",
+      "poly_mech:gabbro",
+      "minecraft:deepslate"
+    ],
+    "density": 0.15,
+    "max_y": 100,
+    "min_y": -64,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:emerald_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:emerald_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:emerald_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_emerald_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 80,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:emerald_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:emerald_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:emerald_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_emerald_ore"
+          }
+        }
+      ]
+    },
+    "seed": 7479921344721708121,
+    "size": 4
+  }
+}

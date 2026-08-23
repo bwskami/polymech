@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:basaltic_mineral_sand_ore",
+    "poly_mech:deepslate_basaltic_mineral_sand_ore",
+    "poly_mech:basaltic_mineral_sand_limestone_ore",
+    "poly_mech:basaltic_mineral_sand_shale_ore",
+    "poly_mech:basaltic_mineral_sand_chalk_ore",
+    "poly_mech:basaltic_mineral_sand_chert_ore",
+    "poly_mech:basaltic_mineral_sand_claystone_ore",
+    "poly_mech:basaltic_mineral_sand_conglomerate_ore",
+    "poly_mech:basaltic_mineral_sand_dolomite_ore",
+    "poly_mech:basaltic_mineral_sand_tuff_ore",
+    "poly_mech:basaltic_mineral_sand_granite_ore",
+    "poly_mech:basaltic_mineral_sand_basalt_ore",
+    "poly_mech:basaltic_mineral_sand_rhyolite_ore",
+    "poly_mech:basaltic_mineral_sand_dacite_ore",
+    "poly_mech:basaltic_mineral_sand_diorite_ore",
+    "poly_mech:basaltic_mineral_sand_gabbro_ore",
+    "poly_mech:basaltic_mineral_sand_andesite_ore",
+    "poly_mech:basaltic_mineral_sand_marble_ore",
+    "poly_mech:basaltic_mineral_sand_gneiss_ore",
+    "poly_mech:basaltic_mineral_sand_schist_ore",
+    "poly_mech:basaltic_mineral_sand_slate_ore",
+    "poly_mech:basaltic_mineral_sand_phyllite_ore",
+    "poly_mech:basaltic_mineral_sand_quartzite_ore"
+  ]
+}

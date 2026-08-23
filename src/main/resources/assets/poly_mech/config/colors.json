@@ -1,130 +1,1596 @@
 {
   "materials": {
-    "test": { "colors": ["#ffdd4141", "#ff0695ff", "#ff00ff9a"] },
-    "iron": { "colors": ["#ffc8c8c8", "#ff8a8a8a", "#abe8e8e8"] },
-    "gold": { "colors": ["#ffffd745", "#ffc79b1f", "#abfff28f"] },
-    "copper": { "colors": ["#ffc96a43", "#ff9a4a2c", "#abf0a078"] },
-    "aluminium": { "colors": ["#ff87ceeb", "#e55fa3d6", "#abffffff"] },
-    "nickel": { "colors": ["#ffBCB896", "#fe906d9f", "#e8fffc9e"] },
-    "tin": { "colors": ["#ffDAE9EE", "#ff55709f", "#abfffcf5"] },
-    "zinc": { "colors": ["#ffa2ddc2", "#ff858834", "#e8f2fff9"] },
-    "brass": { "colors": ["#ffffce49", "#e5bc3f00", "#abfffcf5"] },
-    "bronze": { "colors": ["#fff08040", "#e5c05020", "#abffd840"] },
-    "invar": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
-    "cupronickel": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
-    "stainless_steel": { "colors": ["#ffCDD7E4", "#ff9b75c1", "#fffdfbff"] },
-    "coke": { "colors": ["#ff3a3a3f", "#ff1f1f24", "#ff5a5a62"] },
-
-    "silver": { "colors": ["#ffdcdcff", "#ff9a9ab8", "#f0ffffff"] },
-    "lead": { "colors": ["#ff7e6f82", "#ff574a60", "#abb0a8b8"] },
-    "chromium": { "colors": ["#ffc9cdd8", "#ff8f94a6", "#e8ffffff"] },
-    "titanium": { "colors": ["#ffb8bcc8", "#ff84889a", "#e8f2f4f8"] },
-    "tungsten": { "colors": ["#ff4a4a44", "#ff2e2e28", "#ab7a7a70"] },
-    "platinum": { "colors": ["#fffff4ba", "#ffc8bc82", "#e8ffffff"] },
-    "osmium": { "colors": ["#ff54afff", "#ff3a7ac0", "#ab9ed0ff"] },
-    "iridium": { "colors": ["#ff99fede", "#ff5cc0a8", "#e8e8fffa"] },
-    "palladium": { "colors": ["#ffbd92b5", "#ff8a6585", "#abe0c0d8"] },
-    "cobalt": { "colors": ["#ff5050fa", "#ff2d2dc0", "#ab8a8aff"] },
-    "manganese": { "colors": ["#ff88a669", "#ff617a48", "#abb8c890"] },
-    "molybdenum": { "colors": ["#ffc1c1ce", "#ff8a8a9c", "#e8e8e8f2"] },
-    "silicon": { "colors": ["#ff707078", "#ff4a4a52", "#ab9a9aa2"] },
-    "bismuth": { "colors": ["#ff5fdddd", "#ff3aa8a8", "#ab9aeaea"] },
-    "antimony": { "colors": ["#ffeaeaff", "#ffb0b0d0", "#f0ffffff"] },
-    "gallium": { "colors": ["#ff7a84ca", "#ff555e96", "#abb0b8e0"] },
-    "indium": { "colors": ["#ff5c3588", "#ff422468", "#ab8a68b0"] },
-    "tantalum": { "colors": ["#ffa8a7c6", "#ff76758f", "#abc8c8de"] },
-    "niobium": { "colors": ["#ffb494b4", "#ff826582", "#abd0b8d0"] },
-    "vanadium": { "colors": ["#ff696d76", "#ff484b52", "#ab94989f"] },
-    "neodymium": { "colors": ["#ff6c5863", "#ff4c3c46", "#ab968290"] },
-    "beryllium": { "colors": ["#ff73d73d", "#ff4e9a28", "#aba0e070"] },
-    "electrum": { "colors": ["#ffe8d882", "#ffb8a850", "#f0fff0c0"] },
-    "steel": { "colors": ["#ff808080", "#ff585858", "#abc0c0c0"] },
-
-    "europium": { "colors": ["#ffc8c8d0", "#ff9a9aa6", "#abe0e0e8"] },
-    "samarium": { "colors": ["#ffd4c5a0", "#ffa69878", "#abe8dcc0"] },
-    "yttrium": { "colors": ["#ffdcdce0", "#ffaeaeB4", "#abf0f0f4"] },
-    "rhodium": { "colors": ["#fff4f4f4", "#ffc8c8c8", "#abffffff"] },
-    "ruthenium": { "colors": ["#ff8a8a90", "#ff606066", "#abb0b0b8"] },
-    "thorium": { "colors": ["#ff4a5a5a", "#ff303e3e", "#ab708080"] },
-    "uranium": { "colors": ["#ff8fb57e", "#ff658a56", "#abb0d0a0"] },
-    "plutonium": { "colors": ["#ffe8605a", "#ffb03c38", "#abff9890"] },
-
-    "lithium": { "colors": ["#ffe8e8f0", "#ffb8b8c8", "#abf8f8ff"] },
-    "sodium": { "colors": ["#fff0e8d0", "#ffc0b898", "#abfff8e0"] },
-    "potassium": { "colors": ["#ffd8d8e0", "#ffa8a8b8", "#abeeeeF6"] },
-    "rubidium": { "colors": ["#ffc8a8a0", "#ff987870", "#abddc0b8"] },
-    "caesium": { "colors": ["#ffe0c080", "#ffb09050", "#abf0d8a0"] },
-    "francium": { "colors": ["#ffb0a0a8", "#ff807078", "#abc8b8c0"] },
-    "magnesium": { "colors": ["#ffd8e0e8", "#ffa8b4c0", "#abf0f4f8"] },
-    "calcium": { "colors": ["#ffe0e0dc", "#ffb0b0a8", "#abf4f4f0"] },
-    "strontium": { "colors": ["#ffd0d0d8", "#ffa0a0ac", "#abe8e8f0"] },
-    "barium": { "colors": ["#ffc8c8c0", "#ff989890", "#abe0e0d8"] },
-    "radium": { "colors": ["#ffd0e8d8", "#ffa0c0a8", "#abe8f8ec"] },
-    "scandium": { "colors": ["#ffc8d0d8", "#ff98a4b0", "#abe0e8f0"] },
-    "hafnium": { "colors": ["#ffb0b4bc", "#ff808490", "#abc8ccd4"] },
-    "zirconium": { "colors": ["#ffc0c4cc", "#ff90949c", "#abd8dce4"] },
-    "rhenium": { "colors": ["#ffa8a8b0", "#ff787884", "#abc0c0c8"] },
-    "cadmium": { "colors": ["#ffc8d0dc", "#ff98a4b4", "#abe0e8f4"] },
-    "lanthanum": { "colors": ["#ffd8d8d0", "#ffa8a8a0", "#abf0f0e8"] },
-    "cerium": { "colors": ["#ffe0dcc8", "#ffb0ac98", "#abf4f0e0"] },
-    "praseodymium": { "colors": ["#ffd0d8c8", "#ffa0ac98", "#abe8f0e0"] },
-    "promethium": { "colors": ["#ffc8d0d0", "#ff98a4a4", "#abe0e8e8"] },
-    "gadolinium": { "colors": ["#ffd0d0d0", "#ffa0a0a0", "#abe8e8e8"] },
-    "terbium": { "colors": ["#ffd8d0d0", "#ffa8a0a0", "#abf0e8e8"] },
-    "dysprosium": { "colors": ["#ffc8d0c8", "#ff98a498", "#abe0e8e0"] },
-    "holmium": { "colors": ["#ffd0c8d0", "#ffa098a0", "#abe8e0e8"] },
-    "erbium": { "colors": ["#ffe0d0d8", "#ffb0a0a8", "#abf4e8f0"] },
-    "thulium": { "colors": ["#ffd0d8e0", "#ffa0a8b0", "#abe8f0f8"] },
-    "ytterbium": { "colors": ["#ffd8d8c8", "#ffa8a898", "#abf0f0e0"] },
-    "lutetium": { "colors": ["#ffc8c8d8", "#ff9898a8", "#abe0e0f0"] },
-    "actinium": { "colors": ["#ffb8c8d8", "#ff8898a8", "#abd0e0f0"] },
-    "protactinium": { "colors": ["#ffa8b8b0", "#ff788880", "#abc0d0c8"] },
-    "neptunium": { "colors": ["#ff90a8a0", "#ff607870", "#abb0c8c0"] },
-    "americium": { "colors": ["#ffb8a8b0", "#ff887880", "#abd0c0c8"] },
-
-    "aluminium_block": { "colors": ["#ff87ceeb", "#ff5fa3d6", "#abffffff"] },
-    "nickel_block": { "colors": ["#ffBCB896", "#fe906d9f", "#e8fffc9e"] },
-    "tin_block": { "colors": ["#ffDAE9EE", "#ff55709f", "#abfffcf5"] },
-    "zinc_block": { "colors": ["#ffa2ddc2", "#ff858834", "#e8f2fff9"] },
-    "brass_block": { "colors": ["#ffffce49", "#ffbc3f00", "#ffEEE4CD"] },
-    "bronze_block": { "colors": ["#fff08040", "#ffc05020", "#ffE1C865"] },
-    "invar_block": { "colors": ["#ff98A6A2", "#ff7392b7", "#dbebf0ff"] },
-    "cupronickel_block": { "colors": ["#ffC09185", "#ff69363B", "#fffdfbff"] },
-    "stainless_steel_block": { "colors": ["#ffCDD7E4", "#ffEFE6F7", "#ffF0E7F9"] },
-
-    "silver_block": { "colors": ["#ffdcdcff", "#ffd6d6f2", "#ffe2e2fb"] },
-    "lead_block": { "colors": ["#ff7e6f82", "#ff796c7c", "#ff8b7f8e"] },
-    "chromium_block": { "colors": ["#ffc9cdd8", "#ffc3c7d1", "#ffd2d5de"] },
-    "titanium_block": { "colors": ["#ffb8bcc8", "#ffb2b6c1", "#ffc3c6d0"] },
-    "tungsten_block": { "colors": ["#ff4a4a44", "#ff474742", "#ff585852"] },
-    "platinum_block": { "colors": ["#fffff4ba", "#fff5ecb7", "#fffff6c8"] },
-    "osmium_block": { "colors": ["#ff54afff", "#ff51a8f3", "#ff63b5fb"] },
-    "iridium_block": { "colors": ["#ff99fede", "#ff95f1d7", "#ffa7fde5"] },
-    "palladium_block": { "colors": ["#ffbd92b5", "#ffb78fae", "#ffc69fbe"] },
-    "cobalt_block": { "colors": ["#ff5050fa", "#ff4e4eef", "#ff6161f7"] },
-    "manganese_block": { "colors": ["#ff88a669", "#ff84a067", "#ff94ae78"] },
-    "molybdenum_block": { "colors": ["#ffc1c1ce", "#ffbabac7", "#ffcbc9d6"] },
-    "silicon_block": { "colors": ["#ff707078", "#ff6c6c73", "#ff7d7c84"] },
-    "bismuth_block": { "colors": ["#ff5fdddd", "#ff5ed4d4", "#ff6fe3e2"] },
-    "antimony_block": { "colors": ["#ffeaeaff", "#ffe0e0f3", "#ffeff0fb"] },
-    "gallium_block": { "colors": ["#ff7a84ca", "#ff7680c2", "#ff8791d1"] },
-    "indium_block": { "colors": ["#ff5c3588", "#ff593583", "#ff6a4594"] },
-    "tantalum_block": { "colors": ["#ffa8a7c6", "#ffa2a2bf", "#ffb2b2cf"] },
-    "niobium_block": { "colors": ["#ffb494b4", "#ffad90ae", "#ffbea1be"] },
-    "vanadium_block": { "colors": ["#ff696d76", "#ff666972", "#ff767a83"] },
-    "neodymium_block": { "colors": ["#ff6c5863", "#ff685660", "#ff796570"] },
-    "beryllium_block": { "colors": ["#ff73d73d", "#ff70cd3f", "#ff80dd4f"] },
-    "electrum_block": { "colors": ["#ffe8d882", "#ffdfd082", "#ffeddf92"] },
-    "steel_block": { "colors": ["#ff808080", "#ff7b7b7b", "#ff8c8c8c"] },
-
-    "europium_block": { "colors": ["#ffc8c8d0", "#ffc2c2c9", "#ffd1d1d8"] },
-    "samarium_block": { "colors": ["#ffd4c5a0", "#ffcdbe9e", "#ffdbcdad"] },
-    "yttrium_block": { "colors": ["#ffdcdce0", "#ffd4d5d9", "#ffe2e2e6"] },
-    "rhodium_block": { "colors": ["#fff4f4f4", "#ffeaeaea", "#fff7f7f7"] },
-    "ruthenium_block": { "colors": ["#ff8a8a90", "#ff85858b", "#ff96969b"] },
-    "thorium_block": { "colors": ["#ff4a5a5a", "#ff485757", "#ff586666"] },
-    "uranium_block": { "colors": ["#ff8fb57e", "#ff8aae7d", "#ff9bbd8b"] },
-    "plutonium_block": { "colors": ["#ffe8605a", "#ffdf6059", "#ffec7169"] }
+    "test": {
+      "colors": [
+        "#ffdd4141",
+        "#ff0695ff",
+        "#ff00ff9a"
+      ]
+    },
+    "iron": {
+      "colors": [
+        "#ffc8c8c8",
+        "#ff8a8a8a",
+        "#abe8e8e8"
+      ]
+    },
+    "gold": {
+      "colors": [
+        "#ffffd745",
+        "#ffc79b1f",
+        "#abfff28f"
+      ]
+    },
+    "copper": {
+      "colors": [
+        "#ffc96a43",
+        "#ff9a4a2c",
+        "#abf0a078"
+      ]
+    },
+    "aluminium": {
+      "colors": [
+        "#ff87ceeb",
+        "#e55fa3d6",
+        "#abffffff"
+      ]
+    },
+    "nickel": {
+      "colors": [
+        "#ffBCB896",
+        "#fe906d9f",
+        "#e8fffc9e"
+      ]
+    },
+    "tin": {
+      "colors": [
+        "#ffDAE9EE",
+        "#ff55709f",
+        "#abfffcf5"
+      ]
+    },
+    "zinc": {
+      "colors": [
+        "#ffa2ddc2",
+        "#ff858834",
+        "#e8f2fff9"
+      ]
+    },
+    "brass": {
+      "colors": [
+        "#ffffce49",
+        "#e5bc3f00",
+        "#abfffcf5"
+      ]
+    },
+    "bronze": {
+      "colors": [
+        "#fff08040",
+        "#e5c05020",
+        "#abffd840"
+      ]
+    },
+    "invar": {
+      "colors": [
+        "#ff98A6A2",
+        "#ff7392b7",
+        "#dbebf0ff"
+      ]
+    },
+    "cupronickel": {
+      "colors": [
+        "#ffC09185",
+        "#ff69363B",
+        "#fffdfbff"
+      ]
+    },
+    "stainless_steel": {
+      "colors": [
+        "#ffCDD7E4",
+        "#ff9b75c1",
+        "#fffdfbff"
+      ]
+    },
+    "coke": {
+      "colors": [
+        "#ff3a3a3f",
+        "#ff1f1f24",
+        "#ff5a5a62"
+      ]
+    },
+    "silver": {
+      "colors": [
+        "#ffdcdcff",
+        "#ff9a9ab8",
+        "#f0ffffff"
+      ]
+    },
+    "lead": {
+      "colors": [
+        "#ff7e6f82",
+        "#ff574a60",
+        "#abb0a8b8"
+      ]
+    },
+    "chromium": {
+      "colors": [
+        "#ffc9cdd8",
+        "#ff8f94a6",
+        "#e8ffffff"
+      ]
+    },
+    "titanium": {
+      "colors": [
+        "#ffb8bcc8",
+        "#ff84889a",
+        "#e8f2f4f8"
+      ]
+    },
+    "tungsten": {
+      "colors": [
+        "#ff4a4a44",
+        "#ff2e2e28",
+        "#ab7a7a70"
+      ]
+    },
+    "platinum": {
+      "colors": [
+        "#fffff4ba",
+        "#ffc8bc82",
+        "#e8ffffff"
+      ]
+    },
+    "osmium": {
+      "colors": [
+        "#ff54afff",
+        "#ff3a7ac0",
+        "#ab9ed0ff"
+      ]
+    },
+    "iridium": {
+      "colors": [
+        "#ff99fede",
+        "#ff5cc0a8",
+        "#e8e8fffa"
+      ]
+    },
+    "palladium": {
+      "colors": [
+        "#ffbd92b5",
+        "#ff8a6585",
+        "#abe0c0d8"
+      ]
+    },
+    "cobalt": {
+      "colors": [
+        "#ff5050fa",
+        "#ff2d2dc0",
+        "#ab8a8aff"
+      ]
+    },
+    "manganese": {
+      "colors": [
+        "#ff88a669",
+        "#ff617a48",
+        "#abb8c890"
+      ]
+    },
+    "molybdenum": {
+      "colors": [
+        "#ffc1c1ce",
+        "#ff8a8a9c",
+        "#e8e8e8f2"
+      ]
+    },
+    "silicon": {
+      "colors": [
+        "#ff707078",
+        "#ff4a4a52",
+        "#ab9a9aa2"
+      ]
+    },
+    "bismuth": {
+      "colors": [
+        "#ff5fdddd",
+        "#ff3aa8a8",
+        "#ab9aeaea"
+      ]
+    },
+    "antimony": {
+      "colors": [
+        "#ffeaeaff",
+        "#ffb0b0d0",
+        "#f0ffffff"
+      ]
+    },
+    "gallium": {
+      "colors": [
+        "#ff7a84ca",
+        "#ff555e96",
+        "#abb0b8e0"
+      ]
+    },
+    "indium": {
+      "colors": [
+        "#ff5c3588",
+        "#ff422468",
+        "#ab8a68b0"
+      ]
+    },
+    "tantalum": {
+      "colors": [
+        "#ffa8a7c6",
+        "#ff76758f",
+        "#abc8c8de"
+      ]
+    },
+    "niobium": {
+      "colors": [
+        "#ffb494b4",
+        "#ff826582",
+        "#abd0b8d0"
+      ]
+    },
+    "vanadium": {
+      "colors": [
+        "#ff696d76",
+        "#ff484b52",
+        "#ab94989f"
+      ]
+    },
+    "neodymium": {
+      "colors": [
+        "#ff6c5863",
+        "#ff4c3c46",
+        "#ab968290"
+      ]
+    },
+    "beryllium": {
+      "colors": [
+        "#ff73d73d",
+        "#ff4e9a28",
+        "#aba0e070"
+      ]
+    },
+    "electrum": {
+      "colors": [
+        "#ffe8d882",
+        "#ffb8a850",
+        "#f0fff0c0"
+      ]
+    },
+    "steel": {
+      "colors": [
+        "#ff808080",
+        "#ff585858",
+        "#abc0c0c0"
+      ]
+    },
+    "limestone": {
+      "colors": [
+        "#ffe8e0c8"
+      ]
+    },
+    "shale": {
+      "colors": [
+        "#ff5a6068"
+      ]
+    },
+    "granite": {
+      "colors": [
+        "#ffc89888"
+      ]
+    },
+    "basalt": {
+      "colors": [
+        "#ff48484a"
+      ]
+    },
+    "marble": {
+      "colors": [
+        "#fff0f0f0"
+      ]
+    },
+    "cassiterite": {
+      "colors": [
+        "#ff4a3828",
+        "#ff8a6a4a",
+        null
+      ]
+    },
+    "sphalerite": {
+      "colors": [
+        "#ff5a4020",
+        "#ff9a7040",
+        null
+      ]
+    },
+    "bauxite": {
+      "colors": [
+        "#ffa05838",
+        "#ffc07848",
+        null
+      ]
+    },
+    "galena": {
+      "colors": [
+        "#ff5a5a68",
+        "#ff8a8a9a",
+        null
+      ]
+    },
+    "native_silver": {
+      "colors": [
+        "#ffd8d8e8",
+        "#ffa8a8c0",
+        null
+      ]
+    },
+    "garnierite": {
+      "colors": [
+        "#ff5a8a4a",
+        "#ff8aba72",
+        null
+      ]
+    },
+    "cobaltite": {
+      "colors": [
+        "#ff7a6a80",
+        "#ffa090a8",
+        null
+      ]
+    },
+    "wolframite": {
+      "colors": [
+        "#ff28282e",
+        "#ff585862",
+        null
+      ]
+    },
+    "diamond": {
+      "colors": [
+        "#ffb9f2ff",
+        null,
+        "#ff7fd8e8"
+      ]
+    },
+    "emerald": {
+      "colors": [
+        "#ff50ff50",
+        null,
+        "#ff28b828"
+      ]
+    },
+    "ruby": {
+      "colors": [
+        "#ffff4d4d",
+        null,
+        "#ffb81818"
+      ]
+    },
+    "sapphire": {
+      "colors": [
+        "#ff6464ff",
+        null,
+        "#ff2828c8"
+      ]
+    },
+    "topaz": {
+      "colors": [
+        "#ffffc23d",
+        null,
+        "#ffc88018"
+      ]
+    },
+    "amethyst": {
+      "colors": [
+        "#ffc04cff",
+        null,
+        "#ff7a18c8"
+      ]
+    },
+    "garnet": {
+      "colors": [
+        "#ffff2d3d",
+        null,
+        "#ffa01018"
+      ]
+    },
+    "opal": {
+      "colors": [
+        "#ffd8f0ff",
+        null,
+        "#ffa8c8ff"
+      ]
+    },
+    "apatite": {
+      "colors": [
+        "#ff3d8bff",
+        null,
+        "#ff1848c8"
+      ]
+    },
+    "quartz": {
+      "colors": [
+        "#fff0f0f0",
+        null,
+        "#ffc0c0c0"
+      ]
+    },
+    "certus_quartz": {
+      "colors": [
+        "#ffb8e0ff",
+        null,
+        "#ff78a8e0"
+      ]
+    },
+    "europium": {
+      "colors": [
+        "#ffc8c8d0",
+        "#ff9a9aa6",
+        "#abe0e0e8"
+      ]
+    },
+    "samarium": {
+      "colors": [
+        "#ffd4c5a0",
+        "#ffa69878",
+        "#abe8dcc0"
+      ]
+    },
+    "yttrium": {
+      "colors": [
+        "#ffdcdce0",
+        "#ffaeaeB4",
+        "#abf0f0f4"
+      ]
+    },
+    "rhodium": {
+      "colors": [
+        "#fff4f4f4",
+        "#ffc8c8c8",
+        "#abffffff"
+      ]
+    },
+    "ruthenium": {
+      "colors": [
+        "#ff8a8a90",
+        "#ff606066",
+        "#abb0b0b8"
+      ]
+    },
+    "thorium": {
+      "colors": [
+        "#ff4a5a5a",
+        "#ff303e3e",
+        "#ab708080"
+      ]
+    },
+    "uranium": {
+      "colors": [
+        "#ff8fb57e",
+        "#ff658a56",
+        "#abb0d0a0"
+      ]
+    },
+    "plutonium": {
+      "colors": [
+        "#ffe8605a",
+        "#ffb03c38",
+        "#abff9890"
+      ]
+    },
+    "lithium": {
+      "colors": [
+        "#ffe8e8f0",
+        "#ffb8b8c8",
+        "#abf8f8ff"
+      ]
+    },
+    "sodium": {
+      "colors": [
+        "#fff0e8d0",
+        "#ffc0b898",
+        "#abfff8e0"
+      ]
+    },
+    "potassium": {
+      "colors": [
+        "#ffd8d8e0",
+        "#ffa8a8b8",
+        "#abeeeeF6"
+      ]
+    },
+    "rubidium": {
+      "colors": [
+        "#ffc8a8a0",
+        "#ff987870",
+        "#abddc0b8"
+      ]
+    },
+    "caesium": {
+      "colors": [
+        "#ffe0c080",
+        "#ffb09050",
+        "#abf0d8a0"
+      ]
+    },
+    "francium": {
+      "colors": [
+        "#ffb0a0a8",
+        "#ff807078",
+        "#abc8b8c0"
+      ]
+    },
+    "magnesium": {
+      "colors": [
+        "#ffd8e0e8",
+        "#ffa8b4c0",
+        "#abf0f4f8"
+      ]
+    },
+    "calcium": {
+      "colors": [
+        "#ffe0e0dc",
+        "#ffb0b0a8",
+        "#abf4f4f0"
+      ]
+    },
+    "strontium": {
+      "colors": [
+        "#ffd0d0d8",
+        "#ffa0a0ac",
+        "#abe8e8f0"
+      ]
+    },
+    "barium": {
+      "colors": [
+        "#ffc8c8c0",
+        "#ff989890",
+        "#abe0e0d8"
+      ]
+    },
+    "radium": {
+      "colors": [
+        "#ffd0e8d8",
+        "#ffa0c0a8",
+        "#abe8f8ec"
+      ]
+    },
+    "scandium": {
+      "colors": [
+        "#ffc8d0d8",
+        "#ff98a4b0",
+        "#abe0e8f0"
+      ]
+    },
+    "hafnium": {
+      "colors": [
+        "#ffb0b4bc",
+        "#ff808490",
+        "#abc8ccd4"
+      ]
+    },
+    "zirconium": {
+      "colors": [
+        "#ffc0c4cc",
+        "#ff90949c",
+        "#abd8dce4"
+      ]
+    },
+    "rhenium": {
+      "colors": [
+        "#ffa8a8b0",
+        "#ff787884",
+        "#abc0c0c8"
+      ]
+    },
+    "cadmium": {
+      "colors": [
+        "#ffc8d0dc",
+        "#ff98a4b4",
+        "#abe0e8f4"
+      ]
+    },
+    "lanthanum": {
+      "colors": [
+        "#ffd8d8d0",
+        "#ffa8a8a0",
+        "#abf0f0e8"
+      ]
+    },
+    "cerium": {
+      "colors": [
+        "#ffe0dcc8",
+        "#ffb0ac98",
+        "#abf4f0e0"
+      ]
+    },
+    "praseodymium": {
+      "colors": [
+        "#ffd0d8c8",
+        "#ffa0ac98",
+        "#abe8f0e0"
+      ]
+    },
+    "promethium": {
+      "colors": [
+        "#ffc8d0d0",
+        "#ff98a4a4",
+        "#abe0e8e8"
+      ]
+    },
+    "gadolinium": {
+      "colors": [
+        "#ffd0d0d0",
+        "#ffa0a0a0",
+        "#abe8e8e8"
+      ]
+    },
+    "terbium": {
+      "colors": [
+        "#ffd8d0d0",
+        "#ffa8a0a0",
+        "#abf0e8e8"
+      ]
+    },
+    "dysprosium": {
+      "colors": [
+        "#ffc8d0c8",
+        "#ff98a498",
+        "#abe0e8e0"
+      ]
+    },
+    "holmium": {
+      "colors": [
+        "#ffd0c8d0",
+        "#ffa098a0",
+        "#abe8e0e8"
+      ]
+    },
+    "erbium": {
+      "colors": [
+        "#ffe0d0d8",
+        "#ffb0a0a8",
+        "#abf4e8f0"
+      ]
+    },
+    "thulium": {
+      "colors": [
+        "#ffd0d8e0",
+        "#ffa0a8b0",
+        "#abe8f0f8"
+      ]
+    },
+    "ytterbium": {
+      "colors": [
+        "#ffd8d8c8",
+        "#ffa8a898",
+        "#abf0f0e0"
+      ]
+    },
+    "lutetium": {
+      "colors": [
+        "#ffc8c8d8",
+        "#ff9898a8",
+        "#abe0e0f0"
+      ]
+    },
+    "actinium": {
+      "colors": [
+        "#ffb8c8d8",
+        "#ff8898a8",
+        "#abd0e0f0"
+      ]
+    },
+    "protactinium": {
+      "colors": [
+        "#ffa8b8b0",
+        "#ff788880",
+        "#abc0d0c8"
+      ]
+    },
+    "neptunium": {
+      "colors": [
+        "#ff90a8a0",
+        "#ff607870",
+        "#abb0c8c0"
+      ]
+    },
+    "americium": {
+      "colors": [
+        "#ffb8a8b0",
+        "#ff887880",
+        "#abd0c0c8"
+      ]
+    },
+    "aluminium_block": {
+      "colors": [
+        "#ff87ceeb",
+        "#ff5fa3d6",
+        "#abffffff"
+      ]
+    },
+    "nickel_block": {
+      "colors": [
+        "#ffBCB896",
+        "#fe906d9f",
+        "#e8fffc9e"
+      ]
+    },
+    "tin_block": {
+      "colors": [
+        "#ffDAE9EE",
+        "#ff55709f",
+        "#abfffcf5"
+      ]
+    },
+    "zinc_block": {
+      "colors": [
+        "#ffa2ddc2",
+        "#ff858834",
+        "#e8f2fff9"
+      ]
+    },
+    "brass_block": {
+      "colors": [
+        "#ffffce49",
+        "#ffbc3f00",
+        "#ffEEE4CD"
+      ]
+    },
+    "bronze_block": {
+      "colors": [
+        "#fff08040",
+        "#ffc05020",
+        "#ffE1C865"
+      ]
+    },
+    "invar_block": {
+      "colors": [
+        "#ff98A6A2",
+        "#ff7392b7",
+        "#dbebf0ff"
+      ]
+    },
+    "cupronickel_block": {
+      "colors": [
+        "#ffC09185",
+        "#ff69363B",
+        "#fffdfbff"
+      ]
+    },
+    "stainless_steel_block": {
+      "colors": [
+        "#ffCDD7E4",
+        "#ffEFE6F7",
+        "#ffF0E7F9"
+      ]
+    },
+    "silver_block": {
+      "colors": [
+        "#ffdcdcff",
+        "#ffd6d6f2",
+        "#ffe2e2fb"
+      ]
+    },
+    "lead_block": {
+      "colors": [
+        "#ff7e6f82",
+        "#ff796c7c",
+        "#ff8b7f8e"
+      ]
+    },
+    "chromium_block": {
+      "colors": [
+        "#ffc9cdd8",
+        "#ffc3c7d1",
+        "#ffd2d5de"
+      ]
+    },
+    "titanium_block": {
+      "colors": [
+        "#ffb8bcc8",
+        "#ffb2b6c1",
+        "#ffc3c6d0"
+      ]
+    },
+    "tungsten_block": {
+      "colors": [
+        "#ff4a4a44",
+        "#ff474742",
+        "#ff585852"
+      ]
+    },
+    "platinum_block": {
+      "colors": [
+        "#fffff4ba",
+        "#fff5ecb7",
+        "#fffff6c8"
+      ]
+    },
+    "osmium_block": {
+      "colors": [
+        "#ff54afff",
+        "#ff51a8f3",
+        "#ff63b5fb"
+      ]
+    },
+    "iridium_block": {
+      "colors": [
+        "#ff99fede",
+        "#ff95f1d7",
+        "#ffa7fde5"
+      ]
+    },
+    "palladium_block": {
+      "colors": [
+        "#ffbd92b5",
+        "#ffb78fae",
+        "#ffc69fbe"
+      ]
+    },
+    "cobalt_block": {
+      "colors": [
+        "#ff5050fa",
+        "#ff4e4eef",
+        "#ff6161f7"
+      ]
+    },
+    "manganese_block": {
+      "colors": [
+        "#ff88a669",
+        "#ff84a067",
+        "#ff94ae78"
+      ]
+    },
+    "molybdenum_block": {
+      "colors": [
+        "#ffc1c1ce",
+        "#ffbabac7",
+        "#ffcbc9d6"
+      ]
+    },
+    "silicon_block": {
+      "colors": [
+        "#ff707078",
+        "#ff6c6c73",
+        "#ff7d7c84"
+      ]
+    },
+    "bismuth_block": {
+      "colors": [
+        "#ff5fdddd",
+        "#ff5ed4d4",
+        "#ff6fe3e2"
+      ]
+    },
+    "antimony_block": {
+      "colors": [
+        "#ffeaeaff",
+        "#ffe0e0f3",
+        "#ffeff0fb"
+      ]
+    },
+    "gallium_block": {
+      "colors": [
+        "#ff7a84ca",
+        "#ff7680c2",
+        "#ff8791d1"
+      ]
+    },
+    "indium_block": {
+      "colors": [
+        "#ff5c3588",
+        "#ff593583",
+        "#ff6a4594"
+      ]
+    },
+    "tantalum_block": {
+      "colors": [
+        "#ffa8a7c6",
+        "#ffa2a2bf",
+        "#ffb2b2cf"
+      ]
+    },
+    "niobium_block": {
+      "colors": [
+        "#ffb494b4",
+        "#ffad90ae",
+        "#ffbea1be"
+      ]
+    },
+    "vanadium_block": {
+      "colors": [
+        "#ff696d76",
+        "#ff666972",
+        "#ff767a83"
+      ]
+    },
+    "neodymium_block": {
+      "colors": [
+        "#ff6c5863",
+        "#ff685660",
+        "#ff796570"
+      ]
+    },
+    "beryllium_block": {
+      "colors": [
+        "#ff73d73d",
+        "#ff70cd3f",
+        "#ff80dd4f"
+      ]
+    },
+    "electrum_block": {
+      "colors": [
+        "#ffe8d882",
+        "#ffdfd082",
+        "#ffeddf92"
+      ]
+    },
+    "steel_block": {
+      "colors": [
+        "#ff808080",
+        "#ff7b7b7b",
+        "#ff8c8c8c"
+      ]
+    },
+    "europium_block": {
+      "colors": [
+        "#ffc8c8d0",
+        "#ffc2c2c9",
+        "#ffd1d1d8"
+      ]
+    },
+    "samarium_block": {
+      "colors": [
+        "#ffd4c5a0",
+        "#ffcdbe9e",
+        "#ffdbcdad"
+      ]
+    },
+    "yttrium_block": {
+      "colors": [
+        "#ffdcdce0",
+        "#ffd4d5d9",
+        "#ffe2e2e6"
+      ]
+    },
+    "rhodium_block": {
+      "colors": [
+        "#fff4f4f4",
+        "#ffeaeaea",
+        "#fff7f7f7"
+      ]
+    },
+    "ruthenium_block": {
+      "colors": [
+        "#ff8a8a90",
+        "#ff85858b",
+        "#ff96969b"
+      ]
+    },
+    "thorium_block": {
+      "colors": [
+        "#ff4a5a5a",
+        "#ff485757",
+        "#ff586666"
+      ]
+    },
+    "uranium_block": {
+      "colors": [
+        "#ff8fb57e",
+        "#ff8aae7d",
+        "#ff9bbd8b"
+      ]
+    },
+    "plutonium_block": {
+      "colors": [
+        "#ffe8605a",
+        "#ffdf6059",
+        "#ffec7169"
+      ]
+    },
+    "native_copper": {
+      "colors": [
+        "#ffe77c56",
+        "#ffe4673e",
+        null
+      ]
+    },
+    "malachite": {
+      "colors": [
+        "#ff00f1b0",
+        "#ff107a47",
+        null
+      ]
+    },
+    "chalcopyrite": {
+      "colors": [
+        "#ff96c185",
+        "#ffe3af1a",
+        null
+      ]
+    },
+    "bornite": {
+      "colors": [
+        "#ffe05a",
+        "#ff442602",
+        null
+      ]
+    },
+    "chalcocite": {
+      "colors": [
+        "#ff657882",
+        "#ff33302e",
+        null
+      ]
+    },
+    "tetrahedrite": {
+      "colors": [
+        "#ffa3a09b",
+        "#ff143313",
+        null
+      ]
+    },
+    "hematite": {
+      "colors": [
+        "#ff7161",
+        "#ff330817",
+        null
+      ]
+    },
+    "magnetite": {
+      "colors": [
+        "#ff9d9d9d",
+        "#ff06070e",
+        null
+      ]
+    },
+    "limonite": {
+      "colors": [
+        "#ffb18a3d",
+        "#ff7a5f2a",
+        null
+      ]
+    },
+    "goethite": {
+      "colors": [
+        "#ff97873a",
+        "#ff313131",
+        null
+      ]
+    },
+    "vanadium_magnetite": {
+      "colors": [
+        "#ff505d70",
+        "#ff170322",
+        null
+      ]
+    },
+    "cassiterite_sand": {
+      "colors": [
+        "#ff89847e",
+        "#ff3b3b35",
+        null
+      ]
+    },
+    "native_gold": {
+      "colors": [
+        "#fffdf55f",
+        "#fff25833",
+        null
+      ]
+    },
+    "bismuthinite": {
+      "colors": [
+        "#ff8a9392",
+        "#ff5e6665",
+        null
+      ]
+    },
+    "pentlandite": {
+      "colors": [
+        "#ffe3cf13",
+        "#ff29315b",
+        null
+      ]
+    },
+    "alunite": {
+      "colors": [
+        "#fffbd677",
+        "#ffe11e0a",
+        null
+      ]
+    },
+    "scheelite": {
+      "colors": [
+        "#ffd7e8b3",
+        "#ff143cae",
+        null
+      ]
+    },
+    "tungstate": {
+      "colors": [
+        "#ffe0ffc4",
+        "#ffab4400",
+        null
+      ]
+    },
+    "stibnite": {
+      "colors": [
+        "#ff656565",
+        "#ff0a1432",
+        null
+      ]
+    },
+    "realgar": {
+      "colors": [
+        "#ff3d33",
+        "#ff3f0110",
+        null
+      ]
+    },
+    "pyrolusite": {
+      "colors": [
+        "#ffc7b5ab",
+        "#ff595756",
+        null
+      ]
+    },
+    "chromite": {
+      "colors": [
+        "#ffc5c1a8",
+        "#ff4c1a69",
+        null
+      ]
+    },
+    "ilmenite": {
+      "colors": [
+        "#ff2b2a24",
+        "#ff2b1700",
+        null
+      ]
+    },
+    "molybdenite": {
+      "colors": [
+        "#ffe3ddc3",
+        "#ff191919",
+        null
+      ]
+    },
+    "powellite": {
+      "colors": [
+        "#ffd8cfac",
+        "#ffbc7a2c",
+        null
+      ]
+    },
+    "wulfenite": {
+      "colors": [
+        "#ff9000",
+        "#ffFF0000",
+        null
+      ]
+    },
+    "tantalite": {
+      "colors": [
+        "#ff4e6b94",
+        "#ff632300",
+        null
+      ]
+    },
+    "pyrochlore": {
+      "colors": [
+        "#ff5b4838",
+        "#ff331400",
+        null
+      ]
+    },
+    "cooperite": {
+      "colors": [
+        "#ffe9ffa7",
+        "#ff665f2f",
+        null
+      ]
+    },
+    "pitchblende": {
+      "colors": [
+        "#ffd647",
+        "#ff0d1e2f",
+        null
+      ]
+    },
+    "uraninite": {
+      "colors": [
+        "#ffd52e",
+        "#ff17212b",
+        null
+      ]
+    },
+    "plutonium_239": {
+      "colors": [
+        "#ffba2727",
+        "#ff222730",
+        null
+      ]
+    },
+    "spodumene": {
+      "colors": [
+        "#ffbcbc",
+        "#ffc490ff",
+        null
+      ]
+    },
+    "lepidolite": {
+      "colors": [
+        "#ffdae4",
+        "#ff75376f",
+        null
+      ]
+    },
+    "pollucite": {
+      "colors": [
+        "#ffeed9e1",
+        "#ff72a6a7",
+        null
+      ]
+    },
+    "bastnasite": {
+      "colors": [
+        "#ffcaab60",
+        "#ffc8502d",
+        null
+      ]
+    },
+    "monazite": {
+      "colors": [
+        "#ffd0ee98",
+        "#ff520505",
+        null
+      ]
+    },
+    "almandine": {
+      "colors": [
+        "#ffa21717",
+        "#ff4b1e0c",
+        null
+      ]
+    },
+    "andradite": {
+      "colors": [
+        "#ffce26",
+        "#ff647d59",
+        null
+      ]
+    },
+    "grossular": {
+      "colors": [
+        "#ffb777",
+        "#ff856f48",
+        null
+      ]
+    },
+    "pyrope": {
+      "colors": [
+        "#ffe81958",
+        "#ff811e00",
+        null
+      ]
+    },
+    "spessartine": {
+      "colors": [
+        "#ffa81e",
+        "#ffb33700",
+        null
+      ]
+    },
+    "red_garnet": {
+      "colors": [
+        "#ff950c15",
+        "#ff510b04",
+        null
+      ]
+    },
+    "yellow_garnet": {
+      "colors": [
+        "#fff6ff09",
+        "#ffe7a800",
+        null
+      ]
+    },
+    "lapis_lazuli": {
+      "colors": [
+        "#ff85a9ff",
+        null,
+        "#ff2a7fff"
+      ]
+    },
+    "lazurite": {
+      "colors": [
+        "#ff2836f1",
+        "#ff183ca3",
+        null
+      ]
+    },
+    "sodalite": {
+      "colors": [
+        "#ff3d54ff",
+        "#ff210d78",
+        null
+      ]
+    },
+    "pyrite": {
+      "colors": [
+        "#fffee6",
+        "#ffb69f4e",
+        null
+      ]
+    },
+    "green_sapphire": {
+      "colors": [
+        "#ff9ae6b0",
+        null,
+        "#ff64C882"
+      ]
+    },
+    "blue_topaz": {
+      "colors": [
+        "#ffdbfeff",
+        "#ffa0c4d7",
+        null
+      ]
+    },
+    "olivine": {
+      "colors": [
+        "#ffa7e404",
+        "#ff166439",
+        null
+      ]
+    },
+    "quartzite": {
+      "colors": [
+        "#fff2f5ed",
+        "#ffb8e2b8",
+        null
+      ]
+    },
+    "nether_quartz": {
+      "colors": [
+        "#fff8efe3",
+        "#ffe6c1bb",
+        null
+      ]
+    },
+    "sulfur": {
+      "colors": [
+        "#fffdff31",
+        "#ffb400",
+        null
+      ]
+    },
+    "graphite": {
+      "colors": [
+        "#ffa8a89e",
+        "#ff172602",
+        null
+      ]
+    },
+    "saltpeter": {
+      "colors": [
+        "#ffE6E6E6",
+        "#ffe6e1cf",
+        null
+      ]
+    },
+    "sylvite": {
+      "colors": [
+        "#ffe0b8b8",
+        "#ffa68787",
+        null
+      ]
+    },
+    "salt": {
+      "colors": [
+        "#ffFAFAFA",
+        null,
+        null
+      ]
+    },
+    "rock_salt": {
+      "colors": [
+        "#ffeae1",
+        "#ffF0C8C8",
+        null
+      ]
+    },
+    "gypsum": {
+      "colors": [
+        "#fffaec",
+        "#ff71570a",
+        null
+      ]
+    },
+    "cinnabar": {
+      "colors": [
+        "#ff335f",
+        "#ff3f0110",
+        null
+      ]
+    },
+    "cryolite": {
+      "colors": [
+        "#ffd8d8d0",
+        "#ff9a9a94",
+        null
+      ]
+    },
+    "borax": {
+      "colors": [
+        "#ffFAFAFA",
+        "#ffd7e7e7",
+        null
+      ]
+    },
+    "calcite": {
+      "colors": [
+        "#fffef8",
+        "#ffbbaf62",
+        null
+      ]
+    },
+    "barite": {
+      "colors": [
+        "#ffe8e2d1",
+        "#fff4b74b",
+        null
+      ]
+    },
+    "magnesite": {
+      "colors": [
+        "#fffbfbf6",
+        "#ff80705e",
+        null
+      ]
+    },
+    "asbestos": {
+      "colors": [
+        "#ffE6E6E6",
+        "#ffdbd7bf",
+        null
+      ]
+    },
+    "mica": {
+      "colors": [
+        "#ffecfeff",
+        "#ffc2a03c",
+        null
+      ]
+    },
+    "talc": {
+      "colors": [
+        "#ffebffe9",
+        "#ff6fe19b",
+        null
+      ]
+    },
+    "soapstone": {
+      "colors": [
+        "#ff5a7261",
+        "#ff464c4b",
+        null
+      ]
+    },
+    "kyanite": {
+      "colors": [
+        "#ffd5ffff",
+        "#ff5a69d6",
+        null
+      ]
+    },
+    "diatomite": {
+      "colors": [
+        "#fffafa",
+        null,
+        null
+      ]
+    },
+    "bentonite": {
+      "colors": [
+        "#ffede8a3",
+        "#ffcdb44c",
+        null
+      ]
+    },
+    "fullers_earth": {
+      "colors": [
+        "#fff3efbb",
+        "#ffb8d066",
+        null
+      ]
+    },
+    "glauconite_sand": {
+      "colors": [
+        "#ff1da351",
+        "#ff1a6e8f",
+        null
+      ]
+    },
+    "zeolite": {
+      "colors": [
+        "#fff2e3e0",
+        "#ffeabeb4",
+        null
+      ]
+    },
+    "trona": {
+      "colors": [
+        "#ffe6e6a5",
+        "#ff87875F",
+        null
+      ]
+    },
+    "tricalcium_phosphate": {
+      "colors": [
+        "#fffddb",
+        "#ffFFFF00",
+        null
+      ]
+    },
+    "basaltic_mineral_sand": {
+      "colors": [
+        "#ff5c5c5c",
+        "#ff283228",
+        null
+      ]
+    },
+    "granitic_mineral_sand": {
+      "colors": [
+        "#ffd69077",
+        "#ff71352c",
+        null
+      ]
+    },
+    "garnet_sand": {
+      "colors": [
+        "#ffcc4c25",
+        "#ff510b04",
+        null
+      ]
+    },
+    "lignite": {
+      "colors": [
+        "#ff6e4e2e",
+        "#ff4a3420",
+        null
+      ]
+    },
+    "oilsands": {
+      "colors": [
+        "#ffe3c78a",
+        "#ff161e22",
+        null
+      ]
+    },
+    "redstone": {
+      "colors": [
+        "#ff0000",
+        "#ff340605",
+        null
+      ]
+    },
+    "deepslate": {
+      "colors": [
+        "#ffc8ccd8"
+      ]
+    },
+    "bituminous_coal": {
+      "colors": [
+        "#ff3a3a3a",
+        "#ff262626",
+        null
+      ]
+    }
   },
   "item_materials": {
     "test_ingot": "test",
@@ -137,12 +1603,10 @@
     "invar_ingot": "invar",
     "cupronickel_ingot": "cupronickel",
     "stainless_steel_ingot": "stainless_steel",
-
     "conveyor": "stainless_steel_block",
     "bronze_conveyor": "bronze_block",
     "stainless_steel_conveyor": "stainless_steel_block",
     "brass_conveyor": "brass_block",
-
     "coke": "coke"
   },
   "block_materials": {
@@ -150,22 +1614,18 @@
     "small_pipe": "iron",
     "big_pipe": "iron",
     "huge_pipe": "iron",
-
     "bronze_pipe": "bronze_block",
     "bronze_small_pipe": "bronze_block",
     "bronze_big_pipe": "bronze_block",
     "bronze_huge_pipe": "bronze_block",
-
     "stainless_steel_pipe": "stainless_steel_block",
     "stainless_steel_small_pipe": "stainless_steel_block",
     "stainless_steel_big_pipe": "stainless_steel_block",
     "stainless_steel_huge_pipe": "stainless_steel_block",
-
     "brass_pipe": "brass_block",
     "brass_small_pipe": "brass_block",
     "brass_big_pipe": "brass_block",
     "brass_huge_pipe": "brass_block",
-
     "conveyor": "stainless_steel_block",
     "bronze_conveyor": "bronze_block",
     "stainless_steel_conveyor": "stainless_steel_block",

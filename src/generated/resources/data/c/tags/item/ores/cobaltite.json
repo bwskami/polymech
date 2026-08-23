@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:cobaltite_ore",
+    "poly_mech:deepslate_cobaltite_ore",
+    "poly_mech:cobaltite_limestone_ore",
+    "poly_mech:cobaltite_shale_ore",
+    "poly_mech:cobaltite_chalk_ore",
+    "poly_mech:cobaltite_chert_ore",
+    "poly_mech:cobaltite_claystone_ore",
+    "poly_mech:cobaltite_conglomerate_ore",
+    "poly_mech:cobaltite_dolomite_ore",
+    "poly_mech:cobaltite_tuff_ore",
+    "poly_mech:cobaltite_granite_ore",
+    "poly_mech:cobaltite_basalt_ore",
+    "poly_mech:cobaltite_rhyolite_ore",
+    "poly_mech:cobaltite_dacite_ore",
+    "poly_mech:cobaltite_diorite_ore",
+    "poly_mech:cobaltite_gabbro_ore",
+    "poly_mech:cobaltite_andesite_ore",
+    "poly_mech:cobaltite_marble_ore",
+    "poly_mech:cobaltite_gneiss_ore",
+    "poly_mech:cobaltite_schist_ore",
+    "poly_mech:cobaltite_slate_ore",
+    "poly_mech:cobaltite_phyllite_ore",
+    "poly_mech:cobaltite_quartzite_ore"
+  ]
+}

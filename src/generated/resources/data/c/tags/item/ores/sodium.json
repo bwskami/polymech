@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:trona_ore",
+    "poly_mech:deepslate_trona_ore",
+    "poly_mech:trona_limestone_ore",
+    "poly_mech:trona_shale_ore",
+    "poly_mech:trona_chalk_ore",
+    "poly_mech:trona_chert_ore",
+    "poly_mech:trona_claystone_ore",
+    "poly_mech:trona_conglomerate_ore",
+    "poly_mech:trona_dolomite_ore",
+    "poly_mech:trona_tuff_ore",
+    "poly_mech:trona_granite_ore",
+    "poly_mech:trona_basalt_ore",
+    "poly_mech:trona_rhyolite_ore",
+    "poly_mech:trona_dacite_ore",
+    "poly_mech:trona_diorite_ore",
+    "poly_mech:trona_gabbro_ore",
+    "poly_mech:trona_andesite_ore",
+    "poly_mech:trona_marble_ore",
+    "poly_mech:trona_gneiss_ore",
+    "poly_mech:trona_schist_ore",
+    "poly_mech:trona_slate_ore",
+    "poly_mech:trona_phyllite_ore",
+    "poly_mech:trona_quartzite_ore"
+  ]
+}

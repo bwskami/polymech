@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:cooperite_ore",
+    "poly_mech:deepslate_cooperite_ore",
+    "poly_mech:cooperite_limestone_ore",
+    "poly_mech:cooperite_shale_ore",
+    "poly_mech:cooperite_chalk_ore",
+    "poly_mech:cooperite_chert_ore",
+    "poly_mech:cooperite_claystone_ore",
+    "poly_mech:cooperite_conglomerate_ore",
+    "poly_mech:cooperite_dolomite_ore",
+    "poly_mech:cooperite_tuff_ore",
+    "poly_mech:cooperite_granite_ore",
+    "poly_mech:cooperite_basalt_ore",
+    "poly_mech:cooperite_rhyolite_ore",
+    "poly_mech:cooperite_dacite_ore",
+    "poly_mech:cooperite_diorite_ore",
+    "poly_mech:cooperite_gabbro_ore",
+    "poly_mech:cooperite_andesite_ore",
+    "poly_mech:cooperite_marble_ore",
+    "poly_mech:cooperite_gneiss_ore",
+    "poly_mech:cooperite_schist_ore",
+    "poly_mech:cooperite_slate_ore",
+    "poly_mech:cooperite_phyllite_ore",
+    "poly_mech:cooperite_quartzite_ore"
+  ]
+}

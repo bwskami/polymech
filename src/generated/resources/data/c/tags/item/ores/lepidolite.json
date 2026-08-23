@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:lepidolite_ore",
+    "poly_mech:deepslate_lepidolite_ore",
+    "poly_mech:lepidolite_limestone_ore",
+    "poly_mech:lepidolite_shale_ore",
+    "poly_mech:lepidolite_chalk_ore",
+    "poly_mech:lepidolite_chert_ore",
+    "poly_mech:lepidolite_claystone_ore",
+    "poly_mech:lepidolite_conglomerate_ore",
+    "poly_mech:lepidolite_dolomite_ore",
+    "poly_mech:lepidolite_tuff_ore",
+    "poly_mech:lepidolite_granite_ore",
+    "poly_mech:lepidolite_basalt_ore",
+    "poly_mech:lepidolite_rhyolite_ore",
+    "poly_mech:lepidolite_dacite_ore",
+    "poly_mech:lepidolite_diorite_ore",
+    "poly_mech:lepidolite_gabbro_ore",
+    "poly_mech:lepidolite_andesite_ore",
+    "poly_mech:lepidolite_marble_ore",
+    "poly_mech:lepidolite_gneiss_ore",
+    "poly_mech:lepidolite_schist_ore",
+    "poly_mech:lepidolite_slate_ore",
+    "poly_mech:lepidolite_phyllite_ore",
+    "poly_mech:lepidolite_quartzite_ore"
+  ]
+}

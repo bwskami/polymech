@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:wolframite_ore",
+    "poly_mech:deepslate_wolframite_ore",
+    "poly_mech:wolframite_limestone_ore",
+    "poly_mech:wolframite_shale_ore",
+    "poly_mech:wolframite_chalk_ore",
+    "poly_mech:wolframite_chert_ore",
+    "poly_mech:wolframite_claystone_ore",
+    "poly_mech:wolframite_conglomerate_ore",
+    "poly_mech:wolframite_dolomite_ore",
+    "poly_mech:wolframite_tuff_ore",
+    "poly_mech:wolframite_granite_ore",
+    "poly_mech:wolframite_basalt_ore",
+    "poly_mech:wolframite_rhyolite_ore",
+    "poly_mech:wolframite_dacite_ore",
+    "poly_mech:wolframite_diorite_ore",
+    "poly_mech:wolframite_gabbro_ore",
+    "poly_mech:wolframite_andesite_ore",
+    "poly_mech:wolframite_marble_ore",
+    "poly_mech:wolframite_gneiss_ore",
+    "poly_mech:wolframite_schist_ore",
+    "poly_mech:wolframite_slate_ore",
+    "poly_mech:wolframite_phyllite_ore",
+    "poly_mech:wolframite_quartzite_ore"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:native_silver_ore",
+    "poly_mech:deepslate_native_silver_ore",
+    "poly_mech:native_silver_limestone_ore",
+    "poly_mech:native_silver_shale_ore",
+    "poly_mech:native_silver_chalk_ore",
+    "poly_mech:native_silver_chert_ore",
+    "poly_mech:native_silver_claystone_ore",
+    "poly_mech:native_silver_conglomerate_ore",
+    "poly_mech:native_silver_dolomite_ore",
+    "poly_mech:native_silver_tuff_ore",
+    "poly_mech:native_silver_granite_ore",
+    "poly_mech:native_silver_basalt_ore",
+    "poly_mech:native_silver_rhyolite_ore",
+    "poly_mech:native_silver_dacite_ore",
+    "poly_mech:native_silver_diorite_ore",
+    "poly_mech:native_silver_gabbro_ore",
+    "poly_mech:native_silver_andesite_ore",
+    "poly_mech:native_silver_marble_ore",
+    "poly_mech:native_silver_gneiss_ore",
+    "poly_mech:native_silver_schist_ore",
+    "poly_mech:native_silver_slate_ore",
+    "poly_mech:native_silver_phyllite_ore",
+    "poly_mech:native_silver_quartzite_ore"
+  ]
+}

@@ -56,6 +56,32 @@ public class ModItemModelsProvider extends ItemModelProvider {
             // 环
             ITEM_TYPE_OVERRIDES.put(materialName + "_ring", ItemLayerTemplates.RING);
         }
+
+        // 矿物加工链（真实矿物系统，数据驱动）：
+        // 粗矿 raw_{mineral} → 粉碎矿 {mineral}_crushed → 洗净矿 {mineral}_purified
+        // 全部按矿物配色染色，贴图取自GregTech material_sets
+        for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
+            // 粗矿物品图标按矿物形态（1普通/2层状/3斜向小块/4大块）选择 raw{shape} 模板
+            ItemLayerTemplates rawTemplate = switch (def.oreShape()) {
+                case 2 -> ItemLayerTemplates.RAW_ORE_2;
+                case 3 -> ItemLayerTemplates.RAW_ORE_3;
+                case 4 -> ItemLayerTemplates.RAW_ORE_4;
+                default -> ItemLayerTemplates.RAW_ORE_1;
+            };
+            ITEM_TYPE_OVERRIDES.put(def.rawItemName(), rawTemplate);
+            if (def.kind() == com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL) continue;
+            ITEM_TYPE_OVERRIDES.put(
+                    com.mss.polymech.api.item.ModItemTypes.CRUSHED.getIdPattern().formatted(def.mineral()),
+                    ItemLayerTemplates.CRUSHED);
+            ITEM_TYPE_OVERRIDES.put(
+                    com.mss.polymech.api.item.ModItemTypes.PURIFIED.getIdPattern().formatted(def.mineral()),
+                    ItemLayerTemplates.PURIFIED);
+        }
+
+        // 宝石/晶体（{gem}_gem，按宝石配色染色）
+        for (String gem : com.mss.polymech.api.material.GemMaterials.getGems()) {
+            ITEM_TYPE_OVERRIDES.put(gem + "_gem", ItemLayerTemplates.GEM);
+        }
         
         // 管道物品（数据驱动：全部材质×全部尺寸，模板按尺寸选择）
         for (PipeMaterial pipeMaterial : PipeMaterial.getAll()) {
@@ -98,6 +124,7 @@ public class ModItemModelsProvider extends ItemModelProvider {
             "blueprint",
             "wire_cutter",
             "clamp_meter",
+            "prospector",
             // 在这里列出所有需要独立纹理的普通物品
     };
     private boolean isNormalItem(String path) {

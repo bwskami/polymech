@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:magnetite_ore",
+    "poly_mech:deepslate_magnetite_ore",
+    "poly_mech:magnetite_limestone_ore",
+    "poly_mech:magnetite_shale_ore",
+    "poly_mech:magnetite_chalk_ore",
+    "poly_mech:magnetite_chert_ore",
+    "poly_mech:magnetite_claystone_ore",
+    "poly_mech:magnetite_conglomerate_ore",
+    "poly_mech:magnetite_dolomite_ore",
+    "poly_mech:magnetite_tuff_ore",
+    "poly_mech:magnetite_granite_ore",
+    "poly_mech:magnetite_basalt_ore",
+    "poly_mech:magnetite_rhyolite_ore",
+    "poly_mech:magnetite_dacite_ore",
+    "poly_mech:magnetite_diorite_ore",
+    "poly_mech:magnetite_gabbro_ore",
+    "poly_mech:magnetite_andesite_ore",
+    "poly_mech:magnetite_marble_ore",
+    "poly_mech:magnetite_gneiss_ore",
+    "poly_mech:magnetite_schist_ore",
+    "poly_mech:magnetite_slate_ore",
+    "poly_mech:magnetite_phyllite_ore",
+    "poly_mech:magnetite_quartzite_ore"
+  ]
+}

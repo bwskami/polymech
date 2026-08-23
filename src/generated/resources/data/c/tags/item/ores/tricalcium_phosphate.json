@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:tricalcium_phosphate_ore",
+    "poly_mech:deepslate_tricalcium_phosphate_ore",
+    "poly_mech:tricalcium_phosphate_limestone_ore",
+    "poly_mech:tricalcium_phosphate_shale_ore",
+    "poly_mech:tricalcium_phosphate_chalk_ore",
+    "poly_mech:tricalcium_phosphate_chert_ore",
+    "poly_mech:tricalcium_phosphate_claystone_ore",
+    "poly_mech:tricalcium_phosphate_conglomerate_ore",
+    "poly_mech:tricalcium_phosphate_dolomite_ore",
+    "poly_mech:tricalcium_phosphate_tuff_ore",
+    "poly_mech:tricalcium_phosphate_granite_ore",
+    "poly_mech:tricalcium_phosphate_basalt_ore",
+    "poly_mech:tricalcium_phosphate_rhyolite_ore",
+    "poly_mech:tricalcium_phosphate_dacite_ore",
+    "poly_mech:tricalcium_phosphate_diorite_ore",
+    "poly_mech:tricalcium_phosphate_gabbro_ore",
+    "poly_mech:tricalcium_phosphate_andesite_ore",
+    "poly_mech:tricalcium_phosphate_marble_ore",
+    "poly_mech:tricalcium_phosphate_gneiss_ore",
+    "poly_mech:tricalcium_phosphate_schist_ore",
+    "poly_mech:tricalcium_phosphate_slate_ore",
+    "poly_mech:tricalcium_phosphate_phyllite_ore",
+    "poly_mech:tricalcium_phosphate_quartzite_ore"
+  ]
+}

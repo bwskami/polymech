@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:lazurite_ore",
+    "poly_mech:deepslate_lazurite_ore",
+    "poly_mech:lazurite_limestone_ore",
+    "poly_mech:lazurite_shale_ore",
+    "poly_mech:lazurite_chalk_ore",
+    "poly_mech:lazurite_chert_ore",
+    "poly_mech:lazurite_claystone_ore",
+    "poly_mech:lazurite_conglomerate_ore",
+    "poly_mech:lazurite_dolomite_ore",
+    "poly_mech:lazurite_tuff_ore",
+    "poly_mech:lazurite_granite_ore",
+    "poly_mech:lazurite_basalt_ore",
+    "poly_mech:lazurite_rhyolite_ore",
+    "poly_mech:lazurite_dacite_ore",
+    "poly_mech:lazurite_diorite_ore",
+    "poly_mech:lazurite_gabbro_ore",
+    "poly_mech:lazurite_andesite_ore",
+    "poly_mech:lazurite_marble_ore",
+    "poly_mech:lazurite_gneiss_ore",
+    "poly_mech:lazurite_schist_ore",
+    "poly_mech:lazurite_slate_ore",
+    "poly_mech:lazurite_phyllite_ore",
+    "poly_mech:lazurite_quartzite_ore"
+  ]
+}

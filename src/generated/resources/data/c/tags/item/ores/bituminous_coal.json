@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:bituminous_coal_ore",
+    "poly_mech:deepslate_bituminous_coal_ore",
+    "poly_mech:bituminous_coal_limestone_ore",
+    "poly_mech:bituminous_coal_shale_ore",
+    "poly_mech:bituminous_coal_chalk_ore",
+    "poly_mech:bituminous_coal_chert_ore",
+    "poly_mech:bituminous_coal_claystone_ore",
+    "poly_mech:bituminous_coal_conglomerate_ore",
+    "poly_mech:bituminous_coal_dolomite_ore",
+    "poly_mech:bituminous_coal_tuff_ore",
+    "poly_mech:bituminous_coal_granite_ore",
+    "poly_mech:bituminous_coal_basalt_ore",
+    "poly_mech:bituminous_coal_rhyolite_ore",
+    "poly_mech:bituminous_coal_dacite_ore",
+    "poly_mech:bituminous_coal_diorite_ore",
+    "poly_mech:bituminous_coal_gabbro_ore",
+    "poly_mech:bituminous_coal_andesite_ore",
+    "poly_mech:bituminous_coal_marble_ore",
+    "poly_mech:bituminous_coal_gneiss_ore",
+    "poly_mech:bituminous_coal_schist_ore",
+    "poly_mech:bituminous_coal_slate_ore",
+    "poly_mech:bituminous_coal_phyllite_ore",
+    "poly_mech:bituminous_coal_quartzite_ore"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:scheelite_ore",
+    "poly_mech:deepslate_scheelite_ore",
+    "poly_mech:scheelite_limestone_ore",
+    "poly_mech:scheelite_shale_ore",
+    "poly_mech:scheelite_chalk_ore",
+    "poly_mech:scheelite_chert_ore",
+    "poly_mech:scheelite_claystone_ore",
+    "poly_mech:scheelite_conglomerate_ore",
+    "poly_mech:scheelite_dolomite_ore",
+    "poly_mech:scheelite_tuff_ore",
+    "poly_mech:scheelite_granite_ore",
+    "poly_mech:scheelite_basalt_ore",
+    "poly_mech:scheelite_rhyolite_ore",
+    "poly_mech:scheelite_dacite_ore",
+    "poly_mech:scheelite_diorite_ore",
+    "poly_mech:scheelite_gabbro_ore",
+    "poly_mech:scheelite_andesite_ore",
+    "poly_mech:scheelite_marble_ore",
+    "poly_mech:scheelite_gneiss_ore",
+    "poly_mech:scheelite_schist_ore",
+    "poly_mech:scheelite_slate_ore",
+    "poly_mech:scheelite_phyllite_ore",
+    "poly_mech:scheelite_quartzite_ore"
+  ]
+}

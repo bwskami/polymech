@@ -117,7 +117,186 @@ public class ModZhCnLangProvider extends LanguageProvider {
             Map.entry("protactinium", "镤"),
             Map.entry("neptunium", "镎"),
             Map.entry("americium", "镅"),
-            Map.entry("test", "测试")
+            Map.entry("test", "测试"),
+            // 宝石/晶体
+            Map.entry("diamond", "钻石"),
+            Map.entry("emerald", "绿宝石"),
+            Map.entry("ruby", "红宝石"),
+            Map.entry("sapphire", "蓝宝石"),
+            Map.entry("topaz", "黄玉"),
+            Map.entry("amethyst", "紫水晶"),
+            Map.entry("garnet", "石榴石"),
+            Map.entry("opal", "蛋白石"),
+            Map.entry("apatite", "磷灰石"),
+            Map.entry("quartz", "石英"),
+            Map.entry("certus_quartz", "赛特斯石英")
+    );
+
+    /** 真实矿物中文名（矿物学标准译名） */
+    private static final Map<String, String> MINERAL_ZH_NAMES = Map.ofEntries(
+            // 铜族
+            Map.entry("native_copper", "自然铜"),
+            Map.entry("malachite", "孔雀石"),
+            Map.entry("chalcopyrite", "黄铜矿"),
+            Map.entry("bornite", "斑铜矿"),
+            Map.entry("chalcocite", "辉铜矿"),
+            Map.entry("tetrahedrite", "黝铜矿"),
+            Map.entry("copper", "铜"),
+            // 铁族
+            Map.entry("hematite", "赤铁矿"),
+            Map.entry("magnetite", "磁铁矿"),
+            Map.entry("limonite", "褐铁矿"),
+            Map.entry("goethite", "针铁矿"),
+            Map.entry("vanadium_magnetite", "钒磁铁矿"),
+            Map.entry("iron", "铁"),
+            // 锡族
+            Map.entry("cassiterite", "锡石"),
+            Map.entry("cassiterite_sand", "砂锡矿"),
+            Map.entry("tin", "锡"),
+            // 锌铅银
+            Map.entry("sphalerite", "闪锌矿"),
+            Map.entry("galena", "方铅矿"),
+            Map.entry("lead", "铅"),
+            Map.entry("native_silver", "自然银"),
+            Map.entry("silver", "银"),
+            // 金
+            Map.entry("native_gold", "自然金"),
+            Map.entry("gold", "金"),
+            // 铋
+            Map.entry("bismuthinite", "辉铋矿"),
+            // 镍钴
+            Map.entry("garnierite", "硅镁镍矿"),
+            Map.entry("pentlandite", "镍黄铁矿"),
+            Map.entry("nickel", "镍"),
+            Map.entry("cobaltite", "辉钴矿"),
+            Map.entry("cobalt", "钴"),
+            // 铝
+            Map.entry("bauxite", "铝土矿"),
+            Map.entry("alunite", "明矾石"),
+            Map.entry("aluminium", "铝"),
+            // 钨
+            Map.entry("wolframite", "黑钨矿"),
+            Map.entry("scheelite", "白钨矿"),
+            Map.entry("tungstate", "钨酸锂"),
+            // 锑砷
+            Map.entry("stibnite", "辉锑矿"),
+            Map.entry("realgar", "雄黄"),
+            // 锰铬钛
+            Map.entry("pyrolusite", "软锰矿"),
+            Map.entry("chromite", "铬铁矿"),
+            Map.entry("ilmenite", "钛铁矿"),
+            // 钼
+            Map.entry("molybdenite", "辉钼矿"),
+            Map.entry("powellite", "钼华"),
+            Map.entry("wulfenite", "钼铅矿"),
+            Map.entry("molybdenum", "钼"),
+            // 钽铌
+            Map.entry("tantalite", "钽铁矿"),
+            Map.entry("pyrochlore", "烧绿石"),
+            // 铂族
+            Map.entry("cooperite", "硫铂矿"),
+            Map.entry("platinum", "铂"),
+            Map.entry("palladium", "钯"),
+            // 铀钍
+            Map.entry("pitchblende", "沥青铀矿"),
+            Map.entry("uraninite", "晶质铀矿"),
+            Map.entry("thorium", "钍"),
+            Map.entry("plutonium_239", "钚-239"),
+            // 轻金属稀土
+            Map.entry("beryllium", "铍"),
+            Map.entry("spodumene", "锂辉石"),
+            Map.entry("lepidolite", "锂云母"),
+            Map.entry("lithium", "锂"),
+            Map.entry("pollucite", "铯榴石"),
+            Map.entry("bastnasite", "氟碳铈矿"),
+            Map.entry("monazite", "独居石"),
+            Map.entry("neodymium", "钕"),
+            // 石榴石族
+            Map.entry("almandine", "铁铝榴石"),
+            Map.entry("andradite", "钙铁榴石"),
+            Map.entry("grossular", "钙铝榴石"),
+            Map.entry("pyrope", "镁铝榴石"),
+            Map.entry("spessartine", "锰铝榴石"),
+            Map.entry("red_garnet", "红石榴石"),
+            Map.entry("yellow_garnet", "黄石榴石"),
+            // 宝石
+            Map.entry("amethyst", "紫水晶"),
+            Map.entry("diamond", "钻石"),
+            Map.entry("emerald", "祖母绿"),
+            Map.entry("lapis_lazuli", "青金石"),
+            Map.entry("lazurite", "蓝金石"),
+            Map.entry("sodalite", "方钠石"),
+            Map.entry("opal", "蛋白石"),
+            Map.entry("pyrite", "黄铁矿"),
+            Map.entry("ruby", "红宝石"),
+            Map.entry("sapphire", "蓝宝石"),
+            Map.entry("green_sapphire", "绿蓝宝石"),
+            Map.entry("topaz", "黄玉"),
+            Map.entry("blue_topaz", "蓝黄玉"),
+            Map.entry("apatite", "磷灰石"),
+            Map.entry("olivine", "橄榄石"),
+            Map.entry("quartzite", "石英岩"),
+            Map.entry("nether_quartz", "下界石英"),
+            Map.entry("certus_quartz", "赛特斯石英"),
+            // 非金属
+            Map.entry("sulfur", "硫"),
+            Map.entry("graphite", "石墨"),
+            Map.entry("saltpeter", "硝石"),
+            Map.entry("sylvite", "钾石盐"),
+            Map.entry("salt", "盐"),
+            Map.entry("rock_salt", "岩盐"),
+            Map.entry("gypsum", "石膏"),
+            Map.entry("cinnabar", "朱砂"),
+            Map.entry("cryolite", "冰晶石"),
+            Map.entry("borax", "硼砂"),
+            Map.entry("calcite", "方解石"),
+            Map.entry("barite", "重晶石"),
+            Map.entry("magnesite", "菱镁矿"),
+            Map.entry("asbestos", "石棉"),
+            Map.entry("mica", "云母"),
+            Map.entry("talc", "滑石"),
+            Map.entry("soapstone", "皂石"),
+            Map.entry("kyanite", "蓝晶石"),
+            Map.entry("diatomite", "硅藻土"),
+            Map.entry("bentonite", "膨润土"),
+            Map.entry("fullers_earth", "漂白土"),
+            Map.entry("glauconite_sand", "海绿石砂"),
+            Map.entry("zeolite", "沸石"),
+            Map.entry("trona", "天然碱"),
+            Map.entry("tricalcium_phosphate", "磷酸三钙"),
+            Map.entry("basaltic_mineral_sand", "玄武岩矿砂"),
+            Map.entry("granitic_mineral_sand", "花岗岩矿砂"),
+            Map.entry("garnet_sand", "石榴石砂"),
+            // 煤系红石
+            Map.entry("bituminous_coal", "烟煤"),
+            Map.entry("lignite", "褐煤"),
+            Map.entry("oilsands", "油砂"),
+            Map.entry("redstone", "红石")
+    );
+
+    /** 群峦岩种中文名（岩石方块与岩种矿石命名共用） */
+    private static final Map<String, String> ROCK_ZH_NAMES = Map.ofEntries(
+            Map.entry("limestone", "石灰岩"),
+            Map.entry("shale", "页岩"),
+            Map.entry("chalk", "白垩岩"),
+            Map.entry("chert", "燧石岩"),
+            Map.entry("claystone", "粘土岩"),
+            Map.entry("conglomerate", "砾岩"),
+            Map.entry("dolomite", "白云岩"),
+            Map.entry("tuff", "凝灰岩"),
+            Map.entry("granite", "花岗岩"),
+            Map.entry("basalt", "玄武岩"),
+            Map.entry("rhyolite", "流纹岩"),
+            Map.entry("dacite", "英安岩"),
+            Map.entry("diorite", "闪长岩"),
+            Map.entry("gabbro", "辉长岩"),
+            Map.entry("andesite", "安山岩"),
+            Map.entry("marble", "大理岩"),
+            Map.entry("gneiss", "片麻岩"),
+            Map.entry("schist", "片岩"),
+            Map.entry("slate", "板岩"),
+            Map.entry("phyllite", "千枚岩"),
+            Map.entry("quartzite", "石英岩")
     );
 
     /** 化学流体中文名（datagen侧的翻译源数据，运行时一律通过翻译键解析） */
@@ -488,6 +667,12 @@ public class ModZhCnLangProvider extends LanguageProvider {
             if (dustItem != null) {
                 add(dustItem.get(), zhName + "粉");
             }
+
+            // 宝石/晶体（宝石物品名直接用宝石名，如"钻石"；粉为"钻石粉"）
+            var gemItem = ModItems.getMaterialItem(ModItemTypes.GEM, materialName);
+            if (gemItem != null) {
+                add(gemItem.get(), zhName);
+            }
             
             // 板
             var plateItem = ModItems.getMaterialItem(ModItemTypes.PLATE, materialName);
@@ -548,14 +733,71 @@ public class ModZhCnLangProvider extends LanguageProvider {
             if (wireItem != null) {
                 add(wireItem.get(), zhName + "线");
             }
-            
 
         }
 
+        // 真实矿物：矿石方块（全部岩种变体，群峦式命名）与粗矿物（矿物学中文名）
+        for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
+            String mineralZh = MINERAL_ZH_NAMES.getOrDefault(def.mineral(), def.mineral());
+            var oreSet = ModBlocks.MINERAL_ORES.get(def.mineral());
+            if (oreSet != null) {
+                for (var variantEntry : oreSet.byRock().entrySet()) {
+                    String host = variantEntry.getKey();
+                    String name = switch (host) {
+                        case "stone" -> mineralZh + "矿石";
+                        case "deepslate" -> "深层" + mineralZh + "矿石";
+                        default -> mineralZh + ROCK_ZH_NAMES.getOrDefault(host, host) + "矿石";
+                    };
+                    add(variantEntry.getValue().get(), name);
+                }
+            }
+            var rawItem = ModItems.getRawMineral(def.mineral());
+            if (rawItem != null) {
+                add(rawItem.get(), "粗" + mineralZh);
+            }
+            // 矿物加工中间产物：粉碎矿/洗净矿（煤炭等直接产物不加工）
+            if (def.kind() != com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL) {
+                var crushed = ModItems.getMineralItem(com.mss.polymech.api.item.ModItemTypes.CRUSHED, def.mineral());
+                var purified = ModItems.getMineralItem(com.mss.polymech.api.item.ModItemTypes.PURIFIED, def.mineral());
+                if (crushed != null) add(crushed.get(), "粉碎" + mineralZh);
+                if (purified != null) add(purified.get(), "洗净" + mineralZh);
+            }
+        }
+
         add(ModItems.WRENCH.get(), "扳手");
+        add(ModItems.PROSPECTOR.get(), "探矿仪");
+        add("gui.poly_mech.prospector.title", "探矿仪");
+        add("gui.poly_mech.prospector.hint", "岩石类型（底色）+ 矿物矿石（叠加色）。红框=所在区块。");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
+
+        // 区域岩石（群峦岩种，与ROCK_ZH_NAMES同源）
+        for (var rockEntry : ModBlocks.ROCKS.entrySet()) {
+            add(rockEntry.getValue().get(), ROCK_ZH_NAMES.getOrDefault(rockEntry.getKey(), rockEntry.getKey()));
+        }
+
+        // 勘探命令套件（世界生成测试工具）
+        add("command.poly_mech.rock.predicted", "此处预测岩种：%s");
+        add("command.poly_mech.rock.actual", "脚下实际方块：%s，位于 %s");
+        add("command.poly_mech.rock.none", "脚下64格内未找到岩石（只有空气或流体）");
+        add("command.poly_mech.veins.header", "=== PolyMech 矿脉定义 ===");
+        add("command.poly_mech.veins.entry", "- %s：平均每1/%d区块一条，Y %d~%d，尺寸 %d，密度 %s，宿主岩：%s");
+        add("command.poly_mech.veins.composition", "  主矿 %s / 次矿 %s / 夹层 %s / 零星 %s");
+        add("command.poly_mech.scan.result", "%s：%d 块，最近处 %s");
+        add("command.poly_mech.scan.total", "共 %d 个矿石方块");
+        add("command.poly_mech.scan.none", "扫描范围内未找到本模组矿石");
+        add("command.poly_mech.scan.unloaded", "（%d 列因区块未加载被跳过）");
+        add("command.poly_mech.find.found", "最近的 %1$s 矿石：%2$d 格外 %3$s");
+        add("command.poly_mech.find.none", "半径 %2$d 格内未找到 %1$s 矿石");
+        add("command.poly_mech.find.invalid", "未知矿石材料：%s（可用：%s）");
+        add("command.poly_mech.expose.done", "已清除 %1$d 个方块（以玩家为中心、半径 %2$d 的立方体范围）");
+        add("command.poly_mech.vein.cassiterite", "锡石脉");
+        add("command.poly_mech.vein.sphalerite", "闪锌矿脉");
+        add("command.poly_mech.vein.galena", "方铅矿脉");
+        add("command.poly_mech.vein.bauxite", "铝土矿脉");
+        add("command.poly_mech.vein.laterite", "红土镍矿脉");
+        add("command.poly_mech.vein.wolframite", "黑钨矿脉");
         add(ModBlocks.HORIZONTAL_STEAM_BOILER.mainBlock().get(), "卧式蒸汽锅炉");
 
         // 卧式蒸汽锅炉 GUI 翻译
@@ -815,6 +1057,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
 
         add("itemGroup.material_tab", "Ploy Mech:材料");
         add("itemGroup.block_tab", "Ploy Mech:方块");
+        add("itemGroup.mineral_tab", "Ploy Mech:矿物");
         add("itemGroup.pipe_tab", "Ploy Mech:管道与物流相关");
         add("itemGroup.tool_tab", "Ploy Mech:工具");
         add("itemGroup.fluid_cell_tab", "Ploy Mech:流体单元");

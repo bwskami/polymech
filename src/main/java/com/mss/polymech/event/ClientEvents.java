@@ -35,6 +35,11 @@ public class ClientEvents {
         for (var materialBlock : ModBlocks.MATERIAL_BLOCKS.values()) {
             ItemBlockRenderTypes.setRenderLayer(materialBlock.get(), RenderType.translucent());
         }
+
+        // 矿石方块：石头底层不透明 + 矿脉染色层为镂空贴图，使用cutout渲染
+        for (var oreBlock : ModBlocks.MINERAL_ORE_LIST) {
+            ItemBlockRenderTypes.setRenderLayer(oreBlock.get(), RenderType.cutout());
+        }
         
         Polymech.LOGGER.info("Pipe render layers configured to TRANSLUCENT!");
     }
@@ -74,7 +79,8 @@ public class ClientEvents {
         Block[] tintedBlocks = java.util.stream.Stream.of(
                         ModBlocks.PIPE_BLOCKS.stream(),
                         ModBlocks.CONVEYOR_BLOCKS.stream(),
-                        ModBlocks.MATERIAL_BLOCKS.values().stream())
+                        ModBlocks.MATERIAL_BLOCKS.values().stream(),
+                        ModBlocks.MINERAL_ORE_LIST.stream())
                 .flatMap(s -> s)
                 .map(holder -> holder.get())
                 .toArray(Block[]::new);

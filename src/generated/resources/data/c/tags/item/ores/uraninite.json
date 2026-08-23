@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:uraninite_ore",
+    "poly_mech:deepslate_uraninite_ore",
+    "poly_mech:uraninite_limestone_ore",
+    "poly_mech:uraninite_shale_ore",
+    "poly_mech:uraninite_chalk_ore",
+    "poly_mech:uraninite_chert_ore",
+    "poly_mech:uraninite_claystone_ore",
+    "poly_mech:uraninite_conglomerate_ore",
+    "poly_mech:uraninite_dolomite_ore",
+    "poly_mech:uraninite_tuff_ore",
+    "poly_mech:uraninite_granite_ore",
+    "poly_mech:uraninite_basalt_ore",
+    "poly_mech:uraninite_rhyolite_ore",
+    "poly_mech:uraninite_dacite_ore",
+    "poly_mech:uraninite_diorite_ore",
+    "poly_mech:uraninite_gabbro_ore",
+    "poly_mech:uraninite_andesite_ore",
+    "poly_mech:uraninite_marble_ore",
+    "poly_mech:uraninite_gneiss_ore",
+    "poly_mech:uraninite_schist_ore",
+    "poly_mech:uraninite_slate_ore",
+    "poly_mech:uraninite_phyllite_ore",
+    "poly_mech:uraninite_quartzite_ore"
+  ]
+}

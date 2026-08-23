@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:chromite_ore",
+    "poly_mech:deepslate_chromite_ore",
+    "poly_mech:chromite_limestone_ore",
+    "poly_mech:chromite_shale_ore",
+    "poly_mech:chromite_chalk_ore",
+    "poly_mech:chromite_chert_ore",
+    "poly_mech:chromite_claystone_ore",
+    "poly_mech:chromite_conglomerate_ore",
+    "poly_mech:chromite_dolomite_ore",
+    "poly_mech:chromite_tuff_ore",
+    "poly_mech:chromite_granite_ore",
+    "poly_mech:chromite_basalt_ore",
+    "poly_mech:chromite_rhyolite_ore",
+    "poly_mech:chromite_dacite_ore",
+    "poly_mech:chromite_diorite_ore",
+    "poly_mech:chromite_gabbro_ore",
+    "poly_mech:chromite_andesite_ore",
+    "poly_mech:chromite_marble_ore",
+    "poly_mech:chromite_gneiss_ore",
+    "poly_mech:chromite_schist_ore",
+    "poly_mech:chromite_slate_ore",
+    "poly_mech:chromite_phyllite_ore",
+    "poly_mech:chromite_quartzite_ore"
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:claystone",
+      "poly_mech:marble"
+    ],
+    "density": 0.25,
+    "max_y": 80,
+    "min_y": 10,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:apatite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:apatite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:apatite_marble_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 40,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:tricalcium_phosphate_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:tricalcium_phosphate_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:tricalcium_phosphate_marble_ore"
+          }
+        }
+      ]
+    },
+    "seed": -8744209213875695760,
+    "size": 6,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:pyrochlore_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:pyrochlore_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:pyrochlore_marble_ore"
+          }
+        }
+      ]
+    }
+  }
+}

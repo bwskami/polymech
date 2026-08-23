@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:pyrolusite_ore",
+    "poly_mech:deepslate_pyrolusite_ore",
+    "poly_mech:pyrolusite_limestone_ore",
+    "poly_mech:pyrolusite_shale_ore",
+    "poly_mech:pyrolusite_chalk_ore",
+    "poly_mech:pyrolusite_chert_ore",
+    "poly_mech:pyrolusite_claystone_ore",
+    "poly_mech:pyrolusite_conglomerate_ore",
+    "poly_mech:pyrolusite_dolomite_ore",
+    "poly_mech:pyrolusite_tuff_ore",
+    "poly_mech:pyrolusite_granite_ore",
+    "poly_mech:pyrolusite_basalt_ore",
+    "poly_mech:pyrolusite_rhyolite_ore",
+    "poly_mech:pyrolusite_dacite_ore",
+    "poly_mech:pyrolusite_diorite_ore",
+    "poly_mech:pyrolusite_gabbro_ore",
+    "poly_mech:pyrolusite_andesite_ore",
+    "poly_mech:pyrolusite_marble_ore",
+    "poly_mech:pyrolusite_gneiss_ore",
+    "poly_mech:pyrolusite_schist_ore",
+    "poly_mech:pyrolusite_slate_ore",
+    "poly_mech:pyrolusite_phyllite_ore",
+    "poly_mech:pyrolusite_quartzite_ore"
+  ]
+}

@@ -6,6 +6,54 @@
       "sourceType": "github",
       "skillPath": "skills/neoforge-modding/SKILL.md",
       "computedHash": "64d8cca1c869f4936b54a9cf7bda7daa8bced25b02632d8b1d383dccc4e1daee"
+    },
+    "minecraft-modding-workbench": {
+      "source": "adhi-jp/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/minecraft-modding-workbench/SKILL.md",
+      "computedHash": "786da8295dbcc6b0d8c2473d754d6ccef7e044059a8004bd831bc6527a2ef513"
+    },
+    "minecraft-modding": {
+      "source": "Jahrome907/minecraft-agent-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/minecraft-modding/SKILL.md",
+      "computedHash": "0dc4184ada9e8ba899591e1d08dc89a7e95925b1e211a01e4ade31538558f7e0"
+    },
+    "minecraft-testing": {
+      "source": "Jahrome907/minecraft-agent-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/minecraft-testing/SKILL.md",
+      "computedHash": "0c7ba3cdd85063d20dfc3476ba956f6bfdc18f60871a3e6b7b1722354531db00"
+    },
+    "minecraft-ci-release": {
+      "source": "Jahrome907/minecraft-agent-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/minecraft-ci-release/SKILL.md",
+      "computedHash": "5375cfdaccb682fa1d1a15535d56b8aeabb882bd5f17370c18c6f1870376866c"
+    },
+    "blockbench-modeling": {
+      "source": "jasonjgardner/blockbench-mcp-project",
+      "sourceType": "github",
+      "skillPath": "skills/blockbench-modeling/SKILL.md",
+      "computedHash": "d2ef966e9dfa7483c795c5f9fb080f3cbc423c4d686e98b7ad9eaf9338f9c214"
+    },
+    "blockbench-texturing": {
+      "source": "jasonjgardner/blockbench-mcp-project",
+      "sourceType": "github",
+      "skillPath": "skills/blockbench-texturing/SKILL.md",
+      "computedHash": "ccfca678bdbdec62ce91e0287e01c43c52f3f36ddb82f40bd26423891e42f584"
+    },
+    "blockbench-animation": {
+      "source": "jasonjgardner/blockbench-mcp-project",
+      "sourceType": "github",
+      "skillPath": "skills/blockbench-animation/SKILL.md",
+      "computedHash": "5855539b439ca21a16cfbc84df1d44c2fd5f36fbed2f8e7f6e6e4dfa21633347"
+    },
+    "poly-mech-architecture": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": ".qoder/skills/poly-mech-architecture/SKILL.md",
+      "computedHash": "743d3b9564be34721ae643cb64a0960cd376e53e076f26453bd7a7f313f3c4d6"
     }
   }
 }

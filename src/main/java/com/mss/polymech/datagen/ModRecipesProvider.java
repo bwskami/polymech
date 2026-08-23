@@ -104,28 +104,112 @@ public class ModRecipesProvider extends RecipeProvider implements IConditionBuil
                         List.of(si(Blocks.GRAVEL)),
                         List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 50)),
                         List.of(new ItemStack(Items.FLINT)), List.of(), 60, 0, false));
-        saveMachine(out, ModRecipeTypes.STEAM_ROLLER_CRUSHER, "raw_iron_to_dust",
+        // 原版粗铁→铁粉（真实矿物链：选矿得铁粉，熔炼回原版铁锭；不再错误地产出钢粉）
+        saveMachine(out, ModRecipeTypes.STEAM_ROLLER_CRUSHER, "vanilla_raw_iron_to_iron_dust",
                 new MachineRecipe(ModRecipeTypes.STEAM_ROLLER_CRUSHER.type().get(),
                         List.of(si(Items.RAW_IRON)),
                         List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 100)),
-                        List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "steel").get())),
+                        List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "iron").get())),
                         List.of(), 120, 0, false));
 
         // ===== 蒸汽双联矿物跳汰机：原矿→双倍粉（耗汽更高） =====
-        saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "raw_iron_to_dust_x2",
+        saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "vanilla_raw_iron_to_iron_dust_x2",
                 new MachineRecipe(ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG.type().get(),
                         List.of(si(Items.RAW_IRON)),
                         List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
-                        List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "steel").get(), 2)),
+                        List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "iron").get(), 2)),
                         List.of(), 160, 0, false));
+        // 原版粗金→金粉（单倍破碎）
+        saveMachine(out, ModRecipeTypes.STEAM_ROLLER_CRUSHER, "vanilla_raw_gold_to_gold_dust",
+                new MachineRecipe(ModRecipeTypes.STEAM_ROLLER_CRUSHER.type().get(),
+                        List.of(si(Items.RAW_GOLD)),
+                        List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 100)),
+                        List.of(new ItemStack(ModItems.getMaterialItem(ModItemTypes.DUST, "gold").get())),
+                        List.of(), 120, 0, false));
         var copperDust = ModItems.getMaterialItem(ModItemTypes.DUST, "copper");
         if (copperDust != null) {
-            saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "raw_copper_to_dust_x2",
+            saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "vanilla_raw_copper_to_copper_dust_x2",
                     new MachineRecipe(ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG.type().get(),
                             List.of(si(Items.RAW_COPPER)),
                             List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
                             List.of(new ItemStack(copperDust.get(), 2)),
                             List.of(), 160, 0, false));
+        }
+
+        // ===== 真实矿物加工链：粗矿物→破碎机单倍金属粉 / 跳汰机双倍金属粉 =====
+        // 化学事实：金属以矿物（化合物）形式存在，必须先选矿再冶炼，
+        // 因此不存在"粗矿物/矿石直接熔炼成锭"的捷径（金属粉→锭的熔炼保留在金属配方侧）
+        for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
+            String mineral = def.mineral();
+            var rawItem = ModItems.getRawMineral(mineral);
+            var dust = ModItems.getMaterialItem(ModItemTypes.DUST, def.metal());
+            if (rawItem == null || dust == null) continue;
+
+            // 蒸汽辊式破碎机：粗矿物→1金属粉（低耗汽，基础倍率）
+            saveMachine(out, ModRecipeTypes.STEAM_ROLLER_CRUSHER, "raw_" + mineral + "_to_dust",
+                    new MachineRecipe(ModRecipeTypes.STEAM_ROLLER_CRUSHER.type().get(),
+                            List.of(si(rawItem.get())),
+                            List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 100)),
+                            List.of(new ItemStack(dust.get())), List.of(),
+                            120, 0, false));
+
+            // 蒸汽双联矿物跳汰机：粗矿物→2金属粉（高耗汽，双倍倍率）
+            saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "raw_" + mineral + "_to_dust_x2",
+                    new MachineRecipe(ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG.type().get(),
+                            List.of(si(rawItem.get())),
+                            List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
+                            List.of(new ItemStack(dust.get(), 2)), List.of(),
+                            160, 0, false));
+        }
+
+        // ===== 矿物加工链（格雷式三级选矿）：粗矿→粉碎矿→洗净矿→金属粉 =====
+        // 粗矿破碎成粉碎矿；粉碎矿跳汰洗选成洗净矿；洗净矿再破碎成纯金属粉。
+        // 煤炭等直接产物类型跳过；宝石/非金属矿物同样有粉碎/洗净产物。
+        for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
+            if (def.kind() == com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL) continue;
+            var raw = ModItems.getRawMineral(def.mineral());
+            var crushed = ModItems.getMineralItem(ModItemTypes.CRUSHED, def.mineral());
+            var purified = ModItems.getMineralItem(ModItemTypes.PURIFIED, def.mineral());
+            var dust = ModItems.getMaterialItem(ModItemTypes.DUST, def.metal());
+            if (raw == null || crushed == null || purified == null || dust == null) continue;
+
+            // 破碎机：粗矿 → 粉碎矿
+            saveMachine(out, ModRecipeTypes.STEAM_ROLLER_CRUSHER, "raw_" + def.mineral() + "_to_crushed",
+                    new MachineRecipe(ModRecipeTypes.STEAM_ROLLER_CRUSHER.type().get(),
+                            List.of(si(raw.get())),
+                            List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 100)),
+                            List.of(new ItemStack(crushed.get())), List.of(),
+                            120, 0, false));
+
+            // 跳汰机：粉碎矿 → 洗净矿
+            saveMachine(out, ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG, "crushed_" + def.mineral() + "_to_purified",
+                    new MachineRecipe(ModRecipeTypes.STEAM_DUPLEX_MINERAL_JIG.type().get(),
+                            List.of(si(crushed.get())),
+                            List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 200)),
+                            List.of(new ItemStack(purified.get())), List.of(),
+                            160, 0, false));
+
+            // 破碎机：洗净矿 → 金属/宝石/非金属粉
+            saveMachine(out, ModRecipeTypes.STEAM_ROLLER_CRUSHER, "purified_" + def.mineral() + "_to_dust",
+                    new MachineRecipe(ModRecipeTypes.STEAM_ROLLER_CRUSHER.type().get(),
+                            List.of(si(purified.get())),
+                            List.of(new MachineRecipe.FluidInput(ModFluids.STEAM_SOURCE.get(), 100)),
+                            List.of(new ItemStack(dust.get())), List.of(),
+                            120, 0, false));
+        }
+
+        // ===== 原版三大金属：金属粉熔炼成原版锭 =====
+        // 铁/铜/金锭沿用原版物品（不重复造锭），粉碎选矿后的粉回到原版熔炉
+        for (String vanillaMetal : new String[]{"iron", "copper", "gold"}) {
+            var dust = ModItems.getMaterialItem(ModItemTypes.DUST, vanillaMetal);
+            if (dust == null) continue;
+            ItemLike vanillaIngot = switch (vanillaMetal) {
+                case "iron" -> Items.IRON_INGOT;
+                case "copper" -> Items.COPPER_INGOT;
+                default -> Items.GOLD_INGOT;
+            };
+            oreSmelting(out, List.of(dust.get()), RecipeCategory.MISC, vanillaIngot, 0.7F, 200, vanillaMetal + "_ingot");
+            oreBlasting(out, List.of(dust.get()), RecipeCategory.MISC, vanillaIngot, 0.7F, 100, vanillaMetal + "_ingot");
         }
 
         // ===== 灌装机：空桶+蒸汽→蒸汽桶（电力） =====

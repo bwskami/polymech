@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:tantalite_ore",
+    "poly_mech:deepslate_tantalite_ore",
+    "poly_mech:tantalite_limestone_ore",
+    "poly_mech:tantalite_shale_ore",
+    "poly_mech:tantalite_chalk_ore",
+    "poly_mech:tantalite_chert_ore",
+    "poly_mech:tantalite_claystone_ore",
+    "poly_mech:tantalite_conglomerate_ore",
+    "poly_mech:tantalite_dolomite_ore",
+    "poly_mech:tantalite_tuff_ore",
+    "poly_mech:tantalite_granite_ore",
+    "poly_mech:tantalite_basalt_ore",
+    "poly_mech:tantalite_rhyolite_ore",
+    "poly_mech:tantalite_dacite_ore",
+    "poly_mech:tantalite_diorite_ore",
+    "poly_mech:tantalite_gabbro_ore",
+    "poly_mech:tantalite_andesite_ore",
+    "poly_mech:tantalite_marble_ore",
+    "poly_mech:tantalite_gneiss_ore",
+    "poly_mech:tantalite_schist_ore",
+    "poly_mech:tantalite_slate_ore",
+    "poly_mech:tantalite_phyllite_ore",
+    "poly_mech:tantalite_quartzite_ore"
+  ]
+}

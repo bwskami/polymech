@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:tungstate_ore",
+    "poly_mech:deepslate_tungstate_ore",
+    "poly_mech:tungstate_limestone_ore",
+    "poly_mech:tungstate_shale_ore",
+    "poly_mech:tungstate_chalk_ore",
+    "poly_mech:tungstate_chert_ore",
+    "poly_mech:tungstate_claystone_ore",
+    "poly_mech:tungstate_conglomerate_ore",
+    "poly_mech:tungstate_dolomite_ore",
+    "poly_mech:tungstate_tuff_ore",
+    "poly_mech:tungstate_granite_ore",
+    "poly_mech:tungstate_basalt_ore",
+    "poly_mech:tungstate_rhyolite_ore",
+    "poly_mech:tungstate_dacite_ore",
+    "poly_mech:tungstate_diorite_ore",
+    "poly_mech:tungstate_gabbro_ore",
+    "poly_mech:tungstate_andesite_ore",
+    "poly_mech:tungstate_marble_ore",
+    "poly_mech:tungstate_gneiss_ore",
+    "poly_mech:tungstate_schist_ore",
+    "poly_mech:tungstate_slate_ore",
+    "poly_mech:tungstate_phyllite_ore",
+    "poly_mech:tungstate_quartzite_ore"
+  ]
+}

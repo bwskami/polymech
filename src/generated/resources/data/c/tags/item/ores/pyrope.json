@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:pyrope_ore",
+    "poly_mech:deepslate_pyrope_ore",
+    "poly_mech:pyrope_limestone_ore",
+    "poly_mech:pyrope_shale_ore",
+    "poly_mech:pyrope_chalk_ore",
+    "poly_mech:pyrope_chert_ore",
+    "poly_mech:pyrope_claystone_ore",
+    "poly_mech:pyrope_conglomerate_ore",
+    "poly_mech:pyrope_dolomite_ore",
+    "poly_mech:pyrope_tuff_ore",
+    "poly_mech:pyrope_granite_ore",
+    "poly_mech:pyrope_basalt_ore",
+    "poly_mech:pyrope_rhyolite_ore",
+    "poly_mech:pyrope_dacite_ore",
+    "poly_mech:pyrope_diorite_ore",
+    "poly_mech:pyrope_gabbro_ore",
+    "poly_mech:pyrope_andesite_ore",
+    "poly_mech:pyrope_marble_ore",
+    "poly_mech:pyrope_gneiss_ore",
+    "poly_mech:pyrope_schist_ore",
+    "poly_mech:pyrope_slate_ore",
+    "poly_mech:pyrope_phyllite_ore",
+    "poly_mech:pyrope_quartzite_ore"
+  ]
+}

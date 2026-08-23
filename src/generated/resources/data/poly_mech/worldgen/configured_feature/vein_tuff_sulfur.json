@@ -1,0 +1,34 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:tuff"
+    ],
+    "density": 0.45,
+    "max_y": 200,
+    "min_y": 40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:sulfur_tuff_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 2,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:sulfur_tuff_ore"
+          }
+        }
+      ]
+    },
+    "seed": 2576100730088369258,
+    "size": 5
+  }
+}

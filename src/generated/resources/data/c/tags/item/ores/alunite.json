@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:alunite_ore",
+    "poly_mech:deepslate_alunite_ore",
+    "poly_mech:alunite_limestone_ore",
+    "poly_mech:alunite_shale_ore",
+    "poly_mech:alunite_chalk_ore",
+    "poly_mech:alunite_chert_ore",
+    "poly_mech:alunite_claystone_ore",
+    "poly_mech:alunite_conglomerate_ore",
+    "poly_mech:alunite_dolomite_ore",
+    "poly_mech:alunite_tuff_ore",
+    "poly_mech:alunite_granite_ore",
+    "poly_mech:alunite_basalt_ore",
+    "poly_mech:alunite_rhyolite_ore",
+    "poly_mech:alunite_dacite_ore",
+    "poly_mech:alunite_diorite_ore",
+    "poly_mech:alunite_gabbro_ore",
+    "poly_mech:alunite_andesite_ore",
+    "poly_mech:alunite_marble_ore",
+    "poly_mech:alunite_gneiss_ore",
+    "poly_mech:alunite_schist_ore",
+    "poly_mech:alunite_slate_ore",
+    "poly_mech:alunite_phyllite_ore",
+    "poly_mech:alunite_quartzite_ore"
+  ]
+}

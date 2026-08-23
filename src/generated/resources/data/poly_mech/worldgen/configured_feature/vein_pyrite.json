@@ -1,0 +1,125 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:basalt",
+      "poly_mech:rhyolite",
+      "poly_mech:dacite",
+      "poly_mech:diorite",
+      "poly_mech:gabbro",
+      "poly_mech:andesite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.35,
+    "max_y": 70,
+    "min_y": -50,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:pyrite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:pyrite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:pyrite_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:pyrite_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:pyrite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:pyrite_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:pyrite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_pyrite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 16,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:pyrite_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:basalt",
+          "ore": {
+            "Name": "poly_mech:pyrite_basalt_ore"
+          }
+        },
+        {
+          "host": "poly_mech:rhyolite",
+          "ore": {
+            "Name": "poly_mech:pyrite_rhyolite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dacite",
+          "ore": {
+            "Name": "poly_mech:pyrite_dacite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:pyrite_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gabbro",
+          "ore": {
+            "Name": "poly_mech:pyrite_gabbro_ore"
+          }
+        },
+        {
+          "host": "poly_mech:andesite",
+          "ore": {
+            "Name": "poly_mech:pyrite_andesite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_pyrite_ore"
+          }
+        }
+      ]
+    },
+    "seed": 6515059281607015328,
+    "size": 5
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:shale",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate"
+    ],
+    "density": 0.3,
+    "max_y": 80,
+    "min_y": 30,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:oilsands_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:oilsands_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:oilsands_conglomerate_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 40,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:oilsands_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:oilsands_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:oilsands_conglomerate_ore"
+          }
+        }
+      ]
+    },
+    "seed": -2531175872590963391,
+    "size": 7
+  }
+}

@@ -61,7 +61,14 @@ public class ModItemTypes {
         "scandium", "hafnium", "zirconium", "rhenium", "cadmium",
         "lanthanum", "cerium", "praseodymium", "promethium", "gadolinium",
         "terbium", "dysprosium", "holmium", "erbium", "thulium", "ytterbium", "lutetium",
-        "actinium", "protactinium", "neptunium", "americium"
+        "actinium", "protactinium", "neptunium", "americium",
+        // 原版三大金属：只产粉（锭用原版），粗矿破碎→粉→熔炼原版锭
+        "iron", "copper", "gold",
+        // 非金属工业矿物：矿石直接产粉
+        "sulfur", "graphite", "saltpeter", "sylvite", "salt", "gypsum",
+        "cinnabar", "cryolite", "borax", "calcite", "barite", "asbestos",
+        "mica", "talc", "kyanite", "diatomite", "bentonite", "fullers_earth",
+        "zeolite", "phosphate", "pyrite", "olivine"
     );
 
     /** 含锭材料过滤器（单质金属+合金）：锭、粒、板等形态只对含锭材料生成 */
@@ -103,6 +110,20 @@ public class ModItemTypes {
      .materialFilter(ALLOYS::contains));
 
     /*
+     * 宝石类型物品前缀（仅适用于宝石/晶体材料，见GemMaterials）。
+     * <p>
+     * 生成格式：{material}_gem，如diamond_gem、ruby_gem
+     * 本地化格式：{Material} Gem，如Diamond Gem
+     * </p>
+     */
+    public static final ItemTagPrefix GEM = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "gem"),
+        "%s_gem",
+        "%s Gem"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(com.mss.polymech.api.material.GemMaterials::hasGem));
+
+    /*
      * 粒类型物品前缀。
      * <p>
      * 生成格式：{material}_nugget，如steel_nugget
@@ -128,6 +149,38 @@ public class ModItemTypes {
         "%s_dust",
         "%s Dust"
     ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL));
+
+    /*
+     * 粉碎矿物品前缀（矿物加工中间产物，由粗矿经破碎机得到）。
+     * <p>
+     * 生成格式：{mineral}_crushed，如cassiterite_crushed
+     * 本地化格式：{Mineral} Crushed，如Cassiterite Crushed
+     * 只对{@link com.mss.polymech.worldgen.ModMinerals#getDefinitions()}中的矿物生成
+     * （煤炭等直接产物类型除外），是矿物系统的数据驱动一部分。
+     * </p>
+     */
+    public static final ItemTagPrefix CRUSHED = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "crushed"),
+        "%s_crushed",
+        "%s Crushed"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     // 矿物加工产物只对矿物生成，不参与材料循环（材料循环用materialFilter=false跳过）
+     .materialFilter(materialName -> false));
+
+    /*
+     * 洗净矿物品前缀（矿物加工中间产物，由粉碎矿经跳汰机/洗矿机得到）。
+     * <p>
+     * 生成格式：{mineral}_purified，如cassiterite_purified
+     * 本地化格式：{Mineral} Purified，如Cassiterite Purified
+     * 与粉碎矿同属矿物系统的数据驱动注册。
+     * </p>
+     */
+    public static final ItemTagPrefix PURIFIED = register(new ItemTagPrefix(
+        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "purified"),
+        "%s_purified",
+        "%s Purified"
+    ).creativeTab(ItemTagPrefix.CreativeTabTarget.MATERIAL)
+     .materialFilter(materialName -> false));
 
     /*
      * 板类型物品前缀。

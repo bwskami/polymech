@@ -1,0 +1,154 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "between": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:bauxite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:bauxite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:bauxite_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:bauxite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_bauxite_ore"
+          }
+        }
+      ]
+    },
+    "blocks": [
+      "poly_mech:gneiss",
+      "poly_mech:schist",
+      "poly_mech:phyllite",
+      "poly_mech:quartzite",
+      "minecraft:deepslate"
+    ],
+    "density": 0.25,
+    "max_y": -10,
+    "min_y": -40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:kyanite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:kyanite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:kyanite_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:kyanite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_kyanite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 20,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:mica_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:mica_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:mica_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:mica_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_mica_ore"
+          }
+        }
+      ]
+    },
+    "seed": 178233975140458863,
+    "size": 6,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:pollucite_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:pollucite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:pollucite_phyllite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:quartzite",
+          "ore": {
+            "Name": "poly_mech:pollucite_quartzite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_pollucite_ore"
+          }
+        }
+      ]
+    }
+  }
+}

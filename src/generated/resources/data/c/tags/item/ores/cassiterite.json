@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:cassiterite_ore",
+    "poly_mech:deepslate_cassiterite_ore",
+    "poly_mech:cassiterite_limestone_ore",
+    "poly_mech:cassiterite_shale_ore",
+    "poly_mech:cassiterite_chalk_ore",
+    "poly_mech:cassiterite_chert_ore",
+    "poly_mech:cassiterite_claystone_ore",
+    "poly_mech:cassiterite_conglomerate_ore",
+    "poly_mech:cassiterite_dolomite_ore",
+    "poly_mech:cassiterite_tuff_ore",
+    "poly_mech:cassiterite_granite_ore",
+    "poly_mech:cassiterite_basalt_ore",
+    "poly_mech:cassiterite_rhyolite_ore",
+    "poly_mech:cassiterite_dacite_ore",
+    "poly_mech:cassiterite_diorite_ore",
+    "poly_mech:cassiterite_gabbro_ore",
+    "poly_mech:cassiterite_andesite_ore",
+    "poly_mech:cassiterite_marble_ore",
+    "poly_mech:cassiterite_gneiss_ore",
+    "poly_mech:cassiterite_schist_ore",
+    "poly_mech:cassiterite_slate_ore",
+    "poly_mech:cassiterite_phyllite_ore",
+    "poly_mech:cassiterite_quartzite_ore"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:andradite_ore",
+    "poly_mech:deepslate_andradite_ore",
+    "poly_mech:andradite_limestone_ore",
+    "poly_mech:andradite_shale_ore",
+    "poly_mech:andradite_chalk_ore",
+    "poly_mech:andradite_chert_ore",
+    "poly_mech:andradite_claystone_ore",
+    "poly_mech:andradite_conglomerate_ore",
+    "poly_mech:andradite_dolomite_ore",
+    "poly_mech:andradite_tuff_ore",
+    "poly_mech:andradite_granite_ore",
+    "poly_mech:andradite_basalt_ore",
+    "poly_mech:andradite_rhyolite_ore",
+    "poly_mech:andradite_dacite_ore",
+    "poly_mech:andradite_diorite_ore",
+    "poly_mech:andradite_gabbro_ore",
+    "poly_mech:andradite_andesite_ore",
+    "poly_mech:andradite_marble_ore",
+    "poly_mech:andradite_gneiss_ore",
+    "poly_mech:andradite_schist_ore",
+    "poly_mech:andradite_slate_ore",
+    "poly_mech:andradite_phyllite_ore",
+    "poly_mech:andradite_quartzite_ore"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:spessartine_ore",
+    "poly_mech:deepslate_spessartine_ore",
+    "poly_mech:spessartine_limestone_ore",
+    "poly_mech:spessartine_shale_ore",
+    "poly_mech:spessartine_chalk_ore",
+    "poly_mech:spessartine_chert_ore",
+    "poly_mech:spessartine_claystone_ore",
+    "poly_mech:spessartine_conglomerate_ore",
+    "poly_mech:spessartine_dolomite_ore",
+    "poly_mech:spessartine_tuff_ore",
+    "poly_mech:spessartine_granite_ore",
+    "poly_mech:spessartine_basalt_ore",
+    "poly_mech:spessartine_rhyolite_ore",
+    "poly_mech:spessartine_dacite_ore",
+    "poly_mech:spessartine_diorite_ore",
+    "poly_mech:spessartine_gabbro_ore",
+    "poly_mech:spessartine_andesite_ore",
+    "poly_mech:spessartine_marble_ore",
+    "poly_mech:spessartine_gneiss_ore",
+    "poly_mech:spessartine_schist_ore",
+    "poly_mech:spessartine_slate_ore",
+    "poly_mech:spessartine_phyllite_ore",
+    "poly_mech:spessartine_quartzite_ore"
+  ]
+}

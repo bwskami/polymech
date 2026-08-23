@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:quartzite_ore",
+    "poly_mech:deepslate_quartzite_ore",
+    "poly_mech:quartzite_limestone_ore",
+    "poly_mech:quartzite_shale_ore",
+    "poly_mech:quartzite_chalk_ore",
+    "poly_mech:quartzite_chert_ore",
+    "poly_mech:quartzite_claystone_ore",
+    "poly_mech:quartzite_conglomerate_ore",
+    "poly_mech:quartzite_dolomite_ore",
+    "poly_mech:quartzite_tuff_ore",
+    "poly_mech:quartzite_granite_ore",
+    "poly_mech:quartzite_basalt_ore",
+    "poly_mech:quartzite_rhyolite_ore",
+    "poly_mech:quartzite_dacite_ore",
+    "poly_mech:quartzite_diorite_ore",
+    "poly_mech:quartzite_gabbro_ore",
+    "poly_mech:quartzite_andesite_ore",
+    "poly_mech:quartzite_marble_ore",
+    "poly_mech:quartzite_gneiss_ore",
+    "poly_mech:quartzite_schist_ore",
+    "poly_mech:quartzite_slate_ore",
+    "poly_mech:quartzite_phyllite_ore",
+    "poly_mech:quartzite_quartzite_ore"
+  ]
+}

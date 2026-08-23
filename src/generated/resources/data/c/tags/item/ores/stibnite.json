@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:stibnite_ore",
+    "poly_mech:deepslate_stibnite_ore",
+    "poly_mech:stibnite_limestone_ore",
+    "poly_mech:stibnite_shale_ore",
+    "poly_mech:stibnite_chalk_ore",
+    "poly_mech:stibnite_chert_ore",
+    "poly_mech:stibnite_claystone_ore",
+    "poly_mech:stibnite_conglomerate_ore",
+    "poly_mech:stibnite_dolomite_ore",
+    "poly_mech:stibnite_tuff_ore",
+    "poly_mech:stibnite_granite_ore",
+    "poly_mech:stibnite_basalt_ore",
+    "poly_mech:stibnite_rhyolite_ore",
+    "poly_mech:stibnite_dacite_ore",
+    "poly_mech:stibnite_diorite_ore",
+    "poly_mech:stibnite_gabbro_ore",
+    "poly_mech:stibnite_andesite_ore",
+    "poly_mech:stibnite_marble_ore",
+    "poly_mech:stibnite_gneiss_ore",
+    "poly_mech:stibnite_schist_ore",
+    "poly_mech:stibnite_slate_ore",
+    "poly_mech:stibnite_phyllite_ore",
+    "poly_mech:stibnite_quartzite_ore"
+  ]
+}

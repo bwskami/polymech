@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:wulfenite_ore",
+    "poly_mech:deepslate_wulfenite_ore",
+    "poly_mech:wulfenite_limestone_ore",
+    "poly_mech:wulfenite_shale_ore",
+    "poly_mech:wulfenite_chalk_ore",
+    "poly_mech:wulfenite_chert_ore",
+    "poly_mech:wulfenite_claystone_ore",
+    "poly_mech:wulfenite_conglomerate_ore",
+    "poly_mech:wulfenite_dolomite_ore",
+    "poly_mech:wulfenite_tuff_ore",
+    "poly_mech:wulfenite_granite_ore",
+    "poly_mech:wulfenite_basalt_ore",
+    "poly_mech:wulfenite_rhyolite_ore",
+    "poly_mech:wulfenite_dacite_ore",
+    "poly_mech:wulfenite_diorite_ore",
+    "poly_mech:wulfenite_gabbro_ore",
+    "poly_mech:wulfenite_andesite_ore",
+    "poly_mech:wulfenite_marble_ore",
+    "poly_mech:wulfenite_gneiss_ore",
+    "poly_mech:wulfenite_schist_ore",
+    "poly_mech:wulfenite_slate_ore",
+    "poly_mech:wulfenite_phyllite_ore",
+    "poly_mech:wulfenite_quartzite_ore"
+  ]
+}

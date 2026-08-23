@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:native_copper_ore",
+    "poly_mech:deepslate_native_copper_ore",
+    "poly_mech:native_copper_limestone_ore",
+    "poly_mech:native_copper_shale_ore",
+    "poly_mech:native_copper_chalk_ore",
+    "poly_mech:native_copper_chert_ore",
+    "poly_mech:native_copper_claystone_ore",
+    "poly_mech:native_copper_conglomerate_ore",
+    "poly_mech:native_copper_dolomite_ore",
+    "poly_mech:native_copper_tuff_ore",
+    "poly_mech:native_copper_granite_ore",
+    "poly_mech:native_copper_basalt_ore",
+    "poly_mech:native_copper_rhyolite_ore",
+    "poly_mech:native_copper_dacite_ore",
+    "poly_mech:native_copper_diorite_ore",
+    "poly_mech:native_copper_gabbro_ore",
+    "poly_mech:native_copper_andesite_ore",
+    "poly_mech:native_copper_marble_ore",
+    "poly_mech:native_copper_gneiss_ore",
+    "poly_mech:native_copper_schist_ore",
+    "poly_mech:native_copper_slate_ore",
+    "poly_mech:native_copper_phyllite_ore",
+    "poly_mech:native_copper_quartzite_ore"
+  ]
+}

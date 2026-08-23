@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:molybdenite_ore",
+    "poly_mech:deepslate_molybdenite_ore",
+    "poly_mech:molybdenite_limestone_ore",
+    "poly_mech:molybdenite_shale_ore",
+    "poly_mech:molybdenite_chalk_ore",
+    "poly_mech:molybdenite_chert_ore",
+    "poly_mech:molybdenite_claystone_ore",
+    "poly_mech:molybdenite_conglomerate_ore",
+    "poly_mech:molybdenite_dolomite_ore",
+    "poly_mech:molybdenite_tuff_ore",
+    "poly_mech:molybdenite_granite_ore",
+    "poly_mech:molybdenite_basalt_ore",
+    "poly_mech:molybdenite_rhyolite_ore",
+    "poly_mech:molybdenite_dacite_ore",
+    "poly_mech:molybdenite_diorite_ore",
+    "poly_mech:molybdenite_gabbro_ore",
+    "poly_mech:molybdenite_andesite_ore",
+    "poly_mech:molybdenite_marble_ore",
+    "poly_mech:molybdenite_gneiss_ore",
+    "poly_mech:molybdenite_schist_ore",
+    "poly_mech:molybdenite_slate_ore",
+    "poly_mech:molybdenite_phyllite_ore",
+    "poly_mech:molybdenite_quartzite_ore"
+  ]
+}

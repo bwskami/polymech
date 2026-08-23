@@ -1,0 +1,27 @@
+{
+  "values": [
+    "poly_mech:nether_quartz_ore",
+    "poly_mech:deepslate_nether_quartz_ore",
+    "poly_mech:nether_quartz_limestone_ore",
+    "poly_mech:nether_quartz_shale_ore",
+    "poly_mech:nether_quartz_chalk_ore",
+    "poly_mech:nether_quartz_chert_ore",
+    "poly_mech:nether_quartz_claystone_ore",
+    "poly_mech:nether_quartz_conglomerate_ore",
+    "poly_mech:nether_quartz_dolomite_ore",
+    "poly_mech:nether_quartz_tuff_ore",
+    "poly_mech:nether_quartz_granite_ore",
+    "poly_mech:nether_quartz_basalt_ore",
+    "poly_mech:nether_quartz_rhyolite_ore",
+    "poly_mech:nether_quartz_dacite_ore",
+    "poly_mech:nether_quartz_diorite_ore",
+    "poly_mech:nether_quartz_gabbro_ore",
+    "poly_mech:nether_quartz_andesite_ore",
+    "poly_mech:nether_quartz_marble_ore",
+    "poly_mech:nether_quartz_gneiss_ore",
+    "poly_mech:nether_quartz_schist_ore",
+    "poly_mech:nether_quartz_slate_ore",
+    "poly_mech:nether_quartz_phyllite_ore",
+    "poly_mech:nether_quartz_quartzite_ore"
+  ]
+}
