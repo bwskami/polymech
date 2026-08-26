@@ -20,24 +20,17 @@
           "ore": {
             "Name": "poly_mech:pyrolusite_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_pyrolusite_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:gneiss",
       "poly_mech:schist",
-      "poly_mech:quartzite",
-      "minecraft:deepslate"
+      "poly_mech:quartzite"
     ],
     "density": 0.45,
-    "max_y": 0,
-    "min_y": -50,
+    "max_y": 24,
+    "min_y": -32,
     "primary": {
       "mappings": [
         {
@@ -56,12 +49,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:grossular_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_grossular_ore"
           }
         }
       ]
@@ -86,17 +73,12 @@
           "ore": {
             "Name": "poly_mech:spessartine_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_spessartine_ore"
-          }
         }
       ]
     },
     "seed": -3742252083035503239,
-    "size": 7,
+    "size_max": 12,
+    "size_min": 7,
     "sporadic": {
       "mappings": [
         {
@@ -115,12 +97,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:tantalite_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_tantalite_ore"
           }
         }
       ]

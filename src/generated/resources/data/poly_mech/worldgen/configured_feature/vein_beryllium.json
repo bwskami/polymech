@@ -6,8 +6,8 @@
       "poly_mech:rhyolite"
     ],
     "density": 0.3,
-    "max_y": 16,
-    "min_y": -48,
+    "max_y": 32,
+    "min_y": -24,
     "primary": {
       "mappings": [
         {
@@ -42,7 +42,8 @@
       ]
     },
     "seed": 6574751774733730013,
-    "size": 6,
+    "size_max": 8,
+    "size_min": 4,
     "sporadic": {
       "mappings": [
         {

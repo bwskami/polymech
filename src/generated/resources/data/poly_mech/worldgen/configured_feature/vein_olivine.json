@@ -22,8 +22,8 @@
       "poly_mech:gabbro"
     ],
     "density": 0.25,
-    "max_y": 10,
-    "min_y": -20,
+    "max_y": 32,
+    "min_y": -8,
     "primary": {
       "mappings": [
         {
@@ -58,7 +58,8 @@
       ]
     },
     "seed": 9034210613814686318,
-    "size": 8,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

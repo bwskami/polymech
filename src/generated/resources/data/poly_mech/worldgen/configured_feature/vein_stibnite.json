@@ -7,8 +7,8 @@
       "poly_mech:quartzite"
     ],
     "density": 0.3,
-    "max_y": 16,
-    "min_y": -32,
+    "max_y": 32,
+    "min_y": -16,
     "primary": {
       "mappings": [
         {
@@ -55,7 +55,8 @@
       ]
     },
     "seed": 8401975845723915628,
-    "size": 8,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

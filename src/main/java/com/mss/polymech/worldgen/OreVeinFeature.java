@@ -127,7 +127,7 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         OreVeinConfiguration config = context.config();
 
         boolean placed = false;
-        int radius = chunkRadius(config.size());
+        int radius = chunkRadius(config.sizeMax());
         for (int cx = chunkPos.x - radius; cx <= chunkPos.x + radius; cx++) {
             for (int cz = chunkPos.z - radius; cz <= chunkPos.z + radius; cz++) {
                 placed |= placeVeinFromCenterChunk(level, chunkPos, cx, cz, config);
@@ -181,13 +181,16 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
             return false;
         }
 
+        // 每条矿脉在 [sizeMin, sizeMax] 内有一个独立的半径（同一条矿脉跨区块一致）
+        int size = config.size(rand);
+
         ModVeins.VeinShape shape;
         try {
             shape = ModVeins.VeinShape.valueOf(config.shape());
         } catch (IllegalArgumentException e) {
             shape = ModVeins.VeinShape.ELLIPSOID;
         }
-        int[] radii = veinRadii(config.size(), shape);
+        int[] radii = veinRadii(size, shape);
         int rxz = radii[0];
         int ry = radii[1];
 

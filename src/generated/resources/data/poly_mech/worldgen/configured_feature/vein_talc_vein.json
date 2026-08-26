@@ -8,8 +8,8 @@
       "poly_mech:phyllite"
     ],
     "density": 0.3,
-    "max_y": 16,
-    "min_y": -32,
+    "max_y": 32,
+    "min_y": -16,
     "primary": {
       "mappings": [
         {
@@ -68,7 +68,8 @@
       ]
     },
     "seed": -6170749912272677474,
-    "size": 8,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

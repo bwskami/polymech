@@ -96,7 +96,8 @@
       ]
     },
     "seed": -6123606795676756559,
-    "size": 8,
+    "size_max": 13,
+    "size_min": 7,
     "sporadic": {
       "mappings": [
         {

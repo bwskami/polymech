@@ -56,7 +56,8 @@
     },
     "seed": 6518144564756168252,
     "shape": "LAYER",
-    "size": 9,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

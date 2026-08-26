@@ -640,6 +640,14 @@ public class ModZhCnLangProvider extends LanguageProvider {
 
     @Override
     protected void addTranslations() {
+        // 科技树
+        add("key.poly_mech.tech_tree", "科技树");
+        add("techtree.poly_mech.tech_steam", "蒸汽动力");
+        add("techtree.poly_mech.tech_steam.desc", "点燃煤炭，驱动你的第一台蒸汽机器。");
+        add("techtree.poly_mech.tech_electric", "电气化");
+        add("techtree.poly_mech.tech_electric.desc", "将蒸汽动力升级为电力网络。");
+        add("techtree.poly_mech.step.place_and_power", "放置并供能即可运行。");
+
         // 数据驱动的材料物品翻译
         for (String materialName : MaterialRegistry.getMaterialNames()) {
             String zhName = MATERIAL_ZH_NAMES.getOrDefault(materialName, materialName);

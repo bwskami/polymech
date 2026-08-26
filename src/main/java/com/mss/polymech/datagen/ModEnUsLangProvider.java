@@ -25,6 +25,14 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
     @Override
     protected void addTranslations() {
+        // Tech Tree
+        add("key.poly_mech.tech_tree", "Tech Tree");
+        add("techtree.poly_mech.tech_steam", "Steam Power");
+        add("techtree.poly_mech.tech_steam.desc", "Light coal to drive your first steam machines.");
+        add("techtree.poly_mech.tech_electric", "Electrification");
+        add("techtree.poly_mech.tech_electric.desc", "Upgrade steam power into an electric network.");
+        add("techtree.poly_mech.step.place_and_power", "Place it and supply power to run.");
+
         // 数据驱动的材料物品翻译
         for (String materialName : MaterialRegistry.getMaterialNames()) {
             // 锭

@@ -69,6 +69,7 @@
     },
     "seed": 7479921344721708121,
     "shape": "PIPE",
-    "size": 5
+    "size_max": 6,
+    "size_min": 4
   }
 }

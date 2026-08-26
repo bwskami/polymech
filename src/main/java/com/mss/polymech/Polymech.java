@@ -9,6 +9,7 @@ import com.mss.polymech.fluid.ModElementFluids;
 import com.mss.polymech.fluid.ModFluidBuckets;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.tooltip.ModTooltipCenter;
+import com.mss.polymech.techtree.TechTree;
 import com.mss.polymech.item.FluidCellItem;
 import com.mss.polymech.item.ModCreativeModeTabs;
 import com.mss.polymech.item.ModItems;
@@ -160,7 +161,8 @@ public class Polymech {
      * @param event 通用设置事件
      */
     private void commonSetup(FMLCommonSetupEvent event) {
-        // 模组初始化钩子（具体初始化由各模块完成，无额外日志）
+        // 科技树：播种示例节点（声明式，动态推导连线与布局）
+        TechTree.bootstrap();
     }
 
     /*

@@ -26,7 +26,8 @@ import java.util.Optional;
  * @param minY 矿脉中心高度下限（椭球垂直半径会把中心向内收缩，避免裁切）
  * @param maxY 矿脉中心高度上限
  * @param seed 矿脉种子：由矿脉ID哈希而来，区分不同矿脉的掷骰序列
- * @param size 矿脉水平半径（椭球半轴）
+ * @param sizeMin 矿脉水平半径下限
+ * @param sizeMax 矿脉水平半径上限
  * @param density 成矿密度：椭球内每个方块被替换的概率
  * @param blocks 允许的宿主方块列表：放置期矿脉中心岩种必须在列表内，
  *               替换期也只有这些方块会被替换成矿石，
@@ -42,7 +43,8 @@ public record OreVeinConfiguration(
         int minY,
         int maxY,
         long seed,
-        int size,
+        int sizeMin,
+        int sizeMax,
         float density,
         List<Block> blocks,
         OreEntry primary,
@@ -58,7 +60,8 @@ public record OreVeinConfiguration(
             Codec.intRange(-128, 512).fieldOf("min_y").forGetter(OreVeinConfiguration::minY),
             Codec.intRange(-128, 512).fieldOf("max_y").forGetter(OreVeinConfiguration::maxY),
             Codec.LONG.fieldOf("seed").forGetter(OreVeinConfiguration::seed),
-            Codec.intRange(1, 64).fieldOf("size").forGetter(OreVeinConfiguration::size),
+            Codec.intRange(1, 64).fieldOf("size_min").forGetter(OreVeinConfiguration::sizeMin),
+            Codec.intRange(1, 64).fieldOf("size_max").forGetter(OreVeinConfiguration::sizeMax),
             Codec.floatRange(0.0F, 1.0F).fieldOf("density").forGetter(OreVeinConfiguration::density),
             BuiltInRegistries.BLOCK.byNameCodec().listOf().fieldOf("blocks").forGetter(OreVeinConfiguration::blocks),
             OreEntry.CODEC.fieldOf("primary").forGetter(OreVeinConfiguration::primary),
@@ -71,5 +74,16 @@ public record OreVeinConfiguration(
     /** 宿主方块是否允许被本矿脉替换 */
     public boolean isHost(Block block) {
         return blocks.contains(block);
+    }
+
+    /** 本次生成用的大小：在 [sizeMin, sizeMax] 内确定性取一个值（由该矿脉中心的 RNG 决定） */
+    public int size(net.minecraft.util.RandomSource random) {
+        if (sizeMax <= sizeMin) return sizeMin;
+        return sizeMin + random.nextInt(sizeMax - sizeMin + 1);
+    }
+
+    /** 名义大小（命令显示等） */
+    public int size() {
+        return (sizeMin + sizeMax) / 2;
     }
 }

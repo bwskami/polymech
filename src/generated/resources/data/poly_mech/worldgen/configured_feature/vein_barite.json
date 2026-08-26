@@ -29,8 +29,8 @@
       "poly_mech:dolomite"
     ],
     "density": 0.25,
-    "max_y": 32,
-    "min_y": -32,
+    "max_y": 40,
+    "min_y": -16,
     "primary": {
       "mappings": [
         {
@@ -77,7 +77,8 @@
       ]
     },
     "seed": 4296724106552727034,
-    "size": 8,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

@@ -6,8 +6,8 @@
       "poly_mech:gneiss"
     ],
     "density": 0.25,
-    "max_y": 0,
-    "min_y": -48,
+    "max_y": 16,
+    "min_y": -32,
     "primary": {
       "mappings": [
         {
@@ -42,7 +42,8 @@
       ]
     },
     "seed": -6646848280884221577,
-    "size": 8,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

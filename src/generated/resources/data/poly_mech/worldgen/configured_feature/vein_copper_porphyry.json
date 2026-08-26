@@ -36,8 +36,8 @@
       "poly_mech:andesite"
     ],
     "density": 0.35,
-    "max_y": 24,
-    "min_y": -40,
+    "max_y": 48,
+    "min_y": -24,
     "primary": {
       "mappings": [
         {
@@ -97,7 +97,8 @@
     },
     "seed": 9025913238330866007,
     "shape": "DISSEMINATED",
-    "size": 10,
+    "size_max": 13,
+    "size_min": 7,
     "sporadic": {
       "mappings": [
         {

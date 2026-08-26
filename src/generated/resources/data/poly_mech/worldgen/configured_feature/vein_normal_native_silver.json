@@ -5,12 +5,11 @@
       "poly_mech:granite",
       "poly_mech:diorite",
       "poly_mech:gneiss",
-      "poly_mech:schist",
-      "minecraft:deepslate"
+      "poly_mech:schist"
     ],
     "density": 0.6,
-    "max_y": 20,
-    "min_y": -80,
+    "max_y": 24,
+    "min_y": -40,
     "primary": {
       "mappings": [
         {
@@ -35,12 +34,6 @@
           "host": "poly_mech:schist",
           "ore": {
             "Name": "poly_mech:native_silver_schist_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_native_silver_ore"
           }
         }
       ]
@@ -71,17 +64,12 @@
           "ore": {
             "Name": "poly_mech:native_silver_schist_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_native_silver_ore"
-          }
         }
       ]
     },
     "seed": -6997209488384662536,
-    "size": 6,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {
@@ -106,12 +94,6 @@
           "host": "poly_mech:schist",
           "ore": {
             "Name": "poly_mech:silver_schist_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_silver_ore"
           }
         }
       ]

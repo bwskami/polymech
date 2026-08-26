@@ -12,8 +12,8 @@
       "poly_mech:tuff"
     ],
     "density": 0.85,
-    "max_y": -8,
-    "min_y": -20,
+    "max_y": 50,
+    "min_y": 10,
     "primary": {
       "mappings": [
         {
@@ -121,6 +121,7 @@
     },
     "seed": -5343405815039907688,
     "shape": "LAYER",
-    "size": 10
+    "size_max": 10,
+    "size_min": 6
   }
 }

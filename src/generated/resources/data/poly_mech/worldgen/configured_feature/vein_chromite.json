@@ -14,23 +14,16 @@
           "ore": {
             "Name": "poly_mech:magnetite_gabbro_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_magnetite_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:basalt",
-      "poly_mech:gabbro",
-      "minecraft:deepslate"
+      "poly_mech:gabbro"
     ],
     "density": 0.4,
-    "max_y": -16,
-    "min_y": -64,
+    "max_y": -8,
+    "min_y": -48,
     "primary": {
       "mappings": [
         {
@@ -43,12 +36,6 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:chromite_gabbro_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_chromite_ore"
           }
         }
       ]
@@ -67,17 +54,12 @@
           "ore": {
             "Name": "poly_mech:ilmenite_gabbro_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_ilmenite_ore"
-          }
         }
       ]
     },
     "seed": -7160014871433269767,
-    "size": 7,
+    "size_max": 12,
+    "size_min": 7,
     "sporadic": {
       "mappings": [
         {
@@ -90,12 +72,6 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:iron_gabbro_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_iron_ore"
           }
         }
       ]

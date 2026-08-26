@@ -3,12 +3,11 @@
   "config": {
     "blocks": [
       "poly_mech:granite",
-      "poly_mech:gneiss",
-      "minecraft:deepslate"
+      "poly_mech:gneiss"
     ],
     "density": 0.35,
-    "max_y": -8,
-    "min_y": -64,
+    "max_y": 16,
+    "min_y": -40,
     "primary": {
       "mappings": [
         {
@@ -21,12 +20,6 @@
           "host": "poly_mech:gneiss",
           "ore": {
             "Name": "poly_mech:wolframite_gneiss_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_wolframite_ore"
           }
         }
       ]
@@ -45,17 +38,12 @@
           "ore": {
             "Name": "poly_mech:scheelite_gneiss_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_scheelite_ore"
-          }
         }
       ]
     },
     "seed": -4862219026121321418,
-    "size": 6,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {
@@ -68,12 +56,6 @@
           "host": "poly_mech:gneiss",
           "ore": {
             "Name": "poly_mech:tungstate_gneiss_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_tungstate_ore"
           }
         }
       ]

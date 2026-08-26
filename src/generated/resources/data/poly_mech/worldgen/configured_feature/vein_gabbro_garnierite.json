@@ -6,8 +6,8 @@
       "minecraft:deepslate"
     ],
     "density": 0.6,
-    "max_y": 0,
-    "min_y": -80,
+    "max_y": 16,
+    "min_y": -64,
     "primary": {
       "mappings": [
         {
@@ -42,6 +42,7 @@
       ]
     },
     "seed": -6643142512267746991,
-    "size": 7
+    "size_max": 12,
+    "size_min": 7
   }
 }

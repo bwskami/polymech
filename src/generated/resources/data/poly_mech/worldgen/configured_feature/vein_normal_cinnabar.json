@@ -5,12 +5,11 @@
       "poly_mech:gneiss",
       "poly_mech:schist",
       "poly_mech:phyllite",
-      "poly_mech:quartzite",
-      "minecraft:deepslate"
+      "poly_mech:quartzite"
     ],
     "density": 0.6,
-    "max_y": 10,
-    "min_y": -70,
+    "max_y": 24,
+    "min_y": -48,
     "primary": {
       "mappings": [
         {
@@ -35,12 +34,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:cinnabar_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_cinnabar_ore"
           }
         }
       ]
@@ -71,16 +64,11 @@
           "ore": {
             "Name": "poly_mech:cinnabar_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_cinnabar_ore"
-          }
         }
       ]
     },
     "seed": 7598132050964003230,
-    "size": 5
+    "size_max": 8,
+    "size_min": 4
   }
 }

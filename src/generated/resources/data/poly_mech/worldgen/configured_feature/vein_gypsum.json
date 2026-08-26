@@ -121,6 +121,7 @@
     },
     "seed": 2331689941933734597,
     "shape": "LAYER",
-    "size": 8
+    "size_max": 9,
+    "size_min": 5
   }
 }

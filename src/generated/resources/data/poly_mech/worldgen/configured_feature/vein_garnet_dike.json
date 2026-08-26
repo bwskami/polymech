@@ -78,7 +78,8 @@
     },
     "seed": -6809292502150898818,
     "shape": "DIKE",
-    "size": 9,
+    "size_max": 12,
+    "size_min": 7,
     "sporadic": {
       "mappings": [
         {

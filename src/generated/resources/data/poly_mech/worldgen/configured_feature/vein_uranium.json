@@ -4,12 +4,11 @@
     "blocks": [
       "poly_mech:granite",
       "poly_mech:gneiss",
-      "poly_mech:schist",
-      "minecraft:deepslate"
+      "poly_mech:schist"
     ],
     "density": 0.3,
-    "max_y": -16,
-    "min_y": -64,
+    "max_y": -8,
+    "min_y": -48,
     "primary": {
       "mappings": [
         {
@@ -28,12 +27,6 @@
           "host": "poly_mech:schist",
           "ore": {
             "Name": "poly_mech:pitchblende_schist_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_pitchblende_ore"
           }
         }
       ]
@@ -58,18 +51,13 @@
           "ore": {
             "Name": "poly_mech:uraninite_schist_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_uraninite_ore"
-          }
         }
       ]
     },
     "seed": 4990074359209353311,
     "shape": "DISSEMINATED",
-    "size": 8,
+    "size_max": 10,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {
@@ -88,12 +76,6 @@
           "host": "poly_mech:schist",
           "ore": {
             "Name": "poly_mech:plutonium_239_schist_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_plutonium_239_ore"
           }
         }
       ]
