@@ -128,9 +128,9 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
      * 槽位 0（水输入）：接受可向水罐排入的容器——水桶、装水的流体单元
      * 槽位 1（空桶输出）：GUI 不允许放入，只能由机器产出
      * 槽位 2（燃料输入）：接受燃料物品
-     * 槽位 3（蒸汽罐容器输入）：接受可从蒸汽罐灌入的容器——空桶、未满的蒸汽/空流体单元
+     * 槽位 3（蒸汽罐容器输入）：接受可从蒸汽罐灌入的容器——未满的蒸汽/空流体单元
      * （蒸汽罐为 TankIO.OUT 只出不进，满载容器无法被灌注故拒绝放入，不存在倒灌路径）
-     * 槽位 4（蒸汽桶输出）：GUI 不允许放入，只能由机器产出
+     * 槽位 4（蒸汽容器输出）：GUI 不允许放入，只能由机器产出
      * 槽位 5（灰烬输出）：GUI 不允许放入，只能由机器产出
      */
     @Override
@@ -157,7 +157,9 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
      * 未满指低于其生效容量上限，含玩家设置的capacity_limit）。
      */
     private static boolean canReceiveSteam(ItemStack stack) {
+        // 空桶：可加工成蒸汽桶（假流体桶，不可放置）
         if (stack.getItem() == Items.BUCKET) return true;
+        // 流体单元：可作为蒸汽容器
         if (FluidCellHelper.isFluidCell(stack)) {
             FluidStack content = FluidCellItem.getFluid(stack);
             return (content.isEmpty() || content.getFluid() == ModFluids.STEAM_SOURCE.get())
@@ -219,7 +221,7 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
         ItemStack bucketStack = itemStackHandler.getStackInSlot(INPUT_EMPTY_BUCKET_SLOT);
         if (!bucketStack.isEmpty()) {
             if (bucketStack.getItem() == Items.BUCKET) {
-                // 空桶→装蒸汽：消耗 1000 mB 蒸汽，产出蒸汽桶到 OUTPUT_STEAM_SLOT
+                // 空桶→装蒸汽：消耗 1000 mB 蒸汽，产出蒸汽桶到 OUTPUT_STEAM_SLOT（假流体桶，不可放置）
                 if (steamTank.getFluidAmount() >= 1000) {
                     ItemStack steamBucketOutput = itemStackHandler.getStackInSlot(OUTPUT_STEAM_SLOT);
                     boolean canOutput = steamBucketOutput.isEmpty()

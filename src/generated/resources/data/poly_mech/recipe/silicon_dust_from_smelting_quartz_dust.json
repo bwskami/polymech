@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.5,
+  "group": "silicon_dust",
+  "ingredient": {
+    "item": "poly_mech:quartz_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:silicon_dust"
+  }
+}

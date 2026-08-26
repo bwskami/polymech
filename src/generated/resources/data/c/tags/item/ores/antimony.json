@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:stibnite_ore",
     "poly_mech:deepslate_stibnite_ore",
+    "poly_mech:stibnite_netherrack_ore",
+    "poly_mech:stibnite_end_stone_ore",
     "poly_mech:stibnite_limestone_ore",
     "poly_mech:stibnite_shale_ore",
     "poly_mech:stibnite_chalk_ore",

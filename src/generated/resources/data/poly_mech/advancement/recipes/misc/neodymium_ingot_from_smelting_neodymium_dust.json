@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_neodymium_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "poly_mech:neodymium_dust"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "poly_mech:neodymium_ingot_from_smelting_neodymium_dust"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_neodymium_dust"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "poly_mech:neodymium_ingot_from_smelting_neodymium_dust"
+    ]
+  }
+}

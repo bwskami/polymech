@@ -1,5 +1,35 @@
 {
   "type": "poly_mech:steam_roller_crusher",
+  "byproduct_outputs": [
+    {
+      "chance": 0.3,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:cerium_dust"
+      }
+    },
+    {
+      "chance": 0.2,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:lanthanum_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:yttrium_dust"
+      }
+    },
+    {
+      "chance": 0.05,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:samarium_dust"
+      }
+    }
+  ],
   "duration": 120,
   "fluid_inputs": [
     {

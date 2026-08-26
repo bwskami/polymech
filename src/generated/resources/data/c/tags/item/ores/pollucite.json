@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:pollucite_ore",
     "poly_mech:deepslate_pollucite_ore",
+    "poly_mech:pollucite_netherrack_ore",
+    "poly_mech:pollucite_end_stone_ore",
     "poly_mech:pollucite_limestone_ore",
     "poly_mech:pollucite_shale_ore",
     "poly_mech:pollucite_chalk_ore",

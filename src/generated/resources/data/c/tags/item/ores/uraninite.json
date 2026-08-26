@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:uraninite_ore",
     "poly_mech:deepslate_uraninite_ore",
+    "poly_mech:uraninite_netherrack_ore",
+    "poly_mech:uraninite_end_stone_ore",
     "poly_mech:uraninite_limestone_ore",
     "poly_mech:uraninite_shale_ore",
     "poly_mech:uraninite_chalk_ore",

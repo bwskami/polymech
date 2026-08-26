@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.7,
+  "group": "chromium_ingot",
+  "ingredient": {
+    "item": "poly_mech:chromium_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:chromium_ingot"
+  }
+}

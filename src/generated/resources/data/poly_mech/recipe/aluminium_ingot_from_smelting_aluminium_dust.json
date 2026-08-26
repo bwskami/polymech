@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.7,
+  "group": "aluminium_ingot",
+  "ingredient": {
+    "item": "poly_mech:aluminium_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:aluminium_ingot"
+  }
+}

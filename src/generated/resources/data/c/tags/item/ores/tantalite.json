@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:tantalite_ore",
     "poly_mech:deepslate_tantalite_ore",
+    "poly_mech:tantalite_netherrack_ore",
+    "poly_mech:tantalite_end_stone_ore",
     "poly_mech:tantalite_limestone_ore",
     "poly_mech:tantalite_shale_ore",
     "poly_mech:tantalite_chalk_ore",

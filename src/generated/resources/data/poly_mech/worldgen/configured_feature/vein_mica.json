@@ -26,12 +26,6 @@
           "ore": {
             "Name": "poly_mech:bauxite_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_bauxite_ore"
-          }
         }
       ]
     },
@@ -39,8 +33,7 @@
       "poly_mech:gneiss",
       "poly_mech:schist",
       "poly_mech:phyllite",
-      "poly_mech:quartzite",
-      "minecraft:deepslate"
+      "poly_mech:quartzite"
     ],
     "density": 0.25,
     "max_y": -10,
@@ -69,12 +62,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:kyanite_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_kyanite_ore"
           }
         }
       ]
@@ -105,17 +92,11 @@
           "ore": {
             "Name": "poly_mech:mica_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_mica_ore"
-          }
         }
       ]
     },
     "seed": 178233975140458863,
-    "size": 6,
+    "size": 8,
     "sporadic": {
       "mappings": [
         {
@@ -140,12 +121,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:pollucite_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_pollucite_ore"
           }
         }
       ]

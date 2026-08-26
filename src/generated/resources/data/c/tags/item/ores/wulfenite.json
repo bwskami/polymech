@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:wulfenite_ore",
     "poly_mech:deepslate_wulfenite_ore",
+    "poly_mech:wulfenite_netherrack_ore",
+    "poly_mech:wulfenite_end_stone_ore",
     "poly_mech:wulfenite_limestone_ore",
     "poly_mech:wulfenite_shale_ore",
     "poly_mech:wulfenite_chalk_ore",

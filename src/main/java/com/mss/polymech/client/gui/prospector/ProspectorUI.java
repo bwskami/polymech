@@ -47,11 +47,13 @@ public final class ProspectorUI {
                 .setText(Component.translatable("gui.poly_mech.prospector.title"));
         var hint = new Label()
                 .setText(Component.translatable("gui.poly_mech.prospector.hint"));
+        var legend = new Label()
+                .setText(Component.translatable("gui.poly_mech.prospector.legend"));
 
         var root = new UIElement();
         root.layout(l -> l.paddingAll(7).gapAll(4));
         root.addClass("panel_bg");
-        root.addChildren(title, map, hint);
+        root.addChildren(title, map, hint, legend);
 
         return ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)), holder.player);
     }

@@ -1,0 +1,22 @@
+{
+  "type": "poly_mech:steam_duplex_mineral_jig",
+  "duration": 160,
+  "fluid_inputs": [
+    {
+      "amount": 200,
+      "fluid": "poly_mech:steam_source"
+    }
+  ],
+  "item_inputs": [
+    {
+      "count": 1,
+      "item": "poly_mech:andradite_crushed"
+    }
+  ],
+  "item_outputs": [
+    {
+      "count": 1,
+      "id": "poly_mech:andradite_purified"
+    }
+  ]
+}

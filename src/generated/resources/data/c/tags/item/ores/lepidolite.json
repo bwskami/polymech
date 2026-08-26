@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:lepidolite_ore",
     "poly_mech:deepslate_lepidolite_ore",
+    "poly_mech:lepidolite_netherrack_ore",
+    "poly_mech:lepidolite_end_stone_ore",
     "poly_mech:lepidolite_limestone_ore",
     "poly_mech:lepidolite_shale_ore",
     "poly_mech:lepidolite_chalk_ore",

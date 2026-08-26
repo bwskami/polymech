@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:tungstate_ore",
     "poly_mech:deepslate_tungstate_ore",
+    "poly_mech:tungstate_netherrack_ore",
+    "poly_mech:tungstate_end_stone_ore",
     "poly_mech:tungstate_limestone_ore",
     "poly_mech:tungstate_shale_ore",
     "poly_mech:tungstate_chalk_ore",

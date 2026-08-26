@@ -14,19 +14,12 @@
           "ore": {
             "Name": "poly_mech:bentonite_gabbro_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_bentonite_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:basalt",
-      "poly_mech:gabbro",
-      "minecraft:deepslate"
+      "poly_mech:gabbro"
     ],
     "density": 0.25,
     "max_y": 10,
@@ -43,12 +36,6 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:olivine_gabbro_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_olivine_ore"
           }
         }
       ]
@@ -67,17 +54,11 @@
           "ore": {
             "Name": "poly_mech:magnesite_gabbro_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_magnesite_ore"
-          }
         }
       ]
     },
     "seed": 9034210613814686318,
-    "size": 6,
+    "size": 8,
     "sporadic": {
       "mappings": [
         {
@@ -90,12 +71,6 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:glauconite_sand_gabbro_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_glauconite_sand_ore"
           }
         }
       ]

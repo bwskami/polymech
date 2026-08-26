@@ -62,12 +62,11 @@ public class ModChemicalFluids {
             entry.source = FLUIDS.register(chem.getId(), () -> new BaseFlowingFluid.Source(entry.properties()));
             entry.flowing = FLUIDS.register(chem.getId() + "_flowing",
                     () -> new BaseFlowingFluid.Flowing(entry.properties()));
-            // 只有液体才注册桶物品（气体/等离子体无桶，参考GTM的气体不装桶）
-            if (chem.isLiquid()) {
-                entry.bucket = BUCKETS.register(chem.getId() + "_bucket",
-                        () -> new ChemicalBucketItem(entry.source.get(),
-                                new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1), chem));
-            }
+            // 所有化学流体都注册桶物品（气体/等离子体也可用桶盛装；流体无方块形态，
+            // 所以桶只是物品形态，不会在世界中放置流体方块）
+            entry.bucket = BUCKETS.register(chem.getId() + "_bucket",
+                    () -> new ChemicalBucketItem(entry.source.get(),
+                            new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1), chem));
         }
     }
 
@@ -105,10 +104,17 @@ public class ModChemicalFluids {
 
     /** 创建化学流体的FluidType：物理参数来自定义，客户端按流体颜色对通用黑白贴图染色 */
     private static FluidType createFluidType(ChemicalFluid chem) {
+        // 数据驱动：根据密度数值自动判断。气体密度小于空气(ChemicalFluid.AIR)时
+        // 在Forge中取负密度，使其isLighterThanAir()为true并倒置桶模型；
+        // 密度大于等于空气的气体保持正密度，桶不翻转。
+        int density = chem.getState() == ChemicalFluid.State.GAS
+                        && chem.getDensity() < ChemicalFluid.AIR.getDensity()
+                ? -Math.max(1, chem.getDensity())
+                : chem.getDensity();
         return new FluidType(FluidType.Properties.create()
                 .descriptionId("fluid." + Polymech.MOD_ID + "." + chem.getId())
                 .temperature(chem.getTemperature())
-                .density(chem.getDensity())
+                .density(density)
                 .viscosity(chem.getViscosity())) {
             @SuppressWarnings("removal")
             @Override

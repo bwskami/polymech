@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:tricalcium_phosphate_ore",
     "poly_mech:deepslate_tricalcium_phosphate_ore",
+    "poly_mech:tricalcium_phosphate_netherrack_ore",
+    "poly_mech:tricalcium_phosphate_end_stone_ore",
     "poly_mech:tricalcium_phosphate_limestone_ore",
     "poly_mech:tricalcium_phosphate_shale_ore",
     "poly_mech:tricalcium_phosphate_chalk_ore",

@@ -1,5 +1,56 @@
 {
   "type": "poly_mech:steam_duplex_mineral_jig",
+  "byproduct_outputs": [
+    {
+      "chance": 0.2,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:palladium_dust"
+      }
+    },
+    {
+      "chance": 0.2,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:nickel_dust"
+      }
+    },
+    {
+      "chance": 0.25,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:sulfur_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:osmium_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:iridium_dust"
+      }
+    },
+    {
+      "chance": 0.05,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:ruthenium_dust"
+      }
+    },
+    {
+      "chance": 0.05,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:rhodium_dust"
+      }
+    }
+  ],
   "duration": 160,
   "fluid_inputs": [
     {

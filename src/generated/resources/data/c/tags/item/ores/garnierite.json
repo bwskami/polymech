@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:garnierite_ore",
     "poly_mech:deepslate_garnierite_ore",
+    "poly_mech:garnierite_netherrack_ore",
+    "poly_mech:garnierite_end_stone_ore",
     "poly_mech:garnierite_limestone_ore",
     "poly_mech:garnierite_shale_ore",
     "poly_mech:garnierite_chalk_ore",

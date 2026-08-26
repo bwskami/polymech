@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:andradite_ore",
     "poly_mech:deepslate_andradite_ore",
+    "poly_mech:andradite_netherrack_ore",
+    "poly_mech:andradite_end_stone_ore",
     "poly_mech:andradite_limestone_ore",
     "poly_mech:andradite_shale_ore",
     "poly_mech:andradite_chalk_ore",

@@ -1,0 +1,7 @@
+{
+  "parent": "neoforge:item/bucket_drip",
+  "apply_fluid_luminosity": false,
+  "flip_gas": true,
+  "fluid": "poly_mech:steam_cracked_butane",
+  "loader": "neoforge:fluid_container"
+}

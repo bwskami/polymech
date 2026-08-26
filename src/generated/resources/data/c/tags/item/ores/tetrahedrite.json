@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:tetrahedrite_ore",
     "poly_mech:deepslate_tetrahedrite_ore",
+    "poly_mech:tetrahedrite_netherrack_ore",
+    "poly_mech:tetrahedrite_end_stone_ore",
     "poly_mech:tetrahedrite_limestone_ore",
     "poly_mech:tetrahedrite_shale_ore",
     "poly_mech:tetrahedrite_chalk_ore",

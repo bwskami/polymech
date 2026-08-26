@@ -107,7 +107,7 @@ public class ModCommands {
         ServerLevel level = source.getLevel();
         BlockPos pos = player.blockPosition();
 
-        ModRocks.RockType predicted = ModRocks.rockTypeAtBlock(pos.getX(), pos.getZ(), level.getSeed());
+        ModRocks.RockType predicted = ModRocks.rockTypeAt(pos.getX(), pos.getZ(), pos.getY(), level.getSeed(), level.getBiome(pos));
         source.sendSuccess(() -> Component.translatable("command.poly_mech.rock.predicted",
                 predicted.block().get().getName()).withStyle(ChatFormatting.AQUA), false);
 
@@ -156,6 +156,9 @@ public class ModCommands {
                     hosts), false);
             String between = vein.between() == null ? "-" : vein.between();
             String sporadic = vein.sporadic() == null ? "-" : vein.sporadic();
+            source.sendSuccess(() -> Component.translatable("command.poly_mech.veins.shape",
+                    ModVeins.shapeOf(vein.id()).name())
+                    .withStyle(ChatFormatting.YELLOW), false);
             source.sendSuccess(() -> Component.translatable("command.poly_mech.veins.composition",
                     vein.primary(), vein.secondary(), between, sporadic)
                     .withStyle(ChatFormatting.GRAY), false);

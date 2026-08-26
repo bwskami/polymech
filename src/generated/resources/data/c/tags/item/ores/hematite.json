@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:hematite_ore",
     "poly_mech:deepslate_hematite_ore",
+    "poly_mech:hematite_netherrack_ore",
+    "poly_mech:hematite_end_stone_ore",
     "poly_mech:hematite_limestone_ore",
     "poly_mech:hematite_shale_ore",
     "poly_mech:hematite_chalk_ore",

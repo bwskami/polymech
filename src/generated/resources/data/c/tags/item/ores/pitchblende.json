@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:pitchblende_ore",
     "poly_mech:deepslate_pitchblende_ore",
+    "poly_mech:pitchblende_netherrack_ore",
+    "poly_mech:pitchblende_end_stone_ore",
     "poly_mech:pitchblende_limestone_ore",
     "poly_mech:pitchblende_shale_ore",
     "poly_mech:pitchblende_chalk_ore",

@@ -54,6 +54,29 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
     }
 
     /**
+     * 带概率的副产物输出（选矿伴生元素）。
+     * <p>
+     * 用于格雷式多金属矿物加工：方铅矿除产铅粉外还有概率产出银/硫等伴生元素。
+     * {@code chance} 取值 0~1，表示该副产物每次加工实际产出的概率；
+     * 1.0 表示必然产出（等价于普通输出）。
+     * </p>
+     *
+     * @param stack  副产物物品（含数量）
+     * @param chance 产出概率（0~1）
+     */
+    public record Byproduct(ItemStack stack, float chance) {
+        public static final Codec<Byproduct> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+                ItemStack.CODEC.fieldOf("item").forGetter(Byproduct::stack),
+                Codec.FLOAT.optionalFieldOf("chance", 1.0F).forGetter(Byproduct::chance)
+        ).apply(instance, Byproduct::new));
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, Byproduct> STREAM_CODEC = StreamCodec.composite(
+                ItemStack.STREAM_CODEC, Byproduct::stack,
+                ByteBufCodecs.FLOAT, Byproduct::chance,
+                Byproduct::new);
+    }
+
+    /**
      * 配方匹配输入：引用机器的物品槽位与流体储罐。
      *
      * @param items     机器物品处理器
@@ -83,30 +106,47 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
                     .forGetter(r -> r.itemOutputs),
             FluidStack.CODEC.listOf().optionalFieldOf("fluid_outputs", List.of())
                     .forGetter(r -> r.fluidOutputs),
+            Byproduct.CODEC.listOf().optionalFieldOf("byproduct_outputs", List.of())
+                    .forGetter(r -> r.byproducts),
             ExtraCodecs.POSITIVE_INT.fieldOf("duration").forGetter(r -> r.duration),
             Codec.INT.optionalFieldOf("power_per_tick", 0).forGetter(r -> r.powerPerTick),
             Codec.BOOL.optionalFieldOf("generator", false).forGetter(r -> r.generator)
-    ).apply(instance, (itemInputs, fluidInputs, itemOutputs, fluidOutputs, duration, powerPerTick, generator) ->
-            new MachineRecipe(null, itemInputs, fluidInputs, itemOutputs, fluidOutputs, duration, powerPerTick, generator)));
+    ).apply(instance, (itemInputs, fluidInputs, itemOutputs, fluidOutputs, byproducts, duration, powerPerTick, generator) ->
+            new MachineRecipe(null, itemInputs, fluidInputs, itemOutputs, fluidOutputs, byproducts, duration, powerPerTick, generator)));
 
     private final RecipeType<MachineRecipe> type;
     private final List<SizedIngredient> itemInputs;
     private final List<FluidInput> fluidInputs;
     private final List<ItemStack> itemOutputs;
     private final List<FluidStack> fluidOutputs;
+    private final List<Byproduct> byproducts;
     private final int duration;
     private final int powerPerTick;
     private final boolean generator;
 
+    /** 副产物概率掷骰用随机源（每配方实例一个） */
+    private final net.minecraft.util.RandomSource byproductRandom = net.minecraft.util.RandomSource.create();
+
+    /** 兼容构造：无副产物 */
     public MachineRecipe(@Nullable RecipeType<MachineRecipe> type,
                          List<SizedIngredient> itemInputs, List<FluidInput> fluidInputs,
                          List<ItemStack> itemOutputs, List<FluidStack> fluidOutputs,
+                         int duration, int powerPerTick, boolean generator) {
+        this(type, itemInputs, fluidInputs, itemOutputs, fluidOutputs, List.of(), duration, powerPerTick, generator);
+    }
+
+    /** 全参构造（含副产物） */
+    public MachineRecipe(@Nullable RecipeType<MachineRecipe> type,
+                         List<SizedIngredient> itemInputs, List<FluidInput> fluidInputs,
+                         List<ItemStack> itemOutputs, List<FluidStack> fluidOutputs,
+                         List<Byproduct> byproducts,
                          int duration, int powerPerTick, boolean generator) {
         this.type = type;
         this.itemInputs = itemInputs;
         this.fluidInputs = fluidInputs;
         this.itemOutputs = itemOutputs;
         this.fluidOutputs = fluidOutputs;
+        this.byproducts = byproducts;
         this.duration = duration;
         this.powerPerTick = powerPerTick;
         this.generator = generator;
@@ -115,7 +155,7 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
     /** 回填配方类型（序列化器解码后调用） */
     public MachineRecipe withType(RecipeType<MachineRecipe> type) {
         return new MachineRecipe(type, itemInputs, fluidInputs, itemOutputs, fluidOutputs,
-                duration, powerPerTick, generator);
+                byproducts, duration, powerPerTick, generator);
     }
 
     // -- 访问器 --
@@ -124,6 +164,7 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
     public List<FluidInput> getFluidInputs() { return fluidInputs; }
     public List<ItemStack> getItemOutputs() { return itemOutputs; }
     public List<FluidStack> getFluidOutputs() { return fluidOutputs; }
+    public List<Byproduct> getByproducts() { return byproducts; }
     public int getDuration() { return duration; }
     public int getPowerPerTick() { return powerPerTick; }
     public boolean isGenerator() { return generator; }
@@ -232,6 +273,15 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
                 remaining = insertExecute(outItems, slot, remaining);
             }
         }
+        // 副产物：按各自概率掷骰，命中则尽力插入输出槽（输出槽满则丢失，不阻塞主产物）
+        for (Byproduct byproduct : byproducts) {
+            if (byproductRandom.nextFloat() >= byproduct.chance()) continue;
+            ItemStack remaining = byproduct.stack().copy();
+            for (int slot : outSlots) {
+                if (remaining.isEmpty()) break;
+                remaining = insertExecute(outItems, slot, remaining);
+            }
+        }
         if (outFluids != null) {
             for (FluidStack output : fluidOutputs) {
                 outFluids.fill(output.copy(), IFluidHandler.FluidAction.EXECUTE);
@@ -281,6 +331,8 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
         for (ItemStack output : itemOutputs) ItemStack.STREAM_CODEC.encode(buf, output);
         buf.writeVarInt(fluidOutputs.size());
         for (FluidStack output : fluidOutputs) FluidStack.STREAM_CODEC.encode(buf, output);
+        buf.writeVarInt(byproducts.size());
+        for (Byproduct byproduct : byproducts) Byproduct.STREAM_CODEC.encode(buf, byproduct);
         buf.writeVarInt(duration);
         buf.writeVarInt(powerPerTick);
         buf.writeBoolean(generator);
@@ -299,10 +351,13 @@ public class MachineRecipe implements Recipe<MachineRecipe.MachineInput> {
         List<FluidStack> fluidOutputs = new java.util.ArrayList<>();
         int fluidOutputCount = buf.readVarInt();
         for (int i = 0; i < fluidOutputCount; i++) fluidOutputs.add(FluidStack.STREAM_CODEC.decode(buf));
+        List<Byproduct> byproducts = new java.util.ArrayList<>();
+        int byproductCount = buf.readVarInt();
+        for (int i = 0; i < byproductCount; i++) byproducts.add(Byproduct.STREAM_CODEC.decode(buf));
         int duration = buf.readVarInt();
         int powerPerTick = buf.readVarInt();
         boolean generator = buf.readBoolean();
         return new MachineRecipe(null, itemInputs, fluidInputs, itemOutputs, fluidOutputs,
-                duration, powerPerTick, generator);
+                byproducts, duration, powerPerTick, generator);
     }
 }

@@ -1,0 +1,6 @@
+{
+  "type": "neoforge:add_features",
+  "biomes": "#minecraft:is_nether",
+  "features": "poly_mech:nether_nether_quartz_ore",
+  "step": "underground_ores"
+}

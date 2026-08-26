@@ -3,8 +3,7 @@
   "config": {
     "blocks": [
       "poly_mech:basalt",
-      "poly_mech:andesite",
-      "minecraft:deepslate"
+      "poly_mech:andesite"
     ],
     "density": 0.3,
     "max_y": 32,
@@ -21,12 +20,6 @@
           "host": "poly_mech:andesite",
           "ore": {
             "Name": "poly_mech:zeolite_andesite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_zeolite_ore"
           }
         }
       ]
@@ -45,17 +38,11 @@
           "ore": {
             "Name": "poly_mech:zeolite_andesite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_zeolite_ore"
-          }
         }
       ]
     },
     "seed": -3025996498521282370,
-    "size": 5,
+    "size": 6,
     "sporadic": {
       "mappings": [
         {
@@ -68,12 +55,6 @@
           "host": "poly_mech:andesite",
           "ore": {
             "Name": "poly_mech:calcite_andesite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_calcite_ore"
           }
         }
       ]

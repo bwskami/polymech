@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:spessartine_ore",
     "poly_mech:deepslate_spessartine_ore",
+    "poly_mech:spessartine_netherrack_ore",
+    "poly_mech:spessartine_end_stone_ore",
     "poly_mech:spessartine_limestone_ore",
     "poly_mech:spessartine_shale_ore",
     "poly_mech:spessartine_chalk_ore",

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.7,
+  "group": "europium_ingot",
+  "ingredient": {
+    "item": "poly_mech:europium_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:europium_ingot"
+  }
+}

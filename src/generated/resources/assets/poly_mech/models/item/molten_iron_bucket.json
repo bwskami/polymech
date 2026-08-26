@@ -1,6 +1,7 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "minecraft:item/bucket"
-  }
+  "parent": "neoforge:item/bucket_drip",
+  "apply_fluid_luminosity": false,
+  "flip_gas": true,
+  "fluid": "poly_mech:molten_iron",
+  "loader": "neoforge:fluid_container"
 }

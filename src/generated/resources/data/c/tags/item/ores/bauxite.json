@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:bauxite_ore",
     "poly_mech:deepslate_bauxite_ore",
+    "poly_mech:bauxite_netherrack_ore",
+    "poly_mech:bauxite_end_stone_ore",
     "poly_mech:bauxite_limestone_ore",
     "poly_mech:bauxite_shale_ore",
     "poly_mech:bauxite_chalk_ore",

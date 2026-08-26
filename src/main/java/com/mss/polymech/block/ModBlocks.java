@@ -318,15 +318,22 @@ public class ModBlocks {
     public static final String ORE_HOST_STONE = "stone";
     /** 深板岩宿主键（群峦无深板岩岩石，用原版深板岩底图染色） */
     public static final String ORE_HOST_DEEPSLATE = "deepslate";
+    /** 下界岩宿主键（格雷/GTM 式下界矿石变体） */
+    public static final String ORE_HOST_NETHERRACK = "netherrack";
+    /** 末地石宿主键（格雷/GTM 式末地矿石变体） */
+    public static final String ORE_HOST_END_STONE = "end_stone";
 
     /*
      * 矿石方块组：一种矿物对应每种宿主岩一个方块（岩种变体）。
      * <p>
      * 变体键 = {@link #ORE_HOST_STONE} / {@link #ORE_HOST_DEEPSLATE} /
+     * {@link #ORE_HOST_NETHERRACK} / {@link #ORE_HOST_END_STONE} /
      * 21种群峦岩种名（{@link ModRocks}）：
      * <ul>
      *   <li>stone → {mineral}_ore（原版石头底图，不染色）</li>
      *   <li>deepslate → deepslate_{mineral}_ore（原版深板岩底图，染色）</li>
+     *   <li>netherrack → {mineral}_netherrack_ore（原版下界岩底图，不染色）</li>
+     *   <li>end_stone → {mineral}_end_stone_ore（原版末地石底图，不染色）</li>
      *   <li>{rock} → {mineral}_{rock}_ore（群峦岩石底图，不染色）</li>
      * </ul>
      * </p>
@@ -345,19 +352,29 @@ public class ModBlocks {
             return byRock.get(ORE_HOST_DEEPSLATE);
         }
 
+        /** 下界岩矿方块（{mineral}_netherrack_ore） */
+        public DeferredBlock<Block> netherrack() {
+            return byRock.get(ORE_HOST_NETHERRACK);
+        }
+
+        /** 末地石矿方块（{mineral}_end_stone_ore） */
+        public DeferredBlock<Block> endStone() {
+            return byRock.get(ORE_HOST_END_STONE);
+        }
+
         /** 按宿主岩名取岩种矿方块；不存在返回null */
         public DeferredBlock<Block> forRock(String rock) {
             return byRock.get(rock);
         }
 
-        /** 全部岩种变体（含石头/深板岩） */
+        /** 全部岩种变体（含石头/深板岩/下界岩/末地石） */
         public java.util.Collection<DeferredBlock<Block>> all() {
             return byRock.values();
         }
     }
 
     /**
-     * 矿石方块查找表：矿物名 → 矿石方块组（每矿物23个岩种变体）。
+     * 矿石方块查找表：矿物名 → 矿石方块组（每矿物25个岩种变体）。
      * <p>
      * 由{@link ModMinerals}的定义表×{@link ModRocks}岩种表驱动生成，
      * 与粗矿物物品、世界生成、战利品表、配方等模块共享同一数据源。
@@ -374,8 +391,9 @@ public class ModBlocks {
      * 区域岩石查找表：岩种名 → 岩石方块。
      * <p>
      * 由{@link ModRocks}的定义表驱动生成；岩石为单层染色方块
-     * （原版石头底图×岩种配色，见colors.json），
-     * 并被标记为stone_ore_replaceables使原版与模组矿石均可在其中生成。
+     * （原版石头底图×岩种配色，见colors.json）。
+     * 注意：不加入 vanilla stone_ore_replaceables，避免原版小矿脉混入模组岩层，
+     * 只保留模组自身的大矿脉（GT 式矿脉）作为主要矿物来源。
      * </p>
      */
     public static final Map<String, DeferredBlock<Block>> ROCKS;
@@ -468,6 +486,22 @@ public class ModBlocks {
                             .sound(SoundType.DEEPSLATE)
                             .requiresCorrectToolForDrops()));
             byRock.put(ORE_HOST_DEEPSLATE, deepslateOre);
+
+            // 下界岩变体（GTM 式跨维度矿石）
+            DeferredBlock<Block> netherrackOre = registerBlocks(def.netherrackOreName(),
+                    () -> new Block(Block.Properties.of()
+                            .strength(2.0F, 3.0F)
+                            .sound(SoundType.NETHERRACK)
+                            .requiresCorrectToolForDrops()));
+            byRock.put(ORE_HOST_NETHERRACK, netherrackOre);
+
+            // 末地石变体（GTM 式跨维度矿石）
+            DeferredBlock<Block> endStoneOre = registerBlocks(def.endStoneOreName(),
+                    () -> new Block(Block.Properties.of()
+                            .strength(3.0F, 9.0F)
+                            .sound(SoundType.STONE)
+                            .requiresCorrectToolForDrops()));
+            byRock.put(ORE_HOST_END_STONE, endStoneOre);
 
             // 21种群峦岩种变体（群峦式"看岩认矿"）
             for (ModRocks.RockType rock : ModRocks.ROCK_TYPES) {

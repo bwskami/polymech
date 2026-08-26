@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.7,
+  "group": "lead_ingot",
+  "ingredient": {
+    "item": "poly_mech:lead_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:lead_ingot"
+  }
+}

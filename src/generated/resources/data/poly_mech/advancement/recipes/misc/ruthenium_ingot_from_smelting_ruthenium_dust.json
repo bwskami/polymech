@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_ruthenium_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "poly_mech:ruthenium_dust"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "poly_mech:ruthenium_ingot_from_smelting_ruthenium_dust"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_ruthenium_dust"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "poly_mech:ruthenium_ingot_from_smelting_ruthenium_dust"
+    ]
+  }
+}

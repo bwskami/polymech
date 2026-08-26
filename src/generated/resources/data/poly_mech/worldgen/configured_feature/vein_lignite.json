@@ -9,8 +9,7 @@
       "poly_mech:claystone",
       "poly_mech:conglomerate",
       "poly_mech:dolomite",
-      "poly_mech:tuff",
-      "minecraft:deepslate"
+      "poly_mech:tuff"
     ],
     "density": 0.85,
     "max_y": -8,
@@ -63,12 +62,6 @@
           "host": "poly_mech:tuff",
           "ore": {
             "Name": "poly_mech:lignite_tuff_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_lignite_ore"
           }
         }
       ]
@@ -123,16 +116,11 @@
           "ore": {
             "Name": "poly_mech:lignite_tuff_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_lignite_ore"
-          }
         }
       ]
     },
     "seed": -5343405815039907688,
-    "size": 8
+    "shape": "LAYER",
+    "size": 10
   }
 }

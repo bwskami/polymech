@@ -38,12 +38,12 @@ public class ModBlockTagsProvider extends BlockTagsProvider {
             }
         }
 
-        // 区域岩石：镐可开采；并加入stone_ore_replaceables——
-        // 既使原版/模组散矿能生成其中，也使GT矿脉Feature（按该标签判定宿主）能替换它们
-        var oreReplaceables = tag(BlockTags.STONE_ORE_REPLACEABLES);
+        // 区域岩石：镐可开采；但**不**加入 vanilla stone_ore_replaceables——
+        // 否则原版矿石（煤/铁/铜/红石/青金石/钻石等）会以“原版小矿脉”样式
+        // 生成在模组区域岩层里，和我们的 GT 大矿脉混在一起，干扰“是否挖到大矿脉”的判断。
+        // 模组大矿脉不依赖该标签（OreVeinFeature 用显式宿主方块白名单）。
         for (var rock : ModBlocks.ROCKS.values()) {
             mineable.add(rock.get());
-            oreReplaceables.add(rock.get());
         }
     }
 }

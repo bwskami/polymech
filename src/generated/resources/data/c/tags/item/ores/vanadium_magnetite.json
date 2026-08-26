@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:vanadium_magnetite_ore",
     "poly_mech:deepslate_vanadium_magnetite_ore",
+    "poly_mech:vanadium_magnetite_netherrack_ore",
+    "poly_mech:vanadium_magnetite_end_stone_ore",
     "poly_mech:vanadium_magnetite_limestone_ore",
     "poly_mech:vanadium_magnetite_shale_ore",
     "poly_mech:vanadium_magnetite_chalk_ore",

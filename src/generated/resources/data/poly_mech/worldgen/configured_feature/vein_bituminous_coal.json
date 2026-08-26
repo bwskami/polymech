@@ -9,8 +9,7 @@
       "poly_mech:claystone",
       "poly_mech:conglomerate",
       "poly_mech:dolomite",
-      "poly_mech:tuff",
-      "minecraft:deepslate"
+      "poly_mech:tuff"
     ],
     "density": 0.9,
     "max_y": -12,
@@ -63,12 +62,6 @@
           "host": "poly_mech:tuff",
           "ore": {
             "Name": "poly_mech:bituminous_coal_tuff_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_bituminous_coal_ore"
           }
         }
       ]
@@ -123,16 +116,11 @@
           "ore": {
             "Name": "poly_mech:bituminous_coal_tuff_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_bituminous_coal_ore"
-          }
         }
       ]
     },
     "seed": -1449303704055152725,
-    "size": 10
+    "shape": "LAYER",
+    "size": 13
   }
 }

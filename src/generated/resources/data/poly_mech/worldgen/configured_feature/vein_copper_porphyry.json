@@ -26,12 +26,6 @@
           "ore": {
             "Name": "poly_mech:chalcocite_andesite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_chalcocite_ore"
-          }
         }
       ]
     },
@@ -39,8 +33,7 @@
       "poly_mech:granite",
       "poly_mech:dacite",
       "poly_mech:diorite",
-      "poly_mech:andesite",
-      "minecraft:deepslate"
+      "poly_mech:andesite"
     ],
     "density": 0.35,
     "max_y": 24,
@@ -69,12 +62,6 @@
           "host": "poly_mech:andesite",
           "ore": {
             "Name": "poly_mech:chalcopyrite_andesite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_chalcopyrite_ore"
           }
         }
       ]
@@ -105,17 +92,12 @@
           "ore": {
             "Name": "poly_mech:bornite_andesite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_bornite_ore"
-          }
         }
       ]
     },
     "seed": 9025913238330866007,
-    "size": 8,
+    "shape": "DISSEMINATED",
+    "size": 10,
     "sporadic": {
       "mappings": [
         {
@@ -140,12 +122,6 @@
           "host": "poly_mech:andesite",
           "ore": {
             "Name": "poly_mech:copper_andesite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_copper_ore"
           }
         }
       ]

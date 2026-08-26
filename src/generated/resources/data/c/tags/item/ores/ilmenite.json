@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:ilmenite_ore",
     "poly_mech:deepslate_ilmenite_ore",
+    "poly_mech:ilmenite_netherrack_ore",
+    "poly_mech:ilmenite_end_stone_ore",
     "poly_mech:ilmenite_limestone_ore",
     "poly_mech:ilmenite_shale_ore",
     "poly_mech:ilmenite_chalk_ore",

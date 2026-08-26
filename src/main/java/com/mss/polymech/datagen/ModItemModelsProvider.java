@@ -8,8 +8,11 @@ import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
 import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.powergrid.GridWireType;
+import com.mss.polymech.fluid.ChemicalFluid;
+import com.mss.polymech.fluid.ElementFluid;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
+import com.mss.polymech.fluid.ModFluidBuckets;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.texture_data.ItemLayerTemplates;
@@ -18,6 +21,7 @@ import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.client.model.generators.ItemModelProvider;
+import net.neoforged.neoforge.client.model.generators.loaders.DynamicFluidContainerModelBuilder;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
 import java.util.HashMap;
@@ -180,21 +184,19 @@ public class ModItemModelsProvider extends ItemModelProvider {
             Polymech.LOGGER.debug("Skipped model generation for block item: {}", path);
         }
 
-        // 流体桶物品
-        for (var entry : ModFluids.FLUID_BUCKET_ITEMS.getEntries()) {
-            basicItem(entry.get());
+        // 所有流体桶：统一从 ModFluidBuckets 数据驱动生成 GTM 式 fluid_container 模型
+        for (ModFluidBuckets.Entry bucket : ModFluidBuckets.getAll()) {
+            String path = BuiltInRegistries.ITEM.getKey(bucket.item()).getPath();
+            fluidBucketModel(path, bucket.source());
         }
+    }
 
-        // 化学流体桶：暂共用原版桶贴图（layer0），后续可替换为各流体专属贴图
-        for (var entry : ModChemicalFluids.BUCKETS.getEntries()) {
-            withExistingParent(entry.getId().getPath(), "item/generated")
-                    .texture("layer0", mcLoc("item/bucket"));
-        }
-
-        // 熔融金属桶：同样暂用原版桶贴图（仅液体有桶，等离子体无桶）
-        for (var entry : ModElementFluids.BUCKETS.getEntries()) {
-            withExistingParent(entry.getId().getPath(), "item/generated")
-                    .texture("layer0", mcLoc("item/bucket"));
-        }
+    /** 生成 GTM 式流体桶模型：neoforge fluid_container + bucket_drip 父模型 */
+    private void fluidBucketModel(String path, net.minecraft.world.level.material.Fluid fluid) {
+        withExistingParent(path, ResourceLocation.fromNamespaceAndPath("neoforge", "item/bucket_drip"))
+                .customLoader(DynamicFluidContainerModelBuilder::begin)
+                .fluid(fluid)
+                .flipGas(true)
+                .applyFluidLuminosity(false);
     }
 }

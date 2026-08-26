@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_manganese_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "poly_mech:manganese_dust"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "poly_mech:manganese_ingot_from_smelting_manganese_dust"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_manganese_dust"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "poly_mech:manganese_ingot_from_smelting_manganese_dust"
+    ]
+  }
+}

@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:oilsands_ore",
     "poly_mech:deepslate_oilsands_ore",
+    "poly_mech:oilsands_netherrack_ore",
+    "poly_mech:oilsands_end_stone_ore",
     "poly_mech:oilsands_limestone_ore",
     "poly_mech:oilsands_shale_ore",
     "poly_mech:oilsands_chalk_ore",

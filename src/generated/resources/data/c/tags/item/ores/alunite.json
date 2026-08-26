@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:alunite_ore",
     "poly_mech:deepslate_alunite_ore",
+    "poly_mech:alunite_netherrack_ore",
+    "poly_mech:alunite_end_stone_ore",
     "poly_mech:alunite_limestone_ore",
     "poly_mech:alunite_shale_ore",
     "poly_mech:alunite_chalk_ore",

@@ -144,6 +144,8 @@ public class ModEnUsLangProvider extends LanguageProvider {
                     String name = switch (host) {
                         case "stone" -> mineralName + " Ore";
                         case "deepslate" -> "Deepslate " + mineralName + " Ore";
+                        case "netherrack" -> "Netherrack " + mineralName + " Ore";
+                        case "end_stone" -> "End Stone " + mineralName + " Ore";
                         default -> mineralName + " " + formatMaterialName(host) + " Ore";
                     };
                     add(variantEntry.getValue().get(), name);
@@ -168,6 +170,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModItems.PROSPECTOR.get(), "Prospector");
         add("gui.poly_mech.prospector.title", "Prospector");
         add("gui.poly_mech.prospector.hint", "Rock types (base color) + mineral ores (overlay). Red box = your chunk.");
+        add("gui.poly_mech.prospector.legend", "Depth: white dot = shallow, gray dot = middle, black dot = deep");
         
         // 添加蓝图工具的翻译
         add(ModItems.BLUEPRINT.get(), "Blueprint");
@@ -256,6 +259,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add("command.poly_mech.rock.none", "No rock found within 64 blocks below (only air or fluid)");
         add("command.poly_mech.veins.header", "=== PolyMech Vein Definitions ===");
         add("command.poly_mech.veins.entry", "- %s: avg 1/%d chunks, Y %d~%d, size %d, density %s, hosts: %s");
+        add("command.poly_mech.veins.shape", "  Shape: %s");
         add("command.poly_mech.veins.composition", "  Primary %s / Secondary %s / Between %s / Sporadic %s");
         add("command.poly_mech.scan.result", "%s: %d blocks, nearest %s");
         add("command.poly_mech.scan.total", "Total: %d ore blocks");
@@ -408,7 +412,9 @@ public class ModEnUsLangProvider extends LanguageProvider {
         // 蒸汽流体
         add("fluid.poly_mech.steam", "Steam");
         add("item.poly_mech.steam_bucket", "Steam Bucket");
-        add("block.poly_mech.steam", "Steam");
+        add("fluid.poly_mech.petroleum", "Petroleum");
+        add("item.poly_mech.petroleum_bucket", "Petroleum Bucket");
+        add("block.poly_mech.petroleum", "Petroleum");
 
         // 化学流体（真实存在的化学物质，不可放置）
         // 英文名称作为翻译源数据写在datagen侧，运行时一律通过翻译键解析
@@ -629,10 +635,8 @@ public class ModEnUsLangProvider extends LanguageProvider {
         for (ChemicalFluid chem : ChemicalFluid.values()) {
             String name = chemicalNames.get(chem.getId());
             add("fluid.poly_mech." + chem.getId(), name);
-            // 只有液体才有桶
-            if (chem.isLiquid()) {
-                add("item.poly_mech." + chem.getId() + "_bucket", name + " Bucket");
-            }
+            // 所有化学流体都有桶（气体/等离子体为不可放置的桶）
+            add("item.poly_mech." + chem.getId() + "_bucket", name + " Bucket");
         }
 
         // 熔融金属（每种材料一条，温度≈熔点，带桶）
@@ -642,10 +646,11 @@ public class ModEnUsLangProvider extends LanguageProvider {
             add("item.poly_mech.molten_" + materialName + "_bucket", name + " Bucket");
         }
 
-        // 等离子体（周期表全118元素，无桶）
+        // 等离子体（周期表全118元素，也有可盛装桶）
         for (ModElements element : ModElements.values()) {
-            add("fluid.poly_mech." + element.getId() + "_plasma",
-                    formatMaterialName(element.getId()) + " Plasma");
+            String plasmaName = formatMaterialName(element.getId()) + " Plasma";
+            add("fluid.poly_mech." + element.getId() + "_plasma", plasmaName);
+            add("item.poly_mech." + element.getId() + "_plasma_bucket", plasmaName + " Bucket");
         }
 
         // 金属存储块（仅有锭的材料，键为材料名）
@@ -661,6 +666,24 @@ public class ModEnUsLangProvider extends LanguageProvider {
         // 化学式成分百分比（Shift显示）
         add("tooltip.poly_mech.formula.shift_hint", "Hold SHIFT to show composition");
         add("tooltip.poly_mech.formula.composition", "Composition: ");
+        add("tooltip.poly_mech.mineral.properties", "Mohs: %s | Density: %s g/cm³ | Crystal: %s | Genesis: %s");
+        add("tooltip.poly_mech.mineral.process", "Process: %s");
+        add("tooltip.poly_mech.crystal.cubic", "Cubic");
+        add("tooltip.poly_mech.crystal.tetragonal", "Tetragonal");
+        add("tooltip.poly_mech.crystal.hexagonal", "Hexagonal");
+        add("tooltip.poly_mech.crystal.orthorhombic", "Orthorhombic");
+        add("tooltip.poly_mech.crystal.monoclinic", "Monoclinic");
+        add("tooltip.poly_mech.crystal.triclinic", "Triclinic");
+        add("tooltip.poly_mech.crystal.amorphous", "Amorphous");
+        add("tooltip.poly_mech.crystal.unknown", "Unknown");
+        add("tooltip.poly_mech.genesis.magmatic", "Magmatic");
+        add("tooltip.poly_mech.genesis.hydrothermal", "Hydrothermal");
+        add("tooltip.poly_mech.genesis.sedimentary", "Sedimentary");
+        add("tooltip.poly_mech.genesis.metamorphic", "Metamorphic");
+        add("tooltip.poly_mech.genesis.weathering", "Weathering");
+        add("tooltip.poly_mech.genesis.placer", "Placer");
+        add("tooltip.poly_mech.genesis.evaporite", "Evaporite");
+        add("tooltip.poly_mech.genesis.volcanic_hydrothermal", "Volcanic-Hydrothermal");
 
         // 侧面方块类型
         add("side_type.poly_mech.normal", "Machine Casing");

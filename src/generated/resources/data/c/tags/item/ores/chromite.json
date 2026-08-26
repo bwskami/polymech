@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:chromite_ore",
     "poly_mech:deepslate_chromite_ore",
+    "poly_mech:chromite_netherrack_ore",
+    "poly_mech:chromite_end_stone_ore",
     "poly_mech:chromite_limestone_ore",
     "poly_mech:chromite_shale_ore",
     "poly_mech:chromite_chalk_ore",

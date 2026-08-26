@@ -20,20 +20,13 @@
           "ore": {
             "Name": "poly_mech:native_silver_dolomite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_native_silver_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:limestone",
       "poly_mech:shale",
-      "poly_mech:dolomite",
-      "minecraft:deepslate"
+      "poly_mech:dolomite"
     ],
     "density": 0.5,
     "max_y": 16,
@@ -56,12 +49,6 @@
           "host": "poly_mech:dolomite",
           "ore": {
             "Name": "poly_mech:galena_dolomite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_galena_ore"
           }
         }
       ]
@@ -86,17 +73,11 @@
           "ore": {
             "Name": "poly_mech:galena_dolomite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_galena_ore"
-          }
         }
       ]
     },
     "seed": -2893672569711533333,
-    "size": 7,
+    "size": 9,
     "sporadic": {
       "mappings": [
         {
@@ -115,12 +96,6 @@
           "host": "poly_mech:dolomite",
           "ore": {
             "Name": "poly_mech:lead_dolomite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_lead_ore"
           }
         }
       ]

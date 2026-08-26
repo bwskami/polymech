@@ -1,5 +1,35 @@
 {
   "type": "poly_mech:steam_duplex_mineral_jig",
+  "byproduct_outputs": [
+    {
+      "chance": 0.33,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:manganese_dust"
+      }
+    },
+    {
+      "chance": 0.2,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:iron_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:tantalum_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:niobium_dust"
+      }
+    }
+  ],
   "duration": 160,
   "fluid_inputs": [
     {

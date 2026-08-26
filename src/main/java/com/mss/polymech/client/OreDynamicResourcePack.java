@@ -189,21 +189,25 @@ public class OreDynamicResourcePack implements PackResources {
         return element;
     }
 
-    /** 岩石底子模型的 parent：石头/深板岩/群峦岩种（都是模型ID，不是贴图ID！） */
+    /** 岩石底子模型的 parent：石头/深板岩/下界岩/末地石/群峦岩种（都是模型ID，不是贴图ID！） */
     private static ResourceLocation baseModelId(String host) {
         return switch (host) {
             case "stone" -> ResourceLocation.withDefaultNamespace("block/stone");
             case "deepslate" -> ResourceLocation.withDefaultNamespace("block/deepslate");
+            case "netherrack" -> ResourceLocation.withDefaultNamespace("block/netherrack");
+            case "end_stone" -> ResourceLocation.withDefaultNamespace("block/end_stone");
             // 群峦岩石方块模型：poly_mech:block/{rock}（datagen generateRockBlocks 生成）
             default -> ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "block/" + host);
         };
     }
 
-    /** 复合模型 particle 贴图：石头/深板岩/群峦岩种贴图 */
+    /** 复合模型 particle 贴图：石头/深板岩/下界岩/末地石/群峦岩种贴图 */
     private static ResourceLocation baseParticleTexture(String host) {
         return switch (host) {
             case "stone" -> ResourceLocation.withDefaultNamespace("block/stone");
             case "deepslate" -> ResourceLocation.withDefaultNamespace("block/deepslate");
+            case "netherrack" -> ResourceLocation.withDefaultNamespace("block/netherrack");
+            case "end_stone" -> ResourceLocation.withDefaultNamespace("block/end_stone");
             default -> ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "block/rock/raw/" + host);
         };
     }

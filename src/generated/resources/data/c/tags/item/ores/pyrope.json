@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:pyrope_ore",
     "poly_mech:deepslate_pyrope_ore",
+    "poly_mech:pyrope_netherrack_ore",
+    "poly_mech:pyrope_end_stone_ore",
     "poly_mech:pyrope_limestone_ore",
     "poly_mech:pyrope_shale_ore",
     "poly_mech:pyrope_chalk_ore",

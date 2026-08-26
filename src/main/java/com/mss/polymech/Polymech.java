@@ -6,6 +6,7 @@ import com.mss.polymech.command.ModCommands;
 import com.mss.polymech.fluid.FluidCellFluidHandler;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
+import com.mss.polymech.fluid.ModFluidBuckets;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.tooltip.ModTooltipCenter;
 import com.mss.polymech.item.FluidCellItem;
@@ -45,6 +46,7 @@ import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.wrappers.FluidBucketWrapper;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import org.slf4j.Logger;
@@ -394,6 +396,21 @@ public class Polymech {
                 (stack, context) -> new FluidCellFluidHandler(stack, FluidCellItem.getMaxCapacity(stack)),
                 ModItems.ALL_FLUID_CELLS.stream().map(def -> (Item) def.get()).toArray(Item[]::new)
         );
+
+        // 桶物品流体能力：NeoForge默认只为精确BucketItem类注册FluidBucketWrapper，
+        // 我们的ChemicalBucketItem等子类不会被自动覆盖，需手动注册，
+        // 否则fluid_container模型读不到桶内流体 -> 流体层不渲染颜色
+        java.util.List<Item> bucketItems = new java.util.ArrayList<>();
+        for (var entry : ModFluidBuckets.getAll()) {
+            bucketItems.add(entry.item());
+        }
+        if (!bucketItems.isEmpty()) {
+            event.registerItem(
+                    Capabilities.FluidHandler.ITEM,
+                    (stack, context) -> new FluidBucketWrapper(stack),
+                    bucketItems.toArray(Item[]::new)
+            );
+        }
     }
 
     /*

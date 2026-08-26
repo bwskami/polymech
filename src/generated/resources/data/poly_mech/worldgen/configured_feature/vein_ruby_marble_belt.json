@@ -80,12 +80,6 @@
           "ore": {
             "Name": "poly_mech:calcite_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_calcite_ore"
-          }
         }
       ]
     },
@@ -102,8 +96,7 @@
       "poly_mech:schist",
       "poly_mech:slate",
       "poly_mech:phyllite",
-      "poly_mech:quartzite",
-      "minecraft:deepslate"
+      "poly_mech:quartzite"
     ],
     "density": 0.45,
     "max_y": -4,
@@ -186,12 +179,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:ruby_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_ruby_ore"
           }
         }
       ]
@@ -276,16 +263,11 @@
           "ore": {
             "Name": "poly_mech:ruby_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_ruby_ore"
-          }
         }
       ]
     },
     "seed": 6644161808907649710,
-    "size": 10
+    "shape": "LAYER",
+    "size": 13
   }
 }

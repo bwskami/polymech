@@ -5,6 +5,8 @@ import com.lowdragmc.lowdraglib2.gui.sync.bindings.IDataSource;
 import com.lowdragmc.lowdraglib2.gui.texture.IGuiTexture;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.mss.polymech.prospecting.ProspectorScan;
+import com.mss.polymech.texture_data.MaterialColorConfig;
+import com.mss.polymech.worldgen.ModMinerals;
 import net.minecraft.client.gui.GuiGraphics;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.api.distmarker.OnlyIn;
@@ -44,17 +46,30 @@ public class ProspectorMapWidget extends UIElement implements IBindable<String> 
             0xFFE8E0D0  // quartzite
     };
 
-    /** 矿物显示色（顺序与ModMinerals.DEFINITIONS一致，取配色辅色以在岩石底图上可见） */
-    private static final int[] MINERAL_COLORS = {
-            0xFF8A6A4A, // cassiterite
-            0xFF9A7040, // sphalerite
-            0xFFC07848, // bauxite
-            0xFF8A8A9A, // galena
-            0xFFE0E0F0, // native_silver
-            0xFF8ABA72, // garnierite
-            0xFFA090A8, // cobaltite
-            0xFF808088  // wolframite
-    };
+    /** 矿物显示色（全部118种：优先取材料底色，缺色时按矿物名黄金分割色相兜底） */
+    private static int[] MINERAL_COLORS;
+
+    /** 取某矿物的显示色（按 ModMinerals 定义表下标） */
+    private static int mineralColor(int oreIndex) {
+        int[] colors = MINERAL_COLORS;
+        if (colors == null) {
+            var defs = ModMinerals.getDefinitions();
+            colors = new int[defs.size()];
+            for (int i = 0; i < defs.size(); i++) {
+                var def = defs.get(i);
+                colors[i] = MaterialColorConfig.getBaseColor(def.metal(), fallbackMineralColor(def.mineral()));
+            }
+            MINERAL_COLORS = colors;
+        }
+        return oreIndex >= 0 && oreIndex < colors.length ? colors[oreIndex] : 0xFF333333;
+    }
+
+    /** 配置中缺少材料颜色时的兜底色：黄金分割色相，保证118种矿物彼此可区分 */
+    private static int fallbackMineralColor(String mineral) {
+        int seed = Math.abs(mineral.hashCode());
+        float hue = (seed * 0.6180339887f) % 1.0f;
+        return 0xFF000000 | (java.awt.Color.HSBtoRGB(hue, 0.55f, 0.85f) & 0x00FFFFFF);
+    }
 
     private final ProspectorMapTexture texture = new ProspectorMapTexture();
 
@@ -102,8 +117,20 @@ public class ProspectorMapWidget extends UIElement implements IBindable<String> 
                 graphics.fill(px, py, px + cs, py + cs, rockColor);
 
                 int ore = result.oreMinerals[i];
-                if (ore >= 0 && ore < MINERAL_COLORS.length) {
-                    graphics.fill(px, py, px + cs, py + cs, MINERAL_COLORS[ore]);
+                if (ore >= 0) {
+                    graphics.fill(px, py, px + cs, py + cs, mineralColor(ore));
+
+                    // 深度带标记：浅层=白点，中层=灰点，深层=黑点（单元格左上角）
+                    int depth = result.oreDepths[i];
+                    if (depth > 0) {
+                        int markerColor = switch (depth) {
+                            case ProspectorScan.DEPTH_SHALLOW -> 0xFFF0F0F0;
+                            case ProspectorScan.DEPTH_MIDDLE -> 0xFF808080;
+                            default -> 0xFF202020;
+                        };
+                        int marker = Math.max(1, cs / 3);
+                        graphics.fill(px, py, px + marker, py + marker, markerColor);
+                    }
                 }
             }
 

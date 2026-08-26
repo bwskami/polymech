@@ -14,19 +14,12 @@
           "ore": {
             "Name": "poly_mech:powellite_rhyolite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_powellite_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:granite",
-      "poly_mech:rhyolite",
-      "minecraft:deepslate"
+      "poly_mech:rhyolite"
     ],
     "density": 0.25,
     "max_y": 16,
@@ -43,12 +36,6 @@
           "host": "poly_mech:rhyolite",
           "ore": {
             "Name": "poly_mech:molybdenite_rhyolite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_molybdenite_ore"
           }
         }
       ]
@@ -67,17 +54,12 @@
           "ore": {
             "Name": "poly_mech:wulfenite_rhyolite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_wulfenite_ore"
-          }
         }
       ]
     },
     "seed": 3286407877422489729,
-    "size": 6,
+    "shape": "DISSEMINATED",
+    "size": 8,
     "sporadic": {
       "mappings": [
         {
@@ -90,12 +72,6 @@
           "host": "poly_mech:rhyolite",
           "ore": {
             "Name": "poly_mech:molybdenum_rhyolite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_molybdenum_ore"
           }
         }
       ]

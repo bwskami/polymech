@@ -5,8 +5,7 @@
       "poly_mech:marble",
       "poly_mech:gneiss",
       "poly_mech:schist",
-      "poly_mech:quartzite",
-      "minecraft:deepslate"
+      "poly_mech:quartzite"
     ],
     "density": 0.4,
     "max_y": 60,
@@ -35,12 +34,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:graphite_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_graphite_ore"
           }
         }
       ]
@@ -71,16 +64,10 @@
           "ore": {
             "Name": "poly_mech:graphite_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_graphite_ore"
-          }
         }
       ]
     },
     "seed": 2798428659864701710,
-    "size": 6
+    "size": 8
   }
 }

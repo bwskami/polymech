@@ -14,19 +14,12 @@
           "ore": {
             "Name": "poly_mech:sodalite_marble_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_sodalite_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:limestone",
-      "poly_mech:marble",
-      "minecraft:deepslate"
+      "poly_mech:marble"
     ],
     "density": 0.12,
     "max_y": 80,
@@ -43,12 +36,6 @@
           "host": "poly_mech:marble",
           "ore": {
             "Name": "poly_mech:lapis_lazuli_marble_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_lapis_lazuli_ore"
           }
         }
       ]
@@ -67,17 +54,11 @@
           "ore": {
             "Name": "poly_mech:lazurite_marble_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_lazurite_ore"
-          }
         }
       ]
     },
     "seed": 8790643817665975935,
-    "size": 7,
+    "size": 9,
     "sporadic": {
       "mappings": [
         {
@@ -90,12 +71,6 @@
           "host": "poly_mech:marble",
           "ore": {
             "Name": "poly_mech:calcite_marble_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_calcite_ore"
           }
         }
       ]

@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:chromium_dust"
+    },
+    {
+      "item": "poly_mech:manganese_dust"
+    },
+    {
+      "item": "poly_mech:nickel_dust"
+    }
+  ],
+  "result": {
+    "count": 9,
+    "id": "poly_mech:stainless_steel_dust"
+  }
+}

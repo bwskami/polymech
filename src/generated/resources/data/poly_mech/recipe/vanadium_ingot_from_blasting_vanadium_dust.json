@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.7,
+  "group": "vanadium_ingot",
+  "ingredient": {
+    "item": "poly_mech:vanadium_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:vanadium_ingot"
+  }
+}

@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:garnet_sand_ore",
     "poly_mech:deepslate_garnet_sand_ore",
+    "poly_mech:garnet_sand_netherrack_ore",
+    "poly_mech:garnet_sand_end_stone_ore",
     "poly_mech:garnet_sand_limestone_ore",
     "poly_mech:garnet_sand_shale_ore",
     "poly_mech:garnet_sand_chalk_ore",

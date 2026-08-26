@@ -1,5 +1,21 @@
 {
   "type": "poly_mech:steam_duplex_mineral_jig",
+  "byproduct_outputs": [
+    {
+      "chance": 0.08,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:gallium_dust"
+      }
+    },
+    {
+      "chance": 0.2,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:iron_dust"
+      }
+    }
+  ],
   "duration": 160,
   "fluid_inputs": [
     {

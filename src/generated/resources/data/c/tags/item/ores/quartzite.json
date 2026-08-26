@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:quartzite_ore",
     "poly_mech:deepslate_quartzite_ore",
+    "poly_mech:quartzite_netherrack_ore",
+    "poly_mech:quartzite_end_stone_ore",
     "poly_mech:quartzite_limestone_ore",
     "poly_mech:quartzite_shale_ore",
     "poly_mech:quartzite_chalk_ore",

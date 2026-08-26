@@ -24,9 +24,9 @@ public class ModBlockStatesProvider extends BlockStateProvider {
         simpleBlockWithItem(ModBlocks.COKE_OVEN_BRICK.get(), cubeAll(ModBlocks.COKE_OVEN_BRICK.get()));
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
 
-        // 蒸汽流体方块
-        simpleBlock(ModFluids.STEAM_BLOCK.get(), models().getBuilder("steam")
-                .texture("particle", modLoc("block/steam_still")));
+        // 石油流体方块（真流体）
+        simpleBlock(ModFluids.OIL_BLOCK.get(), models().getBuilder("petroleum")
+                .texture("particle", modLoc("block/petroleum_still")));
 
         generateConveyorBlockStates();
         generateMaterialBlocks();

@@ -8,8 +8,10 @@ import com.mss.polymech.fluid.ElementFluid;
 import com.mss.polymech.fluid.FluidInfo;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
+import com.mss.polymech.fluid.ModFluidBuckets;
 import com.mss.polymech.fluid.ModElements;
 import com.mss.polymech.item.ModItems;
+import com.mss.polymech.worldgen.MineralProperties;
 import com.mss.polymech.worldgen.ModMinerals;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.Screen;
@@ -313,6 +315,27 @@ public class ModTooltipCenter {
         }
     }
 
+    /** 矿物科学属性 tooltip：莫氏硬度、密度、晶系、成因类型（矿石/粗矿/粉碎/洗净/宝石粉通用） */
+    private static void appendMineralProperties(List<Component> tooltip, ItemStack stack) {
+        String mineralName = ModItems.getMineralOf(stack.getItem());
+        if (mineralName == null && stack.getItem() instanceof net.minecraft.world.item.BlockItem blockItem) {
+            mineralName = ModBlocks.getMineralOfBlock(blockItem.getBlock());
+        }
+        if (mineralName == null) return;
+        var def = ModMinerals.getDefinition(mineralName);
+        if (def == null) return;
+        var props = MineralProperties.get(mineralName);
+        tooltip.add(Component.translatable("tooltip.poly_mech.mineral.properties",
+                props.mohs(),
+                props.densityGcm3(),
+                Component.translatable("tooltip.poly_mech.crystal." + props.crystalSystem().name().toLowerCase()),
+                Component.translatable("tooltip.poly_mech.genesis." + props.genesis().name().toLowerCase())
+        ).withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.translatable("tooltip.poly_mech.mineral.process",
+                MineralProperties.processRoute(mineralName)
+        ).withStyle(ChatFormatting.DARK_GRAY));
+    }
+
     /**
      * 在化学式行之后追加成分信息：
      * 未按住Shift时显示灰色提示；按住Shift时缓存各元素质量占比切片，
@@ -418,6 +441,7 @@ public class ModTooltipCenter {
         if (formula != null && !formula.isEmpty()) {
             tooltip.add(1, formulaComponent(formula));
             appendComposition(tooltip, 2, formula, stack);
+            appendMineralProperties(tooltip, stack);
             beginStructureCache(stack);
             // 聚合物：显示重复单元（[ ]+n）而非单体结构；未登记时退回离子/普通结构
             if (!collectPolymerStructure(lookupMaterialName(stack.getItem()))) {
@@ -434,10 +458,8 @@ public class ModTooltipCenter {
     private static FluidInfo findFluidInfo(ItemStack stack) {
         FluidStack contained = FluidUtil.getFluidContained(stack).orElse(FluidStack.EMPTY);
         if (contained.isEmpty()) return null;
-        ChemicalFluid chem = ModChemicalFluids.byFluid(contained.getFluid());
-        if (chem != null) return chem;
-        ElementFluid elementFluid = ModElementFluids.byFluid(contained.getFluid());
-        return elementFluid;
+        // 所有流体桶/单元统一通过 ModFluidBuckets 数据驱动反查 FluidInfo
+        return ModFluidBuckets.getInfo(contained.getFluid());
     }
 
     /** 物品材料名反查：先查模组材料物品，再查材料存储块；非材料物品返回null */

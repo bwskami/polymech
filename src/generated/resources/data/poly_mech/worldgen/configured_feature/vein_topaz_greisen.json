@@ -4,8 +4,7 @@
     "blocks": [
       "poly_mech:granite",
       "poly_mech:rhyolite",
-      "poly_mech:dacite",
-      "minecraft:deepslate"
+      "poly_mech:dacite"
     ],
     "density": 0.25,
     "max_y": 32,
@@ -28,12 +27,6 @@
           "host": "poly_mech:dacite",
           "ore": {
             "Name": "poly_mech:topaz_dacite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_topaz_ore"
           }
         }
       ]
@@ -58,17 +51,11 @@
           "ore": {
             "Name": "poly_mech:blue_topaz_dacite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_blue_topaz_ore"
-          }
         }
       ]
     },
     "seed": 848189036735488620,
-    "size": 5,
+    "size": 6,
     "sporadic": {
       "mappings": [
         {
@@ -87,12 +74,6 @@
           "host": "poly_mech:dacite",
           "ore": {
             "Name": "poly_mech:quartzite_dacite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_quartzite_ore"
           }
         }
       ]

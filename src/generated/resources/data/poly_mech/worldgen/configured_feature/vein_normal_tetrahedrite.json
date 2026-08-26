@@ -7,8 +7,7 @@
       "poly_mech:schist",
       "poly_mech:slate",
       "poly_mech:phyllite",
-      "poly_mech:quartzite",
-      "minecraft:deepslate"
+      "poly_mech:quartzite"
     ],
     "density": 0.5,
     "max_y": 70,
@@ -49,12 +48,6 @@
           "host": "poly_mech:quartzite",
           "ore": {
             "Name": "poly_mech:tetrahedrite_quartzite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_tetrahedrite_ore"
           }
         }
       ]
@@ -97,16 +90,10 @@
           "ore": {
             "Name": "poly_mech:tetrahedrite_quartzite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_tetrahedrite_ore"
-          }
         }
       ]
     },
     "seed": -7755513776463290852,
-    "size": 7
+    "size": 9
   }
 }

@@ -35,6 +35,7 @@ import java.util.Optional;
  * @param secondary 上层次矿
  * @param between 中间夹层伴生矿（可空）
  * @param sporadic 全域零星散布矿（可空）
+ * @param shape 矿脉几何形态名（{@link ModVeins.VeinShape} 的 name()，默认 ELLIPSOID）
  */
 public record OreVeinConfiguration(
         int rarity,
@@ -47,7 +48,8 @@ public record OreVeinConfiguration(
         OreEntry primary,
         OreEntry secondary,
         Optional<OreEntry> between,
-        Optional<OreEntry> sporadic
+        Optional<OreEntry> sporadic,
+        String shape
 ) implements FeatureConfiguration {
 
     public static final Codec<OreVeinConfiguration> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -56,13 +58,14 @@ public record OreVeinConfiguration(
             Codec.intRange(-128, 512).fieldOf("min_y").forGetter(OreVeinConfiguration::minY),
             Codec.intRange(-128, 512).fieldOf("max_y").forGetter(OreVeinConfiguration::maxY),
             Codec.LONG.fieldOf("seed").forGetter(OreVeinConfiguration::seed),
-            Codec.intRange(1, 32).fieldOf("size").forGetter(OreVeinConfiguration::size),
+            Codec.intRange(1, 64).fieldOf("size").forGetter(OreVeinConfiguration::size),
             Codec.floatRange(0.0F, 1.0F).fieldOf("density").forGetter(OreVeinConfiguration::density),
             BuiltInRegistries.BLOCK.byNameCodec().listOf().fieldOf("blocks").forGetter(OreVeinConfiguration::blocks),
             OreEntry.CODEC.fieldOf("primary").forGetter(OreVeinConfiguration::primary),
             OreEntry.CODEC.fieldOf("secondary").forGetter(OreVeinConfiguration::secondary),
             OreEntry.CODEC.optionalFieldOf("between").forGetter(OreVeinConfiguration::between),
-            OreEntry.CODEC.optionalFieldOf("sporadic").forGetter(OreVeinConfiguration::sporadic)
+            OreEntry.CODEC.optionalFieldOf("sporadic").forGetter(OreVeinConfiguration::sporadic),
+            Codec.STRING.optionalFieldOf("shape", "ELLIPSOID").forGetter(OreVeinConfiguration::shape)
     ).apply(instance, OreVeinConfiguration::new));
 
     /** 宿主方块是否允许被本矿脉替换 */

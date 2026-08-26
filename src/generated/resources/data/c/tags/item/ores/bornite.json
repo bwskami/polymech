@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:bornite_ore",
     "poly_mech:deepslate_bornite_ore",
+    "poly_mech:bornite_netherrack_ore",
+    "poly_mech:bornite_end_stone_ore",
     "poly_mech:bornite_limestone_ore",
     "poly_mech:bornite_shale_ore",
     "poly_mech:bornite_chalk_ore",

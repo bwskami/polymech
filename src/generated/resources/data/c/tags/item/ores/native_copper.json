@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:native_copper_ore",
     "poly_mech:deepslate_native_copper_ore",
+    "poly_mech:native_copper_netherrack_ore",
+    "poly_mech:native_copper_end_stone_ore",
     "poly_mech:native_copper_limestone_ore",
     "poly_mech:native_copper_shale_ore",
     "poly_mech:native_copper_chalk_ore",

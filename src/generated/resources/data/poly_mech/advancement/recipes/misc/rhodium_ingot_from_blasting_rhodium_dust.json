@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_rhodium_dust": {
+      "conditions": {
+        "items": [
+          {
+            "items": "poly_mech:rhodium_dust"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "poly_mech:rhodium_ingot_from_blasting_rhodium_dust"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_rhodium_dust"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "poly_mech:rhodium_ingot_from_blasting_rhodium_dust"
+    ]
+  }
+}

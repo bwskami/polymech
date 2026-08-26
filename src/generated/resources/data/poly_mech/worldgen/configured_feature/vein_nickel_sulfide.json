@@ -14,19 +14,12 @@
           "ore": {
             "Name": "poly_mech:cobaltite_gabbro_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_cobaltite_ore"
-          }
         }
       ]
     },
     "blocks": [
       "poly_mech:basalt",
-      "poly_mech:gabbro",
-      "minecraft:deepslate"
+      "poly_mech:gabbro"
     ],
     "density": 0.25,
     "max_y": 60,
@@ -43,12 +36,6 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:garnierite_gabbro_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_garnierite_ore"
           }
         }
       ]
@@ -67,17 +54,11 @@
           "ore": {
             "Name": "poly_mech:pentlandite_gabbro_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_pentlandite_ore"
-          }
         }
       ]
     },
     "seed": 5235927529117405154,
-    "size": 6,
+    "size": 8,
     "sporadic": {
       "mappings": [
         {
@@ -90,12 +71,6 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:nickel_gabbro_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_nickel_ore"
           }
         }
       ]

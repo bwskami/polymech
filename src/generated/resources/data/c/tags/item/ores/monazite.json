@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:monazite_ore",
     "poly_mech:deepslate_monazite_ore",
+    "poly_mech:monazite_netherrack_ore",
+    "poly_mech:monazite_end_stone_ore",
     "poly_mech:monazite_limestone_ore",
     "poly_mech:monazite_shale_ore",
     "poly_mech:monazite_chalk_ore",

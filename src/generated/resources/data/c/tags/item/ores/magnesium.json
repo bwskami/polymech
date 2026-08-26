@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:magnesite_ore",
     "poly_mech:deepslate_magnesite_ore",
+    "poly_mech:magnesite_netherrack_ore",
+    "poly_mech:magnesite_end_stone_ore",
     "poly_mech:magnesite_limestone_ore",
     "poly_mech:magnesite_shale_ore",
     "poly_mech:magnesite_chalk_ore",

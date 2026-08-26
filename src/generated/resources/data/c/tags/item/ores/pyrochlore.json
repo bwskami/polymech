@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:pyrochlore_ore",
     "poly_mech:deepslate_pyrochlore_ore",
+    "poly_mech:pyrochlore_netherrack_ore",
+    "poly_mech:pyrochlore_end_stone_ore",
     "poly_mech:pyrochlore_limestone_ore",
     "poly_mech:pyrochlore_shale_ore",
     "poly_mech:pyrochlore_chalk_ore",

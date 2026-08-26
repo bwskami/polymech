@@ -11,13 +11,14 @@ import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
 
 /*
- * 区域岩层替换特征：把当前区块内的原版石头替换为岩区岩种。
+ * 区域岩层替换特征：把当前区块内的原版石头/深层石替换为岩区岩种。
  * <p>
  * 在RAW_GENERATION阶段运行（早于一切矿石特征），不改变地形形状：
  * 洞穴在区块生成阶段已雕好，这里替换石头时洞壁自然露出岩层。
- * 岩种按列查询（{@link ModRocks#rockTypeAtBlock}，噪声驱动的大尺度岩区），
- * 因此岩区边界可以穿过区块内部；每列从{@link ModRocks#ROCK_LAYER_MIN_Y}
- * 替换到地表高度，深层石带（Y&lt;-8以下）保持原版深层石不受影响。
+ * 岩种按 (x, z, y) 查询（{@link ModRocks#rockTypeAt}，噪声驱动的大尺度岩区
+ * + 浅/中/深三层垂直岩层），因此岩区边界可以穿过区块内部，
+ * 同一列在不同深度也能看到不同岩层。从{@link ModRocks#ROCK_LAYER_MIN_Y}
+ * 替换到地表高度；最低深层石带（Y&lt;ROCK_LAYER_MIN_Y）保持原版深层石。
  * </p>
  *
  * @see ModRocks
@@ -39,13 +40,22 @@ public class RockRegionFeature extends Feature<NoneFeatureConfiguration> {
             for (int lz = 0; lz < 16; lz++) {
                 int x = chunkPos.getMinBlockX() + lx;
                 int z = chunkPos.getMinBlockZ() + lz;
-                // 岩种按列由噪声决定：同一岩区内的相邻列岩种一致，边界处自然过渡
-                BlockState rock = ModRocks.rockTypeAtBlock(x, z, levelSeed).blockState();
                 int surface = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
+                BlockPos surfacePos = new BlockPos(x, surface, z);
+                var biome = level.getBiome(surfacePos);
 
-                for (int y = ModRocks.ROCK_LAYER_MIN_Y; y <= surface; y++) {
+                int loopMin = Math.max(level.getMinBuildHeight(),
+                        ModRocks.ROCK_LAYER_MIN_Y - ModRocks.TRANSITION_WIDTH);
+                for (int y = loopMin; y <= surface; y++) {
+                    // 深层岩→深板岩过渡：只有 shouldUseModRock 为 true 才放模组岩，否则保留深板岩
+                    if (!ModRocks.shouldUseModRock(y, levelSeed, x, z)) continue;
+
+                    // 岩种按 (x,z,y) + 群系 由噪声 + 垂直层决定：不同生物群系呈现不同岩族
+                    BlockState rock = ModRocks.rockTypeAt(x, z, y, levelSeed, biome).blockState();
                     BlockPos pos = new BlockPos(x, y, z);
-                    if (level.getBlockState(pos).is(Blocks.STONE)) {
+                    BlockState host = level.getBlockState(pos);
+                    // 浅层替换石头；中层/深层按当前深岩范围替换对应石头或深层石
+                    if (host.is(Blocks.STONE) || host.is(Blocks.DEEPSLATE)) {
                         level.setBlock(pos, rock, 2);
                         replaced++;
                     }

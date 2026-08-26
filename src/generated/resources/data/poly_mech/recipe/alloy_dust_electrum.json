@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "poly_mech:gold_dust"
+    },
+    {
+      "item": "poly_mech:silver_dust"
+    }
+  ],
+  "result": {
+    "count": 2,
+    "id": "poly_mech:electrum_dust"
+  }
+}

@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:grossular_ore",
     "poly_mech:deepslate_grossular_ore",
+    "poly_mech:grossular_netherrack_ore",
+    "poly_mech:grossular_end_stone_ore",
     "poly_mech:grossular_limestone_ore",
     "poly_mech:grossular_shale_ore",
     "poly_mech:grossular_chalk_ore",

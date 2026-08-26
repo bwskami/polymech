@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.7,
+  "group": "invar_ingot",
+  "ingredient": {
+    "item": "poly_mech:invar_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:invar_alloy_ingot"
+  }
+}

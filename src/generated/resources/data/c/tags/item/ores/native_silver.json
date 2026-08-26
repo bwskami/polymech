@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:native_silver_ore",
     "poly_mech:deepslate_native_silver_ore",
+    "poly_mech:native_silver_netherrack_ore",
+    "poly_mech:native_silver_end_stone_ore",
     "poly_mech:native_silver_limestone_ore",
     "poly_mech:native_silver_shale_ore",
     "poly_mech:native_silver_chalk_ore",

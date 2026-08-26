@@ -38,24 +38,38 @@ public final class ProspectorScan {
     private ProspectorScan() {
     }
 
-    /** 扫描结果：按列组织的岩石索引与矿物索引 */
+    /** 深度带常量：用于探矿图区分浅/中/深矿（0=该列无矿） */
+    public static final int DEPTH_SHALLOW = 1;
+    public static final int DEPTH_MIDDLE = 2;
+    public static final int DEPTH_DEEP = 3;
+
+    /** 扫描结果：按列组织的岩石索引、矿物索引与矿物深度带 */
     public static final class Result {
         public final int gridSize;
         public final int[] rockTypes;
         public final int[] oreMinerals;
+        public final int[] oreDepths;
 
-        Result(int gridSize, int[] rockTypes, int[] oreMinerals) {
+        Result(int gridSize, int[] rockTypes, int[] oreMinerals, int[] oreDepths) {
             this.gridSize = gridSize;
             this.rockTypes = rockTypes;
             this.oreMinerals = oreMinerals;
+            this.oreDepths = oreDepths;
         }
 
+        /*
+         * 每列打包为一个int：
+         * 位 0~3  = 深度带（0无矿，1浅层，2中层，3深层）
+         * 位 4~11 = 岩石索引
+         * 位 12~31= 矿物索引+1（0表示无矿）
+         */
         public String encode() {
             StringBuilder sb = new StringBuilder(rockTypes.length * 6);
             sb.append(gridSize);
             for (int i = 0; i < rockTypes.length; i++) {
                 int oreField = oreMinerals[i] + 1; // -1 → 0（无矿）
-                sb.append(',').append(rockTypes[i] | (oreField << 8));
+                int packed = (oreDepths[i] & 0xF) | ((rockTypes[i] & 0xFF) << 4) | ((oreField & 0xFFFFF) << 12);
+                sb.append(',').append(packed);
             }
             return sb.toString();
         }
@@ -66,12 +80,14 @@ public final class ProspectorScan {
             int count = gridSize * gridSize;
             int[] rockTypes = new int[count];
             int[] oreMinerals = new int[count];
+            int[] oreDepths = new int[count];
             for (int i = 0; i < count; i++) {
                 int packed = Integer.parseInt(parts[i + 1]);
-                rockTypes[i] = packed & 0xFF;
-                oreMinerals[i] = (packed >> 8) - 1;
+                oreDepths[i] = packed & 0xF;
+                rockTypes[i] = (packed >> 4) & 0xFF;
+                oreMinerals[i] = (packed >> 12) - 1;
             }
-            return new Result(gridSize, rockTypes, oreMinerals);
+            return new Result(gridSize, rockTypes, oreMinerals, oreDepths);
         }
     }
 
@@ -90,6 +106,7 @@ public final class ProspectorScan {
         int gridSize = (RADIUS_CHUNKS * 2 + 1) * 16;
         int[] rockTypes = new int[gridSize * gridSize];
         int[] oreMinerals = new int[gridSize * gridSize];
+        int[] oreDepths = new int[gridSize * gridSize];
 
         int minChunkX = centerChunkX - RADIUS_CHUNKS;
         int minChunkZ = centerChunkZ - RADIUS_CHUNKS;
@@ -103,11 +120,15 @@ public final class ProspectorScan {
                 int x = (chunkX << 4) + (cx & 15);
                 int z = (chunkZ << 4) + (cz & 15);
 
-                // 岩石类型：确定性噪声，无需扫描
-                rockTypes[index] = ModRocks.ROCK_TYPES.indexOf(ModRocks.rockTypeAtBlock(x, z, level.getSeed()));
+                // 岩石类型：确定性噪声 + 群系偏好，无需扫描
+                BlockPos rockPos = new BlockPos(x, 0, z);
+                rockTypes[index] = ModRocks.ROCK_TYPES.indexOf(
+                        ModRocks.rockTypeAt(x, z, ModRocks.SURFACE_ROCK_MIN_Y + 1,
+                                level.getSeed(), level.getBiome(rockPos)));
 
                 // 矿物：扫描已加载区块内的矿石方块
                 oreMinerals[index] = -1;
+                oreDepths[index] = 0;
                 if (!level.hasChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z))) {
                     continue;
                 }
@@ -116,12 +137,20 @@ public final class ProspectorScan {
                     Integer mineral = oreMap.get(level.getBlockState(cursor).getBlock());
                     if (mineral != null) {
                         oreMinerals[index] = mineral;
+                        oreDepths[index] = depthBand(y);
                         break;
                     }
                 }
             }
         }
-        return new Result(gridSize, rockTypes, oreMinerals);
+        return new Result(gridSize, rockTypes, oreMinerals, oreDepths);
+    }
+
+    /** Y坐标 → 深度带：浅层(>=0)、中层(-32~0)、深层(<-32) */
+    private static int depthBand(int y) {
+        if (y >= 0) return DEPTH_SHALLOW;
+        if (y >= -32) return DEPTH_MIDDLE;
+        return DEPTH_DEEP;
     }
 
     /*

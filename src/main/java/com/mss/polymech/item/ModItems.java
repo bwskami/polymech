@@ -227,11 +227,13 @@ public class ModItems {
         }
 
         // 矿物加工中间产物（粉碎矿/洗净矿）：按矿物定义表批量注册。
-        // 煤炭等直接产物类型不加工（不注册），金属/宝石/粉末矿物均可加工。
+        // 煤炭直接掉煤不加工；粉末类矿物本身已经是粉/矿物粉，不需要再洗选；
+        // 只有 METAL 粗矿与 GEM 宝石矿才进入格雷式三级选矿链。
         for (ItemTagPrefix prefix : new ItemTagPrefix[]{ModItemTypes.CRUSHED, ModItemTypes.PURIFIED}) {
             Map<String, DeferredItem<Item>> mineralMap = new LinkedHashMap<>();
             for (com.mss.polymech.worldgen.ModMinerals.MineralDefinition def : com.mss.polymech.worldgen.ModMinerals.getDefinitions()) {
-                if (def.kind() == com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL) continue;
+                if (def.kind() == com.mss.polymech.worldgen.ModMinerals.ProductKind.COAL
+                        || def.kind() == com.mss.polymech.worldgen.ModMinerals.ProductKind.DUST) continue;
                 String itemName = prefix.getIdPattern().formatted(def.mineral());
                 DeferredItem<Item> item = ITEMS.register(itemName,
                         () -> prefix.createItem(new Item.Properties()));

@@ -55,7 +55,8 @@
       ]
     },
     "seed": 1633823206677154354,
-    "size": 5,
+    "shape": "PIPE",
+    "size": 6,
     "sporadic": {
       "mappings": [
         {

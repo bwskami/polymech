@@ -1,0 +1,7 @@
+{
+  "parent": "neoforge:item/bucket_drip",
+  "apply_fluid_luminosity": false,
+  "flip_gas": true,
+  "fluid": "poly_mech:flerovium_plasma",
+  "loader": "neoforge:fluid_container"
+}

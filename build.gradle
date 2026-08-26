@@ -37,6 +37,11 @@ repositories {
             includeGroup("software.bernie.geckolib")
         }
     }
+    // JEI（Just Enough Items）：开发时用于查看机器/合成配方
+    maven {
+        name = 'JEI'
+        url 'https://maven.blamejared.com'
+    }
     // GeckoLib repository
 }
 
@@ -174,12 +179,11 @@ dependencies {
     // 生产环境：fat jar经jar-in-jar嵌入mod jar，由FML按LIBRARY加载
     jarJar files(mergeCdk)
 
-    // Example optional mod dependency with JEI
-    // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
-    // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
-    // compileOnly "mezz.jei:jei-${mc_version}-neoforge-api:${jei_version}"
+    // JEI：API 用于后续编写 JEI 插件/展示自定义配方；完整 JEI 仅进入开发环境运行时
+    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     // We add the full version to localRuntime, not runtimeOnly, so that we do not publish a dependency on it
-    // localRuntime "mezz.jei:jei-${mc_version}-neoforge:${jei_version}"
+    localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar

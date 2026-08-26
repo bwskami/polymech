@@ -14,6 +14,7 @@ import java.util.Map;
  * 锡来自锡石(SnO₂)、铅来自方铅矿(PbS)、铝来自铝土矿(Al₂O₃)。
  * 矿物清单照抄两大写实参考：<b>群峦传说(TFC)</b>与<b>格雷科技(GregTech CEu)</b>，
  * 仅剔除格雷的虚构矿物（naquadah/electrotine）。
+ * certus_quartz 属 AE 兼容/彩蛋矿物，并不属于真实矿物学，因此不参与下界/末地生成。
  * </p>
  *
  * <h2>岩石版本矿石（格雷式）：</h2>
@@ -102,6 +103,16 @@ public final class ModMinerals {
             return mineral + "_" + rock + "_ore";
         }
 
+        /** 下界岩矿方块注册名：{mineral}_netherrack_ore */
+        public String netherrackOreName() {
+            return mineral + "_netherrack_ore";
+        }
+
+        /** 末地石矿方块注册名：{mineral}_end_stone_ore */
+        public String endStoneOreName() {
+            return mineral + "_end_stone_ore";
+        }
+
         /** 粗矿物物品注册名：raw_{mineral}（仅METAL产物类型使用） */
         public String rawItemName() {
             return "raw_" + mineral;
@@ -164,30 +175,30 @@ public final class ModMinerals {
      * </p>
      */
     private static final List<MineralDefinition> DEFINITIONS = List.of(
-            new MineralDefinition("native_copper", "copper", ProductKind.METAL, ToolTier.STONE, "metallic", "Cu", 1, 8, 3, 0, 80),
-            new MineralDefinition("malachite", "copper", ProductKind.METAL, ToolTier.STONE, "lapis", "Cu2CO3(OH)2", 2, 0, 0, 0, 0),
+            new MineralDefinition("native_copper", "copper", ProductKind.METAL, ToolTier.STONE, "metallic", "Cu", 1, 8, 0, 0, 80),
+            new MineralDefinition("malachite", "copper", ProductKind.METAL, ToolTier.STONE, "lapis", "Cu2CO3(OH)2", 2, 5, 0, 0, 56),
             new MineralDefinition("chalcopyrite", "copper", ProductKind.METAL, ToolTier.STONE, "dull", "CuFeS2", 3, 0, 0, 0, 0),
             new MineralDefinition("bornite", "copper", ProductKind.METAL, ToolTier.STONE, "rough", "Cu5FeS4", 3, 0, 0, 0, 0),
             new MineralDefinition("chalcocite", "copper", ProductKind.METAL, ToolTier.STONE, "emerald", "Cu2S", 3, 0, 0, 0, 0),
-            new MineralDefinition("tetrahedrite", "copper", ProductKind.METAL, ToolTier.STONE, "dull", "Cu3FeSb3S8", 3, 0, 0, 0, 0),
+            new MineralDefinition("tetrahedrite", "copper", ProductKind.METAL, ToolTier.STONE, "dull", "Cu3FeSb3S8", 3, 5, 0, -32, 48),
             new MineralDefinition("copper", "copper", ProductKind.METAL, ToolTier.STONE, "metallic", "Cu", 3, 0, 0, 0, 0),
-            new MineralDefinition("hematite", "iron", ProductKind.METAL, ToolTier.STONE, "dull", "Fe2O3", 2, 0, 0, 0, 0),
-            new MineralDefinition("magnetite", "iron", ProductKind.METAL, ToolTier.STONE, "metallic", "Fe3O4", 4, 0, 0, 0, 0),
-            new MineralDefinition("limonite", "iron", ProductKind.METAL, ToolTier.STONE, "dull", "FeO(OH)", 2, 0, 0, 0, 0),
+            new MineralDefinition("hematite", "iron", ProductKind.METAL, ToolTier.STONE, "dull", "Fe2O3", 2, 6, 0, -16, 64),
+            new MineralDefinition("magnetite", "iron", ProductKind.METAL, ToolTier.STONE, "metallic", "Fe3O4", 4, 6, 0, -32, 48),
+            new MineralDefinition("limonite", "iron", ProductKind.METAL, ToolTier.STONE, "dull", "FeO(OH)", 2, 6, 0, -16, 64),
             new MineralDefinition("goethite", "iron", ProductKind.METAL, ToolTier.STONE, "metallic", "FeO(OH)", 2, 0, 0, 0, 0),
             new MineralDefinition("vanadium_magnetite", "vanadium", ProductKind.METAL, ToolTier.IRON, "metallic", "(Fe,V)3O4", 2, 0, 0, 0, 0),
             new MineralDefinition("iron", "iron", ProductKind.METAL, ToolTier.STONE, "metallic", "Fe", 4, 0, 0, 0, 0),
-            new MineralDefinition("cassiterite", "tin", ProductKind.METAL, ToolTier.STONE, "rough", "SnO2", 1, 9, 4, -16, 64),
+            new MineralDefinition("cassiterite", "tin", ProductKind.METAL, ToolTier.STONE, "rough", "SnO2", 1, 9, 0, -16, 64),
             new MineralDefinition("cassiterite_sand", "tin", ProductKind.METAL, ToolTier.STONE, "sand", "SnO2", 1, 0, 0, 0, 0),
             new MineralDefinition("tin", "tin", ProductKind.METAL, ToolTier.STONE, "metallic", "Sn", 1, 0, 0, 0, 0),
-            new MineralDefinition("sphalerite", "zinc", ProductKind.METAL, ToolTier.STONE, "dull", "ZnS", 3, 8, 3, -16, 48),
-            new MineralDefinition("galena", "lead", ProductKind.METAL, ToolTier.IRON, "metallic", "PbS", 3, 0, 0, 0, 0),
+            new MineralDefinition("sphalerite", "zinc", ProductKind.METAL, ToolTier.STONE, "dull", "ZnS", 3, 8, 0, -16, 48),
+            new MineralDefinition("galena", "lead", ProductKind.METAL, ToolTier.IRON, "metallic", "PbS", 3, 6, 0, -48, 16),
             new MineralDefinition("lead", "lead", ProductKind.METAL, ToolTier.IRON, "metallic", "Pb", 4, 0, 0, 0, 0),
-            new MineralDefinition("native_silver", "silver", ProductKind.METAL, ToolTier.IRON, "shiny", "Ag", 3, 0, 0, 0, 0),
+            new MineralDefinition("native_silver", "silver", ProductKind.METAL, ToolTier.IRON, "shiny", "Ag", 3, 6, 0, -48, 32),
             new MineralDefinition("silver", "silver", ProductKind.METAL, ToolTier.IRON, "shiny", "Ag", 3, 0, 0, 0, 0),
-            new MineralDefinition("native_gold", "gold", ProductKind.METAL, ToolTier.IRON, "shiny", "Au", 3, 0, 0, 0, 0),
+            new MineralDefinition("native_gold", "gold", ProductKind.METAL, ToolTier.IRON, "shiny", "Au", 3, 5, 0, -32, 48),
             new MineralDefinition("gold", "gold", ProductKind.METAL, ToolTier.IRON, "shiny", "Au", 3, 0, 0, 0, 0),
-            new MineralDefinition("bismuthinite", "bismuth", ProductKind.METAL, ToolTier.STONE, "dull", "Bi2S3", 3, 0, 0, 0, 0),
+            new MineralDefinition("bismuthinite", "bismuth", ProductKind.METAL, ToolTier.STONE, "dull", "Bi2S3", 3, 5, 0, -32, 48),
             new MineralDefinition("garnierite", "nickel", ProductKind.METAL, ToolTier.IRON, "metallic", "Ni3Si2O5(OH)4", 2, 0, 0, 0, 0),
             new MineralDefinition("pentlandite", "nickel", ProductKind.METAL, ToolTier.IRON, "dull", "(Ni,Fe)9S8", 3, 0, 0, 0, 0),
             new MineralDefinition("nickel", "nickel", ProductKind.METAL, ToolTier.IRON, "metallic", "Ni", 1, 0, 0, 0, 0),
@@ -250,14 +261,14 @@ public final class ModMinerals {
             new MineralDefinition("quartzite", "quartz", ProductKind.GEM, ToolTier.STONE, "quartz", "SiO2", 4, 0, 0, 0, 0),
             new MineralDefinition("nether_quartz", "quartz", ProductKind.GEM, ToolTier.STONE, "quartz", "SiO2", 4, 0, 0, 0, 0),
             new MineralDefinition("certus_quartz", "certus_quartz", ProductKind.GEM, ToolTier.STONE, "certus", "SiO2", 4, 0, 0, 0, 0),
-            new MineralDefinition("sulfur", "sulfur", ProductKind.DUST, ToolTier.STONE, "dull", "S", 1, 0, 0, 0, 0),
-            new MineralDefinition("graphite", "graphite", ProductKind.DUST, ToolTier.STONE, "dull", "C", 2, 0, 0, 0, 0),
+            new MineralDefinition("sulfur", "sulfur", ProductKind.DUST, ToolTier.STONE, "dull", "S", 1, 5, 0, -64, 80),
+            new MineralDefinition("graphite", "graphite", ProductKind.DUST, ToolTier.STONE, "dull", "C", 2, 5, 0, -32, 48),
             new MineralDefinition("saltpeter", "saltpeter", ProductKind.DUST, ToolTier.STONE, "fine", "KNO3", 2, 0, 0, 0, 0),
             new MineralDefinition("sylvite", "sylvite", ProductKind.DUST, ToolTier.STONE, "fine", "KCl", 2, 0, 0, 0, 0),
             new MineralDefinition("salt", "salt", ProductKind.DUST, ToolTier.STONE, "fine", "NaCl", 2, 0, 0, 0, 0),
             new MineralDefinition("rock_salt", "salt", ProductKind.DUST, ToolTier.STONE, "fine", "NaCl", 2, 0, 0, 0, 0),
-            new MineralDefinition("gypsum", "gypsum", ProductKind.DUST, ToolTier.STONE, "dull", "CaSO4.2H2O", 2, 0, 0, 0, 0),
-            new MineralDefinition("cinnabar", "cinnabar", ProductKind.DUST, ToolTier.STONE, "emerald", "HgS", 3, 0, 0, 0, 0),
+            new MineralDefinition("gypsum", "gypsum", ProductKind.DUST, ToolTier.STONE, "dull", "CaSO4.2H2O", 2, 5, 0, 0, 64),
+            new MineralDefinition("cinnabar", "cinnabar", ProductKind.DUST, ToolTier.STONE, "emerald", "HgS", 3, 5, 0, -48, 48),
             new MineralDefinition("cryolite", "cryolite", ProductKind.DUST, ToolTier.STONE, "dull", "Na3AlF6", 1, 0, 0, 0, 0),
             new MineralDefinition("borax", "borax", ProductKind.DUST, ToolTier.STONE, "dull", "Na2B4O7.10H2O", 2, 0, 0, 0, 0),
             new MineralDefinition("calcite", "calcite", ProductKind.DUST, ToolTier.STONE, "dull", "CaCO3", 1, 0, 0, 0, 0),
@@ -278,8 +289,8 @@ public final class ModMinerals {
             new MineralDefinition("basaltic_mineral_sand", "iron", ProductKind.DUST, ToolTier.STONE, "sand", "Fe3O4", 1, 0, 0, 0, 0),
             new MineralDefinition("granitic_mineral_sand", "iron", ProductKind.DUST, ToolTier.STONE, "sand", "Fe2O3", 1, 0, 0, 0, 0),
             new MineralDefinition("garnet_sand", "garnet", ProductKind.GEM, ToolTier.STONE, "sand", "(Fe,Mg)3Al2Si3O12", 1, 0, 0, 0, 0),
-            new MineralDefinition("bituminous_coal", "coal", ProductKind.COAL, ToolTier.STONE, "lignite", "C", 2, 0, 0, 0, 0),
-            new MineralDefinition("lignite", "coal", ProductKind.COAL, ToolTier.STONE, "lignite", "C", 2, 0, 0, 0, 0),
+            new MineralDefinition("bituminous_coal", "coal", ProductKind.COAL, ToolTier.STONE, "lignite", "C", 2, 7, 0, -48, 0),
+            new MineralDefinition("lignite", "coal", ProductKind.COAL, ToolTier.STONE, "lignite", "C", 2, 6, 0, -32, 16),
             new MineralDefinition("oilsands", "coal", ProductKind.COAL, ToolTier.STONE, "sand", "C", 2, 0, 0, 0, 0),
             new MineralDefinition("redstone", "redstone", ProductKind.DUST, ToolTier.IRON, "rough", "", 3, 0, 0, 0, 0)
     );

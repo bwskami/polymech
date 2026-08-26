@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:plutonium_239_ore",
     "poly_mech:deepslate_plutonium_239_ore",
+    "poly_mech:plutonium_239_netherrack_ore",
+    "poly_mech:plutonium_239_end_stone_ore",
     "poly_mech:plutonium_239_limestone_ore",
     "poly_mech:plutonium_239_shale_ore",
     "poly_mech:plutonium_239_chalk_ore",

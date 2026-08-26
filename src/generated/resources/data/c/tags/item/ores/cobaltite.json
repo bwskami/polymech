@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:cobaltite_ore",
     "poly_mech:deepslate_cobaltite_ore",
+    "poly_mech:cobaltite_netherrack_ore",
+    "poly_mech:cobaltite_end_stone_ore",
     "poly_mech:cobaltite_limestone_ore",
     "poly_mech:cobaltite_shale_ore",
     "poly_mech:cobaltite_chalk_ore",

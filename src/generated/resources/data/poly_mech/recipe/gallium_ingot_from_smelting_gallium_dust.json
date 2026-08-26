@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.7,
+  "group": "gallium_ingot",
+  "ingredient": {
+    "item": "poly_mech:gallium_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:gallium_ingot"
+  }
+}

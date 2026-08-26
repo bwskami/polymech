@@ -266,6 +266,12 @@ public class ColorConfigLoader {
                     if (deepslateColor != null && deepslateColor.length > 0) {
                         baseTint = deepslateColor[0];
                     }
+                } else if (path.startsWith("netherrack_")) {
+                    material = path.substring("netherrack_".length(), path.length() - "_ore".length());
+                    baseTint = null;
+                } else if (path.startsWith("end_stone_")) {
+                    material = path.substring("end_stone_".length(), path.length() - "_ore".length());
+                    baseTint = null;
                 } else {
                     // 岩种矿：去掉尾部 _{rock}_ore；否则为石头矿 {mineral}_ore
                     material = null;

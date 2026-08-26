@@ -746,6 +746,8 @@ public class ModZhCnLangProvider extends LanguageProvider {
                     String name = switch (host) {
                         case "stone" -> mineralZh + "矿石";
                         case "deepslate" -> "深层" + mineralZh + "矿石";
+                        case "netherrack" -> "下界岩" + mineralZh + "矿石";
+                        case "end_stone" -> "末地石" + mineralZh + "矿石";
                         default -> mineralZh + ROCK_ZH_NAMES.getOrDefault(host, host) + "矿石";
                     };
                     add(variantEntry.getValue().get(), name);
@@ -768,6 +770,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add(ModItems.PROSPECTOR.get(), "探矿仪");
         add("gui.poly_mech.prospector.title", "探矿仪");
         add("gui.poly_mech.prospector.hint", "岩石类型（底色）+ 矿物矿石（叠加色）。红框=所在区块。");
+        add("gui.poly_mech.prospector.legend", "深度标记：白点=浅层，灰点=中层，黑点=深层");
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
@@ -783,6 +786,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add("command.poly_mech.rock.none", "脚下64格内未找到岩石（只有空气或流体）");
         add("command.poly_mech.veins.header", "=== PolyMech 矿脉定义 ===");
         add("command.poly_mech.veins.entry", "- %s：平均每1/%d区块一条，Y %d~%d，尺寸 %d，密度 %s，宿主岩：%s");
+        add("command.poly_mech.veins.shape", "  类型：%s");
         add("command.poly_mech.veins.composition", "  主矿 %s / 次矿 %s / 夹层 %s / 零星 %s");
         add("command.poly_mech.scan.result", "%s：%d 块，最近处 %s");
         add("command.poly_mech.scan.total", "共 %d 个矿石方块");
@@ -826,16 +830,16 @@ public class ModZhCnLangProvider extends LanguageProvider {
         // 蒸汽流体
         add("fluid.poly_mech.steam", "蒸汽");
         add("item.poly_mech.steam_bucket", "蒸汽桶");
-        add("block.poly_mech.steam", "蒸汽");
+        add("fluid.poly_mech.petroleum", "石油");
+        add("item.poly_mech.petroleum_bucket", "石油桶");
+        add("block.poly_mech.petroleum", "石油");
 
         // 化学流体（真实存在的化学物质，不可放置）
         for (ChemicalFluid chem : ChemicalFluid.values()) {
             String zhName = CHEMICAL_ZH.get(chem.getId());
             add("fluid.poly_mech." + chem.getId(), zhName);
-            // 只有液体才有桶
-            if (chem.isLiquid()) {
-                add("item.poly_mech." + chem.getId() + "_bucket", zhName + "桶");
-            }
+            // 所有化学流体都有桶（气体/等离子体为不可放置的桶）
+            add("item.poly_mech." + chem.getId() + "_bucket", zhName + "桶");
         }
 
         // 熔融金属（每种材料一条，温度≈熔点，带桶）
@@ -845,10 +849,11 @@ public class ModZhCnLangProvider extends LanguageProvider {
             add("item.poly_mech.molten_" + materialName + "_bucket", "熔融" + zhName + "桶");
         }
 
-        // 等离子体（周期表全118元素，无桶）
+        // 等离子体（周期表全118元素，也有可盛装桶）
         for (ModElements element : ModElements.values()) {
             String zhName = ELEMENT_ZH.getOrDefault(element.getId(), element.getSymbol());
             add("fluid.poly_mech." + element.getId() + "_plasma", zhName + "等离子体");
+            add("item.poly_mech." + element.getId() + "_plasma_bucket", zhName + "等离子体桶");
         }
 
         // 金属存储块（仅有锭的材料，键为材料名）
@@ -865,6 +870,24 @@ public class ModZhCnLangProvider extends LanguageProvider {
         // 化学式成分百分比（Shift显示）
         add("tooltip.poly_mech.formula.shift_hint", "按住 Shift 查看成分比例");
         add("tooltip.poly_mech.formula.composition", "成分比例：");
+        add("tooltip.poly_mech.mineral.properties", "莫氏硬度：%s | 密度：%s g/cm³ | 晶系：%s | 成因：%s");
+        add("tooltip.poly_mech.mineral.process", "工艺路线：%s");
+        add("tooltip.poly_mech.crystal.cubic", "等轴晶系");
+        add("tooltip.poly_mech.crystal.tetragonal", "四方晶系");
+        add("tooltip.poly_mech.crystal.hexagonal", "六方晶系");
+        add("tooltip.poly_mech.crystal.orthorhombic", "斜方晶系");
+        add("tooltip.poly_mech.crystal.monoclinic", "单斜晶系");
+        add("tooltip.poly_mech.crystal.triclinic", "三斜晶系");
+        add("tooltip.poly_mech.crystal.amorphous", "非晶质");
+        add("tooltip.poly_mech.crystal.unknown", "未知");
+        add("tooltip.poly_mech.genesis.magmatic", "岩浆成因");
+        add("tooltip.poly_mech.genesis.hydrothermal", "热液成因");
+        add("tooltip.poly_mech.genesis.sedimentary", "沉积成因");
+        add("tooltip.poly_mech.genesis.metamorphic", "变质成因");
+        add("tooltip.poly_mech.genesis.weathering", "风化成因");
+        add("tooltip.poly_mech.genesis.placer", "砂矿成因");
+        add("tooltip.poly_mech.genesis.evaporite", "蒸发岩成因");
+        add("tooltip.poly_mech.genesis.volcanic_hydrothermal", "火山-热液成因");
 
         // 侧面方块类型
         add("side_type.poly_mech.normal", "机器外壳");

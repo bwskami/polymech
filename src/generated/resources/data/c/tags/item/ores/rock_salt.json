@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:rock_salt_ore",
     "poly_mech:deepslate_rock_salt_ore",
+    "poly_mech:rock_salt_netherrack_ore",
+    "poly_mech:rock_salt_end_stone_ore",
     "poly_mech:rock_salt_limestone_ore",
     "poly_mech:rock_salt_shale_ore",
     "poly_mech:rock_salt_chalk_ore",

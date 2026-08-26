@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:chalcocite_ore",
     "poly_mech:deepslate_chalcocite_ore",
+    "poly_mech:chalcocite_netherrack_ore",
+    "poly_mech:chalcocite_end_stone_ore",
     "poly_mech:chalcocite_limestone_ore",
     "poly_mech:chalcocite_shale_ore",
     "poly_mech:chalcocite_chalk_ore",

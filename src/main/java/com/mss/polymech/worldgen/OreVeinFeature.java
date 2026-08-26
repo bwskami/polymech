@@ -77,18 +77,33 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     /** 中间夹层被between伴生矿替换的概率 */
     private static final float BETWEEN_CHANCE = 0.35F;
 
-    /** 全域被sporadic零星矿替换的概率 */
+    /** 外围伴生矿基础概率（在OUTER_HALO_START之外出现，越靠外越高） */
     private static final float SPORADIC_CHANCE = 0.08F;
 
     /** 椭球垂直压扁系数：透镜状矿体 */
     private static final float VERTICAL_SQUASH = 0.6F;
+
+    /** 矿脉有效半径倍率：使矿床比配置里的size更大，更接近群峦矿脉观感 */
+    private static final float SIZE_SCALE = 1.5F;
+
+    /** 椭球边缘的最低成矿密度因子：即使边缘也保留少量零星矿，避免突然截断 */
+    private static final float MIN_DENSITY_FACTOR = 0.15F;
+
+    /** 外围伴生晕的起始径向距离（0=中心，1=椭球边界）；此范围之外主要出现伴随矿 */
+    private static final float OUTER_HALO_START = 0.5F;
+
+    /** 主矿脉体外围“游离矿物”壳层的水平半径倍率（相对 rxz） */
+    private static final float OUTER_HALO_RADIUS_FACTOR = 1.25F;
+
+    /** 外围游离矿的基础成矿概率（非常低，只做矿床周围的零星矿物） */
+    private static final float OUTER_LOOSE_CHANCE = 0.02F;
 
     /*
      * 矿苗深度约束（群峦Indicator.depth语义）：
      * 矿体顶部与地表岩石的垂直距离小于该值才生成矿苗。
      * 深埋矿脉不露苗，勘探需要高度与岩层双重判断。
      */
-    private static final int INDICATOR_DEPTH = 16;
+    private static final int INDICATOR_DEPTH = 32;
 
     /** 中心区块掷骰的混入常数（与群峦同款， decorrelate X/Z两个种子轴） */
     private static final long CHUNK_X_SEED_MULTIPLIER = 61728364132L;
@@ -121,9 +136,33 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         return placed;
     }
 
-    /** 能影响当前区块的最远中心区块距离（方块半径size折算成区块数，向上取整） */
+    /** 缩放后的实际矿脉半径（保证至少4格，让小型矿脉也不至于过碎） */
+    private static int effectiveRadius(int size) {
+        return Math.max(4, Math.round(size * SIZE_SCALE));
+    }
+
+    /**
+     * 按矿脉形态计算水平半径(rxz)与垂直半高(ry)。
+     * <p>
+     * LAYER 横向放大、垂直压薄；PIPE 横向缩小、纵向拉长；
+     * DIKE 保持中等厚度、由后续方向过滤拉长；DISSEMINATED 整体放大但密度低。
+     * </p>
+     */
+    private static int[] veinRadii(int size, ModVeins.VeinShape shape) {
+        int base = effectiveRadius(size);
+        return switch (shape) {
+            case LAYER -> new int[]{Math.max(6, Math.round(base * 1.3F)), Math.max(2, Math.round(size * 0.25F))};
+            case PIPE -> new int[]{Math.max(3, Math.round(size * 0.5F)), Math.max(6, Math.round(base * 1.6F))};
+            case DIKE -> new int[]{Math.max(6, Math.round(base * 1.2F)), Math.max(4, Math.round(base * 0.8F))};
+            case DISSEMINATED -> new int[]{Math.max(6, Math.round(base * 1.25F)), Math.max(4, Math.round(base * 0.8F))};
+            default -> new int[]{base, Math.max(4, Math.round(base * VERTICAL_SQUASH))};
+        };
+    }
+
+    /** 能影响当前区块的最远中心区块距离（按缩放后实际半径（含外围游离矿壳）折算成区块数，向上取整） */
     private static int chunkRadius(int size) {
-        return (size + 15) / 16;
+        int radius = (int) Math.ceil(effectiveRadius(size) * OUTER_HALO_RADIUS_FACTOR);
+        return (radius + 15) / 16;
     }
 
     /*
@@ -142,8 +181,15 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
             return false;
         }
 
-        int rxz = config.size();
-        int ry = Math.max(3, Math.round(config.size() * VERTICAL_SQUASH));
+        ModVeins.VeinShape shape;
+        try {
+            shape = ModVeins.VeinShape.valueOf(config.shape());
+        } catch (IllegalArgumentException e) {
+            shape = ModVeins.VeinShape.ELLIPSOID;
+        }
+        int[] radii = veinRadii(config.size(), shape);
+        int rxz = radii[0];
+        int ry = radii[1];
 
         // 矿脉中心：区块内随机位置；高度向内收缩ry（群峦defaultYPos），
         // 让椭球上下缘不超出minY~maxY，避免被高度范围裁切
@@ -154,12 +200,6 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                 ? config.minY() + ry + rand.nextInt(yRange)
                 : (config.minY() + config.maxY()) / 2;
         BlockPos origin = new BlockPos(originX, originY, originZ);
-
-        // 放置期宿主门控（第一级过滤）：中心落在错误岩区则整条作废。
-        // 纯噪声计算、无世界读取，各区块的生成流程判定一致
-        if (!centerAllowed(level.getSeed(), origin, config)) {
-            return false;
-        }
 
         // 形状随机由世界种子+矿脉中心派生：所有区块的流程消耗同一序列，
         // 密度分布在跨区块处完全一致
@@ -182,13 +222,20 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
             for (int dz = -rxz; dz <= rxz; dz++) {
                 double horizontal = (double) (dx * dx + dz * dz) / (double) (rxz * rxz);
                 if (horizontal > 1.0) continue;
+                // DIKE：沿 X 方向拉长的岩墙状矿脉，窄的 Z 向剔除，形成走向矿墙
+                if (shape == ModVeins.VeinShape.DIKE && Math.abs(dz) > Math.abs(dx) * 0.35 + 1) continue;
+                double radialDist = Math.sqrt(horizontal);
 
                 // 椭球方程：该柱位的垂直半高
                 int columnHalf = (int) (Math.sqrt(1.0 - horizontal) * ry);
                 int topIndex = (dx + rxz) * footprint + (dz + rxz);
                 for (int dy = -columnHalf; dy <= columnHalf; dy++) {
-                    // 密度采样：未成矿的位置直接跳过（序列消耗跨区块一致）
-                    if (shapeRand.nextFloat() >= config.density()) continue;
+                    // 连续密度衰减：中心接近config.density，越靠边越低，但边缘不会突然归零
+                    double vertical = (double) dy / Math.max(1, columnHalf);
+                    double falloff = Math.pow(1.0 - radialDist, 0.7)
+                            * Math.max(0.0, 1.0 - vertical * vertical);
+                    double chance = config.density() * (MIN_DENSITY_FACTOR + (1.0 - MIN_DENSITY_FACTOR) * falloff);
+                    if (shapeRand.nextFloat() >= chance) continue;
 
                     int x = originX + dx;
                     int y = originY + dy;
@@ -202,10 +249,14 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                     if (!config.isHost(host.getBlock())) continue;
 
                     BlockState ore;
-                    if (config.between().isPresent() && dy >= -bandHalf && dy <= bandHalf
-                            && shapeRand.nextFloat() < BETWEEN_CHANCE) {
+                    boolean betweenInBand = config.between().isPresent()
+                            && dy >= -bandHalf && dy <= bandHalf;
+                    if (betweenInBand && shapeRand.nextFloat() < BETWEEN_CHANCE) {
                         ore = config.between().get().forState(host);
-                    } else if (config.sporadic().isPresent() && shapeRand.nextFloat() < SPORADIC_CHANCE) {
+                    } else if (config.sporadic().isPresent() && radialDist > OUTER_HALO_START
+                            && shapeRand.nextFloat() < SPORADIC_CHANCE * (1.0F + 2.0F
+                            * (float) ((radialDist - OUTER_HALO_START) / (1.0F - OUTER_HALO_START)))) {
+                        // 伴生晕：只在矿脉外围，越靠边缘概率越高
                         ore = config.sporadic().get().forState(host);
                     } else {
                         ore = (dy < 0 ? config.primary() : config.secondary()).forState(host);
@@ -218,6 +269,11 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                 }
             }
         }
+
+        // 矿床外围游离矿物：主椭球体之外的低密度零星矿石，让矿脉周围有少量“找矿线索”，
+        // 但不会像之前的原版散矿那样铺满整个地下。
+        placed |= placeOuterLooseOre(level, cursor, originX, originY, originZ, rxz, ry,
+                shape, config, shapeRand, chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ);
 
         // 地表矿苗：苗位由矿脉随机确定性派生（各区块消耗同一序列），
         // 只由苗位所在区块的流程放置，天然无跨区块写入与重复
@@ -236,18 +292,61 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     }
 
     /*
-     * 放置期宿主门控：中心所在岩区的岩种必须在宿主列表内。
-     * 深层石带（岩层底部以下）只可能是深层石；-8~0过渡带石块与深层石混杂，
-     * 两者任一被允许即放行。
+     * 矿床外围游离矿物（群峦/格雷整合包常见的“矿脉周围零星矿”）。
+     * <p>
+     * 只在主椭球体之外的低密度壳层内随机放置少量矿石，作为找矿线索，
+     * 但不回填到矿脉主体密度，也不参与地表矿苗深度计算。
+     * </p>
      */
-    private static boolean centerAllowed(long levelSeed, BlockPos origin, OreVeinConfiguration config) {
-        if (origin.getY() < ModRocks.ROCK_LAYER_MIN_Y) {
-            return config.isHost(Blocks.DEEPSLATE);
+    private boolean placeOuterLooseOre(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
+                                       int originX, int originY, int originZ, int rxz, int ry,
+                                       ModVeins.VeinShape shape,
+                                       OreVeinConfiguration config, RandomSource shapeRand,
+                                       int chunkMinX, int chunkMaxX, int chunkMinZ, int chunkMaxZ) {
+        int outerR = Math.max(1, (int) Math.ceil(rxz * OUTER_HALO_RADIUS_FACTOR));
+        double outerLimitSq = OUTER_HALO_RADIUS_FACTOR * OUTER_HALO_RADIUS_FACTOR;
+        boolean placed = false;
+
+        for (int dx = -outerR; dx <= outerR; dx++) {
+            for (int dz = -outerR; dz <= outerR; dz++) {
+                double horizontal = (double) (dx * dx + dz * dz) / (double) (rxz * rxz);
+                // 只处理主椭球体之外的壳层
+                if (horizontal <= 1.0 || horizontal > outerLimitSq) continue;
+                // 与主矿体一致：岩墙状矿脉的外围游离矿也沿走向延伸
+                if (shape == ModVeins.VeinShape.DIKE && Math.abs(dz) > Math.abs(dx) * 0.35 + 1) continue;
+                double radialDist = Math.sqrt(horizontal);
+                // 越靠外越稀
+                double falloff = 1.0 - (radialDist - 1.0) / (OUTER_HALO_RADIUS_FACTOR - 1.0);
+                int outerColumnHalf = (int) (ry * falloff * 0.6);
+                if (outerColumnHalf <= 0) continue;
+
+                for (int dy = -outerColumnHalf; dy <= outerColumnHalf; dy++) {
+                    double chance = OUTER_LOOSE_CHANCE * (0.4 + 0.6 * falloff);
+                    if (shapeRand.nextFloat() >= chance) continue;
+
+                    int x = originX + dx;
+                    int y = originY + dy;
+                    int z = originZ + dz;
+                    if (x < chunkMinX || x > chunkMaxX || z < chunkMinZ || z > chunkMaxZ) continue;
+
+                    cursor.set(x, y, z);
+                    BlockState host = level.getBlockState(cursor);
+                    if (!config.isHost(host.getBlock())) continue;
+
+                    BlockState ore;
+                    // 外围游离矿优先给零星伴生矿，没有则按上下层给主/次矿
+                    if (config.sporadic().isPresent() && shapeRand.nextFloat() < 0.35F) {
+                        ore = config.sporadic().get().forState(host);
+                    } else {
+                        ore = (dy < 0 ? config.primary() : config.secondary()).forState(host);
+                    }
+                    if (ore == null) continue;
+                    level.setBlock(cursor, ore, 2);
+                    placed = true;
+                }
+            }
         }
-        Block centerRock = ModRocks.rockTypeAtBlock(origin.getX(), origin.getZ(), levelSeed)
-                .block().get();
-        return config.isHost(centerRock)
-                || (origin.getY() < 0 && config.isHost(Blocks.DEEPSLATE));
+        return placed;
     }
 
     /*

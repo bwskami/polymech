@@ -190,11 +190,10 @@ public class ModElementFluids {
             entry.source = FLUIDS.register(def.getId(), () -> new BaseFlowingFluid.Source(entry.properties()));
             entry.flowing = FLUIDS.register(def.getId() + "_flowing",
                     () -> new BaseFlowingFluid.Flowing(entry.properties()));
-            if (def.isLiquid()) {
-                entry.bucket = BUCKETS.register(def.getId() + "_bucket",
-                        () -> new ChemicalBucketItem(entry.source.get(),
-                                new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
-            }
+            // 所有元素流体都注册桶物品（等离子体也可用桶盛装；无方块形态，桶只作为物品形态）
+            entry.bucket = BUCKETS.register(def.getId() + "_bucket",
+                    () -> new ChemicalBucketItem(entry.source.get(),
+                            new Item.Properties().craftRemainder(Items.BUCKET).stacksTo(1)));
         }
     }
 
@@ -288,6 +287,16 @@ public class ModElementFluids {
             }
         }
         return Items.AIR;
+    }
+
+    /** 获取指定元素流体的源流体（用于流体容器模型） */
+    public static net.minecraft.world.level.material.Fluid getSource(ElementFluid def) {
+        for (Entry entry : ENTRIES) {
+            if (entry.def == def) {
+                return entry.source.get();
+            }
+        }
+        return net.minecraft.world.level.material.Fluids.EMPTY;
     }
 
     /** Fluid→元素流体 查找表（注册完成后惰性构建） */

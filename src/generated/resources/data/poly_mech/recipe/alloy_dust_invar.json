@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:iron_dust"
+    },
+    {
+      "item": "poly_mech:nickel_dust"
+    }
+  ],
+  "result": {
+    "count": 3,
+    "id": "poly_mech:invar_dust"
+  }
+}

@@ -5,8 +5,7 @@
       "poly_mech:limestone",
       "poly_mech:chalk",
       "poly_mech:dolomite",
-      "poly_mech:marble",
-      "minecraft:deepslate"
+      "poly_mech:marble"
     ],
     "density": 0.5,
     "max_y": 70,
@@ -35,12 +34,6 @@
           "host": "poly_mech:marble",
           "ore": {
             "Name": "poly_mech:malachite_marble_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_malachite_ore"
           }
         }
       ]
@@ -71,16 +64,10 @@
           "ore": {
             "Name": "poly_mech:malachite_marble_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_malachite_ore"
-          }
         }
       ]
     },
     "seed": 5056933033969257902,
-    "size": 7
+    "size": 9
   }
 }

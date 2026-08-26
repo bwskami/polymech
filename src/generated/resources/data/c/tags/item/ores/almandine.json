@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:almandine_ore",
     "poly_mech:deepslate_almandine_ore",
+    "poly_mech:almandine_netherrack_ore",
+    "poly_mech:almandine_end_stone_ore",
     "poly_mech:almandine_limestone_ore",
     "poly_mech:almandine_shale_ore",
     "poly_mech:almandine_chalk_ore",

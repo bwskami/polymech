@@ -7,6 +7,10 @@ import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
 import com.mss.polymech.client.renderer.MachineGeoRenderer;
 import com.mss.polymech.client.tooltip.ClientCompositionPieTooltipComponent;
 import com.mss.polymech.client.tooltip.ClientMoleculeStructureTooltipComponent;
+import com.mss.polymech.fluid.ModChemicalFluids;
+import com.mss.polymech.fluid.ModElementFluids;
+import com.mss.polymech.fluid.ModFluidBuckets;
+import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.ModItems;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.tooltip.CompositionPieTooltipComponent;
@@ -70,9 +74,20 @@ public class PolymechClient {
      */
     @SubscribeEvent
     static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
+        // 流体单元：tintIndex==1 时用所含流体的 tint 颜色
         event.register(new DynamicFluidContainerModel.Colors(),
                 ModItems.ALL_FLUID_CELLS.stream().map(def -> (net.minecraft.world.item.Item) def.get())
                         .toArray(net.minecraft.world.item.Item[]::new));
+
+        // 所有流体桶：统一从 ModFluidBuckets 数据驱动获取，按所含流体着色，保证和流体单元一致
+        var bucketItems = new java.util.ArrayList<net.minecraft.world.item.Item>();
+        for (var entry : ModFluidBuckets.getAll()) {
+            bucketItems.add(entry.item());
+        }
+        if (!bucketItems.isEmpty()) {
+            event.register(new DynamicFluidContainerModel.Colors(),
+                    bucketItems.toArray(net.minecraft.world.item.Item[]::new));
+        }
     }
 
     @SubscribeEvent

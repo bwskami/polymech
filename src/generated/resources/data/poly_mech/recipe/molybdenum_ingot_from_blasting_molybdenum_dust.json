@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:blasting",
+  "category": "misc",
+  "cookingtime": 100,
+  "experience": 0.7,
+  "group": "molybdenum_ingot",
+  "ingredient": {
+    "item": "poly_mech:molybdenum_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:molybdenum_ingot"
+  }
+}

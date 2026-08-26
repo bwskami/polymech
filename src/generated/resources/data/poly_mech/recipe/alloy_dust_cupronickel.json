@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "poly_mech:copper_dust"
+    },
+    {
+      "item": "poly_mech:nickel_dust"
+    }
+  ],
+  "result": {
+    "count": 2,
+    "id": "poly_mech:cupronickel_dust"
+  }
+}

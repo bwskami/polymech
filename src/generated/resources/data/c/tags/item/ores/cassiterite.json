@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:cassiterite_ore",
     "poly_mech:deepslate_cassiterite_ore",
+    "poly_mech:cassiterite_netherrack_ore",
+    "poly_mech:cassiterite_end_stone_ore",
     "poly_mech:cassiterite_limestone_ore",
     "poly_mech:cassiterite_shale_ore",
     "poly_mech:cassiterite_chalk_ore",

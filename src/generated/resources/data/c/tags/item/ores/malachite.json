@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:malachite_ore",
     "poly_mech:deepslate_malachite_ore",
+    "poly_mech:malachite_netherrack_ore",
+    "poly_mech:malachite_end_stone_ore",
     "poly_mech:malachite_limestone_ore",
     "poly_mech:malachite_shale_ore",
     "poly_mech:malachite_chalk_ore",

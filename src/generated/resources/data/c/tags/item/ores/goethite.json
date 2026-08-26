@@ -2,6 +2,8 @@
   "values": [
     "poly_mech:goethite_ore",
     "poly_mech:deepslate_goethite_ore",
+    "poly_mech:goethite_netherrack_ore",
+    "poly_mech:goethite_end_stone_ore",
     "poly_mech:goethite_limestone_ore",
     "poly_mech:goethite_shale_ore",
     "poly_mech:goethite_chalk_ore",

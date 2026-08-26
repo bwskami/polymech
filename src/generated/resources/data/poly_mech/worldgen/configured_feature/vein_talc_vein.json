@@ -5,8 +5,7 @@
       "poly_mech:dolomite",
       "poly_mech:marble",
       "poly_mech:schist",
-      "poly_mech:phyllite",
-      "minecraft:deepslate"
+      "poly_mech:phyllite"
     ],
     "density": 0.3,
     "max_y": 16,
@@ -35,12 +34,6 @@
           "host": "poly_mech:phyllite",
           "ore": {
             "Name": "poly_mech:talc_phyllite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_talc_ore"
           }
         }
       ]
@@ -71,17 +64,11 @@
           "ore": {
             "Name": "poly_mech:soapstone_phyllite_ore"
           }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_soapstone_ore"
-          }
         }
       ]
     },
     "seed": -6170749912272677474,
-    "size": 6,
+    "size": 8,
     "sporadic": {
       "mappings": [
         {
@@ -106,12 +93,6 @@
           "host": "poly_mech:phyllite",
           "ore": {
             "Name": "poly_mech:magnesite_phyllite_ore"
-          }
-        },
-        {
-          "host": "minecraft:deepslate",
-          "ore": {
-            "Name": "poly_mech:deepslate_magnesite_ore"
           }
         }
       ]

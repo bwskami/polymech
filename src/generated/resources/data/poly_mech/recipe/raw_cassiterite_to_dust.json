@@ -1,5 +1,28 @@
 {
   "type": "poly_mech:steam_roller_crusher",
+  "byproduct_outputs": [
+    {
+      "chance": 0.05,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:tantalum_dust"
+      }
+    },
+    {
+      "chance": 0.05,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:niobium_dust"
+      }
+    },
+    {
+      "chance": 0.05,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:tungsten_dust"
+      }
+    }
+  ],
   "duration": 120,
   "fluid_inputs": [
     {

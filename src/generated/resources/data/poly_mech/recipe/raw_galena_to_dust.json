@@ -1,5 +1,35 @@
 {
   "type": "poly_mech:steam_roller_crusher",
+  "byproduct_outputs": [
+    {
+      "chance": 0.5,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:silver_dust"
+      }
+    },
+    {
+      "chance": 0.25,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:sulfur_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:bismuth_dust"
+      }
+    },
+    {
+      "chance": 0.1,
+      "item": {
+        "count": 1,
+        "id": "poly_mech:antimony_dust"
+      }
+    }
+  ],
   "duration": 120,
   "fluid_inputs": [
     {

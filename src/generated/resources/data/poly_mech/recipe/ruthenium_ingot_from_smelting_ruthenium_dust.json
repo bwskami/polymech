@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:smelting",
+  "category": "misc",
+  "cookingtime": 200,
+  "experience": 0.7,
+  "group": "ruthenium_ingot",
+  "ingredient": {
+    "item": "poly_mech:ruthenium_dust"
+  },
+  "result": {
+    "count": 1,
+    "id": "poly_mech:ruthenium_ingot"
+  }
+}

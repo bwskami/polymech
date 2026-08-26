@@ -11,6 +11,7 @@ import com.mss.polymech.fluid.ChemicalFluid;
 import com.mss.polymech.fluid.ElementFluid;
 import com.mss.polymech.fluid.ModChemicalFluids;
 import com.mss.polymech.fluid.ModElementFluids;
+import com.mss.polymech.fluid.ModFluidBuckets;
 import com.mss.polymech.fluid.ModFluids;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -198,24 +199,13 @@ public class ModCreativeModeTabs {
                                 return new ItemStack(ModElementFluids.getBucket(def));
                             }
                         }
-                        return new ItemStack(ModFluids.STEAM_BUCKET.get());
+                        return new ItemStack(ModFluids.OIL_BUCKET.get());
                     })
                     .title(Component.translatable("itemGroup.bucket_tab"))
                     .displayItems((parameters, output) -> {
-                        output.accept(ModFluids.STEAM_BUCKET.get());
-
-                        // 化学流体桶（仅液体有桶）
-                        for (ChemicalFluid chem : ChemicalFluid.values()) {
-                            if (chem.isLiquid()) {
-                                output.accept(ModChemicalFluids.getBucket(chem));
-                            }
-                        }
-
-                        // 熔融金属桶（仅液体有桶，等离子体无桶）
-                        for (ElementFluid def : ModElementFluids.getDefinitions()) {
-                            if (def.isLiquid()) {
-                                output.accept(ModElementFluids.getBucket(def));
-                            }
+                        // 所有流体桶：统一从 ModFluidBuckets 数据驱动获取
+                        for (ModFluidBuckets.Entry bucket : ModFluidBuckets.getAll()) {
+                            output.accept(bucket.item());
                         }
                     }).build());
 
