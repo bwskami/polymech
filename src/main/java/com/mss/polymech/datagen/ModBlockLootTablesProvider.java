@@ -50,9 +50,16 @@ public class ModBlockLootTablesProvider extends BlockLootSubProvider {
             // 矿石掉落粗矿（时运加成），单独生成战利品表
             if (oreBlocks.contains(block))
                 continue;
-            // 地表碎石无掉落（.noLootTable()）
-            if (block instanceof com.mss.polymech.block.SurfaceRockBlock)
+            // 矿物碎块：掉落对应粗矿（无粗矿矿物如宝石则掉碎块自身）
+            if (block instanceof com.mss.polymech.block.SurfaceRockBlock surfaceRock) {
+                var rawItem = com.mss.polymech.item.ModItems.getRawMineral(surfaceRock.getMineral());
+                if (rawItem != null) {
+                    add(block, createSingleItemTable(rawItem.get()));
+                } else {
+                    dropSelf(block);
+                }
                 continue;
+            }
             dropSelf(block);
         }
 

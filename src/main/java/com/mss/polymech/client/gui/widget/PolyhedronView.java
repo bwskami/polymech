@@ -1,10 +1,10 @@
 package com.mss.polymech.client.gui.widget;
 
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -14,7 +14,6 @@ import com.mss.polymech.techtree.Polyhedron;
 import com.mss.polymech.techtree.TechNode;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.network.chat.Component;
 import org.joml.Matrix4f;
 
@@ -24,71 +23,82 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * 科技树 3D 可视化：
+ * 科技树 3D 可视化（Mindustry 式）：
  * <ul>
- *   <li>内核：随机生成的类地星球（程序化大陆/海洋/冰盖，朗伯着色 + 边缘光），实心不透明。</li>
- *   <li>外壳：正六边形 + 12 五边形拼接的球，只显示“棱”（线框），面透明可透视到内核；
- *       但只画正面棱，背面棱剔除，因此不会透出背面的线框。</li>
- *   <li>科技 = 外壳上的某个地块（多边形面）：高亮该面的棱（tier 色）+ 极淡透明填充（可透出星球），
- *       不另盖不透明多边形。悬停高亮 + 名称提示，点击打开“思索”面板。</li>
- *   <li>轨道相机：拖拽旋转、滚轮缩放。</li>
+ *   <li>内核：六边形/五边形色块拼成的低多边形星球。</li>
+ *   <li>大气层：向外膨胀一层的半透明蓝色球壳。</li>
+ *   <li>最外层棱框：稍大球体，默认显示全部多边形的棱。</li>
+ *   <li>不跳任何几何：星球全部面都画并按深度排序（画家算法），大气/棱框全部画、
+ *       仅按深度分“背面先画/正面后画”，背面自然被不透明星星遮挡，不会提前消失。</li>
  * </ul>
  */
 public class PolyhedronView extends UIElement {
 
-    private static final float PLANET_R = 0.95f;
+    private static final float PLANET_R = 0.93f;
+    private static final float ATMOS_R = 0.99f;
+    private static final float WIRE_R = 1.05f;
+    private static final float EDGE_HW = 1.3f;
+    private static final long PLANET_SEED = 0x5EED1234L;
+    private static final float LX = -0.398f, LY = 0.696f, LZ = 0.597f, AMB = 0.30f;
 
-    private final Polyhedron shell;   // 外壳：六边形+五边形线框
-    private final Polyhedron planet;  // 内核：类地星球
+    private final Polyhedron shell;   // 六边形+五边形（星球色块 + 棱框）
+    private final Polyhedron atmos;   // 大气层：半透明光滑球
     private final List<TechNode> nodes;
     private final Consumer<TechNode> onSelect;
-    private final float[][] pAlbedo;  // 星球每顶点反照率(r,g,b)
+    private final float[][] faceAlbedo;
     private final Noise3 noise;
 
     private float yaw = 0.6f;
     private float pitch = 0.35f;
     private float dist = 3.2f;
     private boolean dragging = false;
+    private int lastMX = 0, lastMY = 0;
     private long lastNano = System.nanoTime();
 
     private int hoveredTile = -1;
     private int selectedTile = -1;
 
-    // 投影缓存：星球
-    private final float[] px, py, nx, ny, nz, pr, pg, pb;
-    // 投影缓存：外壳
-    private final float[] sx, sy, snx, sny, snz;
+    // 星球地块：屏幕坐标 + 世界坐标（用于排序/拾取/光照）
+    private final float[] tx, ty, tnx, tny, tnz;
+    // 最外层棱框：屏幕坐标 + 世界z
+    private final float[] wx, wy, wnz;
+    // 大气层：屏幕坐标 + 世界z
+    private final float[] ax, ay, anz;
 
-    public PolyhedronView(Polyhedron shell, Polyhedron planet, List<TechNode> nodes, Consumer<TechNode> onSelect) {
+    public PolyhedronView(Polyhedron shell, Polyhedron atmos, List<TechNode> nodes, Consumer<TechNode> onSelect) {
         this.shell = shell;
-        this.planet = planet;
+        this.atmos = atmos;
         this.nodes = nodes;
         this.onSelect = onSelect;
-        this.noise = new Noise3(System.nanoTime());
-
-        int pv = planet.vertices.length;
-        this.px = new float[pv]; this.py = new float[pv];
-        this.nx = new float[pv]; this.ny = new float[pv]; this.nz = new float[pv];
-        this.pr = new float[pv]; this.pg = new float[pv]; this.pb = new float[pv];
-        this.pAlbedo = new float[pv][3];
-        precomputePlanet();
+        this.noise = new Noise3(PLANET_SEED);
 
         int sv = shell.vertices.length;
-        this.sx = new float[sv]; this.sy = new float[sv];
-        this.snx = new float[sv]; this.sny = new float[sv]; this.snz = new float[sv];
+        this.tx = new float[sv]; this.ty = new float[sv];
+        this.tnx = new float[sv]; this.tny = new float[sv]; this.tnz = new float[sv];
+        this.wx = new float[sv]; this.wy = new float[sv]; this.wnz = new float[sv];
+        int av = atmos.vertices.length;
+        this.ax = new float[av]; this.ay = new float[av]; this.anz = new float[av];
 
-        addEventListener(UIEvents.MOUSE_DOWN, e -> dragging = true);
+        this.faceAlbedo = new float[shell.faces.length][3];
+        precomputeFaces();
+
+        addEventListener(UIEvents.MOUSE_DOWN, e -> {
+            dragging = true;
+            lastMX = (int) e.x; lastMY = (int) e.y;
+        });
         addEventListener(UIEvents.MOUSE_UP, e -> dragging = false);
         addEventListener(UIEvents.MOUSE_MOVE, e -> {
             if (dragging) {
-                yaw += e.deltaX * 0.01f;
-                pitch += e.deltaY * 0.01f;
+                int mx = (int) e.x, my = (int) e.y;
+                yaw += (mx - lastMX) * 0.01f;
+                pitch += (my - lastMY) * 0.01f;
                 pitch = clamp(pitch, -1.4f, 1.4f);
+                lastMX = mx; lastMY = my;
             }
         });
         addEventListener(UIEvents.MOUSE_WHEEL, e -> {
-            if (e.deltaY > 0) dist *= 1.1f;
-            else if (e.deltaY < 0) dist *= 0.9f;
+            if (e.deltaY > 0) dist *= 0.9f;
+            else if (e.deltaY < 0) dist *= 1.1f;
             dist = clamp(dist, 1.6f, 8f);
         });
         addEventListener(UIEvents.CLICK, e -> {
@@ -106,26 +116,40 @@ public class PolyhedronView extends UIElement {
         });
     }
 
-    /** 程序化生成类地星球反照率（海洋/大陆/冰盖）。 */
-    private void precomputePlanet() {
-        for (int i = 0; i < planet.vertices.length; i++) {
-            float[] d = planet.vertices[i];
-            float n = noise.fbm(d[0] * 1.8f + 11.3f, d[1] * 1.8f + 27.1f, d[2] * 1.8f + 5.7f);
-            n = clamp(n / 0.94f, 0, 1);
-            float lat = Math.abs(d[1]);
-            float r, g, b;
-            if (n < 0.5f) {            // 海洋
-                float t = n / 0.5f;
-                r = 0.02f + 0.03f * t; g = 0.12f + 0.30f * t; b = 0.38f + 0.45f * t;
-            } else {                   // 陆地
-                float t = (n - 0.5f) / 0.5f;
-                r = 0.20f + 0.45f * t; g = 0.45f - 0.10f * t; b = 0.16f - 0.10f * t;
+    /** 每个地块面基础色：科技块用 tier 色，其余用程序化地形色。 */
+    private void precomputeFaces() {
+        for (int f = 0; f < shell.faces.length; f++) {
+            int[] fv = shell.faces[f];
+            float cx = 0, cy = 0, cz = 0;
+            for (int v : fv) {
+                cx += shell.vertices[v][0]; cy += shell.vertices[v][1]; cz += shell.vertices[v][2];
             }
-            if (lat > 0.82f) {         // 极地冰盖
-                float t = (lat - 0.82f) / 0.18f;
+            float len = (float) Math.sqrt(cx * cx + cy * cy + cz * cz);
+            cx /= len; cy /= len; cz /= len;
+
+            if (f < nodes.size()) {
+                int col = tierColor(nodes.get(f).tier());
+                faceAlbedo[f][0] = ((col >> 16) & 0xFF) / 255f;
+                faceAlbedo[f][1] = ((col >> 8) & 0xFF) / 255f;
+                faceAlbedo[f][2] = (col & 0xFF) / 255f;
+                continue;
+            }
+            float n = noise.fbm(cx * 2.2f + 11.3f, cy * 2.2f + 27.1f, cz * 2.2f + 5.7f);
+            n = clamp(n / 0.94f, 0, 1);
+            float lat = Math.abs(cy);
+            float r, g, b;
+            if (n < 0.5f) {
+                float t = n / 0.5f;
+                r = 0.05f + 0.04f * t; g = 0.16f + 0.30f * t; b = 0.40f + 0.40f * t;
+            } else {
+                float t = (n - 0.5f) / 0.5f;
+                r = 0.24f + 0.42f * t; g = 0.45f - 0.10f * t; b = 0.18f - 0.10f * t;
+            }
+            if (lat > 0.80f) {
+                float t = (lat - 0.80f) / 0.20f;
                 r = r + (1 - r) * t; g = g + (1 - g) * t; b = b + (1 - b) * t;
             }
-            pAlbedo[i][0] = r; pAlbedo[i][1] = g; pAlbedo[i][2] = b;
+            faceAlbedo[f][0] = r; faceAlbedo[f][1] = g; faceAlbedo[f][2] = b;
         }
     }
 
@@ -147,9 +171,9 @@ public class PolyhedronView extends UIElement {
         float cosY = (float) Math.cos(yaw), sinY = (float) Math.sin(yaw);
         float cosX = (float) Math.cos(pitch), sinX = (float) Math.sin(pitch);
 
-        // 投影内核星球（半径 PLANET_R）
-        for (int i = 0; i < planet.vertices.length; i++) {
-            float[] v = planet.vertices[i];
+        // 星球地块：屏幕坐标 + 世界z
+        for (int i = 0; i < shell.vertices.length; i++) {
+            float[] v = shell.vertices[i];
             float rx = (v[0] * PLANET_R) * cosY + (v[2] * PLANET_R) * sinY;
             float rz1 = -(v[0] * PLANET_R) * sinY + (v[2] * PLANET_R) * cosY;
             float ry = v[1] * PLANET_R;
@@ -157,50 +181,50 @@ public class PolyhedronView extends UIElement {
             float rz = ry * sinX + rz1 * cosX;
             float denom = dist - rz;
             if (denom < 0.05f) denom = 0.05f;
-            px[i] = cx + rx * focal / denom;
-            py[i] = cy - ry2 * focal / denom;
-            nx[i] = rx; ny[i] = ry2; nz[i] = rz;
-            // 着色
-            float diff = Math.max(0, nx[i] * LX + ny[i] * LY + nz[i] * LZ);
-            float shade = AMB + (1 - AMB) * diff;
-            float facing = Math.max(0, nz[i]);
-            float rim = (float) Math.pow(1 - facing, 3) * 0.5f;
-            pr[i] = Math.min(1, pAlbedo[i][0] * shade + 0.30f * rim);
-            pg[i] = Math.min(1, pAlbedo[i][1] * shade + 0.45f * rim);
-            pb[i] = Math.min(1, pAlbedo[i][2] * shade + 0.70f * rim);
+            tx[i] = cx + rx * focal / denom;
+            ty[i] = cy - ry2 * focal / denom;
+            tnx[i] = rx; tny[i] = ry2; tnz[i] = rz;
         }
 
-        // 投影外壳（半径 1）
+        // 最外层棱框
         for (int i = 0; i < shell.vertices.length; i++) {
             float[] v = shell.vertices[i];
-            float rx = v[0] * cosY + v[2] * sinY;
-            float rz1 = -v[0] * sinY + v[2] * cosY;
-            float ry = v[1];
+            float rx = (v[0] * WIRE_R) * cosY + (v[2] * WIRE_R) * sinY;
+            float rz1 = -(v[0] * WIRE_R) * sinY + (v[2] * WIRE_R) * cosY;
+            float ry = v[1] * WIRE_R;
             float ry2 = ry * cosX - rz1 * sinX;
             float rz = ry * sinX + rz1 * cosX;
             float denom = dist - rz;
             if (denom < 0.05f) denom = 0.05f;
-            sx[i] = cx + rx * focal / denom;
-            sy[i] = cy - ry2 * focal / denom;
-            snx[i] = rx; sny[i] = ry2; snz[i] = rz;
+            wx[i] = cx + rx * focal / denom;
+            wy[i] = cy - ry2 * focal / denom;
+            wnz[i] = rz;
         }
 
-        // 悬停：正面科技地块命中
+        // 大气层
+        for (int i = 0; i < atmos.vertices.length; i++) {
+            float[] v = atmos.vertices[i];
+            float rx = (v[0] * ATMOS_R) * cosY + (v[2] * ATMOS_R) * sinY;
+            float rz1 = -(v[0] * ATMOS_R) * sinY + (v[2] * ATMOS_R) * cosY;
+            float ry = v[1] * ATMOS_R;
+            float ry2 = ry * cosX - rz1 * sinX;
+            float rz = ry * sinX + rz1 * cosX;
+            float denom = dist - rz;
+            if (denom < 0.05f) denom = 0.05f;
+            ax[i] = cx + rx * focal / denom;
+            ay[i] = cy - ry2 * focal / denom;
+            anz[i] = rz;
+        }
+
+        // 悬停：只对正面可见科技地块拾取（点不到被挡住的背面）
         hoveredTile = -1;
         for (int f = 0; f < nodes.size(); f++) {
-            if (shellAvgNz(f) <= 0) continue;
-            if (pointInShellPoly(guiContext.mouseX, guiContext.mouseY, f)) {
+            if (tileAvgWorldZ(f) <= 0) continue;
+            if (pointInTilePoly(guiContext.mouseX, guiContext.mouseY, f)) {
                 hoveredTile = f;
                 break;
             }
         }
-
-        // 绘制内核星球（实心不透明，正面 + 画家算法）
-        List<Integer> pf = new ArrayList<>();
-        for (int f = 0; f < planet.faces.length; f++) {
-            if (planetAvgNz(f) > 0) pf.add(f);
-        }
-        pf.sort(Comparator.comparingDouble(this::planetAvgNz));
 
         g.flush();
         Matrix4f matrix = g.pose().last().pose();
@@ -210,77 +234,140 @@ public class PolyhedronView extends UIElement {
         RenderSystem.disableDepthTest();
         RenderSystem.disableCull();
 
-        BufferBuilder fb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        for (int f : pf) {
-            int[] fv = planet.faces[f];
+        // ① 背面大气层 / 背面棱框（随后被不透明星星遮挡）
+        drawAtmosphere(g, matrix, false);
+        drawWireframe(g, matrix, false);
+        // ② 内核星球：全部地块面，按深度远近排序（不跳面）
+        drawPlanet(g, matrix);
+        // ③ 正面大气层 / 正面棱框
+        drawAtmosphere(g, matrix, true);
+        drawWireframe(g, matrix, true);
+        // ④ 选中/悬停轮廓
+        drawTechHighlight(g, matrix);
+    }
+
+    /** 大气层：半透明蓝壳，按正/背面分两层（全部面都画，只是先后不同）。 */
+    private void drawAtmosphere(GuiGraphics g, Matrix4f matrix, boolean front) {
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (int f = 0; f < atmos.faces.length; f++) {
+            int[] fv = atmos.faces[f];
+            float avg = (anz[fv[0]] + anz[fv[1]] + anz[fv[2]]) / 3f;
+            boolean isFront = avg > 0;
+            if (isFront != front) continue;
+            float rzn = clamp(avg / ATMOS_R, -1, 1);
+            float rim = 1 - Math.abs(rzn);
+            float alpha = front ? (0.05f + 0.24f * rim) : 0.03f;
             for (int k = 0; k < 3; k++) {
-                fb.addVertex(matrix, px[fv[k]], py[fv[k]], 0).setColor(pr[fv[k]], pg[fv[k]], pb[fv[k]], 1f);
+                int idx = fv[k];
+                bb.addVertex(matrix, ax[idx], ay[idx], 0).setColor(0.25f, 0.55f, 1.0f, alpha);
             }
         }
-        BufferUploader.drawWithShader(fb.build());
+        BufferUploader.drawWithShader(bb.build());
+    }
 
-        // 外壳线框：只画正面棱（背面棱剔除，因此不会透出背面线框）
-        RenderSystem.lineWidth(1.2f);
-        BufferBuilder lb = Tesselator.getInstance().begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR);
+    /** 最外层棱框：所有棱用细长四边带绘制；按正/背面分两层（全部画，只是先后不同）。 */
+    private void drawWireframe(GuiGraphics g, Matrix4f matrix, boolean front) {
+        float alpha = front ? 0.95f : 0.55f;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (int[] ed : shell.edges) {
             int i0 = ed[0], i1 = ed[1];
-            if (snz[i0] <= 0 || snz[i1] <= 0) continue;
-            lb.addVertex(matrix, sx[i0], sy[i0], 0).setColor(0.30f, 0.55f, 0.7f, 0.35f);
-            lb.addVertex(matrix, sx[i1], sy[i1], 0).setColor(0.30f, 0.55f, 0.7f, 0.35f);
+            boolean isFront = wnz[i0] > 0 || wnz[i1] > 0;
+            if (isFront != front) continue;
+            float x0 = wx[i0], y0 = wy[i0], x1 = wx[i1], y1 = wy[i1];
+            float dx = x1 - x0, dy = y1 - y0;
+            float len = (float) Math.sqrt(dx * dx + dy * dy);
+            if (len < 0.5f) continue;
+            float nx = -dy / len * EDGE_HW, ny = dx / len * EDGE_HW;
+            addQuad(bb, matrix, x0, y0, x1, y1, nx, ny, 0.55f, 0.85f, 1.0f, alpha);
         }
-        BufferUploader.drawWithShader(lb.build());
+        BufferUploader.drawWithShader(bb.build());
+    }
 
-        // 科技地块：极淡透明填充（可透出内核星球）+ 加亮棱（不再另盖不透明多边形）
-        for (int f = 0; f < nodes.size(); f++) {
-            if (shellAvgNz(f) <= 0) continue;
+    /** 内核星球：<b>全部</b>六边形/五边形色块都画，按 z 从远到近排序（画家算法），不跳面。 */
+    private void drawPlanet(GuiGraphics g, Matrix4f matrix) {
+        List<Integer> pf = new ArrayList<>(shell.faces.length);
+        for (int f = 0; f < shell.faces.length; f++) pf.add(f);
+        pf.sort(Comparator.comparingDouble(this::tileAvgWorldZ));
+
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (int f : pf) {
             int[] fv = shell.faces[f];
-            int col = tierColor(nodes.get(f).tier());
-            boolean hot = (f == hoveredTile) || (f == selectedTile);
-            float cr = ((col >> 16) & 0xFF) / 255f;
-            float cg = ((col >> 8) & 0xFF) / 255f;
-            float cb = (col & 0xFF) / 255f;
-            float fa = hot ? 0.32f : 0.16f;
-            float ccx = 0, ccy = 0;
-            for (int k : fv) { ccx += sx[k]; ccy += sy[k]; }
+            float nX = 0, nY = 0, nZ = 0, ccx = 0, ccy = 0;
+            for (int v : fv) {
+                nX += tnx[v]; nY += tny[v]; nZ += tnz[v];
+                ccx += tx[v]; ccy += ty[v];
+            }
+            float nlen = (float) Math.sqrt(nX * nX + nY * nY + nZ * nZ);
+            if (nlen > 1e-5f) { nX /= nlen; nY /= nlen; nZ /= nlen; }
+            float diff = Math.max(0, nX * LX + nY * LY + nZ * LZ);
+            float shade = AMB + (1 - AMB) * diff;
+            float r = Math.min(1, faceAlbedo[f][0] * shade);
+            float g2 = Math.min(1, faceAlbedo[f][1] * shade);
+            float b2 = Math.min(1, faceAlbedo[f][2] * shade);
             ccx /= fv.length; ccy /= fv.length;
-            BufferBuilder tfb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                tfb.addVertex(matrix, ccx, ccy, 0).setColor(cr, cg, cb, fa);
-                tfb.addVertex(matrix, sx[fv[k]], sy[fv[k]], 0).setColor(cr, cg, cb, fa);
-                tfb.addVertex(matrix, sx[fv[a1]], sy[fv[a1]], 0).setColor(cr, cg, cb, fa);
+                bb.addVertex(matrix, ccx, ccy, 0).setColor(r, g2, b2, 1f);
+                bb.addVertex(matrix, tx[fv[k]], ty[fv[k]], 0).setColor(r, g2, b2, 1f);
+                bb.addVertex(matrix, tx[fv[a1]], ty[fv[a1]], 0).setColor(r, g2, b2, 1f);
             }
-            BufferUploader.drawWithShader(tfb.build());
-            float oa = hot ? 1f : 0.85f;
-            BufferBuilder tlb = Tesselator.getInstance().begin(VertexFormat.Mode.LINES, DefaultVertexFormat.POSITION_COLOR);
-            for (int k = 0; k < fv.length; k++) {
-                int a1 = (k + 1) % fv.length;
-                tlb.addVertex(matrix, sx[fv[k]], sy[fv[k]], 0).setColor(cr, cg, cb, oa);
-                tlb.addVertex(matrix, sx[fv[a1]], sy[fv[a1]], 0).setColor(cr, cg, cb, oa);
-            }
-            BufferUploader.drawWithShader(tlb.build());
         }
+        BufferUploader.drawWithShader(bb.build());
     }
 
-    private static final float LX = -0.398f, LY = 0.696f, LZ = 0.597f, AMB = 0.30f;
-
-    private float shellAvgNz(int f) {
+    /** 选中/悬停地块的加粗轮廓。 */
+    private void drawTechHighlight(GuiGraphics g, Matrix4f matrix) {
+        int f;
+        if (hoveredTile >= 0) f = hoveredTile;
+        else if (selectedTile >= 0) f = selectedTile;
+        else return;
+        if (f < 0 || f >= nodes.size()) return;
+        if (tileAvgWorldZ(f) <= 0) return; // 背面不给轮廓（本来就该被星球挡住）
         int[] fv = shell.faces[f];
-        return (snz[fv[0]] + snz[fv[1]] + snz[fv[2]]) / 3f;
+        int col = tierColor(nodes.get(f).tier());
+        float cr = ((col >> 16) & 0xFF) / 255f;
+        float cg = ((col >> 8) & 0xFF) / 255f;
+        float cb = (col & 0xFF) / 255f;
+        float hw = EDGE_HW + 1.4f;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (int k = 0; k < fv.length; k++) {
+            int a1 = (k + 1) % fv.length;
+            float x0 = wx[fv[k]], y0 = wy[fv[k]];
+            float x1 = wx[fv[a1]], y1 = wy[fv[a1]];
+            float dx = x1 - x0, dy = y1 - y0;
+            float len = (float) Math.sqrt(dx * dx + dy * dy);
+            if (len < 0.5f) continue;
+            float nx = -dy / len * hw, ny = dx / len * hw;
+            addQuad(bb, matrix, x0, y0, x1, y1, nx, ny, cr, cg, cb, 1f);
+        }
+        BufferUploader.drawWithShader(bb.build());
     }
 
-    private float planetAvgNz(int f) {
-        int[] fv = planet.faces[f];
-        return (nz[fv[0]] + nz[fv[1]] + nz[fv[2]]) / 3f;
+    private static void addQuad(BufferBuilder bb, Matrix4f m,
+                                float x0, float y0, float x1, float y1,
+                                float nx, float ny, float r, float g, float b, float a) {
+        bb.addVertex(m, x0 - nx, y0 - ny, 0).setColor(r, g, b, a);
+        bb.addVertex(m, x0 + nx, y0 + ny, 0).setColor(r, g, b, a);
+        bb.addVertex(m, x1 - nx, y1 - ny, 0).setColor(r, g, b, a);
+        bb.addVertex(m, x0 + nx, y0 + ny, 0).setColor(r, g, b, a);
+        bb.addVertex(m, x1 + nx, y1 + ny, 0).setColor(r, g, b, a);
+        bb.addVertex(m, x1 - nx, y1 - ny, 0).setColor(r, g, b, a);
     }
 
-    private boolean pointInShellPoly(int mx, int my, int faceIdx) {
+    private float tileAvgWorldZ(int f) {
+        int[] fv = shell.faces[f];
+        float s = 0;
+        for (int v : fv) s += tnz[v];
+        return s / fv.length;
+    }
+
+    private boolean pointInTilePoly(int mx, int my, int faceIdx) {
         int[] fv = shell.faces[faceIdx];
         boolean inside = false;
         int n = fv.length;
         for (int i = 0, j = n - 1; i < n; j = i++) {
-            float xi = sx[fv[i]], yi = sy[fv[i]];
-            float xj = sx[fv[j]], yj = sy[fv[j]];
+            float xi = tx[fv[i]], yi = ty[fv[i]];
+            float xj = tx[fv[j]], yj = ty[fv[j]];
             boolean intersect = ((yi > my) != (yj > my)) &&
                     (mx < (xj - xi) * (my - yi) / (yj - yi) + xi);
             if (intersect) inside = !inside;
@@ -302,7 +389,7 @@ public class PolyhedronView extends UIElement {
         };
     }
 
-    /** 轻量 3D 值噪声（带种子），用于程序化生成类地星球。 */
+    /** 轻量 3D 值噪声（带种子），用于程序化生成类地星球色块。 */
     private static final class Noise3 {
         private final long seed;
         Noise3(long seed) { this.seed = seed; }

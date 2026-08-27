@@ -569,7 +569,6 @@ public class ModBlocks {
                             .strength(0.05F, 0.0F)
                             .sound(SoundType.NETHER_ORE)
                             .noCollission()
-                            .noLootTable()
                             .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY),
                             mineralName));
             surfaceRocks.put(mineral, rock);
@@ -648,10 +647,12 @@ public class ModBlocks {
     }
 
     /*
-     * 注册地表碎石方块（无物品掉落，不注册BlockItem）。
+     * 注册地表碎石方块（同时注册BlockItem，可在创造模式背包中使用）。
      */
     private static <T extends Block> DeferredBlock<T> registerSurfaceRock(String name, Supplier<T> block) {
-        return BLOCKS.register(name, block);
+        DeferredBlock<T> registered = BLOCKS.register(name, block);
+        ModItems.ITEMS.register(name, () -> new BlockItem(registered.get(), new Item.Properties()));
+        return registered;
     }
 
     /*

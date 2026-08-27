@@ -360,6 +360,9 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         // TFC: 深度检查——地表与矿脉中心距离必须小于depth
         if (Math.abs(iy - maxVeinY) >= ind.depth()) return;
 
+        // 水下不放置碎块
+        if (!level.getFluidState(new BlockPos(ix, iy, iz)).isEmpty()) return;
+
         cursor.set(ix, iy, iz);
         BlockState stateAt = level.getBlockState(cursor);
 

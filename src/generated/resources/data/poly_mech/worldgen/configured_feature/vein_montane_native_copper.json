@@ -41,7 +41,7 @@
       "depth": 35,
       "mineral": "native_copper",
       "radius": 3,
-      "surface_rarity": 32,
+      "surface_rarity": 64,
       "underground_count": 0,
       "underground_rarity": 1
     },

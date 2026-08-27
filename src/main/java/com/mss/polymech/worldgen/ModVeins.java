@@ -203,7 +203,7 @@ public final class ModVeins {
             // 高山锡石脉（群峦montane_cassiterite：r2 y80~300 闪长/辉长/花岗岩）
             new VeinDefinition("montane_cassiterite", 2, 80, 300, 0.85F, 0.4F,
                     "cassiterite", "cassiterite", null, "tin",
-                    Set.of("diorite", "gabbro", "granite"), VeinIndicator.surface("cassiterite", 32, 3, 0.12F)),
+                    Set.of("diorite", "gabbro", "granite"), VeinIndicator.surface("cassiterite", 64, 3, 0.12F)),
             // 辉长岩硅镁镍矿（群峦gabbro_garnierite：r20 y-80~0 纯辉长岩，大脉）
             new VeinDefinition("gabbro_garnierite", 20, -64, 16, 1.3F, 0.6F,
                     "garnierite", "garnierite", null, null,
@@ -220,7 +220,7 @@ public final class ModVeins {
             // 高山自然银（群峦montane_native_silver：r7 y90~280）
             new VeinDefinition("montane_native_silver", 7, 90, 280, 0.7F, 0.2F,
                     "native_silver", "native_silver", null, null,
-                    Set.of("diorite", "granite"), VeinIndicator.surface("native_silver", 32, 3, 0.12F)),
+                    Set.of("diorite", "granite"), VeinIndicator.surface("native_silver", 64, 3, 0.12F)),
             // 普通辉铋矿（群峦normal_bismuthinite：r45 y-80~20 深成岩，大脉）
             // 比闪锌矿更浅，玩家Y-40附近开始遇到
             new VeinDefinition("normal_bismuthinite", 45, -40, 30, 1.4F, 0.6F,
@@ -229,11 +229,11 @@ public final class ModVeins {
             // 地表辉铋矿（群峦surface_bismuthinite：r48 y40~100 沉积8岩）
             new VeinDefinition("surface_bismuthinite", 48, 40, 100, 0.85F, 0.3F,
                     "bismuthinite", "bismuthinite", null, null,
-                    SED8, VeinIndicator.surface("bismuthinite", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("bismuthinite", 72, 3, 0.12F)),
             // 高山辉铋矿（群峦montane_bismuthinite：r24 y100~220 沉积8岩）
             new VeinDefinition("montane_bismuthinite", 24, 100, 220, 0.85F, 0.3F,
                     "bismuthinite", "bismuthinite", null, null,
-                    SED8, VeinIndicator.surface("bismuthinite", 32, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("bismuthinite", 64, 3, 0.12F)),
             // 普通闪锌矿（群峦normal_sphalerite：r45 y-80~20 深成岩，大脉）
             // 比铋矿更深，玩家Y-60附近开始遇到
             new VeinDefinition("normal_sphalerite", 45, -60, 10, 1.4F, 0.6F,
@@ -242,11 +242,11 @@ public final class ModVeins {
             // 地表闪锌矿（群峦surface_sphalerite：r40 y40~100 酸性火成4岩）
             new VeinDefinition("surface_sphalerite", 40, 40, 100, 0.85F, 0.3F,
                     "sphalerite", "sphalerite", null, null,
-                    IGNEOUS4, VeinIndicator.surface("sphalerite", 36, 3, 0.12F)),
+                    IGNEOUS4, VeinIndicator.surface("sphalerite", 72, 3, 0.12F)),
             // 高山闪锌矿（群峦montane_sphalerite：r20 y100~220 酸性火成4岩）
             new VeinDefinition("montane_sphalerite", 20, 100, 220, 0.85F, 0.3F,
                     "sphalerite", "sphalerite", null, null,
-                    IGNEOUS4, VeinIndicator.surface("sphalerite", 32, 3, 0.12F)),
+                    IGNEOUS4, VeinIndicator.surface("sphalerite", 64, 3, 0.12F)),
             // 普通黝铜矿（群峦normal_tetrahedrite：r40 y-30~70 变质6岩）
             new VeinDefinition("normal_tetrahedrite", 40, -30, 70, 1.3F, 0.5F,
                     "tetrahedrite", "tetrahedrite", null, null,
@@ -254,7 +254,7 @@ public final class ModVeins {
             // 高山黝铜矿（群峦montane_tetrahedrite：r3 y90~270 变质6岩）
             new VeinDefinition("montane_tetrahedrite", 3, 90, 270, 0.85F, 0.25F,
                     "tetrahedrite", "tetrahedrite", null, null,
-                    METAMORPHIC6, VeinIndicator.surface("tetrahedrite", 16, 3, 0.12F)),
+                    METAMORPHIC6, VeinIndicator.surface("tetrahedrite", 32, 3, 0.12F)),
             // 普通孔雀石（群峦normal_malachite：r45 y-30~70 碳酸盐岩）
             new VeinDefinition("normal_malachite", 45, -30, 70, 1.3F, 0.5F,
                     "malachite", "malachite", null, null,
@@ -262,19 +262,19 @@ public final class ModVeins {
             // 地表孔雀石（群峦surface_malachite：r48 y40~100 碳酸盐岩）
             new VeinDefinition("surface_malachite", 48, 40, 100, 0.85F, 0.25F,
                     "malachite", "malachite", null, null,
-                    Set.of("chalk", "dolomite", "limestone", "marble"), VeinIndicator.surface("malachite", 36, 3, 0.12F)),
+                    Set.of("chalk", "dolomite", "limestone", "marble"), VeinIndicator.surface("malachite", 72, 3, 0.12F)),
             // 高山孔雀石（群峦montane_malachite：r11 y40~300 碳酸盐岩）
             new VeinDefinition("montane_malachite", 11, 40, 300, 0.85F, 0.25F,
                     "malachite", "malachite", null, null,
-                    Set.of("chalk", "dolomite", "limestone", "marble"), VeinIndicator.surface("malachite", 32, 3, 0.12F)),
+                    Set.of("chalk", "dolomite", "limestone", "marble"), VeinIndicator.surface("malachite", 64, 3, 0.12F)),
             // 地表自然铜（群峦surface_native_copper：r36 y40~100 酸性火成4岩）
             new VeinDefinition("surface_native_copper", 36, 40, 100, 0.85F, 0.25F,
                     "native_copper", "native_copper", null, null,
-                    IGNEOUS4, VeinIndicator.surface("native_copper", 36, 3, 0.12F)),
+                    IGNEOUS4, VeinIndicator.surface("native_copper", 72, 3, 0.12F)),
             // 高山自然铜（群峦montane_native_copper：r16 y100~300 酸性火成4岩）
             new VeinDefinition("montane_native_copper", 16, 100, 300, 0.85F, 0.25F,
                     "native_copper", "native_copper", null, null,
-                    IGNEOUS4, VeinIndicator.surface("native_copper", 32, 3, 0.12F)),
+                    IGNEOUS4, VeinIndicator.surface("native_copper", 64, 3, 0.12F)),
             // 普通自然金（群峦normal_native_gold：r90 y0~70 火成7岩）
             new VeinDefinition("normal_native_gold", 90, 0, 70, 0.85F, 0.25F,
                     "native_gold", "native_gold", null, "gold",
@@ -286,27 +286,27 @@ public final class ModVeins {
             // 地表赤铁矿（群峦surface_hematite：r45 y10~90 酸性火成4岩）
             new VeinDefinition("surface_hematite", 45, 10, 90, 0.85F, 0.4F,
                     "hematite", "hematite", null, null,
-                    IGNEOUS4, VeinIndicator.surface("hematite", 36, 3, 0.12F)),
+                    IGNEOUS4, VeinIndicator.surface("hematite", 72, 3, 0.12F)),
             // 高山赤铁矿（群峦montane_hematite：r25 y90~250 酸性火成4岩）
             new VeinDefinition("montane_hematite", 25, 90, 250, 0.85F, 0.4F,
                     "hematite", "hematite", null, null,
-                    IGNEOUS4, VeinIndicator.surface("hematite", 28, 3, 0.12F)),
+                    IGNEOUS4, VeinIndicator.surface("hematite", 56, 3, 0.12F)),
             // 地表磁铁矿（群峦surface_magnetite：r90 y10~90 沉积8岩）
             new VeinDefinition("surface_magnetite", 90, 10, 90, 0.85F, 0.4F,
                     "magnetite", "magnetite", null, null,
-                    SED8, VeinIndicator.surface("magnetite", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("magnetite", 72, 3, 0.12F)),
             // 高山磁铁矿（群峦montane_magnetite：r45 y90~250 沉积8岩）
             new VeinDefinition("montane_magnetite", 45, 90, 250, 0.85F, 0.4F,
                     "magnetite", "magnetite", null, null,
-                    SED8, VeinIndicator.surface("magnetite", 28, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("magnetite", 56, 3, 0.12F)),
             // 地表褐铁矿（群峦surface_limonite：r90 y10~90 沉积8岩）
             new VeinDefinition("surface_limonite", 90, 10, 90, 0.85F, 0.4F,
                     "limonite", "limonite", null, null,
-                    SED8, VeinIndicator.surface("limonite", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("limonite", 72, 3, 0.12F)),
             // 高山褐铁矿（群峦montane_limonite：r45 y90~250 沉积8岩）
             new VeinDefinition("montane_limonite", 45, 90, 250, 0.85F, 0.4F,
                     "limonite", "limonite", null, null,
-                    SED8, VeinIndicator.surface("limonite", 28, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("limonite", 56, 3, 0.12F)),
 
             // ==================== 格雷独有矿物：斑岩/热液金属矿脉 ====================
             // 斑岩铜矿：酸性火成岩（真实矿床学：斑岩铜矿+次生富集带；组成照抄格雷copper_vein）
@@ -377,7 +377,7 @@ public final class ModVeins {
             // 高山朱砂（群峦montane_cinnabar：r14 y120~280 变质4岩）
             new VeinDefinition("montane_cinnabar", 14, 120, 280, 0.7F, 0.6F,
                     "cinnabar", "cinnabar", null, null,
-                    Set.of("gneiss", "phyllite", "quartzite", "schist"), VeinIndicator.surface("cinnabar", 32, 3, 0.12F)),
+                    Set.of("gneiss", "phyllite", "quartzite", "schist"), VeinIndicator.surface("cinnabar", 64, 3, 0.12F)),
             // 深部硫磺（群峦sulfur：r4 y-64~-45 变质+深成岩盘状）
             // Y范围拉宽，避免集中在同一层
             new VeinDefinition("sulfur_deep", 4, -80, -40, 0.85F, 0.25F,
@@ -387,15 +387,15 @@ public final class ModVeins {
             // 凝灰岩硫磺（群峦tuff_sulfur：r2 y40~200 纯凝灰岩）
             new VeinDefinition("tuff_sulfur", 2, 40, 200, 0.85F, 0.45F,
                     "sulfur", "sulfur", null, null,
-                    Set.of("tuff"), VeinIndicator.surface("sulfur", 32, 3, 0.12F)),
+                    Set.of("tuff"), VeinIndicator.surface("sulfur", 64, 3, 0.12F)),
             // 石膏（群峦gypsum：r70 y40~100 沉积8岩盘状）
             new VeinDefinition("gypsum", 70, 40, 100, 1.0F, 0.3F,
                     "gypsum", "gypsum", null, null,
-                    SED8, VeinIndicator.surface("gypsum", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("gypsum", 72, 3, 0.12F)),
             // 硼砂（群峦borax：r40 y40~100 粘土/石灰/页岩）
             new VeinDefinition("borax", 40, 40, 100, 1.0F, 0.2F,
                     "borax", "borax", null, null,
-                    Set.of("claystone", "limestone", "shale"), VeinIndicator.surface("borax", 36, 3, 0.12F)),
+                    Set.of("claystone", "limestone", "shale"), VeinIndicator.surface("borax", 72, 3, 0.12F)),
             // 冰晶石（群峦cryolite：r16 y-70~-10 闪长/花岗岩）
             // 范围加宽，与TFC的-70~-10对齐
             new VeinDefinition("cryolite", 16, -70, -10, 0.85F, 0.7F,
@@ -404,19 +404,19 @@ public final class ModVeins {
             // 硝石（群峦saltpeter：r110 y40~100 沉积8岩）
             new VeinDefinition("saltpeter", 110, 40, 100, 1.15F, 0.4F,
                     "saltpeter", "saltpeter", null, null,
-                    SED8, VeinIndicator.surface("saltpeter", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("saltpeter", 72, 3, 0.12F)),
             // 钾石盐+天然碱（群峦sylvite：r60 y40~100 蒸发岩）
             new VeinDefinition("sylvite", 60, 40, 100, 1.15F, 0.35F,
                     "sylvite", "sylvite", null, "trona",
-                    Set.of("chert", "claystone", "shale"), VeinIndicator.surface("sylvite", 36, 3, 0.12F)),
+                    Set.of("chert", "claystone", "shale"), VeinIndicator.surface("sylvite", 72, 3, 0.12F)),
             // 烟煤（群峦bituminous_coal：r210 y-35~-12 沉积8岩，大煤层）
             new VeinDefinition("bituminous_coal", 210, 0, 40, 1.4F, 0.9F,
                     "bituminous_coal", "bituminous_coal", null, null,
-                    SED8, VeinIndicator.surface("bituminous_coal", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("bituminous_coal", 72, 3, 0.12F)),
             // 褐煤（群峦lignite：r160 y-20~-8 沉积8岩）
             new VeinDefinition("lignite", 160, 10, 50, 1.15F, 0.85F,
                     "lignite", "lignite", null, null,
-                    SED8, VeinIndicator.surface("lignite", 36, 3, 0.12F)),
+                    SED8, VeinIndicator.surface("lignite", 72, 3, 0.12F)),
             // ==================== 群峦照抄：宝石矿脉 ====================
             // 青金石：碳酸盐岩（群峦lapis_lazuli + 格雷青金脉组成：蓝金/方钠/方解）
             new VeinDefinition("lapis_lazuli", 30, -20, 80, 1.3F, 0.12F,
@@ -427,13 +427,13 @@ public final class ModVeins {
                     "amethyst", "amethyst", null, null,
                     Set.of("chalk", "chert", "claystone", "conglomerate", "dolomite",
                             "gneiss", "limestone", "marble", "phyllite", "quartzite",
-                            "schist", "shale", "slate", "tuff"), VeinIndicator.surface("amethyst", 36, 3, 0.12F)),
+                            "schist", "shale", "slate", "tuff"), VeinIndicator.surface("amethyst", 72, 3, 0.12F)),
             // 蛋白石（群峦opal：r25 y40~60 火成+沉积岩盘状）
             new VeinDefinition("opal", 25, 40, 60, 0.7F, 0.2F,
                     "opal", "opal", null, null,
                     Set.of("andesite", "basalt", "chalk", "chert", "claystone",
                             "conglomerate", "dacite", "dolomite", "limestone",
-                            "rhyolite", "shale", "tuff"), VeinIndicator.surface("opal", 36, 3, 0.12F)),
+                            "rhyolite", "shale", "tuff"), VeinIndicator.surface("opal", 72, 3, 0.12F)),
             // 钻石（群峦diamond：r30 管状，辉长岩金伯利岩管；零星橄榄石）
             new VeinDefinition("diamond", 30, -64, 100, 0.7F, 0.15F,
                     "diamond", "diamond", null, "olivine",
@@ -487,15 +487,15 @@ public final class ModVeins {
             // 矿砂脉：近岸沉积（格雷mineral_sand脉：玄武/花岗岩矿砂/漂白土/石膏）
             new VeinDefinition("mineral_sand", 80, 15, 60, 1.4F, 0.2F,
                     "basaltic_mineral_sand", "granitic_mineral_sand", "fullers_earth", "gypsum",
-                    Set.of("conglomerate", "shale", "claystone", "chalk"), VeinIndicator.surface("basaltic_mineral_sand", 32, 3, 0.12F)),
+                    Set.of("conglomerate", "shale", "claystone", "chalk"), VeinIndicator.surface("basaltic_mineral_sand", 64, 3, 0.12F)),
             // 古砂矿：砾岩（格雷garnet_tin脉：砂锡/石榴石砂/石棉/硅藻土）
             new VeinDefinition("placer", 80, 30, 60, 1.3F, 0.4F,
                     "cassiterite_sand", "garnet_sand", "asbestos", "diatomite",
-                    Set.of("conglomerate", "chert", "claystone"), VeinIndicator.surface("cassiterite_sand", 32, 3, 0.12F)),
+                    Set.of("conglomerate", "chert", "claystone"), VeinIndicator.surface("cassiterite_sand", 64, 3, 0.12F)),
             // 油砂：沉积岩（格雷oilsands脉）
             new VeinDefinition("oilsands", 40, 30, 80, 1.3F, 0.3F,
                     "oilsands", "oilsands", null, null,
-                    Set.of("conglomerate", "shale", "claystone"), VeinIndicator.surface("oilsands", 32, 3, 0.12F)),
+                    Set.of("conglomerate", "shale", "claystone"), VeinIndicator.surface("oilsands", 64, 3, 0.12F)),
             // 红石脉：深部变质岩（格雷redstone脉：红石/红宝石/朱砂）
             new VeinDefinition("redstone", 60, -48, 0, 1.3F, 0.2F,
                     "redstone", "redstone", null, "cinnabar",

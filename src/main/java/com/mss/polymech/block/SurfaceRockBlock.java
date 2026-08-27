@@ -88,7 +88,18 @@ public class SurfaceRockBlock extends Block {
      */
     private ItemStack getDropItem() {
         if (mineral == null || mineral.isEmpty()) return ItemStack.EMPTY;
+        // 优先掉落粗矿（金属矿物）
         var rawItem = ModItems.getRawMineral(mineral);
-        return rawItem != null ? rawItem.get().getDefaultInstance() : ItemStack.EMPTY;
+        if (rawItem != null) return rawItem.get().getDefaultInstance();
+        // 其次掉落宝石（宝石矿物如 diamond、emerald、ruby 等）
+        var gemItem = ModItems.getMaterialItem(com.mss.polymech.api.item.ModItemTypes.GEM, mineral);
+        if (gemItem != null) return gemItem.get().getDefaultInstance();
+        // 再尝试粉碎矿
+        var crushedItem = ModItems.getMineralItem(com.mss.polymech.api.item.ModItemTypes.CRUSHED, mineral);
+        if (crushedItem != null) return crushedItem.get().getDefaultInstance();
+        // 最后尝试粉末
+        var dustItem = ModItems.getMaterialItem(com.mss.polymech.api.item.ModItemTypes.DUST, mineral);
+        if (dustItem != null) return dustItem.get().getDefaultInstance();
+        return ItemStack.EMPTY;
     }
 }
