@@ -95,8 +95,17 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     /** 主矿脉体外围“游离矿物”壳层的水平半径倍率（相对 rxz） */
     private static final float OUTER_HALO_RADIUS_FACTOR = 1.25F;
 
+    /** 外围竖向游离矿壳：水平半径倍率 */
+    private static final float OUTER_VERTICAL_RXZ_FACTOR = 1.1F;
+
+    /** 外围竖向游离矿壳：垂直半径倍率（相对主矿 ry） */
+    private static final float OUTER_VERTICAL_RY_FACTOR = 2.2F;
+
+    /** 外围竖向游离矿壳：最小垂直半径（相对主矿 rxz），确保上下范围比前后左右多 */
+    private static final float OUTER_VERTICAL_MIN_RY_FACTOR = 1.5F;
+
     /** 外围游离矿的基础成矿概率（非常低，只做矿床周围的零星矿物） */
-    private static final float OUTER_LOOSE_CHANCE = 0.02F;
+    private static final float OUTER_LOOSE_CHANCE = 0.03F;
 
     /*
      * 矿苗深度约束（群峦Indicator.depth语义）：
@@ -311,10 +320,18 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     }
 
     /*
-     * 矿床外围游离矿物（群峦/格雷整合包常见的“矿脉周围零星矿”）。
+     * 矿床外围竖向游离矿壳（竖直椭球状散矿）。
      * <p>
-     * 只在主椭球体之外的低密度壳层内随机放置少量矿石，作为找矿线索，
-     * 但不回填到矿脉主体密度，也不参与地表矿苗深度计算。
+     * 在主椭球体之外包一圈稀疏的游离矿，且上下延伸范围大于水平方向，
+     * 整体呈“竖直椭球”：
+     * <pre>
+     *        ●
+     *      ● ● ●
+     *    ●  ■■■  ●
+     *      ● ● ●
+     *        ●
+     * </pre>
+     * 玩家在矿体上下方或四周都能看到零星矿石，顺着就能找到主矿体。
      * </p>
      */
     private boolean placeOuterLooseOre(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
@@ -323,25 +340,34 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                                        OreVeinConfiguration config, RandomSource shapeRand,
                                        int chunkMinX, int chunkMaxX, int chunkMinZ, int chunkMaxZ,
                                        int projectOffsetX, int projectOffsetZ) {
-        int outerR = Math.max(1, (int) Math.ceil(rxz * OUTER_HALO_RADIUS_FACTOR));
-        double outerLimitSq = OUTER_HALO_RADIUS_FACTOR * OUTER_HALO_RADIUS_FACTOR;
+        // 竖向散矿壳：水平略大于主矿，垂直明显大于水平
+        int outerRxz = Math.max(1, Math.round(rxz * OUTER_VERTICAL_RXZ_FACTOR));
+        int outerRy = Math.max(4, Math.max(Math.round(ry * OUTER_VERTICAL_RY_FACTOR),
+                Math.round(rxz * OUTER_VERTICAL_MIN_RY_FACTOR)));
+        double outerXzSq = (double) outerRxz * outerRxz;
+        double outerRhSq = (double) outerRy * outerRy;
         boolean placed = false;
 
-        for (int dx = -outerR; dx <= outerR; dx++) {
-            for (int dz = -outerR; dz <= outerR; dz++) {
-                double horizontal = (double) (dx * dx + dz * dz) / (double) (rxz * rxz);
-                // 只处理主椭球体之外的壳层
-                if (horizontal <= 1.0 || horizontal > outerLimitSq) continue;
-                // 与主矿体一致：岩墙状矿脉的外围游离矿也沿走向延伸
+        for (int dx = -outerRxz; dx <= outerRxz; dx++) {
+            for (int dz = -outerRxz; dz <= outerRxz; dz++) {
+                double xzNorm = (double) (dx * dx + dz * dz) / outerXzSq;
+                if (xzNorm > 1.0) continue;
+                // 岩墙状矿脉的外围散矿也沿走向延伸
                 if (shape == ModVeins.VeinShape.DIKE && Math.abs(dz) > Math.abs(dx) * 0.35 + 1) continue;
-                double radialDist = Math.sqrt(horizontal);
-                // 越靠外越稀
-                double falloff = 1.0 - (radialDist - 1.0) / (OUTER_HALO_RADIUS_FACTOR - 1.0);
-                int outerColumnHalf = (int) (ry * falloff * 0.6);
-                if (outerColumnHalf <= 0) continue;
+
+                // 该列竖向椭球外壳的上下半高
+                double columnHalf = Math.sqrt(1.0 - xzNorm) * outerRy;
+                int outerColumnHalf = (int) columnHalf;
 
                 for (int dy = -outerColumnHalf; dy <= outerColumnHalf; dy++) {
-                    double chance = OUTER_LOOSE_CHANCE * (0.4 + 0.6 * falloff);
+                    // 跳过主矿椭球体内部：只保留主矿体之外的游离矿壳
+                    double mainNorm = (double) (dx * dx + dz * dz) / (double) (rxz * rxz)
+                            + (double) (dy * dy) / (double) (ry * ry);
+                    if (mainNorm <= 1.0) continue;
+
+                    // 越靠近主矿体边界概率越高，越远越稀
+                    double close = Math.max(0.0, 1.0 - (mainNorm - 1.0) / ((outerXzSq / (rxz * rxz)) - 1.0));
+                    double chance = OUTER_LOOSE_CHANCE * (0.3 + 0.7 * close);
                     if (shapeRand.nextFloat() >= chance) continue;
 
                     int x = originX + dx;
