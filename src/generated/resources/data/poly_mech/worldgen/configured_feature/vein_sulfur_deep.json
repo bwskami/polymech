@@ -15,7 +15,7 @@
     ],
     "density": 0.25,
     "max_y": -40,
-    "min_y": -56,
+    "min_y": -80,
     "primary": {
       "mappings": [
         {

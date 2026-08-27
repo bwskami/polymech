@@ -193,7 +193,8 @@ public final class ModVeins {
                     "garnierite", "garnierite", null, "cobalt",
                     Set.of("diorite", "gabbro", "granite")),
             // 普通自然银（群峦normal_native_silver：r25 y-80~20 片麻/花岗岩带）
-            new VeinDefinition("normal_native_silver", 25, -40, 24, 1.15F, 0.6F,
+            // 比铋矿更浅，玩家Y-30附近开始遇到
+            new VeinDefinition("normal_native_silver", 25, -30, 40, 1.15F, 0.6F,
                     "native_silver", "native_silver", null, "silver",
                     Set.of("diorite", "gneiss", "granite", "schist")),
             // 高山自然银（群峦montane_native_silver：r7 y90~280）
@@ -201,7 +202,8 @@ public final class ModVeins {
                     "native_silver", "native_silver", null, null,
                     Set.of("diorite", "granite")),
             // 普通辉铋矿（群峦normal_bismuthinite：r45 y-80~20 深成岩，大脉）
-            new VeinDefinition("normal_bismuthinite", 45, -48, 24, 1.4F, 0.6F,
+            // 比闪锌矿更浅，玩家Y-40附近开始遇到
+            new VeinDefinition("normal_bismuthinite", 45, -40, 30, 1.4F, 0.6F,
                     "bismuthinite", "bismuthinite", null, null,
                     Set.of("diorite", "gabbro", "granite")),
             // 地表辉铋矿（群峦surface_bismuthinite：r48 y40~100 沉积8岩）
@@ -213,7 +215,8 @@ public final class ModVeins {
                     "bismuthinite", "bismuthinite", null, null,
                     SED8),
             // 普通闪锌矿（群峦normal_sphalerite：r45 y-80~20 深成岩，大脉）
-            new VeinDefinition("normal_sphalerite", 45, -48, 24, 1.4F, 0.6F,
+            // 比铋矿更深，玩家Y-60附近开始遇到
+            new VeinDefinition("normal_sphalerite", 45, -60, 10, 1.4F, 0.6F,
                     "sphalerite", "sphalerite", null, null,
                     Set.of("diorite", "gabbro", "granite")),
             // 地表闪锌矿（群峦surface_sphalerite：r40 y40~100 酸性火成4岩）
@@ -257,7 +260,7 @@ public final class ModVeins {
                     "native_gold", "native_gold", null, "gold",
                     IGNEOUS7),
             // 富自然金（群峦rich_native_gold：r50 y-80~20 深成岩，大脉）
-            new VeinDefinition("rich_native_gold", 50, -48, 24, 1.4F, 0.5F,
+            new VeinDefinition("rich_native_gold", 50, -40, 20, 1.4F, 0.5F,
                     "native_gold", "native_gold", null, null,
                     Set.of("diorite", "gabbro", "granite")),
             // 地表赤铁矿（群峦surface_hematite：r45 y10~90 酸性火成4岩）
@@ -303,11 +306,13 @@ public final class ModVeins {
                     "garnierite", "pentlandite", "cobaltite", "nickel",
                     Set.of("gabbro", "basalt")),
             // 铬铁矿：基性岩层状侵入体（布什维尔德型：铬铁/钛铁/磁铁）
-            new VeinDefinition("chromite", 30, -48, -8, 1.3F, 0.4F,
+            // 深层基性岩专属，集中在最底层
+            new VeinDefinition("chromite", 30, -48, -20, 1.3F, 0.4F,
                     "chromite", "ilmenite", "magnetite", "iron",
                     Set.of("gabbro", "basalt")),
             // 铂族矿：基性岩（格雷sheldonite脉：硫铂/铂/钯）
-            new VeinDefinition("pgm", 40, -48, -10, 1.15F, 0.25F,
+            // 比铬铁矿更深，超基性岩专属
+            new VeinDefinition("pgm", 40, -64, -30, 1.15F, 0.25F,
                     "cooperite", "platinum", "palladium", "bornite",
                     Set.of("gabbro", "basalt")),
             // 花岗岩型钼矿：酸性火成岩（格雷molybdenum脉：辉钼/钼华/钼铅）
@@ -331,7 +336,8 @@ public final class ModVeins {
                     "bastnasite", "monazite", null, "neodymium",
                     Set.of("granite", "gneiss")),
             // 铀矿脉：花岗岩/变质岩（格雷pitchblende脉：沥青铀/晶质铀/微量钚）
-            new VeinDefinition("uranium", 40, -48, -8, 1.15F, 0.3F,
+            // 最深层之一，比铬铁矿更深
+            new VeinDefinition("uranium", 40, -56, -16, 1.15F, 0.3F,
                     "pitchblende", "uraninite", null, "plutonium_239",
                     Set.of("granite", "gneiss", "schist")),
             // 铍矿脉：花岗岩伟晶岩（格雷beryllium脉：铍/钍/祖母绿）
@@ -353,7 +359,8 @@ public final class ModVeins {
                     "cinnabar", "cinnabar", null, null,
                     Set.of("gneiss", "phyllite", "quartzite", "schist")),
             // 深部硫磺（群峦sulfur：r4 y-64~-45 变质+深成岩盘状）
-            new VeinDefinition("sulfur_deep", 4, -56, -40, 0.85F, 0.25F,
+            // Y范围拉宽，避免集中在同一层
+            new VeinDefinition("sulfur_deep", 4, -80, -40, 0.85F, 0.25F,
                     "sulfur", "sulfur", null, null,
                     Set.of("diorite", "gabbro", "gneiss", "granite", "marble",
                             "phyllite", "quartzite", "schist", "slate")),
@@ -370,7 +377,8 @@ public final class ModVeins {
                     "borax", "borax", null, null,
                     Set.of("claystone", "limestone", "shale")),
             // 冰晶石（群峦cryolite：r16 y-70~-10 闪长/花岗岩）
-            new VeinDefinition("cryolite", 16, -48, 0, 0.85F, 0.7F,
+            // 范围加宽，与TFC的-70~-10对齐
+            new VeinDefinition("cryolite", 16, -70, -10, 0.85F, 0.7F,
                     "cryolite", "cryolite", null, null,
                     Set.of("diorite", "granite")),
             // 硝石（群峦saltpeter：r110 y40~100 沉积8岩）
@@ -415,11 +423,13 @@ public final class ModVeins {
                     "emerald", "emerald", null, null,
                     Set.of("diorite", "gabbro", "granite")),
             // 深部红宝石（群峦deep_ruby：r80 y-70~-10 大理岩）
-            new VeinDefinition("deep_ruby", 80, -48, -8, 1.15F, 0.2F,
+            // 范围加宽，与TFC的-70~-10对齐
+            new VeinDefinition("deep_ruby", 80, -70, -10, 1.15F, 0.2F,
                     "ruby", "ruby", null, null,
                     Set.of("marble")),
             // 红宝石大理岩带（群峦ruby_marble_belt：r16 y-40~-4 大盘状，夹层方解石）
-            new VeinDefinition("ruby_marble_belt", 16, -32, 4, 1.4F, 0.45F,
+            // rarity调高避免产出过于密集
+            new VeinDefinition("ruby_marble_belt", 25, -40, -4, 1.1F, 0.45F,
                     "ruby", "ruby", "calcite", null,
                     Set.of("andesite", "basalt", "dacite", "diorite", "gabbro", "gneiss",
                             "granite", "marble", "phyllite", "quartzite", "rhyolite",

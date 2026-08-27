@@ -14,16 +14,23 @@
           "ore": {
             "Name": "poly_mech:palladium_gabbro_ore"
           }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_palladium_ore"
+          }
         }
       ]
     },
     "blocks": [
       "poly_mech:basalt",
-      "poly_mech:gabbro"
+      "poly_mech:gabbro",
+      "minecraft:deepslate"
     ],
     "density": 0.25,
-    "max_y": -10,
-    "min_y": -48,
+    "max_y": -30,
+    "min_y": -64,
     "primary": {
       "mappings": [
         {
@@ -36,6 +43,12 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:cooperite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_cooperite_ore"
           }
         }
       ]
@@ -53,6 +66,12 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:platinum_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_platinum_ore"
           }
         }
       ]
@@ -72,6 +91,12 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:bornite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_bornite_ore"
           }
         }
       ]

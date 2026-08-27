@@ -3,11 +3,12 @@
   "config": {
     "blocks": [
       "poly_mech:granite",
-      "poly_mech:diorite"
+      "poly_mech:diorite",
+      "minecraft:deepslate"
     ],
     "density": 0.7,
-    "max_y": 0,
-    "min_y": -48,
+    "max_y": -10,
+    "min_y": -70,
     "primary": {
       "mappings": [
         {
@@ -20,6 +21,12 @@
           "host": "poly_mech:diorite",
           "ore": {
             "Name": "poly_mech:cryolite_diorite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_cryolite_ore"
           }
         }
       ]
@@ -37,6 +44,12 @@
           "host": "poly_mech:diorite",
           "ore": {
             "Name": "poly_mech:cryolite_diorite_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_cryolite_ore"
           }
         }
       ]

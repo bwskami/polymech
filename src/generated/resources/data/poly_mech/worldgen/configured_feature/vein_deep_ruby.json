@@ -2,17 +2,24 @@
   "type": "poly_mech:ore_vein",
   "config": {
     "blocks": [
-      "poly_mech:marble"
+      "poly_mech:marble",
+      "minecraft:deepslate"
     ],
     "density": 0.2,
-    "max_y": -8,
-    "min_y": -48,
+    "max_y": -10,
+    "min_y": -70,
     "primary": {
       "mappings": [
         {
           "host": "poly_mech:marble",
           "ore": {
             "Name": "poly_mech:ruby_marble_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_ruby_ore"
           }
         }
       ]
@@ -24,6 +31,12 @@
           "host": "poly_mech:marble",
           "ore": {
             "Name": "poly_mech:ruby_marble_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_ruby_ore"
           }
         }
       ]

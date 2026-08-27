@@ -7,8 +7,8 @@
       "poly_mech:gabbro"
     ],
     "density": 0.6,
-    "max_y": 24,
-    "min_y": -48,
+    "max_y": 30,
+    "min_y": -40,
     "primary": {
       "mappings": [
         {

@@ -4,11 +4,12 @@
     "blocks": [
       "poly_mech:granite",
       "poly_mech:diorite",
-      "poly_mech:gabbro"
+      "poly_mech:gabbro",
+      "minecraft:deepslate"
     ],
     "density": 0.6,
-    "max_y": 24,
-    "min_y": -48,
+    "max_y": 10,
+    "min_y": -60,
     "primary": {
       "mappings": [
         {
@@ -27,6 +28,12 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:sphalerite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_sphalerite_ore"
           }
         }
       ]
@@ -50,6 +57,12 @@
           "host": "poly_mech:gabbro",
           "ore": {
             "Name": "poly_mech:sphalerite_gabbro_ore"
+          }
+        },
+        {
+          "host": "minecraft:deepslate",
+          "ore": {
+            "Name": "poly_mech:deepslate_sphalerite_ore"
           }
         }
       ]
