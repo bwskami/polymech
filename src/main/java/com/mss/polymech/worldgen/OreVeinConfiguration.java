@@ -24,7 +24,9 @@ public record OreVeinConfiguration(
         Optional<OreEntry> between,
         Optional<OreEntry> sporadic,
         String shape,
-        Optional<IndicatorConfig> indicator
+        Optional<IndicatorConfig> indicator,
+        boolean projectToSurface,
+        boolean projectOffset
 ) implements FeatureConfiguration {
 
     /** \u5730\u8868/\u5730\u4e0b\u6307\u793a\u7269\u914d\u7f6e\uff08\u7fa4\u5ce6\u5f0f\uff09 */
@@ -58,7 +60,9 @@ public record OreVeinConfiguration(
             OreEntry.CODEC.optionalFieldOf("between").forGetter(OreVeinConfiguration::between),
             OreEntry.CODEC.optionalFieldOf("sporadic").forGetter(OreVeinConfiguration::sporadic),
             Codec.STRING.optionalFieldOf("shape", "ELLIPSOID").forGetter(OreVeinConfiguration::shape),
-            IndicatorConfig.CODEC.optionalFieldOf("indicator").forGetter(OreVeinConfiguration::indicator)
+            IndicatorConfig.CODEC.optionalFieldOf("indicator").forGetter(OreVeinConfiguration::indicator),
+            Codec.BOOL.optionalFieldOf("project", false).forGetter(OreVeinConfiguration::projectToSurface),
+            Codec.BOOL.optionalFieldOf("project_offset", false).forGetter(OreVeinConfiguration::projectOffset)
     ).apply(instance, OreVeinConfiguration::new));
 
     public boolean isHost(Block block) { return blocks.contains(block); }

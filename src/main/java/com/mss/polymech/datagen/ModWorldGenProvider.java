@@ -124,7 +124,9 @@ public class ModWorldGenProvider extends DatapackBuiltinEntriesProvider {
                     Optional.ofNullable(vein.between()).map(m -> oreEntry(m, hosts)),
                     Optional.ofNullable(vein.sporadic()).map(m -> oreEntry(m, hosts)),
                     ModVeins.shapeOf(vein.id()).name(),
-                    Optional.ofNullable(indConfig));
+                    Optional.ofNullable(indConfig),
+                    ModVeins.projectToSurface(vein.id()),
+                    ModVeins.projectOffset(vein.id()));
 
             context.register(
                     ResourceKey.create(Registries.CONFIGURED_FEATURE, veinConfiguredFeatureId(vein.id())),

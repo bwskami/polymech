@@ -124,6 +124,8 @@
         }
       ]
     },
+    "project": true,
+    "project_offset": true,
     "rarity": 160,
     "secondary": {
       "mappings": [

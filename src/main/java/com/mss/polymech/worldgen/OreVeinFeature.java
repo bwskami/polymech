@@ -204,6 +204,14 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                 : (config.minY() + config.maxY()) / 2;
         BlockPos origin = new BlockPos(originX, originY, originZ);
 
+        // TFC project_offset：投影矿脉的确定性水平偏移（±15格）
+        int projectOffsetX = 0, projectOffsetZ = 0;
+        if (config.projectOffset()) {
+            RandomSource offsetRandom = RandomSource.create(level.getSeed() ^ origin.asLong() ^ 0x5EEDC0DEL);
+            projectOffsetX = offsetRandom.nextInt(16) - offsetRandom.nextInt(16);
+            projectOffsetZ = offsetRandom.nextInt(16) - offsetRandom.nextInt(16);
+        }
+
         // 形状随机由世界种子+矿脉中心派生：所有区块的流程消耗同一序列，
         // 密度分布在跨区块处完全一致
         RandomSource shapeRand = RandomSource.create(level.getSeed() ^ origin.asLong());
@@ -232,6 +240,13 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                 // 椭球方程：该柱位的垂直半高
                 int columnHalf = (int) (Math.sqrt(1.0 - horizontal) * ry);
                 int topIndex = (dx + rxz) * footprint + (dz + rxz);
+                int x = originX + dx;
+                int z = originZ + dz;
+                // TFC project_to_surface：该列矿体基准Y = 地表高度，矿体随地形起伏
+                int baseY = config.projectToSurface()
+                        ? level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x + projectOffsetX, z + projectOffsetZ)
+                        : originY;
+
                 for (int dy = -columnHalf; dy <= columnHalf; dy++) {
                     // 连续密度衰减：中心接近config.density，越靠边越低，但边缘不会突然归零
                     double vertical = (double) dy / Math.max(1, columnHalf);
@@ -240,9 +255,7 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                     double chance = config.density() * (MIN_DENSITY_FACTOR + (1.0 - MIN_DENSITY_FACTOR) * falloff);
                     if (shapeRand.nextFloat() >= chance) continue;
 
-                    int x = originX + dx;
-                    int y = originY + dy;
-                    int z = originZ + dz;
+                    int y = baseY + dy;
                     // 跨区块一致性的关键：只写当前区块，其余部分交给对应区块的流程
                     if (x < chunkMinX || x > chunkMaxX || z < chunkMinZ || z > chunkMaxZ) continue;
 
@@ -276,7 +289,8 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         // 矿床外围游离矿物：主椭球体之外的低密度零星矿石，让矿脉周围有少量“找矿线索”，
         // 但不会像之前的原版散矿那样铺满整个地下。
         placed |= placeOuterLooseOre(level, cursor, originX, originY, originZ, rxz, ry,
-                shape, config, shapeRand, chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ);
+                shape, config, shapeRand, chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ,
+                projectOffsetX, projectOffsetZ);
 
         // 地表矿苗 + 地下指示物：对齐 TFC 逐列扫描，只有当前区块内的列才放置
         // （每列只调用一次，由 indicator.surfaceRarity / undergroundRarity 控制频率）
@@ -307,7 +321,8 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                                        int originX, int originY, int originZ, int rxz, int ry,
                                        ModVeins.VeinShape shape,
                                        OreVeinConfiguration config, RandomSource shapeRand,
-                                       int chunkMinX, int chunkMaxX, int chunkMinZ, int chunkMaxZ) {
+                                       int chunkMinX, int chunkMaxX, int chunkMinZ, int chunkMaxZ,
+                                       int projectOffsetX, int projectOffsetZ) {
         int outerR = Math.max(1, (int) Math.ceil(rxz * OUTER_HALO_RADIUS_FACTOR));
         double outerLimitSq = OUTER_HALO_RADIUS_FACTOR * OUTER_HALO_RADIUS_FACTOR;
         boolean placed = false;
@@ -330,8 +345,10 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                     if (shapeRand.nextFloat() >= chance) continue;
 
                     int x = originX + dx;
-                    int y = originY + dy;
                     int z = originZ + dz;
+                    int y = config.projectToSurface()
+                            ? level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x + projectOffsetX, z + projectOffsetZ) + dy
+                            : originY + dy;
                     if (x < chunkMinX || x > chunkMaxX || z < chunkMinZ || z > chunkMaxZ) continue;
 
                     cursor.set(x, y, z);

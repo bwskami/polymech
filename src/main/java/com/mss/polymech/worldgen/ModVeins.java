@@ -157,6 +157,22 @@ public final class ModVeins {
         return VEIN_SHAPES.getOrDefault(veinId, VeinShape.ELLIPSOID);
     }
 
+    /** TFC project=true：沉积/层状矿脉投影到地表，矿体跟随地形起伏 */
+    private static final Set<String> PROJECT_TO_SURFACE_IDS = Set.of(
+            "bituminous_coal", "lignite", "salts", "ruby_marble_belt");
+
+    /** TFC project_offset=true：投影矿脉加一个确定性随机水平偏移 */
+    private static final Set<String> PROJECT_OFFSET_IDS = Set.of(
+            "bituminous_coal", "lignite", "salts", "ruby_marble_belt");
+
+    public static boolean projectToSurface(String id) {
+        return PROJECT_TO_SURFACE_IDS.contains(id);
+    }
+
+    public static boolean projectOffset(String id) {
+        return PROJECT_OFFSET_IDS.contains(id);
+    }
+
     // ===== 宿主岩分组（群峦岩石名） =====
     /** 群峦沉积8岩 */
     private static final Set<String> SED8 = Set.of(
