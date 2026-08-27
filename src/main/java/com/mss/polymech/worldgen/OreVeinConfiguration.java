@@ -46,7 +46,7 @@ public record OreVeinConfiguration(
                 Codec.INT.fieldOf("underground_rarity").forGetter(IndicatorConfig::undergroundRarity),
                 Codec.INT.fieldOf("underground_count").forGetter(IndicatorConfig::undergroundCount),
                 OreEntry.CODEC.fieldOf("block").forGetter(IndicatorConfig::block),
-                Codec.INT.optionalFieldOf("radius", 3).forGetter(IndicatorConfig::indicatorRadius),
+                Codec.INT.optionalFieldOf("radius", 0).forGetter(IndicatorConfig::indicatorRadius),
                 Codec.FLOAT.optionalFieldOf("density", 0.15F).forGetter(IndicatorConfig::indicatorDensity),
                 Codec.STRING.optionalFieldOf("mineral", "").forGetter(IndicatorConfig::mineral)
         ).apply(i, IndicatorConfig::new));

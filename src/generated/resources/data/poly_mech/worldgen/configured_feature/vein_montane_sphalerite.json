@@ -37,11 +37,11 @@
           }
         ]
       },
-      "density": 0.2,
+      "density": 0.12,
       "depth": 35,
       "mineral": "sphalerite",
-      "radius": 5,
-      "surface_rarity": 12,
+      "radius": 3,
+      "surface_rarity": 32,
       "underground_count": 0,
       "underground_rarity": 1
     },
