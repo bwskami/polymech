@@ -372,12 +372,15 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     }
 
     /*
-     * 地表矿苗（群峦式约束）：
-     * 1) 深度约束：该柱矿体顶部距地表岩石 < INDICATOR_DEPTH 才出苗；
-     * 2) 载体约束：只替换<b>裸露</b>的岩石表面（上方为空气或无碰撞的小植物/雪），
-     *    草方块/泥土/树叶等覆盖层直接终止探测——矿苗绝不浮在草上或树叶上；
-     * 3) 形态约束：替换岩面方块本体形成嵌入露头，不产生悬浮方块。
-     * 高度图用OCEAN_FLOOR_WG：与群峦一致，水面不计入地表。
+     * 地表指示矿（GTM式散矿簇）：
+     * 矿脉中心上方地表放置一小片指示矿（radius×radius区域，density密度），
+     * 让玩家从地表就能发现矿脉的存在，顺着散矿往下挖就能找到主矿体。
+     *
+     * 流程：
+     * 1) rarity掷骰决定是否在此区块生成指示矿簇
+     * 2) 在radius范围内逐列放置，每列独立判断密度
+     * 3) 每列找地表裸露岩石，替换为指示矿石
+     * 4) 深度约束：矿脉顶部距地表 < depth 才出指示矿
      */
     private void placeSurfaceIndicator(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
                                        int x, int z, int maxVeinY, OreVeinConfiguration config,
@@ -388,34 +391,49 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         if (ind.surfaceRarity() <= 0) return;
         if (random.nextInt(ind.surfaceRarity()) != 0) return;
 
+        int radius = ind.indicatorRadius();
+        if (radius <= 0) return;
+        float density = ind.indicatorDensity();
+        int depth = ind.depth() > 0 ? ind.depth() : 35;
+
+        // 深度约束：矿脉顶部距地表太远则不出指示矿
         int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
+        if (Math.abs(surfaceY - maxVeinY) >= depth) return;
 
-        // 自地表向下最多探3格，寻找第一块裸露岩石
-        for (int y = surfaceY; y > surfaceY - 3; y--) {
-            cursor.set(x, y, z);
-            BlockState state = level.getBlockState(cursor);
+        // 在radius范围内逐列放置
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                // 圆形范围
+                if (dx * dx + dz * dz > radius * radius) continue;
+                // 密度掷骰
+                if (random.nextFloat() >= density) continue;
 
-            if (isRockySurface(state.getBlock())) {
-                // 裸露判定：上方必须是空气或无碰撞方块（草、蕨、雪等），
-                // 否则说明岩面被覆盖（如草方块下压着的石头），不出苗
-                BlockState above = level.getBlockState(cursor.above());
-                if (!above.isAir() && !above.getCollisionShape(level, cursor.above()).isEmpty()) {
-                    break;
+                int px = x + dx;
+                int pz = z + dz;
+                int colSurfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, px, pz) - 1;
+
+                // 自地表向下最多探3格，寻找第一块裸露岩石
+                for (int y = colSurfaceY; y > colSurfaceY - 3; y--) {
+                    cursor.set(px, y, pz);
+                    BlockState state = level.getBlockState(cursor);
+
+                    if (isRockySurface(state.getBlock())) {
+                        // 裸露判定：上方必须是空气或无碰撞方块
+                        BlockState above = level.getBlockState(cursor.above());
+                        if (!above.isAir() && !above.getCollisionShape(level, cursor.above()).isEmpty()) {
+                            break;
+                        }
+                        // 替换岩面为指示矿
+                        BlockState indicatorOre = ind.block().forState(state);
+                        if (indicatorOre == null) break;
+                        level.setBlock(cursor, indicatorOre, 2);
+                        break;
+                    }
+                    // 非岩石、非空气：终止
+                    if (!state.isAir()) {
+                        break;
+                    }
                 }
-                // 深度约束：来自 indicator.depth（TFC depth 语义）
-                int depth = ind.depth() > 0 ? ind.depth() : 35;
-                if (Math.abs(y - maxVeinY) >= depth) {
-                    break;
-                }
-                // 嵌入露头：替换岩面方块本体，指标物用 indicator.block
-                BlockState indicatorOre = ind.block().forState(state);
-                if (indicatorOre == null) break;
-                level.setBlock(cursor, indicatorOre, 2);
-                break;
-            }
-            // 非岩石、非空气（泥土/草/树叶/沙等覆盖层）：终止本柱探测
-            if (!state.isAir()) {
-                break;
             }
         }
     }

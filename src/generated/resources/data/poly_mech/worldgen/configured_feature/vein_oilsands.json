@@ -30,7 +30,9 @@
           }
         ]
       },
+      "density": 0.2,
       "depth": 35,
+      "radius": 5,
       "surface_rarity": 20,
       "underground_count": 0,
       "underground_rarity": 1

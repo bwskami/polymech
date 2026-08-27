@@ -35,14 +35,18 @@ public record OreVeinConfiguration(
             int depth,
             int undergroundRarity,
             int undergroundCount,
-            OreEntry block
+            OreEntry block,
+            int indicatorRadius,
+            float indicatorDensity
     ) {
         public static final Codec<IndicatorConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.INT.fieldOf("surface_rarity").forGetter(IndicatorConfig::surfaceRarity),
                 Codec.INT.fieldOf("depth").forGetter(IndicatorConfig::depth),
                 Codec.INT.fieldOf("underground_rarity").forGetter(IndicatorConfig::undergroundRarity),
                 Codec.INT.fieldOf("underground_count").forGetter(IndicatorConfig::undergroundCount),
-                OreEntry.CODEC.fieldOf("block").forGetter(IndicatorConfig::block)
+                OreEntry.CODEC.fieldOf("block").forGetter(IndicatorConfig::block),
+                Codec.INT.optionalFieldOf("radius", 3).forGetter(IndicatorConfig::indicatorRadius),
+                Codec.FLOAT.optionalFieldOf("density", 0.15F).forGetter(IndicatorConfig::indicatorDensity)
         ).apply(i, IndicatorConfig::new));
     }
 

@@ -108,7 +108,9 @@ public class ModWorldGenProvider extends DatapackBuiltinEntriesProvider {
                         vein.indicator().depth(),
                         vein.indicator().undergroundRarity(),
                         vein.indicator().undergroundCount(),
-                        oreEntry(vein.indicator().mineral(), hosts));
+                        oreEntry(vein.indicator().mineral(), hosts),
+                        vein.indicator().indicatorRadius(),
+                        vein.indicator().indicatorDensity());
             }
             OreVeinConfiguration configuration = new OreVeinConfiguration(
                     vein.rarity(),
