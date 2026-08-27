@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -398,15 +399,15 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     }
 
     /*
-     * 地表指示矿（GTM式散矿簇）：
-     * 矿脉中心上方地表放置一小片指示矿（radius×radius区域，density密度），
-     * 让玩家从地表就能发现矿脉的存在，顺着散矿往下挖就能找到主矿体。
+     * 地表指示矿（GTM式）：
+     * 矿脉中心投影到地表，在地面放一小片散矿，让玩家从地表发现矿脉方向。
+     * 不管矿脉埋多深，地表都会有指示（深度约束仅控制rarity）。
      *
      * 流程：
-     * 1) rarity掷骰决定是否在此区块生成指示矿簇
-     * 2) 在radius范围内逐列放置，每列独立判断密度
-     * 3) 每列找地表裸露岩石，替换为指示矿石
-     * 4) 深度约束：矿脉顶部距地表 < depth 才出指示矿
+     * 1) rarity掷骰决定是否在此区块生成指示矿
+     * 2) 以矿脉中心XZ为圆心，radius为半径画圆
+     * 3) 圆内每格以density概率放指示矿块（中心必放）
+     * 4) 指示矿放在地表方块上方（草地/泥土上）
      */
     private void placeSurfaceIndicator(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
                                        int x, int z, int maxVeinY, OreVeinConfiguration config,
@@ -420,46 +421,37 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         int radius = ind.indicatorRadius();
         if (radius <= 0) return;
         float density = ind.indicatorDensity();
-        int depth = ind.depth() > 0 ? ind.depth() : 35;
 
-        // 深度约束：矿脉顶部距地表太远则不出指示矿
-        int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
-        if (Math.abs(surfaceY - maxVeinY) >= depth) return;
+        // 矿脉中心投影到地表
+        int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
 
-        // 在radius范围内逐列放置
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
-                // 圆形范围
-                if (dx * dx + dz * dz > radius * radius) continue;
-                // 密度掷骰
-                if (random.nextFloat() >= density) continue;
+                double dist = Math.sqrt(dx * dx + dz * dz);
+                if (dist > radius) continue;
 
                 int px = x + dx;
                 int pz = z + dz;
-                int colSurfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, px, pz) - 1;
 
-                // 自地表向下最多探3格，寻找第一块裸露岩石
-                for (int y = colSurfaceY; y > colSurfaceY - 3; y--) {
-                    cursor.set(px, y, pz);
-                    BlockState state = level.getBlockState(cursor);
+                // 中心必放，其他格以density概率放
+                boolean isCenter = (dx == 0 && dz == 0);
+                if (!isCenter && random.nextFloat() > density) continue;
 
-                    if (isRockySurface(state.getBlock())) {
-                        // 裸露判定：上方必须是空气或无碰撞方块
-                        BlockState above = level.getBlockState(cursor.above());
-                        if (!above.isAir() && !above.getCollisionShape(level, cursor.above()).isEmpty()) {
-                            break;
-                        }
-                        // 替换岩面为指示矿
-                        BlockState indicatorOre = ind.block().forState(state);
-                        if (indicatorOre == null) break;
-                        level.setBlock(cursor, indicatorOre, 2);
-                        break;
-                    }
-                    // 非岩石、非空气：终止
-                    if (!state.isAir()) {
-                        break;
-                    }
-                }
+                // 直接投影到地表（heightmap返回第一个空气方块的Y）
+                int py = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, px, pz);
+                cursor.set(px, py, pz);
+
+                // 地表必须是空气
+                if (!level.getBlockState(cursor).isAir()) continue;
+
+                // 下方必须是坚固方块（石头、草方块等）
+                BlockState below = level.getBlockState(cursor.below());
+                if (!below.isFaceSturdy(level, cursor.below(), Direction.UP)) continue;
+
+                // 放置指示矿（地面装饰物，不需要替换宿主岩）
+                BlockState indicatorBlock = ind.block().forState(below);
+                if (indicatorBlock == null) continue;
+                level.setBlock(cursor, indicatorBlock, 2);
             }
         }
     }
