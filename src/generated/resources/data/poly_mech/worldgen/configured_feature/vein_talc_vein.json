@@ -8,6 +8,40 @@
       "poly_mech:phyllite"
     ],
     "density": 0.3,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:dolomite",
+            "ore": {
+              "Name": "poly_mech:talc_dolomite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:marble",
+            "ore": {
+              "Name": "poly_mech:talc_marble_ore"
+            }
+          },
+          {
+            "host": "poly_mech:schist",
+            "ore": {
+              "Name": "poly_mech:talc_schist_ore"
+            }
+          },
+          {
+            "host": "poly_mech:phyllite",
+            "ore": {
+              "Name": "poly_mech:talc_phyllite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 4,
+      "underground_rarity": 1
+    },
     "max_y": 32,
     "min_y": -16,
     "primary": {

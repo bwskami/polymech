@@ -278,19 +278,20 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         placed |= placeOuterLooseOre(level, cursor, originX, originY, originZ, rxz, ry,
                 shape, config, shapeRand, chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ);
 
-        // 地表矿苗：苗位由矿脉随机确定性派生（各区块消耗同一序列），
-        // 只由苗位所在区块的流程放置，天然无跨区块写入与重复
-        int attempts = 1 + shapeRand.nextInt(3);
-        for (int i = 0; i < attempts; i++) {
-            int x = originX + shapeRand.nextInt(footprint) - rxz;
-            int z = originZ + shapeRand.nextInt(footprint) - rxz;
-            if (x < chunkMinX || x > chunkMaxX || z < chunkMinZ || z > chunkMaxZ) continue;
+        // 地表矿苗 + 地下指示物：对齐 TFC 逐列扫描，只有当前区块内的列才放置
+        // （每列只调用一次，由 indicator.surfaceRarity / undergroundRarity 控制频率）
+        for (int dx = -rxz; dx <= rxz; dx++) {
+            for (int dz = -rxz; dz <= rxz; dz++) {
+                int x = originX + dx;
+                int z = originZ + dz;
+                if (x < chunkMinX || x > chunkMaxX || z < chunkMinZ || z > chunkMaxZ) continue;
 
-            int topIndex = (x - originX + rxz) * footprint + (z - originZ + rxz);
-            int maxVeinY = columnTop[topIndex];
-            if (maxVeinY == Integer.MIN_VALUE) continue;
-            placeSurfaceIndicator(level, cursor, x, z, maxVeinY, config);
-            placeUndergroundIndicator(level, cursor, x, z, config.minY(), config.maxY(), config, rand);
+                int topIndex = (dx + rxz) * footprint + (dz + rxz);
+                int maxVeinY = columnTop[topIndex];
+                if (maxVeinY == Integer.MIN_VALUE) continue;
+                placeSurfaceIndicator(level, cursor, x, z, maxVeinY, config, shapeRand);
+                placeUndergroundIndicator(level, cursor, x, z, config.minY(), config.maxY(), config, shapeRand);
+            }
         }
         return placed;
     }
@@ -362,7 +363,14 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
      * 高度图用OCEAN_FLOOR_WG：与群峦一致，水面不计入地表。
      */
     private void placeSurfaceIndicator(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
-                                       int x, int z, int maxVeinY, OreVeinConfiguration config) {
+                                       int x, int z, int maxVeinY, OreVeinConfiguration config,
+                                       RandomSource random) {
+        var indOpt = config.indicator();
+        if (indOpt.isEmpty()) return;
+        var ind = indOpt.get();
+        if (ind.surfaceRarity() <= 0) return;
+        if (random.nextInt(ind.surfaceRarity()) != 0) return;
+
         int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z) - 1;
 
         // 自地表向下最多探3格，寻找第一块裸露岩石
@@ -377,12 +385,13 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                 if (!above.isAir() && !above.getCollisionShape(level, cursor.above()).isEmpty()) {
                     break;
                 }
-                // 深度约束：矿体顶部离此岩面太远则不出苗
-                if (Math.abs(y - maxVeinY) >= INDICATOR_DEPTH) {
+                // 深度约束：来自 indicator.depth（TFC depth 语义）
+                int depth = ind.depth() > 0 ? ind.depth() : 35;
+                if (Math.abs(y - maxVeinY) >= depth) {
                     break;
                 }
-                // 嵌入露头：替换岩面方块本体，按宿主选对应岩种矿石变体
-                BlockState indicatorOre = config.primary().forState(state);
+                // 嵌入露头：替换岩面方块本体，指标物用 indicator.block
+                BlockState indicatorOre = ind.block().forState(state);
                 if (indicatorOre == null) break;
                 level.setBlock(cursor, indicatorOre, 2);
                 break;

@@ -7,6 +7,34 @@
       "poly_mech:marble"
     ],
     "density": 0.25,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:limestone",
+            "ore": {
+              "Name": "poly_mech:apatite_limestone_ore"
+            }
+          },
+          {
+            "host": "poly_mech:claystone",
+            "ore": {
+              "Name": "poly_mech:apatite_claystone_ore"
+            }
+          },
+          {
+            "host": "poly_mech:marble",
+            "ore": {
+              "Name": "poly_mech:apatite_marble_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 4,
+      "underground_rarity": 1
+    },
     "max_y": 80,
     "min_y": 10,
     "primary": {

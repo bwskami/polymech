@@ -11,6 +11,58 @@
       "poly_mech:andesite"
     ],
     "density": 0.25,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:native_gold_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:basalt",
+            "ore": {
+              "Name": "poly_mech:native_gold_basalt_ore"
+            }
+          },
+          {
+            "host": "poly_mech:rhyolite",
+            "ore": {
+              "Name": "poly_mech:native_gold_rhyolite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:dacite",
+            "ore": {
+              "Name": "poly_mech:native_gold_dacite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:diorite",
+            "ore": {
+              "Name": "poly_mech:native_gold_diorite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gabbro",
+            "ore": {
+              "Name": "poly_mech:native_gold_gabbro_ore"
+            }
+          },
+          {
+            "host": "poly_mech:andesite",
+            "ore": {
+              "Name": "poly_mech:native_gold_andesite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 3,
+      "underground_rarity": 1
+    },
     "max_y": 70,
     "min_y": 0,
     "primary": {

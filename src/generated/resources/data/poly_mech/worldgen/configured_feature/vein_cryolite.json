@@ -7,6 +7,34 @@
       "minecraft:deepslate"
     ],
     "density": 0.7,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:cryolite_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:diorite",
+            "ore": {
+              "Name": "poly_mech:cryolite_diorite_ore"
+            }
+          },
+          {
+            "host": "minecraft:deepslate",
+            "ore": {
+              "Name": "poly_mech:deepslate_cryolite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 6,
+      "underground_rarity": 1
+    },
     "max_y": -10,
     "min_y": -70,
     "primary": {

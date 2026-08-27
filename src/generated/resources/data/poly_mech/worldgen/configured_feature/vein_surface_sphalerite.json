@@ -8,6 +8,40 @@
       "poly_mech:andesite"
     ],
     "density": 0.3,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:basalt",
+            "ore": {
+              "Name": "poly_mech:sphalerite_basalt_ore"
+            }
+          },
+          {
+            "host": "poly_mech:rhyolite",
+            "ore": {
+              "Name": "poly_mech:sphalerite_rhyolite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:dacite",
+            "ore": {
+              "Name": "poly_mech:sphalerite_dacite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:andesite",
+            "ore": {
+              "Name": "poly_mech:sphalerite_andesite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 14,
+      "underground_count": 0,
+      "underground_rarity": 1
+    },
     "max_y": 100,
     "min_y": 40,
     "primary": {

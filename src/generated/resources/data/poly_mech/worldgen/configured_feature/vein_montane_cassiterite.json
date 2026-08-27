@@ -7,6 +7,34 @@
       "poly_mech:gabbro"
     ],
     "density": 0.4,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:cassiterite_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:diorite",
+            "ore": {
+              "Name": "poly_mech:cassiterite_diorite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gabbro",
+            "ore": {
+              "Name": "poly_mech:cassiterite_gabbro_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 12,
+      "underground_count": 0,
+      "underground_rarity": 1
+    },
     "max_y": 300,
     "min_y": 80,
     "primary": {

@@ -6,6 +6,28 @@
       "poly_mech:dacite"
     ],
     "density": 0.25,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:rhyolite",
+            "ore": {
+              "Name": "poly_mech:alunite_rhyolite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:dacite",
+            "ore": {
+              "Name": "poly_mech:alunite_dacite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 4,
+      "underground_rarity": 1
+    },
     "max_y": 64,
     "min_y": 0,
     "primary": {

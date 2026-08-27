@@ -12,6 +12,64 @@
       "poly_mech:tuff"
     ],
     "density": 0.3,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:limestone",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_limestone_ore"
+            }
+          },
+          {
+            "host": "poly_mech:shale",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_shale_ore"
+            }
+          },
+          {
+            "host": "poly_mech:chalk",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_chalk_ore"
+            }
+          },
+          {
+            "host": "poly_mech:chert",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_chert_ore"
+            }
+          },
+          {
+            "host": "poly_mech:claystone",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_claystone_ore"
+            }
+          },
+          {
+            "host": "poly_mech:conglomerate",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_conglomerate_ore"
+            }
+          },
+          {
+            "host": "poly_mech:dolomite",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_dolomite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:tuff",
+            "ore": {
+              "Name": "poly_mech:bismuthinite_tuff_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 12,
+      "underground_count": 0,
+      "underground_rarity": 1
+    },
     "max_y": 220,
     "min_y": 100,
     "primary": {

@@ -8,6 +8,40 @@
       "poly_mech:quartzite"
     ],
     "density": 0.6,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:gneiss",
+            "ore": {
+              "Name": "poly_mech:cinnabar_gneiss_ore"
+            }
+          },
+          {
+            "host": "poly_mech:schist",
+            "ore": {
+              "Name": "poly_mech:cinnabar_schist_ore"
+            }
+          },
+          {
+            "host": "poly_mech:phyllite",
+            "ore": {
+              "Name": "poly_mech:cinnabar_phyllite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:quartzite",
+            "ore": {
+              "Name": "poly_mech:cinnabar_quartzite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 4,
+      "underground_rarity": 1
+    },
     "max_y": 24,
     "min_y": -48,
     "primary": {

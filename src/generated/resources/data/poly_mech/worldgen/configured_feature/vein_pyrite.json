@@ -12,6 +12,64 @@
       "minecraft:deepslate"
     ],
     "density": 0.35,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:pyrite_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:basalt",
+            "ore": {
+              "Name": "poly_mech:pyrite_basalt_ore"
+            }
+          },
+          {
+            "host": "poly_mech:rhyolite",
+            "ore": {
+              "Name": "poly_mech:pyrite_rhyolite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:dacite",
+            "ore": {
+              "Name": "poly_mech:pyrite_dacite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:diorite",
+            "ore": {
+              "Name": "poly_mech:pyrite_diorite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gabbro",
+            "ore": {
+              "Name": "poly_mech:pyrite_gabbro_ore"
+            }
+          },
+          {
+            "host": "poly_mech:andesite",
+            "ore": {
+              "Name": "poly_mech:pyrite_andesite_ore"
+            }
+          },
+          {
+            "host": "minecraft:deepslate",
+            "ore": {
+              "Name": "poly_mech:deepslate_pyrite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 5,
+      "underground_rarity": 1
+    },
     "max_y": 70,
     "min_y": -50,
     "primary": {

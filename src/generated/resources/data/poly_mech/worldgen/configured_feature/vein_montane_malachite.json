@@ -8,6 +8,40 @@
       "poly_mech:marble"
     ],
     "density": 0.25,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:limestone",
+            "ore": {
+              "Name": "poly_mech:malachite_limestone_ore"
+            }
+          },
+          {
+            "host": "poly_mech:chalk",
+            "ore": {
+              "Name": "poly_mech:malachite_chalk_ore"
+            }
+          },
+          {
+            "host": "poly_mech:dolomite",
+            "ore": {
+              "Name": "poly_mech:malachite_dolomite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:marble",
+            "ore": {
+              "Name": "poly_mech:malachite_marble_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 12,
+      "underground_count": 0,
+      "underground_rarity": 1
+    },
     "max_y": 300,
     "min_y": 40,
     "primary": {
