@@ -29,6 +29,34 @@
       "poly_mech:conglomerate"
     ],
     "density": 0.4,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:chert",
+            "ore": {
+              "Name": "poly_mech:cassiterite_sand_chert_ore"
+            }
+          },
+          {
+            "host": "poly_mech:claystone",
+            "ore": {
+              "Name": "poly_mech:cassiterite_sand_claystone_ore"
+            }
+          },
+          {
+            "host": "poly_mech:conglomerate",
+            "ore": {
+              "Name": "poly_mech:cassiterite_sand_conglomerate_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 20,
+      "underground_count": 0,
+      "underground_rarity": 1
+    },
     "max_y": 60,
     "min_y": 30,
     "primary": {

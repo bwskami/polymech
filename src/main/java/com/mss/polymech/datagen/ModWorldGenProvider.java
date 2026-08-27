@@ -101,6 +101,15 @@ public class ModWorldGenProvider extends DatapackBuiltinEntriesProvider {
         //    矿脉中心由(世界种子, 中心区块, seed)确定性掷骰，特征跨区块生成
         for (ModVeins.VeinDefinition vein : ModVeins.getDefinitions()) {
             List<Block> hosts = veinHostBlocks(vein);
+            OreVeinConfiguration.IndicatorConfig indConfig = null;
+            if (vein.indicator() != null && !vein.indicator().mineral().isEmpty()) {
+                indConfig = new OreVeinConfiguration.IndicatorConfig(
+                        vein.indicator().surfaceRarity(),
+                        vein.indicator().depth(),
+                        vein.indicator().undergroundRarity(),
+                        vein.indicator().undergroundCount(),
+                        oreEntry(vein.indicator().mineral(), hosts));
+            }
             OreVeinConfiguration configuration = new OreVeinConfiguration(
                     vein.rarity(),
                     vein.minY(),
@@ -114,7 +123,8 @@ public class ModWorldGenProvider extends DatapackBuiltinEntriesProvider {
                     oreEntry(vein.secondary(), hosts),
                     Optional.ofNullable(vein.between()).map(m -> oreEntry(m, hosts)),
                     Optional.ofNullable(vein.sporadic()).map(m -> oreEntry(m, hosts)),
-                    ModVeins.shapeOf(vein.id()).name());
+                    ModVeins.shapeOf(vein.id()).name(),
+                    Optional.ofNullable(indConfig));
 
             context.register(
                     ResourceKey.create(Registries.CONFIGURED_FEATURE, veinConfiguredFeatureId(vein.id())),

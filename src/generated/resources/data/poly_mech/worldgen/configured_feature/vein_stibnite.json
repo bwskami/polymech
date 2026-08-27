@@ -7,6 +7,34 @@
       "poly_mech:quartzite"
     ],
     "density": 0.3,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:stibnite_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gneiss",
+            "ore": {
+              "Name": "poly_mech:stibnite_gneiss_ore"
+            }
+          },
+          {
+            "host": "poly_mech:quartzite",
+            "ore": {
+              "Name": "poly_mech:stibnite_quartzite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 4,
+      "underground_rarity": 1
+    },
     "max_y": 32,
     "min_y": -16,
     "primary": {

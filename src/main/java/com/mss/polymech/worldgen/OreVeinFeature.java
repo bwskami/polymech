@@ -290,6 +290,7 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
             int maxVeinY = columnTop[topIndex];
             if (maxVeinY == Integer.MIN_VALUE) continue;
             placeSurfaceIndicator(level, cursor, x, z, maxVeinY, config);
+            placeUndergroundIndicator(level, cursor, x, z, config.minY(), config.maxY(), config, rand);
         }
         return placed;
     }
@@ -411,5 +412,40 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
 
     private static boolean isRockySurface(Block block) {
         return rockySurfaceBlocks().contains(block);
+    }
+
+    /*
+     * 地下矿苗（群峦Indicator.undergroundCount/undergroundRarity语义）：
+     * 在矿脉中心附近的洞穴里放置小矿块，
+     * 引导玩家探索洞穴时发现深部矿脉。
+     */
+    private void placeUndergroundIndicator(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
+                                           int x, int z, int veinMinY, int veinMaxY,
+                                           OreVeinConfiguration config, RandomSource rand) {
+        var indOpt = config.indicator();
+        if (indOpt.isEmpty()) return;
+        var ind = indOpt.get();
+        if (ind.undergroundCount() <= 0) return;
+        if (ind.undergroundRarity() > 1 && rand.nextInt(ind.undergroundRarity()) != 0) return;
+
+        for (int i = 0; i < ind.undergroundCount(); i++) {
+            int ix = x + rand.nextInt(9) - 4;
+            int iz = z + rand.nextInt(9) - 4;
+            int iy = veinMinY + (veinMaxY > veinMinY ? rand.nextInt(veinMaxY - veinMinY) : 0)
+                    + rand.nextInt(16) - 4;
+
+            int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, ix, iz) - 1;
+            if (iy > surfaceY - 5) continue;
+
+            cursor.set(ix, iy, iz);
+            BlockState stateAt = level.getBlockState(cursor);
+            if (!stateAt.isAir()) continue;
+
+            BlockState indicatorState = ind.block().forState(level.getBlockState(cursor.below()));
+            if (indicatorState == null) continue;
+            if (indicatorState.canSurvive(level, cursor)) {
+                level.setBlock(cursor, indicatorState, 2);
+            }
+        }
     }
 }

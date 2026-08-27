@@ -8,6 +8,40 @@
       "minecraft:deepslate"
     ],
     "density": 0.15,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:emerald_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:diorite",
+            "ore": {
+              "Name": "poly_mech:emerald_diorite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gabbro",
+            "ore": {
+              "Name": "poly_mech:emerald_gabbro_ore"
+            }
+          },
+          {
+            "host": "minecraft:deepslate",
+            "ore": {
+              "Name": "poly_mech:deepslate_emerald_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 5,
+      "underground_rarity": 1
+    },
     "max_y": 100,
     "min_y": -64,
     "primary": {

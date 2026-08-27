@@ -3,41 +3,13 @@ package com.mss.polymech.worldgen;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfiguration;
 
 import java.util.List;
 import java.util.Optional;
 
-/*
- * 矿脉特征配置：描述一条矿脉的分布、形状、密度、宿主与矿物组成。
- * <p>
- * 由datagen写入worldgen/configured_feature/vein_*.json，
- * 运行时由{@link OreVeinFeature}消费。
- * </p>
- * <p>
- * 分布参数（rarity/minY/maxY/seed）全部在配置内（群峦式）：
- * 矿脉中心由(世界种子, 中心区块, seed)确定性掷骰产生，不依赖
- * 放置修饰器——放置特征不带任何修饰器，每区块执行一次，
- * 特征自行扫描候选中心区块实现跨区块生成。
- * </p>
- *
- * @param rarity 稀有度：平均每rarity个中心区块出现一条该矿脉
- * @param minY 矿脉中心高度下限（椭球垂直半径会把中心向内收缩，避免裁切）
- * @param maxY 矿脉中心高度上限
- * @param seed 矿脉种子：由矿脉ID哈希而来，区分不同矿脉的掷骰序列
- * @param sizeMin 矿脉水平半径下限
- * @param sizeMax 矿脉水平半径上限
- * @param density 成矿密度：椭球内每个方块被替换的概率
- * @param blocks 允许的宿主方块列表：放置期矿脉中心岩种必须在列表内，
- *               替换期也只有这些方块会被替换成矿石，
- *               矿体因此被岩区边界自然裁切（群峦式两级宿主过滤）
- * @param primary 下层主矿
- * @param secondary 上层次矿
- * @param between 中间夹层伴生矿（可空）
- * @param sporadic 全域零星散布矿（可空）
- * @param shape 矿脉几何形态名（{@link ModVeins.VeinShape} 的 name()，默认 ELLIPSOID）
- */
 public record OreVeinConfiguration(
         int rarity,
         int minY,
@@ -51,12 +23,29 @@ public record OreVeinConfiguration(
         OreEntry secondary,
         Optional<OreEntry> between,
         Optional<OreEntry> sporadic,
-        String shape
+        String shape,
+        Optional<IndicatorConfig> indicator
 ) implements FeatureConfiguration {
+
+    /** \u5730\u8868/\u5730\u4e0b\u6307\u793a\u7269\u914d\u7f6e\uff08\u7fa4\u5ce6\u5f0f\uff09 */
+    public record IndicatorConfig(
+            int surfaceRarity,
+            int depth,
+            int undergroundRarity,
+            int undergroundCount,
+            OreEntry block
+    ) {
+        public static final Codec<IndicatorConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.INT.fieldOf("surface_rarity").forGetter(IndicatorConfig::surfaceRarity),
+                Codec.INT.fieldOf("depth").forGetter(IndicatorConfig::depth),
+                Codec.INT.fieldOf("underground_rarity").forGetter(IndicatorConfig::undergroundRarity),
+                Codec.INT.fieldOf("underground_count").forGetter(IndicatorConfig::undergroundCount),
+                OreEntry.CODEC.fieldOf("block").forGetter(IndicatorConfig::block)
+        ).apply(i, IndicatorConfig::new));
+    }
 
     public static final Codec<OreVeinConfiguration> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             Codec.intRange(1, 1000).fieldOf("rarity").forGetter(OreVeinConfiguration::rarity),
-            // 高度范围放宽：群峦高山矿脉可到y300，深层矿脉中心可到y-80
             Codec.intRange(-128, 512).fieldOf("min_y").forGetter(OreVeinConfiguration::minY),
             Codec.intRange(-128, 512).fieldOf("max_y").forGetter(OreVeinConfiguration::maxY),
             Codec.LONG.fieldOf("seed").forGetter(OreVeinConfiguration::seed),
@@ -68,22 +57,11 @@ public record OreVeinConfiguration(
             OreEntry.CODEC.fieldOf("secondary").forGetter(OreVeinConfiguration::secondary),
             OreEntry.CODEC.optionalFieldOf("between").forGetter(OreVeinConfiguration::between),
             OreEntry.CODEC.optionalFieldOf("sporadic").forGetter(OreVeinConfiguration::sporadic),
-            Codec.STRING.optionalFieldOf("shape", "ELLIPSOID").forGetter(OreVeinConfiguration::shape)
+            Codec.STRING.optionalFieldOf("shape", "ELLIPSOID").forGetter(OreVeinConfiguration::shape),
+            IndicatorConfig.CODEC.optionalFieldOf("indicator").forGetter(OreVeinConfiguration::indicator)
     ).apply(instance, OreVeinConfiguration::new));
 
-    /** 宿主方块是否允许被本矿脉替换 */
-    public boolean isHost(Block block) {
-        return blocks.contains(block);
-    }
-
-    /** 本次生成用的大小：在 [sizeMin, sizeMax] 内确定性取一个值（由该矿脉中心的 RNG 决定） */
-    public int size(net.minecraft.util.RandomSource random) {
-        if (sizeMax <= sizeMin) return sizeMin;
-        return sizeMin + random.nextInt(sizeMax - sizeMin + 1);
-    }
-
-    /** 名义大小（命令显示等） */
-    public int size() {
-        return (sizeMin + sizeMax) / 2;
-    }
+    public boolean isHost(Block block) { return blocks.contains(block); }
+    public int size(RandomSource random) { return sizeMax <= sizeMin ? sizeMin : sizeMin + random.nextInt(sizeMax - sizeMin + 1); }
+    public int size() { return (sizeMin + sizeMax) / 2; }
 }

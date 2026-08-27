@@ -5,6 +5,22 @@
       "poly_mech:marble"
     ],
     "density": 0.2,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:marble",
+            "ore": {
+              "Name": "poly_mech:ruby_marble_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 5,
+      "underground_rarity": 1
+    },
     "max_y": -8,
     "min_y": -48,
     "primary": {

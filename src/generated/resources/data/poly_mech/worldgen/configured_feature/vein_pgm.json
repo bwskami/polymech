@@ -22,6 +22,28 @@
       "poly_mech:gabbro"
     ],
     "density": 0.25,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:basalt",
+            "ore": {
+              "Name": "poly_mech:cooperite_basalt_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gabbro",
+            "ore": {
+              "Name": "poly_mech:cooperite_gabbro_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 6,
+      "underground_rarity": 1
+    },
     "max_y": -10,
     "min_y": -48,
     "primary": {

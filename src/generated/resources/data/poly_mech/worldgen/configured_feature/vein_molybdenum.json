@@ -22,6 +22,28 @@
       "poly_mech:rhyolite"
     ],
     "density": 0.25,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:molybdenite_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:rhyolite",
+            "ore": {
+              "Name": "poly_mech:molybdenite_rhyolite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 5,
+      "underground_rarity": 1
+    },
     "max_y": 32,
     "min_y": -16,
     "primary": {

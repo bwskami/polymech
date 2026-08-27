@@ -6,6 +6,28 @@
       "minecraft:deepslate"
     ],
     "density": 0.6,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:gabbro",
+            "ore": {
+              "Name": "poly_mech:garnierite_gabbro_ore"
+            }
+          },
+          {
+            "host": "minecraft:deepslate",
+            "ore": {
+              "Name": "poly_mech:deepslate_garnierite_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 7,
+      "underground_rarity": 1
+    },
     "max_y": 16,
     "min_y": -64,
     "primary": {

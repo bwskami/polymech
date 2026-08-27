@@ -1,0 +1,137 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:granite",
+      "poly_mech:diorite",
+      "poly_mech:gneiss",
+      "poly_mech:schist"
+    ],
+    "density": 0.4,
+    "indicator": {
+      "block": {
+        "mappings": [
+          {
+            "host": "poly_mech:granite",
+            "ore": {
+              "Name": "poly_mech:native_silver_granite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:diorite",
+            "ore": {
+              "Name": "poly_mech:native_silver_diorite_ore"
+            }
+          },
+          {
+            "host": "poly_mech:gneiss",
+            "ore": {
+              "Name": "poly_mech:native_silver_gneiss_ore"
+            }
+          },
+          {
+            "host": "poly_mech:schist",
+            "ore": {
+              "Name": "poly_mech:native_silver_schist_ore"
+            }
+          }
+        ]
+      },
+      "depth": 35,
+      "surface_rarity": 0,
+      "underground_count": 9,
+      "underground_rarity": 1
+    },
+    "max_y": 280,
+    "min_y": -40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:native_silver_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:native_silver_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:native_silver_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:native_silver_schist_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 15,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:native_silver_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:native_silver_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:native_silver_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:native_silver_schist_ore"
+          }
+        }
+      ]
+    },
+    "seed": 6875794559342446140,
+    "shape": "PIPE",
+    "size_max": 10,
+    "size_min": 6,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:granite",
+          "ore": {
+            "Name": "poly_mech:silver_granite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:diorite",
+          "ore": {
+            "Name": "poly_mech:silver_diorite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:gneiss",
+          "ore": {
+            "Name": "poly_mech:silver_gneiss_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:silver_schist_ore"
+          }
+        }
+      ]
+    }
+  }
+}

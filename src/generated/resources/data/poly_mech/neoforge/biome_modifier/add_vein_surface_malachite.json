@@ -1,6 +1,0 @@
-{
-  "type": "neoforge:add_features",
-  "biomes": "#minecraft:is_overworld",
-  "features": "poly_mech:vein_surface_malachite",
-  "step": "underground_ores"
-}
