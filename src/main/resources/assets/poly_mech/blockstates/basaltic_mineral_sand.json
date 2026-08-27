@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/basaltic_mineral_sand",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/basaltic_mineral_sand",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/basaltic_mineral_sand",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/basaltic_mineral_sand",
+        "y": 270
+      }
+    ]
+  }
+}

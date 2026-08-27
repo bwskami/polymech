@@ -565,9 +565,11 @@ public class ModBlocks {
         for (String mineral : SURFACE_ROCK_MINERALS) {
             DeferredBlock<SurfaceRockBlock> rock = registerSurfaceRock(mineral,
                     () -> new SurfaceRockBlock(Block.Properties.of()
-                            .strength(0.25F)
-                            .sound(SoundType.GRAVEL)
-                            .noLootTable()));
+                            .strength(0.05F, 0.0F)
+                            .sound(SoundType.NETHER_ORE)
+                            .noCollission()
+                            .noLootTable()
+                            .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)));
             surfaceRocks.put(mineral, rock);
             surfaceRockList.add(rock);
         }

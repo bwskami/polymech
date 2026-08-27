@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/realgar",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/realgar",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/realgar",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/realgar",
+        "y": 270
+      }
+    ]
+  }
+}

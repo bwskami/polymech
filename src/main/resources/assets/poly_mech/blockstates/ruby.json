@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/ruby",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/ruby",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/ruby",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/ruby",
+        "y": 270
+      }
+    ]
+  }
+}

@@ -2,7 +2,6 @@ package com.mss.polymech.worldgen;
 
 import com.mojang.serialization.Codec;
 import com.mss.polymech.block.ModBlocks;
-import com.mss.polymech.block.SurfaceRockBlock;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
@@ -412,6 +411,10 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
      * 3) 圆内每格以density概率放指示矿块（中心必放）
      * 4) 指示矿放在地表方块上方（草地/泥土上）
      */
+    /**
+     * 放置地表指示矿（对齐TFC VeinFeature above-ground indicator）。
+     * 随机偏移15格，在地表高度检查深度差，放置矿物碎块。
+     */
     private void placeSurfaceIndicator(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
                                        int x, int z, int maxVeinY, OreVeinConfiguration config,
                                        RandomSource random) {
@@ -421,48 +424,24 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         if (ind.surfaceRarity() <= 0) return;
         if (random.nextInt(ind.surfaceRarity()) != 0) return;
 
-        int radius = ind.indicatorRadius();
-        if (radius <= 0) return;
-        float density = ind.indicatorDensity();
+        String mineral = ind.mineral();
+        if (mineral == null || mineral.isEmpty()) return;
 
-        // 矿脉中心投影到地表
-        int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x, z);
+        // TFC: 在3x3区块范围内随机偏移
+        int ix = x + random.nextInt(15) - random.nextInt(15);
+        int iz = z + random.nextInt(15) - random.nextInt(15);
+        int iy = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, ix, iz);
 
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dz = -radius; dz <= radius; dz++) {
-                double dist = Math.sqrt(dx * dx + dz * dz);
-                if (dist > radius) continue;
+        // TFC: 深度检查——地表与矿脉中心距离必须小于depth
+        if (Math.abs(iy - maxVeinY) >= ind.depth()) return;
 
-                int px = x + dx;
-                int pz = z + dz;
+        cursor.set(ix, iy, iz);
+        BlockState stateAt = level.getBlockState(cursor);
 
-                // 中心必放，其他格以density概率放
-                boolean isCenter = (dx == 0 && dz == 0);
-                if (!isCenter && random.nextFloat() > density) continue;
+        // TFC: 必须在可替换方块中放置
+        if (!(stateAt.isAir() || stateAt.canBeReplaced())) return;
 
-                // 直接投影到地表（heightmap返回第一个空气方块的Y）
-                int py = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, px, pz);
-                cursor.set(px, py, pz);
-
-                // 地表必须是空气
-                if (!level.getBlockState(cursor).isAir()) continue;
-
-                // 下方必须是坚固方块（石头、草方块等）
-                BlockState below = level.getBlockState(cursor.below());
-                if (!below.isFaceSturdy(level, cursor.below(), Direction.UP)) continue;
-
-                // 放置地表碎石指示方块（GTM SurfaceRockBlock风格）
-                String mineral = ind.mineral();
-                if (mineral == null || mineral.isEmpty()) continue;
-                DeferredBlock<?> rockBlock = ModBlocks.SURFACE_ROCKS.get(mineral);
-                if (rockBlock == null) continue;
-                BlockState surfaceRock = rockBlock.get().defaultBlockState()
-                        .setValue(SurfaceRockBlock.FACING, Direction.DOWN);
-                if (surfaceRock.canSurvive(level, cursor)) {
-                    level.setBlock(cursor, surfaceRock, 2);
-                }
-            }
-        }
+        placeLooseOre(level, mineral, cursor);
     }
 
     /** 裸露岩面判定表：原版石头/深层石 + 全部区域岩种 */
@@ -486,9 +465,9 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     }
 
     /*
-     * 地下矿苗（群峦Indicator.undergroundCount/undergroundRarity语义）：
-     * 在矿脉中心附近的洞穴里放置小矿块，
-     * 引导玩家探索洞穴时发现深部矿脉。
+     * 地下矿苗（对齐TFC VeinFeature below-ground indicator）：
+     * 在矿脉附近随机位置放置矿物碎块，引导玩家发现深部矿脉。
+     * 必须在地表以下至少5格。
      */
     private void placeUndergroundIndicator(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
                                            int x, int z, int veinMinY, int veinMaxY,
@@ -497,26 +476,40 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
         if (indOpt.isEmpty()) return;
         var ind = indOpt.get();
         if (ind.undergroundCount() <= 0) return;
-        if (ind.undergroundRarity() > 1 && rand.nextInt(ind.undergroundRarity()) != 0) return;
 
+        String mineral = ind.mineral();
+        if (mineral == null || mineral.isEmpty()) return;
+
+        // TFC: undergroundRarity=1 表示每次必定放置
         for (int i = 0; i < ind.undergroundCount(); i++) {
-            int ix = x + rand.nextInt(9) - 4;
-            int iz = z + rand.nextInt(9) - 4;
-            int iy = veinMinY + (veinMaxY > veinMinY ? rand.nextInt(veinMaxY - veinMinY) : 0)
-                    + rand.nextInt(16) - 4;
+            if (ind.undergroundRarity() > 1 && rand.nextInt(ind.undergroundRarity()) != 0) continue;
 
-            int surfaceY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, ix, iz) - 1;
-            if (iy > surfaceY - 5) continue;
+            // TFC: 在3x3区块范围内随机偏移
+            int ix = x + rand.nextInt(15) - rand.nextInt(15);
+            int iy = veinMinY + (veinMaxY > veinMinY ? rand.nextInt(veinMaxY - veinMinY) : 0)
+                    + rand.nextInt(32) - rand.nextInt(8); // 偏上方
+            int iz = z + rand.nextInt(15) - rand.nextInt(15);
+
+            int maxGroundY = level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, ix, iz);
+            if (iy > maxGroundY - 5) continue; // TFC: 必须在地表以下至少5格
 
             cursor.set(ix, iy, iz);
             BlockState stateAt = level.getBlockState(cursor);
-            if (!stateAt.isAir()) continue;
+            if (!(stateAt.isAir() || stateAt.canBeReplaced())) continue;
 
-            BlockState indicatorState = ind.block().forState(level.getBlockState(cursor.below()));
-            if (indicatorState == null) continue;
-            if (indicatorState.canSurvive(level, cursor)) {
-                level.setBlock(cursor, indicatorState, 2);
-            }
+            placeLooseOre(level, mineral, cursor);
+        }
+    }
+
+    /**
+     * 在指定位置放置矿物碎块（TFC GroundcoverBlock风格）。
+     */
+    private void placeLooseOre(WorldGenLevel level, String mineral, BlockPos pos) {
+        var rockBlock = ModBlocks.SURFACE_ROCKS.get(mineral);
+        if (rockBlock == null) return;
+        BlockState state = rockBlock.get().defaultBlockState();
+        if (state.canSurvive(level, pos)) {
+            level.setBlock(pos, state, 2);
         }
     }
 }

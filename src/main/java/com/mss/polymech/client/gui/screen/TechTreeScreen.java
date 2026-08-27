@@ -64,15 +64,16 @@ public class TechTreeScreen extends ModularUIScreen {
         var root = new UIElement();
         root.layout(l -> l.widthPercent(100).heightPercent(100).flexDirection(FlexDirection.COLUMN));
 
-        // 多面体星球（铺满整屏，自带纯黑背景）
-        Polyhedron ico = Polyhedron.goldberg(2);
+        // 外壳（六边形+五边形线框）+ 内核（类地星球），铺满整屏，自带纯黑背景
+        Polyhedron shell = Polyhedron.goldberg(2);
+        Polyhedron planet = Polyhedron.sphere(28, 36);
         List<TechNode> nodes = TechTree.all();
         Consumer<TechNode> onSelect = node -> {
             root.selectId(ID_PONDER).collect(Collectors.toList()).forEach(UIElement::removeSelf);
             root.addChild(buildPonderOverlay(node, root));
             root.markTaffyStyleDirty();
         };
-        var view = new PolyhedronView(ico, nodes, onSelect);
+        var view = new PolyhedronView(shell, planet, nodes, onSelect);
         view.layout(l -> l.widthPercent(100).heightPercent(100));
         root.addChild(view);
 

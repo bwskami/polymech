@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/molybdenite",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/molybdenite",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/molybdenite",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/molybdenite",
+        "y": 270
+      }
+    ]
+  }
+}

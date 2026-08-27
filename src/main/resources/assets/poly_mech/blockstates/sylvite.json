@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/sylvite",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/sylvite",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/sylvite",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/sylvite",
+        "y": 270
+      }
+    ]
+  }
+}

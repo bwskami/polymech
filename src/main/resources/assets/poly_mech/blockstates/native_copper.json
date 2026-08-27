@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/native_copper",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/native_copper",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/native_copper",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/native_copper",
+        "y": 270
+      }
+    ]
+  }
+}

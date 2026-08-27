@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/native_silver",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/native_silver",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/native_silver",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/native_silver",
+        "y": 270
+      }
+    ]
+  }
+}

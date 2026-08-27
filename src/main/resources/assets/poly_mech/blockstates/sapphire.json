@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "poly_mech:block/surface_rock/sapphire",
+        "y": 0
+      },
+      {
+        "model": "poly_mech:block/surface_rock/sapphire",
+        "y": 90
+      },
+      {
+        "model": "poly_mech:block/surface_rock/sapphire",
+        "y": 180
+      },
+      {
+        "model": "poly_mech:block/surface_rock/sapphire",
+        "y": 270
+      }
+    ]
+  }
+}

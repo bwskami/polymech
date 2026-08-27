@@ -42,6 +42,45 @@ public final class Polyhedron {
         return new Polyhedron(g.v.toArray(new float[0][]), g.faces.toArray(new int[0][]), buildEdges(g.faces));
     }
 
+    /**
+     * 生成 UV 球（纬度 stacks × 经度 slices 的三角网格），用于渲染一个平滑着色的实心球。
+     * 顶点即其法线方向（单位球），便于朗伯着色。
+     */
+    public static Polyhedron sphere(int stacks, int slices) {
+        List<float[]> verts = new ArrayList<>();
+        int[][] grid = new int[stacks + 1][slices];
+        for (int i = 0; i <= stacks; i++) {
+            float phi = (float) (Math.PI * i / stacks);
+            float y = (float) Math.cos(phi);
+            float r = (float) Math.sin(phi);
+            for (int j = 0; j < slices; j++) {
+                float theta = (float) (2 * Math.PI * j / slices);
+                grid[i][j] = verts.size();
+                verts.add(new float[]{r * (float) Math.cos(theta), y, r * (float) Math.sin(theta)});
+            }
+        }
+        List<int[]> faces = new ArrayList<>();
+        for (int i = 0; i < stacks; i++) {
+            for (int j = 0; j < slices; j++) {
+                int j2 = (j + 1) % slices;
+                int a = grid[i][j], b = grid[i][j2], c = grid[i + 1][j2], d = grid[i + 1][j];
+                faces.add(new int[]{a, b, c});
+                faces.add(new int[]{a, c, d});
+            }
+        }
+        // 经纬网格边（可选线框，绘制时只画正面）
+        Set<Long> seen = new TreeSet<>();
+        List<int[]> edgeList = new ArrayList<>();
+        for (int i = 0; i < stacks; i++) {
+            for (int j = 0; j < slices; j++) {
+                int j2 = (j + 1) % slices;
+                addEdge(seen, edgeList, grid[i][j], grid[i][j2]);
+                addEdge(seen, edgeList, grid[i][j], grid[i + 1][j]);
+            }
+        }
+        return new Polyhedron(verts.toArray(new float[0][]), faces.toArray(new int[0][]), edgeList.toArray(new int[0][]));
+    }
+
     // ============================ 正六边形拼接（地块球） ============================
 
     /**
