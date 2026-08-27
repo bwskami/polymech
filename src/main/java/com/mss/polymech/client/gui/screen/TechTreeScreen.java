@@ -6,11 +6,11 @@ import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvent;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
-import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
+import com.mss.polymech.client.gui.widget.PolyhedronView;
+import com.mss.polymech.techtree.Polyhedron;
 import com.mss.polymech.techtree.TechNode;
 import com.mss.polymech.techtree.TechTree;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -20,17 +20,16 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * 科技树全屏界面（LDLib2 ModularUIScreen）。
  * <p>
- * 结构：header（标题/提示/关闭） + viewport（裁剪容器） + world（可拖拽平移的世界层）。
- * world 内含 {@link ConnectorLayer}（连线，置于最底）与若干机器/科技节点卡片。
- * 点击节点卡片打开“思索”面板（{@link #buildPonderOverlay}），即类 Create 的 ponder 入口。
+ * 主视觉为一个自转的“地块球”（{@link PolyhedronView}）：正六边形 + 12 五边形拼接，
+ * 每个地块 = 一个科技；纯黑背景、线框显示但正面实体遮挡背面、科技地块用程序化六边形图标。
+ * 拖拽旋转、悬停高亮 + 名称提示、点击有科技的面对应节点打开“思索”面板。
  * </p>
  */
 public class TechTreeScreen extends ModularUIScreen {
@@ -39,16 +38,10 @@ public class TechTreeScreen extends ModularUIScreen {
     private static final String ID_PONDER = "ponder_overlay";
 
     private final UIElement root;
-    private final UIElement viewport;
-    private final UIElement world;
-    private final Map<String, UIElement> nodeCards = new LinkedHashMap<>();
 
     private TechTreeScreen(State s, Component title) {
         super(s.ui, title);
         this.root = s.root;
-        this.viewport = s.viewport;
-        this.world = s.world;
-        this.nodeCards.putAll(s.nodeCards);
     }
 
     /** 打开科技树（客户端调用）。 */
@@ -63,9 +56,6 @@ public class TechTreeScreen extends ModularUIScreen {
     private static final class State {
         ModularUI ui;
         UIElement root;
-        UIElement viewport;
-        UIElement world;
-        Map<String, UIElement> nodeCards = new LinkedHashMap<>();
     }
 
     private static State buildState() {
@@ -73,95 +63,36 @@ public class TechTreeScreen extends ModularUIScreen {
 
         var root = new UIElement();
         root.layout(l -> l.widthPercent(100).heightPercent(100).flexDirection(FlexDirection.COLUMN));
-        root.addClass("panel_bg");
 
-        // 顶栏
-        var header = new UIElement();
-        header.layout(l -> l.widthPercent(100).height(28).paddingHorizontal(8).flexDirection(FlexDirection.ROW).gapColumn(8));
-        header.addClass("panel_bg");
+        // 多面体星球（铺满整屏，自带纯黑背景）
+        Polyhedron ico = Polyhedron.goldberg(2);
+        List<TechNode> nodes = TechTree.all();
+        Consumer<TechNode> onSelect = node -> {
+            root.selectId(ID_PONDER).collect(Collectors.toList()).forEach(UIElement::removeSelf);
+            root.addChild(buildPonderOverlay(node, root));
+            root.markTaffyStyleDirty();
+        };
+        var view = new PolyhedronView(ico, nodes, onSelect);
+        view.layout(l -> l.widthPercent(100).heightPercent(100));
+        root.addChild(view);
 
+        // 顶栏（覆盖在球体上方）
+        var header = new TopBar();
+        header.layout(l -> l.widthPercent(100).height(28)
+                .positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
+                .paddingHorizontal(8).flexDirection(FlexDirection.ROW).gapColumn(8));
         var title = new Label().setText(Component.literal("科技树 / Tech Tree")).layout(l -> l.flex(1));
-        var hint = new Label().setText(Component.literal("拖拽平移 · 点击节点查看思索")).layout(l -> l.marginRight(8));
+        var hint = new Label().setText(Component.literal("拖拽旋转 · 点击科技地块查看思索")).layout(l -> l.marginRight(8));
         var close = new Button()
                 .setText(Component.literal("关闭"))
                 .setOnClick(e -> Minecraft.getInstance().setScreen(null))
                 .layout(l -> l.height(20).width(48));
         header.addChildren(title, hint, close);
-
-        // 视口（裁剪 + 作为绝对定位容器）
-        var viewport = new UIElement();
-        viewport.layout(l -> l.widthPercent(100).flex(1).positionType(TaffyPosition.RELATIVE));
-        viewport.setOverflowVisible(false);
-
-        // 世界层（可平移）
-        TechTree.Layout layout = TechTree.computeLayout();
-        var world = new PannableWorld(layout.canvasWidth(), layout.canvasHeight());
-
-        // 连线层（第一个子节点 => 位于节点之下）
-        var connector = new ConnectorLayer(s.nodeCards, TechTree.buildEdges());
-        connector.layout(l -> l.widthPercent(100).heightPercent(100)
-                .positionType(TaffyPosition.ABSOLUTE).left(0).top(0));
-        world.addChild(connector);
-
-        // 节点卡片
-        for (TechNode node : TechTree.all()) {
-            int[] p = layout.posOf(node.id());
-            if (p == null) continue;
-            var card = createNodeCard(node, p[0], p[1], root);
-            s.nodeCards.put(node.id(), card);
-            world.addChild(card);
-        }
-
-        viewport.addChild(world);
-        root.addChildren(header, viewport);
+        root.addChild(header);
 
         s.root = root;
-        s.viewport = viewport;
-        s.world = world;
         s.ui = ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)));
         return s;
-    }
-
-    private static UIElement createNodeCard(TechNode node, int x, int y, UIElement root) {
-        var card = new UIElement();
-        card.layout(l -> l.width(TechTree.NODE_W).height(TechTree.NODE_H)
-                .positionType(TaffyPosition.ABSOLUTE).left(x).top(y)
-                .paddingAll(4).gapColumn(2));
-        card.addClass("panel_bg");
-
-        var icon = new ItemIconElement(() -> node.icon(), 32);
-        icon.layout(l -> l.width(32).height(32));
-
-        var name = new Label().setText(node.title()).layout(l -> l.widthPercent(100));
-        var tag = new Label()
-                .setText(Component.literal("T" + node.tier() + " · " + node.category()))
-                .layout(l -> l.widthPercent(100));
-
-        card.addChildren(icon, name, tag);
-
-        // 悬停提示
-        card.addEventListener(UIEvents.HOVER_TOOLTIPS, e -> {
-            List<Component> tips = new ArrayList<>();
-            tips.add(node.title());
-            if (!node.prerequisites().isEmpty()) {
-                tips.add(Component.literal("前置: " + String.join(", ", node.prerequisites())));
-            }
-            if (node.machineId() != null) {
-                tips.add(Component.literal("机器: " + node.machineId()));
-            }
-            e.hoverTooltips = new HoverTooltips(tips, null, null, null);
-        });
-
-        // 点击 -> 打开思索面板
-        card.addEventListener(UIEvents.CLICK, e -> {
-            root.selectId(ID_PONDER)
-                    .collect(java.util.stream.Collectors.toList())
-                    .forEach(UIElement::removeSelf);
-            root.addChild(buildPonderOverlay(node, root));
-            root.markTaffyStyleDirty();
-        });
-
-        return card;
     }
 
     // ============================ 思索面板 ============================
@@ -177,7 +108,7 @@ public class TechTreeScreen extends ModularUIScreen {
         overlay.setId(ID_PONDER);
         overlay.layout(l -> l.widthPercent(100).heightPercent(100)
                 .positionType(TaffyPosition.ABSOLUTE).left(0).top(0));
-        overlay.stopInteractionEventsPropagation(); // 阻断底层平移
+        overlay.stopInteractionEventsPropagation(); // 阻断底层旋转
 
         var dim = new DimLayer();
         dim.layout(l -> l.widthPercent(100).heightPercent(100)
@@ -231,59 +162,16 @@ public class TechTreeScreen extends ModularUIScreen {
 
     // ============================ 子控件 ============================
 
-    /** 可拖拽平移的世界层：MOUSE_DOWN 起拖，MOUSE_MOVE 按 delta 平移自身。 */
-    private static final class PannableWorld extends UIElement {
-        private boolean dragging = false;
-        private float panX = 20;
-        private float panY = 20;
-
-        PannableWorld(int w, int h) {
-            layout(l -> l.width(w).height(h)
-                    .positionType(TaffyPosition.ABSOLUTE).left((int) panX).top((int) panY));
-            addClass("panel_bg");
-            addEventListener(UIEvents.MOUSE_DOWN, e -> dragging = true);
-            addEventListener(UIEvents.MOUSE_UP, e -> dragging = false);
-            addEventListener(UIEvents.MOUSE_MOVE, e -> {
-                if (dragging) {
-                    panX += e.deltaX;
-                    panY += e.deltaY;
-                    layout(l -> l.left((int) panX).top((int) panY));
-                    markTaffyStyleDirty();
-                }
-            });
-        }
-    }
-
-    /** 连线层：在屏幕绝对坐标中绘制 前置 -> 节点 的折线。 */
-    private static final class ConnectorLayer extends UIElement {
-        private final Map<String, UIElement> nodeCards;
-        private final List<TechTree.Edge> edges;
-
-        ConnectorLayer(Map<String, UIElement> nodeCards, List<TechTree.Edge> edges) {
-            this.nodeCards = nodeCards;
-            this.edges = edges;
-        }
-
+    /** 顶栏半透明深色条。 */
+    private static final class TopBar extends UIElement {
         @Override
         public void drawBackgroundAdditional(GUIContext guiContext) {
             var g = guiContext.graphics;
-            for (TechTree.Edge edge : edges) {
-                UIElement from = nodeCards.get(edge.from());
-                UIElement to = nodeCards.get(edge.to());
-                if (from == null || to == null) continue;
-                int x1 = (int) (from.getPositionX() + from.getSizeWidth());
-                int y1 = (int) (from.getPositionY() + from.getSizeHeight() / 2);
-                int x2 = (int) to.getPositionX();
-                int y2 = (int) (to.getPositionY() + to.getSizeHeight() / 2);
-                drawElbow(g, x1, y1, x2, y2, 0xFF6FB3C8);
-            }
-        }
-
-        private void drawElbow(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
-            int midX = (x1 + x2) / 2;
-            g.fill(x1, y1, midX, y1 + 2, color);
-            g.fill(midX, Math.min(y1, y2), midX + 2, Math.max(y1, y2), color);
-            g.fill(midX, y2, x2, y2 + 2, color);
+            int x = (int) getPositionX();
+            int y = (int) getPositionY();
+            int w = (int) getSizeWidth();
+            int h = (int) getSizeHeight();
+            g.fill(x, y, x + w, y + h, 0xAA000000);
         }
     }
 

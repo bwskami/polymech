@@ -109,6 +109,7 @@
       },
       "density": 0.2,
       "depth": 35,
+      "mineral": "amethyst",
       "radius": 5,
       "surface_rarity": 14,
       "underground_count": 0,

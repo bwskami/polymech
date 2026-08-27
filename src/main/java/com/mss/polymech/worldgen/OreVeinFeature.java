@@ -1,6 +1,9 @@
 package com.mss.polymech.worldgen;
 
 import com.mojang.serialization.Codec;
+import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.block.SurfaceRockBlock;
+import net.neoforged.neoforge.registries.DeferredBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
@@ -448,10 +451,16 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
                 BlockState below = level.getBlockState(cursor.below());
                 if (!below.isFaceSturdy(level, cursor.below(), Direction.UP)) continue;
 
-                // 放置指示矿（地面装饰物，不需要替换宿主岩）
-                BlockState indicatorBlock = ind.block().forState(below);
-                if (indicatorBlock == null) continue;
-                level.setBlock(cursor, indicatorBlock, 2);
+                // 放置地表碎石指示方块（GTM SurfaceRockBlock风格）
+                String mineral = ind.mineral();
+                if (mineral == null || mineral.isEmpty()) continue;
+                DeferredBlock<?> rockBlock = ModBlocks.SURFACE_ROCKS.get(mineral);
+                if (rockBlock == null) continue;
+                BlockState surfaceRock = rockBlock.get().defaultBlockState()
+                        .setValue(SurfaceRockBlock.FACING, Direction.DOWN);
+                if (surfaceRock.canSurvive(level, cursor)) {
+                    level.setBlock(cursor, surfaceRock, 2);
+                }
             }
         }
     }

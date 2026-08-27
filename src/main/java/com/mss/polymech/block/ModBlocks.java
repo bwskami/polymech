@@ -24,6 +24,7 @@ import com.mss.polymech.powergrid.ConnectorBlock;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.resources.ResourceLocation;
+import com.mss.polymech.block.SurfaceRockBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SoundType;
@@ -401,6 +402,14 @@ public class ModBlocks {
     /** 所有岩石方块的扁平列表（方块染色等批量操作使用） */
     public static final List<DeferredBlock<Block>> ROCK_BLOCK_LIST;
 
+    // ========== 地表碎石指示方块：矿物名 → SurfaceRockBlock ==========
+
+    /** 地表碎石查找表：矿物名 → SurfaceRockBlock */
+    public static final Map<String, DeferredBlock<SurfaceRockBlock>> SURFACE_ROCKS;
+
+    /** 所有地表碎石方块的扁平列表（染色/渲染层批量操作） */
+    public static final List<DeferredBlock<SurfaceRockBlock>> SURFACE_ROCK_LIST;
+
     static {
         // 数据驱动批量注册流程
         List<DeferredBlock<PipeBlock>> allPipes = new ArrayList<>();
@@ -534,6 +543,36 @@ public class ModBlocks {
         }
         ROCKS = Collections.unmodifiableMap(rocks);
         ROCK_BLOCK_LIST = Collections.unmodifiableList(rockList);
+
+        // 地表碎石指示方块：为每种矿物注册一个 SurfaceRockBlock
+        // GTM风格：薄片方块，贴在地表，用tintindex染色区分矿物颜色
+        Map<String, DeferredBlock<SurfaceRockBlock>> surfaceRocks = new LinkedHashMap<>();
+        List<DeferredBlock<SurfaceRockBlock>> surfaceRockList = new ArrayList<>();
+        String[] SURFACE_ROCK_MINERALS = {
+            "alunite", "amethyst", "apatite", "barite", "basaltic_mineral_sand",
+            "bastnasite", "bauxite", "beryllium", "bismuthinite", "bituminous_coal",
+            "borax", "cassiterite", "cassiterite_sand", "chalcopyrite", "chromite",
+            "cinnabar", "cooperite", "cryolite", "diamond", "emerald",
+            "galena", "garnierite", "goethite", "graphite", "grossular",
+            "gypsum", "hematite", "kyanite", "lapis_lazuli", "lignite",
+            "limonite", "magnetite", "malachite", "molybdenite", "native_copper",
+            "native_gold", "native_silver", "oilsands", "olivine", "opal",
+            "pitchblende", "pyrite", "realgar", "red_garnet", "redstone",
+            "rock_salt", "ruby", "saltpeter", "sapphire", "sphalerite",
+            "stibnite", "sulfur", "sylvite", "talc", "tetrahedrite",
+            "thorium", "topaz", "vanadium_magnetite", "wolframite", "zeolite"
+        };
+        for (String mineral : SURFACE_ROCK_MINERALS) {
+            DeferredBlock<SurfaceRockBlock> rock = registerSurfaceRock(mineral,
+                    () -> new SurfaceRockBlock(Block.Properties.of()
+                            .strength(0.25F)
+                            .sound(SoundType.GRAVEL)
+                            .noLootTable()));
+            surfaceRocks.put(mineral, rock);
+            surfaceRockList.add(rock);
+        }
+        SURFACE_ROCKS = Collections.unmodifiableMap(surfaceRocks);
+        SURFACE_ROCK_LIST = Collections.unmodifiableList(surfaceRockList);
     }
 
     /**
@@ -602,6 +641,13 @@ public class ModBlocks {
      */
     private static <T extends Block> void registerBlockItems(String name, DeferredBlock<T> block) {
         ModItems.ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
+    }
+
+    /*
+     * 注册地表碎石方块（无物品掉落，不注册BlockItem）。
+     */
+    private static <T extends Block> DeferredBlock<T> registerSurfaceRock(String name, Supplier<T> block) {
+        return BLOCKS.register(name, block);
     }
 
     /*
