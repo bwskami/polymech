@@ -347,8 +347,9 @@ public final class ModRocks {
 
     /** 与 TFC createOverworldRockLayer 等价：grid → zoom×6 → smooth → zoom → smooth */
     private static AreaCache createRockArea(long levelSeed) {
-        // Grid 尺度：先用 regionRockArea（TFC RegionGenerator.rockArea）再套 Overworld Rock Layer
-        AreaCache layer = new AreaCache((x, z) -> regionRockArea(levelSeed, x, z), 4096);
+        // Grid 尺度：regionRockArea(TFC RegionGenerator.rockArea) + 平滑 type
+        // type 也在此烘焙进 pointRock，随后一起过 Zoom/Smooth（TFC RegionRockLayer 等价）
+        AreaCache layer = new AreaCache((x, z) -> (regionRockArea(levelSeed, x, z) << TYPE_BITS) | regionType(levelSeed, x, z), 4096);
 
         // 6 次 ZoomLayer，把 128 方块缩到 2 方块
         for (int i = 0; i < 6; i++) {
@@ -504,6 +505,19 @@ public final class ModRocks {
     private static final long ROCK_SALT = 0x524F434BL;
 
     private record NoiseSet(OpenSimplex2D layerHeight, OpenSimplex2D layerSkewX, OpenSimplex2D layerSkewZ) {}
+    private static final ThreadLocal<Map<Long, OpenSimplex2D>> REGION_TYPE_NOISES = ThreadLocal.withInitial(HashMap::new);
+
+    /** Grid 尺度（128方块）的平滑 type 噪声：代替 TFC RegionGenerator 的 ChooseRocks 类型来源 */
+    private static int regionType(long levelSeed, int gridX, int gridZ) {
+        OpenSimplex2D noise = REGION_TYPE_NOISES.get().computeIfAbsent(levelSeed,
+                s -> new OpenSimplex2D(s + 0x5EEDC0DE5EEDC0DEL).octaves(3).spread(0.01F).scaled(-1, 1));
+        double v = noise.noise(gridX / 16.0, gridZ / 16.0);
+        if (v < -0.5) return OCEAN;
+        if (v < 0.0) return LAND;
+        if (v < 0.5) return UPLIFT;
+        return VOLCANIC;
+    }
+
     private static final ThreadLocal<Map<Long, NoiseSet>> NOISE_SETS = ThreadLocal.withInitial(HashMap::new);
 
     private static NoiseSet noiseSet(long seed) {
@@ -563,10 +577,8 @@ public final class ModRocks {
         int skewBlockX = blockX + (int) (skewX * (remaining + DELTA_Y_OFFSET));
         int skewBlockZ = blockZ + (int) (skewZ * (remaining + DELTA_Y_OFFSET));
 
-        int smoothSeed = rockArea(seed).get(skewBlockX, skewBlockZ);
-        int type = determineType(biome);
-
-        int pointRock = (smoothSeed << TYPE_BITS) | type;
+        // TFC RegionRockLayer 等价：pointRock 已含平滑后的 seed+type
+        int pointRock = rockArea(seed).get(skewBlockX, skewBlockZ);
         String rockName = sampleAtLayer(pointRock, layer);
 
         // TFC 原版是硬边界；这里按用户要求加一层“岩层过渡混合”：
