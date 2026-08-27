@@ -563,13 +563,15 @@ public class ModBlocks {
             "thorium", "topaz", "vanadium_magnetite", "wolframite", "zeolite"
         };
         for (String mineral : SURFACE_ROCK_MINERALS) {
+            final String mineralName = mineral;
             DeferredBlock<SurfaceRockBlock> rock = registerSurfaceRock(mineral,
                     () -> new SurfaceRockBlock(Block.Properties.of()
                             .strength(0.05F, 0.0F)
                             .sound(SoundType.NETHER_ORE)
                             .noCollission()
                             .noLootTable()
-                            .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY)));
+                            .pushReaction(net.minecraft.world.level.material.PushReaction.DESTROY),
+                            mineralName));
             surfaceRocks.put(mineral, rock);
             surfaceRockList.add(rock);
         }

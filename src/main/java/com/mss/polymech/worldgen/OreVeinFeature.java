@@ -98,17 +98,7 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
     /** 主矿脉体外围“游离矿物”壳层的水平半径倍率（相对 rxz） */
     private static final float OUTER_HALO_RADIUS_FACTOR = 1.25F;
 
-    /** 外围竖向游离矿壳：水平半径倍率 */
-    private static final float OUTER_VERTICAL_RXZ_FACTOR = 1.1F;
 
-    /** 外围竖向游离矿壳：垂直半径倍率（相对主矿 ry） */
-    private static final float OUTER_VERTICAL_RY_FACTOR = 2.2F;
-
-    /** 外围竖向游离矿壳：最小垂直半径（相对主矿 rxz），确保上下范围比前后左右多 */
-    private static final float OUTER_VERTICAL_MIN_RY_FACTOR = 1.5F;
-
-    /** 外围游离矿的基础成矿概率（非常低，只做矿床周围的零星矿物） */
-    private static final float OUTER_LOOSE_CHANCE = 0.03F;
 
     /*
      * 矿苗深度约束（群峦Indicator.depth语义）：
@@ -300,9 +290,6 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
 
         // 矿床外围游离矿物：主椭球体之外的低密度零星矿石，让矿脉周围有少量“找矿线索”，
         // 但不会像之前的原版散矿那样铺满整个地下。
-        placed |= placeOuterLooseOre(level, cursor, originX, originY, originZ, rxz, ry,
-                shape, config, shapeRand, chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ,
-                projectOffsetX, projectOffsetZ);
 
         // 地表矿苗 + 地下指示物：对齐 TFC 逐列扫描，只有当前区块内的列才放置
         // （每列只调用一次，由 indicator.surfaceRarity / undergroundRarity 控制频率）
@@ -337,68 +324,6 @@ public class OreVeinFeature extends Feature<OreVeinConfiguration> {
      * 玩家在矿体上下方或四周都能看到零星矿石，顺着就能找到主矿体。
      * </p>
      */
-    private boolean placeOuterLooseOre(WorldGenLevel level, BlockPos.MutableBlockPos cursor,
-                                       int originX, int originY, int originZ, int rxz, int ry,
-                                       ModVeins.VeinShape shape,
-                                       OreVeinConfiguration config, RandomSource shapeRand,
-                                       int chunkMinX, int chunkMaxX, int chunkMinZ, int chunkMaxZ,
-                                       int projectOffsetX, int projectOffsetZ) {
-        // 竖向散矿壳：水平略大于主矿，垂直明显大于水平
-        int outerRxz = Math.max(1, Math.round(rxz * OUTER_VERTICAL_RXZ_FACTOR));
-        int outerRy = Math.max(4, Math.max(Math.round(ry * OUTER_VERTICAL_RY_FACTOR),
-                Math.round(rxz * OUTER_VERTICAL_MIN_RY_FACTOR)));
-        double outerXzSq = (double) outerRxz * outerRxz;
-        double outerRhSq = (double) outerRy * outerRy;
-        boolean placed = false;
-
-        for (int dx = -outerRxz; dx <= outerRxz; dx++) {
-            for (int dz = -outerRxz; dz <= outerRxz; dz++) {
-                double xzNorm = (double) (dx * dx + dz * dz) / outerXzSq;
-                if (xzNorm > 1.0) continue;
-                // 岩墙状矿脉的外围散矿也沿走向延伸
-                if (shape == ModVeins.VeinShape.DIKE && Math.abs(dz) > Math.abs(dx) * 0.35 + 1) continue;
-
-                // 该列竖向椭球外壳的上下半高
-                double columnHalf = Math.sqrt(1.0 - xzNorm) * outerRy;
-                int outerColumnHalf = (int) columnHalf;
-
-                for (int dy = -outerColumnHalf; dy <= outerColumnHalf; dy++) {
-                    // 跳过主矿椭球体内部：只保留主矿体之外的游离矿壳
-                    double mainNorm = (double) (dx * dx + dz * dz) / (double) (rxz * rxz)
-                            + (double) (dy * dy) / (double) (ry * ry);
-                    if (mainNorm <= 1.0) continue;
-
-                    // 越靠近主矿体边界概率越高，越远越稀
-                    double close = Math.max(0.0, 1.0 - (mainNorm - 1.0) / ((outerXzSq / (rxz * rxz)) - 1.0));
-                    double chance = OUTER_LOOSE_CHANCE * (0.3 + 0.7 * close);
-                    if (shapeRand.nextFloat() >= chance) continue;
-
-                    int x = originX + dx;
-                    int z = originZ + dz;
-                    int y = config.projectToSurface()
-                            ? level.getHeight(Heightmap.Types.OCEAN_FLOOR_WG, x + projectOffsetX, z + projectOffsetZ) + dy
-                            : originY + dy;
-                    if (x < chunkMinX || x > chunkMaxX || z < chunkMinZ || z > chunkMaxZ) continue;
-
-                    cursor.set(x, y, z);
-                    BlockState host = level.getBlockState(cursor);
-                    if (!config.isHost(host.getBlock())) continue;
-
-                    BlockState ore;
-                    // 外围游离矿优先给零星伴生矿，没有则按上下层给主/次矿
-                    if (config.sporadic().isPresent() && shapeRand.nextFloat() < 0.35F) {
-                        ore = config.sporadic().get().forState(host);
-                    } else {
-                        ore = (dy < 0 ? config.primary() : config.secondary()).forState(host);
-                    }
-                    if (ore == null) continue;
-                    level.setBlock(cursor, ore, 2);
-                    placed = true;
-                }
-            }
-        }
-        return placed;
-    }
 
     /*
      * 地表指示矿（GTM式）：

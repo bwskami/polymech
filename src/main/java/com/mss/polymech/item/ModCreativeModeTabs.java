@@ -116,6 +116,10 @@ public class ModCreativeModeTabs {
                             var gemItem = ModItems.getMaterialItem(ModItemTypes.GEM, gem);
                             if (gemItem != null) output.accept(gemItem.get());
                         }
+                        // 矿物碎块（地表/地下指示矿）
+                        for (var surfaceRock : ModBlocks.SURFACE_ROCK_LIST) {
+                            output.accept(surfaceRock.get());
+                        }
                     }).build());
 
     /*
