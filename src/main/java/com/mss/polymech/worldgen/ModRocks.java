@@ -1,5 +1,6 @@
 package com.mss.polymech.worldgen;
 
+import com.mss.polymech.worldgen.noise.OpenSimplex2D;
 import net.minecraft.core.Holder;
 import net.minecraft.tags.BiomeTags;
 import net.minecraft.util.RandomSource;
@@ -232,7 +233,8 @@ public final class ModRocks {
         private final XoroshiroRandomSource random;
 
         AreaContext(long seed) {
-            this.seed = seed;
+            // TFC AreaContext: HashCommon.murmurHash3(seed) 后才参与 setSeed
+            this.seed = it.unimi.dsi.fastutil.HashCommon.murmurHash3(seed);
             this.random = new XoroshiroRandomSource(seed);
         }
 
@@ -254,7 +256,7 @@ public final class ModRocks {
         }
     }
 
-    /** TFC ZoomLayer.NORMAL */
+    /** TFC ZoomLayer.NORMAL（完整等值保留逻辑） */
     private static int zoom(AreaContext context, AreaCache prev, int x, int z) {
         final int parentX = x >> 1, parentZ = z >> 1;
         final int offsetX = x & 1, offsetZ = z & 1;
@@ -268,10 +270,23 @@ public final class ModRocks {
         } else if (offsetZ == 0) {
             return context.choose(northWest, prev.get(parentX + 1, parentZ));
         }
-        return context.choose(northWest,
-                prev.get(parentX, parentZ + 1),
-                prev.get(parentX + 1, parentZ),
-                prev.get(parentX + 1, parentZ + 1));
+        final int northEast = prev.get(parentX, parentZ + 1);
+        final int southWest = prev.get(parentX + 1, parentZ);
+        final int southEast = prev.get(parentX + 1, parentZ + 1);
+
+        // TFC ZoomLayer.NORMAL.choose
+        if (northWest == northEast) {
+            return northWest == southWest || southWest != southEast ? northWest : context.choose(northWest, southWest);
+        } else if (northWest == southWest) {
+            return northEast != southEast ? northWest : context.choose(northWest, northEast);
+        } else if (northWest == southEast) {
+            return northEast != southWest ? northWest : context.choose(northWest, northEast);
+        } else if (northEast == southWest || northEast == southEast) {
+            return northEast;
+        } else if (southWest == southEast) {
+            return southWest;
+        }
+        return context.choose(northWest, northEast, southWest, southEast);
     }
 
     /** TFC SmoothLayer */
@@ -435,22 +450,19 @@ public final class ModRocks {
         return cumulative[layer] - (layer == 0 ? 0 : cumulative[layer - 1]);
     }
 
-    /** TFC layerHeightNoise：43~63 方块一层的噪声高度 */
+    /** TFC layerHeightNoise：OpenSimplex2D 3八度，43~63 方块一层的噪声高度 */
     private static float layerHeightNoise(long seed, int x, int z) {
-        final double value = valueNoise(seed + 0x6C8E9CF570932BD5L, x / 64.0, z / 64.0);
-        return (float) (43 + value * 20);
+        return (float) noiseSet(seed).layerHeight.noise(x, z);
     }
 
-    /** TFC layerSkewXNoise：-1.8 ~ 1.8 */
+    /** TFC layerSkewXNoise：OpenSimplex2D 2八度，-1.8 ~ 1.8 */
     private static float layerSkewXNoise(long seed, int x, int z) {
-        final double value = valueNoise(seed + 0x9E3779B97F4A7C15L, x / 96.0, z / 96.0);
-        return (float) (-1.8 + value * 3.6);
+        return (float) noiseSet(seed).layerSkewX.noise(x, z);
     }
 
-    /** TFC layerSkewZNoise：-1.8 ~ 1.8 */
+    /** TFC layerSkewZNoise：OpenSimplex2D 2八度，-1.8 ~ 1.8 */
     private static float layerSkewZNoise(long seed, int x, int z) {
-        final double value = valueNoise(seed + 0x632BE59BD9B4E019L, x / 96.0, z / 96.0);
-        return (float) (-1.8 + value * 3.6);
+        return (float) noiseSet(seed).layerSkewZ.noise(x, z);
     }
 
     /** 二维值噪声：晶格哈希 + smoothstep 双线性插值 */
@@ -490,6 +502,17 @@ public final class ModRocks {
     public static final int TRANSITION_WIDTH = 6;
 
     private static final long ROCK_SALT = 0x524F434BL;
+
+    private record NoiseSet(OpenSimplex2D layerHeight, OpenSimplex2D layerSkewX, OpenSimplex2D layerSkewZ) {}
+    private static final ThreadLocal<Map<Long, NoiseSet>> NOISE_SETS = ThreadLocal.withInitial(HashMap::new);
+
+    private static NoiseSet noiseSet(long seed) {
+        return NOISE_SETS.get().computeIfAbsent(seed, s -> new NoiseSet(
+                new OpenSimplex2D(s + 0x6C8E9CF570932BD5L).octaves(3).scaled(43, 63).spread(0.014F),
+                new OpenSimplex2D(s + 0x9E3779B97F4A7C15L).octaves(2).scaled(-1.8F, 1.8F).spread(0.01F),
+                new OpenSimplex2D(s + 0x632BE59BD9B4E019L).octaves(2).scaled(-1.8F, 1.8F).spread(0.01F)
+        ));
+    }
 
     private ModRocks() {}
 
