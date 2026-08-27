@@ -14,76 +14,6 @@
       "minecraft:deepslate"
     ],
     "density": 0.25,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:granite",
-            "ore": {
-              "Name": "poly_mech:sulfur_granite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:diorite",
-            "ore": {
-              "Name": "poly_mech:sulfur_diorite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:gabbro",
-            "ore": {
-              "Name": "poly_mech:sulfur_gabbro_ore"
-            }
-          },
-          {
-            "host": "poly_mech:marble",
-            "ore": {
-              "Name": "poly_mech:sulfur_marble_ore"
-            }
-          },
-          {
-            "host": "poly_mech:gneiss",
-            "ore": {
-              "Name": "poly_mech:sulfur_gneiss_ore"
-            }
-          },
-          {
-            "host": "poly_mech:schist",
-            "ore": {
-              "Name": "poly_mech:sulfur_schist_ore"
-            }
-          },
-          {
-            "host": "poly_mech:slate",
-            "ore": {
-              "Name": "poly_mech:sulfur_slate_ore"
-            }
-          },
-          {
-            "host": "poly_mech:phyllite",
-            "ore": {
-              "Name": "poly_mech:sulfur_phyllite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:quartzite",
-            "ore": {
-              "Name": "poly_mech:sulfur_quartzite_ore"
-            }
-          },
-          {
-            "host": "minecraft:deepslate",
-            "ore": {
-              "Name": "poly_mech:deepslate_sulfur_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 6,
-      "underground_rarity": 1
-    },
     "max_y": -40,
     "min_y": -56,
     "primary": {
@@ -216,8 +146,7 @@
       ]
     },
     "seed": -3074918469032586361,
-    "shape": "LAYER",
-    "size_max": 8,
-    "size_min": 4
+    "size_max": 9,
+    "size_min": 6
   }
 }

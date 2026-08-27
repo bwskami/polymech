@@ -1,0 +1,126 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:shale",
+      "poly_mech:chalk",
+      "poly_mech:chert",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate",
+      "poly_mech:dolomite",
+      "poly_mech:tuff"
+    ],
+    "density": 0.3,
+    "max_y": 100,
+    "min_y": 40,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_tuff_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 48,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:bismuthinite_tuff_ore"
+          }
+        }
+      ]
+    },
+    "seed": -3976988837853786387,
+    "size_max": 9,
+    "size_min": 6
+  }
+}

@@ -6,28 +6,6 @@
       "minecraft:deepslate"
     ],
     "density": 0.15,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:gabbro",
-            "ore": {
-              "Name": "poly_mech:diamond_gabbro_ore"
-            }
-          },
-          {
-            "host": "minecraft:deepslate",
-            "ore": {
-              "Name": "poly_mech:deepslate_diamond_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 100,
     "min_y": -64,
     "primary": {
@@ -65,8 +43,8 @@
     },
     "seed": -3829035871524876770,
     "shape": "PIPE",
-    "size_max": 6,
-    "size_min": 4,
+    "size_max": 8,
+    "size_min": 5,
     "sporadic": {
       "mappings": [
         {

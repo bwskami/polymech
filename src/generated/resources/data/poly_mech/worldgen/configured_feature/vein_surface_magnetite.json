@@ -1,0 +1,126 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:limestone",
+      "poly_mech:shale",
+      "poly_mech:chalk",
+      "poly_mech:chert",
+      "poly_mech:claystone",
+      "poly_mech:conglomerate",
+      "poly_mech:dolomite",
+      "poly_mech:tuff"
+    ],
+    "density": 0.4,
+    "max_y": 90,
+    "min_y": 10,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:magnetite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:magnetite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:magnetite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:magnetite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:magnetite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:magnetite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:magnetite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:magnetite_tuff_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 90,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:limestone",
+          "ore": {
+            "Name": "poly_mech:magnetite_limestone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:shale",
+          "ore": {
+            "Name": "poly_mech:magnetite_shale_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chalk",
+          "ore": {
+            "Name": "poly_mech:magnetite_chalk_ore"
+          }
+        },
+        {
+          "host": "poly_mech:chert",
+          "ore": {
+            "Name": "poly_mech:magnetite_chert_ore"
+          }
+        },
+        {
+          "host": "poly_mech:claystone",
+          "ore": {
+            "Name": "poly_mech:magnetite_claystone_ore"
+          }
+        },
+        {
+          "host": "poly_mech:conglomerate",
+          "ore": {
+            "Name": "poly_mech:magnetite_conglomerate_ore"
+          }
+        },
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:magnetite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:tuff",
+          "ore": {
+            "Name": "poly_mech:magnetite_tuff_ore"
+          }
+        }
+      ]
+    },
+    "seed": 3190279044714913803,
+    "size_max": 9,
+    "size_min": 6
+  }
+}

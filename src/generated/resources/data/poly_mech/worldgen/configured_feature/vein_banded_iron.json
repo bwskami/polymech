@@ -29,34 +29,6 @@
       "poly_mech:quartzite"
     ],
     "density": 0.4,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:gneiss",
-            "ore": {
-              "Name": "poly_mech:vanadium_magnetite_gneiss_ore"
-            }
-          },
-          {
-            "host": "poly_mech:schist",
-            "ore": {
-              "Name": "poly_mech:vanadium_magnetite_schist_ore"
-            }
-          },
-          {
-            "host": "poly_mech:quartzite",
-            "ore": {
-              "Name": "poly_mech:vanadium_magnetite_quartzite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 5,
-      "underground_rarity": 1
-    },
     "max_y": 24,
     "min_y": -32,
     "primary": {
@@ -105,8 +77,8 @@
       ]
     },
     "seed": -7053908548590839516,
-    "size_max": 12,
-    "size_min": 7,
+    "size_max": 14,
+    "size_min": 9,
     "sporadic": {
       "mappings": [
         {

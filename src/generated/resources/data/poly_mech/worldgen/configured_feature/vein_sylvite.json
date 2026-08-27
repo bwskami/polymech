@@ -7,34 +7,6 @@
       "poly_mech:claystone"
     ],
     "density": 0.35,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:shale",
-            "ore": {
-              "Name": "poly_mech:sylvite_shale_ore"
-            }
-          },
-          {
-            "host": "poly_mech:chert",
-            "ore": {
-              "Name": "poly_mech:sylvite_chert_ore"
-            }
-          },
-          {
-            "host": "poly_mech:claystone",
-            "ore": {
-              "Name": "poly_mech:sylvite_claystone_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 14,
-      "underground_count": 0,
-      "underground_rarity": 1
-    },
     "max_y": 100,
     "min_y": 40,
     "primary": {
@@ -84,8 +56,8 @@
     },
     "seed": 6518144564756168252,
     "shape": "LAYER",
-    "size_max": 10,
-    "size_min": 6,
+    "size_max": 13,
+    "size_min": 8,
     "sporadic": {
       "mappings": [
         {

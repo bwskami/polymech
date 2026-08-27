@@ -12,64 +12,6 @@
       "poly_mech:tuff"
     ],
     "density": 0.3,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:limestone",
-            "ore": {
-              "Name": "poly_mech:goethite_limestone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:shale",
-            "ore": {
-              "Name": "poly_mech:goethite_shale_ore"
-            }
-          },
-          {
-            "host": "poly_mech:chalk",
-            "ore": {
-              "Name": "poly_mech:goethite_chalk_ore"
-            }
-          },
-          {
-            "host": "poly_mech:chert",
-            "ore": {
-              "Name": "poly_mech:goethite_chert_ore"
-            }
-          },
-          {
-            "host": "poly_mech:claystone",
-            "ore": {
-              "Name": "poly_mech:goethite_claystone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:conglomerate",
-            "ore": {
-              "Name": "poly_mech:goethite_conglomerate_ore"
-            }
-          },
-          {
-            "host": "poly_mech:dolomite",
-            "ore": {
-              "Name": "poly_mech:goethite_dolomite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:tuff",
-            "ore": {
-              "Name": "poly_mech:goethite_tuff_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 64,
     "min_y": 0,
     "primary": {
@@ -178,8 +120,8 @@
       ]
     },
     "seed": -6190137523190148437,
-    "size_max": 6,
-    "size_min": 4,
+    "size_max": 8,
+    "size_min": 5,
     "sporadic": {
       "mappings": [
         {

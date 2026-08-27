@@ -36,40 +36,6 @@
       "poly_mech:claystone"
     ],
     "density": 0.2,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:limestone",
-            "ore": {
-              "Name": "poly_mech:rock_salt_limestone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:shale",
-            "ore": {
-              "Name": "poly_mech:rock_salt_shale_ore"
-            }
-          },
-          {
-            "host": "poly_mech:chalk",
-            "ore": {
-              "Name": "poly_mech:rock_salt_chalk_ore"
-            }
-          },
-          {
-            "host": "poly_mech:claystone",
-            "ore": {
-              "Name": "poly_mech:rock_salt_claystone_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 70,
     "min_y": 30,
     "primary": {
@@ -130,8 +96,8 @@
       ]
     },
     "seed": -6834846658961120747,
-    "size_max": 12,
-    "size_min": 7,
+    "size_max": 14,
+    "size_min": 9,
     "sporadic": {
       "mappings": [
         {

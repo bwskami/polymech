@@ -29,34 +29,6 @@
       "poly_mech:dolomite"
     ],
     "density": 0.25,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:limestone",
-            "ore": {
-              "Name": "poly_mech:barite_limestone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:shale",
-            "ore": {
-              "Name": "poly_mech:barite_shale_ore"
-            }
-          },
-          {
-            "host": "poly_mech:dolomite",
-            "ore": {
-              "Name": "poly_mech:barite_dolomite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 40,
     "min_y": -16,
     "primary": {
@@ -105,8 +77,8 @@
       ]
     },
     "seed": 4296724106552727034,
-    "size_max": 10,
-    "size_min": 6,
+    "size_max": 13,
+    "size_min": 8,
     "sporadic": {
       "mappings": [
         {

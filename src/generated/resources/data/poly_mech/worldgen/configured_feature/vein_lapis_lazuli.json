@@ -22,28 +22,6 @@
       "poly_mech:marble"
     ],
     "density": 0.12,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:limestone",
-            "ore": {
-              "Name": "poly_mech:lapis_lazuli_limestone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:marble",
-            "ore": {
-              "Name": "poly_mech:lapis_lazuli_marble_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 5,
-      "underground_rarity": 1
-    },
     "max_y": 80,
     "min_y": -20,
     "primary": {
@@ -80,8 +58,8 @@
       ]
     },
     "seed": 8790643817665975935,
-    "size_max": 12,
-    "size_min": 7,
+    "size_max": 14,
+    "size_min": 9,
     "sporadic": {
       "mappings": [
         {

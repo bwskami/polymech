@@ -29,34 +29,6 @@
       "poly_mech:andesite"
     ],
     "density": 0.3,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:rhyolite",
-            "ore": {
-              "Name": "poly_mech:realgar_rhyolite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:dacite",
-            "ore": {
-              "Name": "poly_mech:realgar_dacite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:andesite",
-            "ore": {
-              "Name": "poly_mech:realgar_andesite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 32,
     "min_y": -32,
     "primary": {
@@ -105,7 +77,7 @@
       ]
     },
     "seed": -6798986239828089523,
-    "size_max": 8,
-    "size_min": 4
+    "size_max": 9,
+    "size_min": 6
   }
 }

@@ -29,34 +29,6 @@
       "poly_mech:dolomite"
     ],
     "density": 0.5,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:limestone",
-            "ore": {
-              "Name": "poly_mech:galena_limestone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:shale",
-            "ore": {
-              "Name": "poly_mech:galena_shale_ore"
-            }
-          },
-          {
-            "host": "poly_mech:dolomite",
-            "ore": {
-              "Name": "poly_mech:galena_dolomite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 48,
     "min_y": -16,
     "primary": {
@@ -105,8 +77,8 @@
       ]
     },
     "seed": -2893672569711533333,
-    "size_max": 12,
-    "size_min": 7,
+    "size_max": 14,
+    "size_min": 9,
     "sporadic": {
       "mappings": [
         {

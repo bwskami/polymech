@@ -7,34 +7,6 @@
       "poly_mech:claystone"
     ],
     "density": 0.5,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:limestone",
-            "ore": {
-              "Name": "poly_mech:bauxite_limestone_ore"
-            }
-          },
-          {
-            "host": "poly_mech:shale",
-            "ore": {
-              "Name": "poly_mech:bauxite_shale_ore"
-            }
-          },
-          {
-            "host": "poly_mech:claystone",
-            "ore": {
-              "Name": "poly_mech:bauxite_claystone_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 80,
     "min_y": 0,
     "primary": {
@@ -83,8 +55,8 @@
       ]
     },
     "seed": 2203320174253661984,
-    "size_max": 14,
-    "size_min": 8,
+    "size_max": 18,
+    "size_min": 11,
     "sporadic": {
       "mappings": [
         {

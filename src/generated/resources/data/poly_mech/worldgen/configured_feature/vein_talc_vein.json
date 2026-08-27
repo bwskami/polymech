@@ -1,0 +1,102 @@
+{
+  "type": "poly_mech:ore_vein",
+  "config": {
+    "blocks": [
+      "poly_mech:dolomite",
+      "poly_mech:marble",
+      "poly_mech:schist",
+      "poly_mech:phyllite"
+    ],
+    "density": 0.3,
+    "max_y": 32,
+    "min_y": -16,
+    "primary": {
+      "mappings": [
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:talc_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:talc_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:talc_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:talc_phyllite_ore"
+          }
+        }
+      ]
+    },
+    "rarity": 30,
+    "secondary": {
+      "mappings": [
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:soapstone_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:soapstone_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:soapstone_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:soapstone_phyllite_ore"
+          }
+        }
+      ]
+    },
+    "seed": -6170749912272677474,
+    "size_max": 13,
+    "size_min": 8,
+    "sporadic": {
+      "mappings": [
+        {
+          "host": "poly_mech:dolomite",
+          "ore": {
+            "Name": "poly_mech:magnesite_dolomite_ore"
+          }
+        },
+        {
+          "host": "poly_mech:marble",
+          "ore": {
+            "Name": "poly_mech:magnesite_marble_ore"
+          }
+        },
+        {
+          "host": "poly_mech:schist",
+          "ore": {
+            "Name": "poly_mech:magnesite_schist_ore"
+          }
+        },
+        {
+          "host": "poly_mech:phyllite",
+          "ore": {
+            "Name": "poly_mech:magnesite_phyllite_ore"
+          }
+        }
+      ]
+    }
+  }
+}

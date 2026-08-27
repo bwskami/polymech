@@ -7,34 +7,6 @@
       "poly_mech:gabbro"
     ],
     "density": 0.5,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:granite",
-            "ore": {
-              "Name": "poly_mech:native_gold_granite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:diorite",
-            "ore": {
-              "Name": "poly_mech:native_gold_diorite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:gabbro",
-            "ore": {
-              "Name": "poly_mech:native_gold_gabbro_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 24,
     "min_y": -48,
     "primary": {
@@ -83,7 +55,7 @@
       ]
     },
     "seed": 3226492541446836990,
-    "size_max": 13,
-    "size_min": 7
+    "size_max": 15,
+    "size_min": 10
   }
 }

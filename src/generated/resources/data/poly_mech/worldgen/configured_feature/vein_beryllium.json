@@ -6,28 +6,6 @@
       "poly_mech:rhyolite"
     ],
     "density": 0.3,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:granite",
-            "ore": {
-              "Name": "poly_mech:beryllium_granite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:rhyolite",
-            "ore": {
-              "Name": "poly_mech:beryllium_rhyolite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 5,
-      "underground_rarity": 1
-    },
     "max_y": 32,
     "min_y": -24,
     "primary": {
@@ -64,8 +42,8 @@
       ]
     },
     "seed": 6574751774733730013,
-    "size_max": 8,
-    "size_min": 4,
+    "size_max": 9,
+    "size_min": 6,
     "sporadic": {
       "mappings": [
         {

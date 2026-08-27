@@ -36,40 +36,6 @@
       "poly_mech:phyllite"
     ],
     "density": 0.25,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:marble",
-            "ore": {
-              "Name": "poly_mech:sapphire_marble_ore"
-            }
-          },
-          {
-            "host": "poly_mech:gneiss",
-            "ore": {
-              "Name": "poly_mech:sapphire_gneiss_ore"
-            }
-          },
-          {
-            "host": "poly_mech:schist",
-            "ore": {
-              "Name": "poly_mech:sapphire_schist_ore"
-            }
-          },
-          {
-            "host": "poly_mech:phyllite",
-            "ore": {
-              "Name": "poly_mech:sapphire_phyllite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 5,
-      "underground_rarity": 1
-    },
     "max_y": 16,
     "min_y": -32,
     "primary": {
@@ -130,8 +96,8 @@
       ]
     },
     "seed": -3001217512571060858,
-    "size_max": 10,
-    "size_min": 6,
+    "size_max": 13,
+    "size_min": 8,
     "sporadic": {
       "mappings": [
         {

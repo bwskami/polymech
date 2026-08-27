@@ -36,40 +36,6 @@
       "poly_mech:andesite"
     ],
     "density": 0.35,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:granite",
-            "ore": {
-              "Name": "poly_mech:chalcopyrite_granite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:dacite",
-            "ore": {
-              "Name": "poly_mech:chalcopyrite_dacite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:diorite",
-            "ore": {
-              "Name": "poly_mech:chalcopyrite_diorite_ore"
-            }
-          },
-          {
-            "host": "poly_mech:andesite",
-            "ore": {
-              "Name": "poly_mech:chalcopyrite_andesite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 4,
-      "underground_rarity": 1
-    },
     "max_y": 48,
     "min_y": -24,
     "primary": {
@@ -131,8 +97,8 @@
     },
     "seed": 9025913238330866007,
     "shape": "DISSEMINATED",
-    "size_max": 13,
-    "size_min": 7,
+    "size_max": 15,
+    "size_min": 10,
     "sporadic": {
       "mappings": [
         {

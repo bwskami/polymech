@@ -8,40 +8,6 @@
       "poly_mech:quartzite"
     ],
     "density": 0.4,
-    "indicator": {
-      "block": {
-        "mappings": [
-          {
-            "host": "poly_mech:marble",
-            "ore": {
-              "Name": "poly_mech:graphite_marble_ore"
-            }
-          },
-          {
-            "host": "poly_mech:gneiss",
-            "ore": {
-              "Name": "poly_mech:graphite_gneiss_ore"
-            }
-          },
-          {
-            "host": "poly_mech:schist",
-            "ore": {
-              "Name": "poly_mech:graphite_schist_ore"
-            }
-          },
-          {
-            "host": "poly_mech:quartzite",
-            "ore": {
-              "Name": "poly_mech:graphite_quartzite_ore"
-            }
-          }
-        ]
-      },
-      "depth": 35,
-      "surface_rarity": 0,
-      "underground_count": 5,
-      "underground_rarity": 1
-    },
     "max_y": 60,
     "min_y": -30,
     "primary": {
@@ -102,7 +68,7 @@
       ]
     },
     "seed": 2798428659864701710,
-    "size_max": 10,
-    "size_min": 6
+    "size_max": 13,
+    "size_min": 8
   }
 }
