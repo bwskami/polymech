@@ -99,7 +99,7 @@ public class PolyhedronView extends UIElement {
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, DEFAULT_ATMOS_R, atmos),
                 PlanetLayer.of(PlanetLayerType.TECH, DEFAULT_TECH_R),
                 PlanetLayer.of(PlanetLayerType.WIREFRAME, DEFAULT_WIRE_R)
-        ), nodes, onSelect);
+        ).build(), nodes, onSelect);
     }
 
     public PolyhedronView(Planet planet, List<TechNode> nodes, Consumer<TechNode> onSelect) {

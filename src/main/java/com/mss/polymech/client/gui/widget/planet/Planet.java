@@ -1,6 +1,7 @@
 package com.mss.polymech.client.gui.widget.planet;
 
 import com.mss.polymech.techtree.Polyhedron;
+import com.mss.polymech.techtree.TechNode;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -8,29 +9,27 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 一个星球：中心点 + 多个按半径排序的图层 + 公转参数。
+ * 一个星球：封装所有属于该星球的数据。
  * <p>
- * 所有图层共享同一中心点；图层顺序由 {@code radius} 决定（从内到外）。
- * <ul>
- *   <li>{@code geometry} 为空时跟随星球底层网格；</li>
- *   <li>{@code rotationSpeed} 为 {@code NaN} 时跟随星球默认自转速度。</li>
- * </ul>
+ * 包含：图层、科技项、视觉属性、公转参数、卫星关系。
+ * 通过 {@link #visual()} 获取视觉属性，不再需要在渲染层做 {@code if (pi == X)} 判断。
  */
 public final class Planet {
     private final String name;
     private final Polyhedron baseMesh;
-    private final float defaultRotationSpeed; // 自转速度 rad/s
+    private final float defaultRotationSpeed;
     private final List<PlanetLayer> layers;
+    private final List<TechNode> techNodes;
+    private final PlanetVisual visual;
 
-    // 公转参数（相对父天体）
-    private final float orbitalRadius;   // 公转半径（AU/单位），0 = 在中心（如太阳）
-    private final float orbitalSpeed;    // 公转角速度 rad/s，0 = 不公转
+    private final float orbitalRadius;
+    private final float orbitalSpeed;
     private final float axialTilt;
-    private final int parentId; // -1 = orbits sun       // 轴倾角（弧度）
+    private final int parentId;
 
-    public Planet(String name, Polyhedron baseMesh, float defaultRotationSpeed,
-                  float orbitalRadius, float orbitalSpeed, float axialTilt, int parentId,
-                  List<PlanetLayer> layers) {
+    private Planet(String name, Polyhedron baseMesh, float defaultRotationSpeed,
+                   float orbitalRadius, float orbitalSpeed, float axialTilt, int parentId,
+                   List<PlanetLayer> layers, List<TechNode> techNodes, PlanetVisual visual) {
         this.name = name;
         this.baseMesh = baseMesh;
         this.defaultRotationSpeed = defaultRotationSpeed;
@@ -40,12 +39,16 @@ public final class Planet {
         this.parentId = parentId;
         this.layers = new ArrayList<>(layers);
         this.layers.sort(Comparator.comparingDouble(PlanetLayer::radius));
+        this.techNodes = List.copyOf(techNodes);
+        this.visual = visual;
     }
 
     public String name() { return name; }
     public Polyhedron baseMesh() { return baseMesh; }
     public float defaultRotationSpeed() { return defaultRotationSpeed; }
     public List<PlanetLayer> layers() { return List.copyOf(layers); }
+    public List<TechNode> techNodes() { return techNodes; }
+    public PlanetVisual visual() { return visual; }
     public float orbitalRadius() { return orbitalRadius; }
     public float orbitalSpeed() { return orbitalSpeed; }
     public float axialTilt() { return axialTilt; }
@@ -63,26 +66,74 @@ public final class Planet {
         return layer.hasCustomRotationSpeed() ? layer.rotationSpeed() : defaultRotationSpeed;
     }
 
-    /** 便捷构造（无公转参数，默认轴倾角） */
-    public static Planet of(String name, Polyhedron baseMesh, float defaultRotationSpeed, PlanetLayer... layers) {
-        return new Planet(name, baseMesh, defaultRotationSpeed, 0, 0, 0, -1, List.of(layers));
+    // ============ Builder ============
+
+    public static Builder of(String name, Polyhedron baseMesh, float defaultRotationSpeed, PlanetLayer... layers) {
+        return new Builder(name, baseMesh, defaultRotationSpeed, layers);
     }
 
-    /** 带公转参数的完整构造 */
-    public static Planet of(String name, Polyhedron baseMesh, float defaultRotationSpeed,
-                            float orbitalRadius, float orbitalSpeed, PlanetLayer... layers) {
-        return new Planet(name, baseMesh, defaultRotationSpeed, orbitalRadius, orbitalSpeed, 0, -1, List.of(layers));
+    public static Builder moon(String name, Polyhedron baseMesh, float defaultRotationSpeed,
+                               float orbitalRadius, float orbitalSpeed, float axialTilt, int parentId, PlanetLayer... layers) {
+        return new Builder(name, baseMesh, defaultRotationSpeed, layers)
+                .orbital(orbitalRadius, orbitalSpeed)
+                .tilt(axialTilt)
+                .parent(parentId);
     }
 
-    /** 带公转 + 轴倾角 */
-    public static Planet of(String name, Polyhedron baseMesh, float defaultRotationSpeed,
-                            float orbitalRadius, float orbitalSpeed, float axialTilt, PlanetLayer... layers) {
-        return new Planet(name, baseMesh, defaultRotationSpeed, orbitalRadius, orbitalSpeed, axialTilt, -1, List.of(layers));
-    }
+    public static final class Builder {
+        private final String name;
+        private final Polyhedron baseMesh;
+        private final float defaultRotationSpeed;
+        private final List<PlanetLayer> layers;
+        private float orbitalRadius;
+        private float orbitalSpeed;
+        private float axialTilt;
+        private int parentId = -1;
+        private List<TechNode> techNodes = List.of();
+        private PlanetVisual visual = PlanetVisual.DEFAULT;
 
-    /** 带公转 + 轴倾角 + 卫星（parentId） */
-    public static Planet moon(String name, Polyhedron baseMesh, float defaultRotationSpeed,
-                              float orbitalRadius, float orbitalSpeed, float axialTilt, int parentId, PlanetLayer... layers) {
-        return new Planet(name, baseMesh, defaultRotationSpeed, orbitalRadius, orbitalSpeed, axialTilt, parentId, List.of(layers));
+        Builder(String name, Polyhedron baseMesh, float defaultRotationSpeed, PlanetLayer[] layers) {
+            this.name = name;
+            this.baseMesh = baseMesh;
+            this.defaultRotationSpeed = defaultRotationSpeed;
+            this.layers = List.of(layers);
+        }
+
+        public Builder orbital(float radius, float speed) {
+            this.orbitalRadius = radius;
+            this.orbitalSpeed = speed;
+            return this;
+        }
+
+        public Builder tilt(float tilt) {
+            this.axialTilt = tilt;
+            return this;
+        }
+
+        public Builder parent(int parentId) {
+            this.parentId = parentId;
+            return this;
+        }
+
+        public Builder techNodes(TechNode... nodes) {
+            this.techNodes = List.of(nodes);
+            return this;
+        }
+
+        public Builder techNodes(List<TechNode> nodes) {
+            this.techNodes = List.copyOf(nodes);
+            return this;
+        }
+
+        public Builder visual(PlanetVisual visual) {
+            this.visual = visual;
+            return this;
+        }
+
+        public Planet build() {
+            return new Planet(name, baseMesh, defaultRotationSpeed,
+                    orbitalRadius, orbitalSpeed, axialTilt, parentId,
+                    layers, techNodes, visual);
+        }
     }
 }

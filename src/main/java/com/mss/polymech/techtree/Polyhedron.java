@@ -346,4 +346,57 @@ int[][] F = new int[][]{
     private static float dot(float[] a, float[] b) {
         return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
     }
+
+    // ============================ 不规则碎石多面体 ============================
+
+    /**
+     * 生成一个不规则碎石形状：从正二十面体出发，细分一次得到 80 个三角面，
+     * 然后随机拉扯顶点径向距离，得到有棱有角的不规则多面体（不是球！）。
+     * @param seed 随机种子，不同 seed → 不同形状
+     * @param roughness 0..1，0=接近正二十面体，1=极度不规则
+     */
+    public static Polyhedron rock(long seed, float roughness) {
+        float t = (float) ((1 + Math.sqrt(5)) / 2);
+        float[][] base = {
+            {-1, t, 0}, {1, t, 0}, {-1, -t, 0}, {1, -t, 0},
+            {0, -1, t}, {0, 1, t}, {0, -1, -t}, {0, 1, -t},
+            {t, 0, -1}, {t, 0, 1}, {-t, 0, -1}, {-t, 0, 1}
+        };
+        List<float[]> verts = new ArrayList<>();
+        for (float[] v : base) verts.add(normalize(v));
+        int[][] baseFaces = {
+            {0, 11, 5}, {0, 5, 1}, {0, 1, 7}, {0, 7, 10}, {0, 10, 11},
+            {1, 5, 9}, {5, 11, 4}, {11, 10, 2}, {10, 7, 6}, {7, 1, 8},
+            {3, 9, 4}, {3, 4, 2}, {3, 2, 6}, {3, 6, 8}, {3, 8, 9},
+            {4, 9, 5}, {2, 4, 11}, {6, 2, 10}, {8, 6, 7}, {9, 8, 1}
+        };
+        List<int[]> faces = new ArrayList<>();
+        for (int[] f : baseFaces) faces.add(f.clone());
+        // 细分一次 → 80 三角面，每面都是小三角形，棱角分明
+        Map<Long, Integer> midCache = new HashMap<>();
+        List<int[]> subdiv = new ArrayList<>();
+        for (int[] tri : faces) {
+            int a = midpoint(tri[0], tri[1], verts, midCache);
+            int b = midpoint(tri[1], tri[2], verts, midCache);
+            int c = midpoint(tri[2], tri[0], verts, midCache);
+            subdiv.add(new int[]{tri[0], a, c});
+            subdiv.add(new int[]{tri[1], b, a});
+            subdiv.add(new int[]{tri[2], c, b});
+            subdiv.add(new int[]{a, b, c});
+        }
+        faces = subdiv;
+        // 随机拉扯每个顶点的径向距离
+        long rng = seed;
+        for (int i = 0; i < verts.size(); i++) {
+            rng = rng * 6364136223846793005L + 1442695040888963407L;
+            float r = ((int)(rng >>> 33)) / (float)(1L << 31); // 0..1
+            float scale = 0.65f + r * 0.7f * roughness; // 0.65..1.35 at roughness=1
+            scale = Math.max(0.5f, Math.min(1.5f, scale));
+            float[] v = verts.get(i);
+            float len = (float) Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+            if (len < 1e-5f) len = 1;
+            verts.set(i, new float[]{ v[0]/len * scale, v[1]/len * scale, v[2]/len * scale });
+        }
+        return new Polyhedron(verts.toArray(new float[0][]), faces.toArray(new int[0][]), buildEdges(faces));
+    }
 }

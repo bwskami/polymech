@@ -53,8 +53,9 @@ public class SolarSystemView extends UIElement {
     private final Noise3[] cloudNoise;
     private final java.util.HashMap<Long, Noise3> layerNoiseCache = new java.util.HashMap<>();
     private final Map<Polyhedron, List<int[]>> edgeCache = new HashMap<>();
-    private final Polyhedron rockMesh;  // shared 3D rock shape for asteroid belt
-    private static final int ASTEROID_COUNT = 140;
+    private final HashMap<Long, Polyhedron> rockCache = new HashMap<>();
+
+    private static final int ASTEROID_COUNT = 300;
     private static final int KUIPER_COUNT = 90;
     private final float[][] asteroidPos;  // [i]={angle,radius,y,size,tiltA,tiltB,r,g,b}
     private final float[][] kuiperPos;
@@ -106,7 +107,7 @@ public class SolarSystemView extends UIElement {
         int n = solarSystem.size();
         this.faceColors = new float[n][][];
         this.cloudNoise = new Noise3[n];
-        this.rockMesh = Polyhedron.goldberg(1);
+
         this.shadowModel = new ShadowModel(solarSystem);
         for (int i = 0; i < n; i++) {
             Polyhedron mesh = solarSystem.get(i).baseMesh();
@@ -120,35 +121,37 @@ public class SolarSystemView extends UIElement {
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float angle = ((int)(rng1 >>> 33)) / (float)(1L << 31) * 6.2832f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
-            float radius = 50f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 15f;
+            float radius = 50f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 14f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float yPos = (((int)(rng1 >>> 33)) / (float)(1L << 31) - 0.5f) * 0.8f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
-            float sz = 0.08f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 0.22f;
+            float sz = 0.12f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 0.23f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float tiltA = ((int)(rng1 >>> 33)) / (float)(1L << 31) * 6.2832f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float tiltB = ((int)(rng1 >>> 33)) / (float)(1L << 31) * 6.2832f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float bright = 0.35f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 0.30f;
-            asteroidPos[i] = new float[]{angle, radius, yPos, sz, tiltA, tiltB, bright, bright*0.85f, bright*0.70f};
+            rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
+              asteroidPos[i] = new float[]{angle, radius, yPos, sz, tiltA, tiltB, bright, bright*0.85f, bright*0.70f, (float)(int)rng1};
         }
         for (int i = 0; i < KUIPER_COUNT; i++) {
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float angle = ((int)(rng1 >>> 33)) / (float)(1L << 31) * 6.2832f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
-            float radius = 200f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 60f;
+            float radius = 230f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 50f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float yPos = (((int)(rng1 >>> 33)) / (float)(1L << 31) - 0.5f) * 1.0f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
-            float sz = 0.05f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 0.15f;
+            float sz = 0.08f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 0.17f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float tiltA = ((int)(rng1 >>> 33)) / (float)(1L << 31) * 6.2832f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float tiltB = ((int)(rng1 >>> 33)) / (float)(1L << 31) * 6.2832f;
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
             float bright = 0.30f + ((int)(rng1 >>> 33)) / (float)(1L << 31) * 0.25f;
-            kuiperPos[i] = new float[]{angle, radius, yPos, sz, tiltA, tiltB, bright*0.7f, bright*0.75f, bright*0.85f};
+            rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
+              kuiperPos[i] = new float[]{angle, radius, yPos, sz, tiltA, tiltB, bright*0.7f, bright*0.75f, bright*0.85f, (float)(int)rng1};
         }
         float[] wp = solarSystem.worldPos(focalIndex, 0);
         focalX = wp[0]; focalZ = wp[2];
@@ -159,7 +162,9 @@ public class SolarSystemView extends UIElement {
         addEventListener(UIEvents.CLICK, e -> {
             if (hoveredTile >= 0) {
                 selectedTile = hoveredTile;
-                if (hoveredTile < nodes.size()) onSelect.accept(nodes.get(hoveredTile));
+                List<TechNode> fn = solarSystem.get(focalIndex).techNodes();
+                if (fn.isEmpty() && !nodes.isEmpty()) fn = nodes;
+                if (hoveredTile >= 0 && hoveredTile < fn.size()) onSelect.accept(fn.get(hoveredTile));
             } else {
                 int pi = pickPlanet((int) lastMouseX, (int) lastMouseY, lastFocal, lastCx, lastCy);
                 if (pi >= 0 && pi != focalIndex) {
@@ -392,8 +397,8 @@ public class SolarSystemView extends UIElement {
         tasks.sort(Comparator.comparingDouble(t -> -t.camDist));
         for (RenderTask t : tasks) if (t.type.equals("BASE") || t.type.equals("CLOUD")) drawLayer(idMat, t, cosY, sinY, cosX, sinX, focal, cx, cy);
         drawOrbitalRings(idMat, cosY, sinY, cosX, sinX, focal, cx, cy);
-        drawBeltBand(idMat, 48f, 66f, 5, cosY, sinY, cosX, sinX, 0.60f, 0.50f, 0.40f, 0.10f);
-        drawBeltBand(idMat, 195f, 265f, 4, cosY, sinY, cosX, sinX, 0.45f, 0.50f, 0.60f, 0.06f);
+        drawBeltBand(idMat, 50f, 65f, 5, cosY, sinY, cosX, sinX, 0.60f, 0.50f, 0.40f, 0.10f);
+        drawBeltBand(idMat, 230f, 280f, 4, cosY, sinY, cosX, sinX, 0.45f, 0.50f, 0.60f, 0.06f);
         drawScatteredRocks(idMat, asteroidPos, cosY, sinY, cosX, sinX);
         drawScatteredRocks(idMat, kuiperPos, cosY, sinY, cosX, sinX);
         RenderSystem.depthMask(false);
@@ -597,14 +602,16 @@ public class SolarSystemView extends UIElement {
         currentTilt = savedTilt;
         RenderSystem.depthMask(true);
     }
-    /** Render 3D rock polyhedra scattered in a belt */
+    /** Render 3D rock polyhedra scattered in a belt — filled faces + wireframe edges */
+    /** Render 3D rock polyhedra scattered in a belt — 真3D: cameraTo() + GPU透视投影 */
     private void drawScatteredRocks(Matrix4f mat, float[][] particles,
             float cosY, float sinY, float cosX, float sinX) {
         RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc();
-        RenderSystem.depthMask(false); RenderSystem.enableDepthTest();
+        RenderSystem.depthMask(true); RenderSystem.enableDepthTest();
         float savedTilt = currentTilt; currentTilt = 0;
-        Polyhedron mesh = rockMesh;
-        float ddx = -focalX, ddz = -focalZ;
+        // mesh selected per-rock below
+        float[] cam = new float[3];
+        // 第一遍：填充面
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (int i = 0; i < particles.length; i++) {
             float[] p = particles[i];
@@ -612,74 +619,60 @@ public class SolarSystemView extends UIElement {
             float radius = p[1], yPos = p[2], sz = p[3];
             float tiltA = p[4], tiltB = p[5];
             float cr = p[6], cg = p[7], cb = p[8];
-            float wx = (float) Math.cos(angle) * radius;
-            float wz = (float) Math.sin(angle) * radius;
-            // 使用全局光照模型：按岩石世界位置更新光照方向
-            lighting.updateForWorldPos(wx, wz, cosY, sinY, cosX, sinX);
+            int seed = (int) p[8]; Polyhedron mesh = rockCache.getOrDefault((long)seed, null);
+            if (mesh == null) { mesh = Polyhedron.rock((long)seed, 0.8f); rockCache.put((long)seed, mesh); }
+            float dwx = (float) Math.cos(angle) * radius - focalX;
+            float dwz = (float) Math.sin(angle) * radius - focalZ;
+            lighting.updateForWorldPos(dwx + focalX, dwz + focalZ, cosY, sinY, cosX, sinX);
             float cosTA = (float) Math.cos(tiltA), sinTA = (float) Math.sin(tiltA);
             float cosTB = (float) Math.cos(tiltB), sinTB = (float) Math.sin(tiltB);
-            // transform + render each face of rock mesh
             for (int f = 0; f < mesh.faces.length; f++) {
                 int[] fv = mesh.faces[f];
-                // face normal for flat shading (approximate)
+                // 计算面法线用于光照
                 float fnx = 0, fny = 0, fnz = 0;
                 for (int v : fv) { fnx += mesh.vertices[v][0]; fny += mesh.vertices[v][1]; fnz += mesh.vertices[v][2]; }
                 float fnLen = (float) Math.sqrt(fnx*fnx + fny*fny + fnz*fnz);
                 if (fnLen > 1e-5f) { fnx /= fnLen; fny /= fnLen; fnz /= fnLen; }
-                // rotate normal by tilt
+                // 碎石自转
                 float rfnx = fnx * cosTA - fny * sinTA;
                 float rfny = fnx * sinTA + fny * cosTA;
                 float rfnz = fnz;
-                // rotate by tiltB around Y
                 float nwx = rfnx * cosTB + rfnz * sinTB;
                 float nwy = rfny;
                 float nwz = -rfnx * sinTB + rfnz * cosTB;
                 float ndotl = nwx * lighting.dirX() + nwy * lighting.dirY() + nwz * lighting.dirZ();
                 float lit = PlanetLighting.AMBIENT + (1 - PlanetLighting.AMBIENT) * lighting.direct(ndotl, 0);
+                lit = Math.max(0.25f, lit);
                 float lr = cr * lit, lg = cg * lit, lb = cb * lit;
-                // back-face culling (normal pointing toward camera)
-                // project face center to check if in front of camera
-                float fcx = 0, fcy = 0, fcz = 0;
-                for (int v : fv) {
-                    float[] vtx = mesh.vertices[v];
-                    float vlx = vtx[0] * sz, vly = vtx[1] * sz, vlz = vtx[2] * sz;
-                    float tlx2 = vlx * cosTA - vly * sinTA, tly2 = vlx * sinTA + vly * cosTA;
-                    float flx = tlx2 * cosTB + vlz * sinTB;
-                    float fly = tly2;
-                    float flz = -tlx2 * sinTB + vlz * cosTB;
-                    fcx += wx + flx; fcy += yPos + fly; fcz += wz + flz;
-                }
-                fcx /= fv.length; fcy /= fv.length; fcz /= fv.length;
-                float drx = (fcx - focalX) * cosY + (fcz - focalZ) * sinY;
-                float drz1 = -(fcx - focalX) * sinY + (fcz - focalZ) * cosY;
-                float dry = -drz1 * sinX;
-                float drz = drz1 * cosX - dist;
-                if (drz > -0.02f) continue;
-                // render face as triangle fan
-                float[] vsx = new float[fv.length], vsy = new float[fv.length];
-                boolean anyBehind = false;
+                // 用 cameraTo() 投影每个顶点 — 跟行星完全一致的真3D管线
+                boolean behind = false;
+                float[] vsx = new float[fv.length], vsy = new float[fv.length], vsz = new float[fv.length];
                 for (int v = 0; v < fv.length; v++) {
                     float[] vtx = mesh.vertices[fv[v]];
-                    float vlx = vtx[0] * sz, vly = vtx[1] * sz, vlz = vtx[2] * sz;
-                    float tlx2 = vlx * cosTA - vly * sinTA, tly2 = vlx * sinTA + vly * cosTA;
-                    float flx = tlx2 * cosTB + vlz * sinTB;
+                    // apply tiltA then tiltB
+                    float tlx = vtx[0] * sz, tly = vtx[1] * sz, tlz = vtx[2] * sz;
+                    float tlx2 = tlx * cosTA - tly * sinTA, tly2 = tlx * sinTA + tly * cosTA;
+                    float flx = tlx2 * cosTB + tlz * sinTB;
                     float fly = tly2;
-                    float flz = -tlx2 * sinTB + vlz * cosTB;
-                    float vwx = wx + flx, vwy = yPos + fly, vwz = wz + flz;
-                    float vrx = (vwx - focalX) * cosY + (vwz - focalZ) * sinY;
-                    float vrz1 = -(vwx - focalX) * sinY + (vwz - focalZ) * cosY;
-                    vsy[v] = -vrz1 * sinX;
-                    vsx[v] = vrx;
+                    float flz = -tlx2 * sinTB + tlz * cosTB;
+                    // build a fake planet layer vertex for cameraTo()
+                    // cameraTo needs: v[0]=lx, v[1]=ly, v[2]=lz, layerR=1, dwx, dwz, sc=cos(rotAngle), ss=sin(rotAngle)
+                    float[] localV = { flx, fly + yPos, flz };
+                    cameraTo(cam, localV, 1f, dwx, dwz, 1f, 0f, cosY, sinY, cosX, sinX);
+                    vsx[v] = cam[0]; vsy[v] = cam[1]; vsz[v] = cam[2];
+                    if (cam[2] > -0.02f) behind = true;
                 }
+                if (behind) continue;
                 for (int v = 1; v + 1 < fv.length; v++) {
-                    bb.addVertex(mat, vsx[0], vsy[0], drz).setColor(lr, lg, lb, 1f);
-                    bb.addVertex(mat, vsx[v], vsy[v], drz).setColor(lr, lg, lb, 1f);
-                    bb.addVertex(mat, vsx[v+1], vsy[v+1], drz).setColor(lr, lg, lb, 1f);
+                    bb.addVertex(mat, vsx[0], vsy[0], vsz[0]).setColor(lr, lg, lb, 1f);
+                    bb.addVertex(mat, vsx[v], vsy[v], vsz[v]).setColor(lr, lg, lb, 1f);
+                    bb.addVertex(mat, vsx[v+1], vsy[v+1], vsz[v+1]).setColor(lr, lg, lb, 1f);
                 }
             }
         }
         var rendered = bb.build();
         if (rendered != null) BufferUploader.drawWithShader(rendered);
+
         currentTilt = savedTilt;
         RenderSystem.depthMask(true);
     }
@@ -1083,12 +1076,15 @@ public class SolarSystemView extends UIElement {
         currentTilt = fp.axialTilt();
 
         if (overlayFade < 0.01f) return;
-        int count = Math.min(gridMesh.faces.length, nodes.size());
+        List<TechNode> focalNodes = fp.techNodes();
+        // 兼容模式：如果星球没有配置专属科技项，则使用全局列表（旧行为）
+        if (focalNodes.isEmpty() && !nodes.isEmpty()) focalNodes = nodes;
+        int count = Math.min(gridMesh.faces.length, focalNodes.size());
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         boolean drew = false;
         for (int f = 0; f < count; f++) {
             int[] fv = gridMesh.faces[f];
-            int col = tierColor(nodes.get(f).tier());
+            int col = tierColor(focalNodes.get(f).tier());
             float cr = ((col >> 16) & 0xFF) / 255f;
             float cg = ((col >> 8) & 0xFF) / 255f;
             float cb = (col & 0xFF) / 255f;
@@ -1257,8 +1253,10 @@ public class SolarSystemView extends UIElement {
         float[] cm = camera(new float[]{chaseWMx, chaseWMy, chaseWMz}, wireR, dwx, dwz, sc, ss, cosY, sinY, cosX, sinX);
 
         float cr, cg, cb;
-        if (chaseFace >= 0 && chaseFace < nodes.size()) {
-            int col = tierColor(nodes.get(chaseFace).tier());
+        List<TechNode> hNodes = solarSystem.get(focalIndex).techNodes();
+        if (hNodes.isEmpty() && !nodes.isEmpty()) hNodes = nodes;
+        if (chaseFace >= 0 && chaseFace < hNodes.size()) {
+            int col = tierColor(hNodes.get(chaseFace).tier());
             cr = ((col >> 16) & 0xFF) / 255f; cg = ((col >> 8) & 0xFF) / 255f; cb = (col & 0xFF) / 255f;
         } else if (chaseFace >= 0) {
             cr = Math.min(1f, faceColors[focalIndex][chaseFace][0] * 1.5f);
