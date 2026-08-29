@@ -25,6 +25,8 @@ public final class TechNode {
     private final List<String> prerequisites;
     @Nullable
     private final String machineId;
+    @Nullable
+    private final String planetName;
     private final List<Component> description;
     private final List<Component> steps;
 
@@ -36,6 +38,7 @@ public final class TechNode {
         this.category = b.category != null ? b.category : "default";
         this.prerequisites = List.copyOf(b.prerequisites);
         this.machineId = b.machineId;
+        this.planetName = b.planetName;
         this.description = List.copyOf(b.description);
         this.steps = List.copyOf(b.steps);
     }
@@ -69,6 +72,25 @@ public final class TechNode {
         return machineId;
     }
 
+    @Nullable
+    public String planetName() {
+        return planetName;
+    }
+
+    /**
+     * 此节点是否绑定到指定星球。
+     */
+    public boolean belongsTo(String planetName) {
+        return this.planetName != null && this.planetName.equals(planetName);
+    }
+
+    /**
+     * 此节点是否未绑定任何星球（全局节点）。
+     */
+    public boolean isUnbound() {
+        return this.planetName == null;
+    }
+
     public List<Component> description() {
         return description;
     }
@@ -89,6 +111,7 @@ public final class TechNode {
         private String category;
         private final List<String> prerequisites = new ArrayList<>();
         private String machineId;
+        private String planetName;
         private final List<Component> description = new ArrayList<>();
         private final List<Component> steps = new ArrayList<>();
 
@@ -123,6 +146,11 @@ public final class TechNode {
 
         public Builder machineId(String machineId) {
             this.machineId = machineId;
+            return this;
+        }
+
+        public Builder planet(String planetName) {
+            this.planetName = planetName;
             return this;
         }
 

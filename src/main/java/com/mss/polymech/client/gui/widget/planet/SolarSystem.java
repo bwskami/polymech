@@ -1,6 +1,8 @@
 package com.mss.polymech.client.gui.widget.planet;
 
 import com.mss.polymech.techtree.Polyhedron;
+import com.mss.polymech.techtree.TechNode;
+import com.mss.polymech.techtree.TechTree;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +16,7 @@ public final class SolarSystem {
     private final float[] phases;
 
     public SolarSystem(List<Planet> planets) {
-        this.planets = List.copyOf(planets);
+        this.planets = new java.util.ArrayList<>(planets);
         this.phases = new float[planets.size()];
         long rng = 0xCAFEBABEL;
         for (int i = 0; i < planets.size(); i++) {
@@ -58,13 +60,13 @@ public final class SolarSystem {
         list.add(Planet.of("\u592a\u9633", base, 0.06f,
                 PlanetLayer.of(PlanetLayerType.BASE, 8.50f),
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 8.80f, atmoSphere))
-                .visual(PlanetVisual.SUN).build());
+                .visual(PlanetVisual.SUN).colorProvider(PlanetColorProvider.STAR).build());
 
         list.add(Planet.of("\u6c34\u661f", base, 0.50f,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.55f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.65f, 2))
                 .orbital(20f, 0.20f).tilt(0.0006f)
-                .visual(PlanetVisual.MERCURY).build());
+                .visual(PlanetVisual.MERCURY).colorProvider(PlanetColorProvider.mercury(0.60f, 0.55f, 0.50f)).build());
 
         list.add(Planet.of("\u91d1\u661f", base, 0.20f,
                 PlanetLayer.of(PlanetLayerType.BASE, 1.10f),
@@ -73,7 +75,7 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 1.22f, atmoSphere),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 1.28f, 2))
                 .orbital(27f, 0.080f).tilt(3.09f)
-                .visual(PlanetVisual.VENUS).build());
+                .visual(PlanetVisual.VENUS).colorProvider(PlanetColorProvider.venus(0.85f, 0.75f, 0.40f)).build());
 
         int earthIdx = list.size();
         list.add(Planet.of("\u5730\u7403", base, 0.25f,
@@ -85,11 +87,11 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.TECH, 2.17f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 2.20f, 2))
                 .orbital(35f, 0.050f).tilt(0.409f)
-                .visual(PlanetVisual.EARTH).build());
+                .visual(PlanetVisual.EARTH).colorProvider(PlanetColorProvider.EARTH).build());
         list.add(Planet.moon("\u6708\u7403", base, 0.10f, 3.5f, 0.30f, 0.117f, earthIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.50f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.56f, 2))
-                .visual(PlanetVisual.MOON).build());
+                .visual(PlanetVisual.MOON).colorProvider(PlanetColorProvider.moon(0.55f, 0.53f, 0.50f)).build());
 
         int marsIdx = list.size();
         list.add(Planet.of("\u706b\u661f", base, 0.24f,
@@ -97,15 +99,15 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.84f, atmoSphere),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.89f, 2))
                 .orbital(44f, 0.026f).tilt(0.439f)
-                .visual(PlanetVisual.MARS).build());
+                .visual(PlanetVisual.MARS).colorProvider(PlanetColorProvider.mars(0.80f, 0.35f, 0.15f)).build());
         list.add(Planet.moon("\u706b\u536b\u4e00", base, 0.80f, 1.6f, 0.60f, 0f, marsIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.18f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.22f, 2))
-                .visual(PlanetVisual.PHOBOS).build());
+                .visual(PlanetVisual.PHOBOS).colorProvider(PlanetColorProvider.rock(0.50f, 0.48f, 0.45f)).build());
         list.add(Planet.moon("\u706b\u536b\u4e8c", base, 0.30f, 2.4f, 0.35f, 0f, marsIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.14f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.18f, 2))
-                .visual(PlanetVisual.DEIMOS).build());
+                .visual(PlanetVisual.DEIMOS).colorProvider(PlanetColorProvider.rock(0.55f, 0.50f, 0.48f)).build());
 
         int jupIdx = list.size();
         list.add(Planet.of("\u6728\u661f", base, 0.40f,
@@ -113,23 +115,23 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.98f, atmoSphere),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 5.10f, 2))
                 .orbital(85f, 0.0042f).tilt(0.055f)
-                .visual(PlanetVisual.JUPITER).build());
+                .visual(PlanetVisual.JUPITER).colorProvider(PlanetColorProvider.JUPITER).build());
         list.add(Planet.moon("\u6728\u536b\u4e00 Io", base, 0.40f, 6.0f, 0.50f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.28f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.33f, 2))
-                .visual(PlanetVisual.IO).build());
+                .visual(PlanetVisual.IO).colorProvider(PlanetColorProvider.io(0.85f, 0.75f, 0.20f)).build());
         list.add(Planet.moon("\u6728\u536b\u4e8c Europa", base, 0.30f, 7.5f, 0.40f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.26f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.31f, 2))
-                .visual(PlanetVisual.EUROPA).build());
+                .visual(PlanetVisual.EUROPA).colorProvider(PlanetColorProvider.europa(0.85f, 0.82f, 0.75f)).build());
         list.add(Planet.moon("\u6728\u536b\u4e09 Ganymede", base, 0.20f, 9.5f, 0.28f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.34f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.39f, 2))
-                .visual(PlanetVisual.GANYMEDE).build());
+                .visual(PlanetVisual.GANYMEDE).colorProvider(PlanetColorProvider.rock(0.60f, 0.55f, 0.50f)).build());
         list.add(Planet.moon("\u6728\u536b\u56db Callisto", base, 0.15f, 11.5f, 0.22f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.32f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.37f, 2))
-                .visual(PlanetVisual.CALLISTO).build());
+                .visual(PlanetVisual.CALLISTO).colorProvider(PlanetColorProvider.rock(0.40f, 0.38f, 0.35f)).build());
 
         int satIdx = list.size();
         list.add(Planet.of("\u571f\u661f", base, 0.38f,
@@ -138,16 +140,16 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.RING, 6.40f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 4.20f, 2))
                 .orbital(125f, 0.0017f).tilt(0.467f)
-                .visual(PlanetVisual.SATURN).build());
+                .visual(PlanetVisual.SATURN).colorProvider(PlanetColorProvider.SATURN).build());
         list.add(Planet.moon("\u571f\u536b\u516d Titan", base, 0.10f, 8.0f, 0.25f, 0f, satIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.30f),
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.36f, atmoSphere),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.40f, 2))
-                .visual(PlanetVisual.TITAN).build());
+                .visual(PlanetVisual.TITAN).colorProvider(PlanetColorProvider.rock(0.85f, 0.55f, 0.25f)).build());
         list.add(Planet.moon("\u571f\u536b\u4e8c Enceladus", base, 0.60f, 7.0f, 0.55f, 0f, satIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.16f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.20f, 2))
-                .visual(PlanetVisual.ENCELADUS).build());
+                .visual(PlanetVisual.ENCELADUS).colorProvider(PlanetColorProvider.enceladus()).build());
 
         list.add(Planet.of("\u5929\u738b\u661f", base, 0.30f,
                 PlanetLayer.of(PlanetLayerType.BASE, 3.60f),
@@ -155,7 +157,7 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.RING, 5.20f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 3.80f, 2))
                 .orbital(165f, 0.0006f).tilt(1.71f)
-                .visual(PlanetVisual.URANUS).build());
+                .visual(PlanetVisual.URANUS).colorProvider(PlanetColorProvider.gasGiant(0.55f, 0.75f, 0.85f)).build());
 
         list.add(Planet.of("\u6d77\u738b\u661f", base, 0.32f,
                 PlanetLayer.of(PlanetLayerType.BASE, 3.40f),
@@ -163,19 +165,45 @@ public final class SolarSystem {
                 PlanetLayer.of(PlanetLayerType.RING, 5.20f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 3.60f, 2))
                 .orbital(215f, 0.0003f).tilt(0.49f)
-                .visual(PlanetVisual.NEPTUNE).build());
+                .visual(PlanetVisual.NEPTUNE).colorProvider(PlanetColorProvider.gasGiant(0.35f, 0.55f, 0.90f)).build());
 
         int pluIdx = list.size();
         list.add(Planet.of("\u51a5\u738b\u661f", base, 0.10f,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.45f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.52f, 2))
                 .orbital(270f, 0.00015f).tilt(2.09f)
-                .visual(PlanetVisual.PLUTO).build());
+                .visual(PlanetVisual.PLUTO).colorProvider(PlanetColorProvider.pluto(0.65f, 0.60f, 0.55f)).build());
         list.add(Planet.moon("\u5361\u620e", base, 0.05f, 1.2f, 0.35f, 0f, pluIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.22f),
                 PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.27f, 2))
-                .visual(PlanetVisual.CHARON).build());
+                .visual(PlanetVisual.CHARON).colorProvider(PlanetColorProvider.rock(0.50f, 0.48f, 0.45f)).build());
 
-        return new SolarSystem(list);
+        SolarSystem sys = new SolarSystem(list);
+        sys.bindPlanetTechNodes();
+        return sys;
+    }
+
+    /**
+     * 将 TechTree 中带有 planetName 的节点自动分配到对应星球。
+     */
+    private void bindPlanetTechNodes() {
+        for (Planet p : planets) {
+            List<TechNode> bound = TechTree.nodesForPlanet(p.name());
+            if (!bound.isEmpty()) {
+                int idx = planets.indexOf(p);
+                planets.set(idx, rebuildWithTechNodes(p, bound));
+            }
+        }
+    }
+
+    private static Planet rebuildWithTechNodes(Planet original, List<TechNode> nodes) {
+        return Planet.of(original.name(), original.baseMesh(), original.defaultRotationSpeed(),
+                original.layers().toArray(new PlanetLayer[0]))
+                .orbital(original.orbitalRadius(), original.orbitalSpeed())
+                .tilt(original.axialTilt())
+                .visual(original.visual())
+                .colorProvider(original.colorProvider())
+                .techNodes(nodes)
+                .build();
     }
 }

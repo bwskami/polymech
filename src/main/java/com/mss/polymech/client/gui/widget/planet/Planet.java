@@ -21,6 +21,7 @@ public final class Planet {
     private final List<PlanetLayer> layers;
     private final List<TechNode> techNodes;
     private final PlanetVisual visual;
+    private final PlanetColorProvider colorProvider;
 
     private final float orbitalRadius;
     private final float orbitalSpeed;
@@ -29,7 +30,8 @@ public final class Planet {
 
     private Planet(String name, Polyhedron baseMesh, float defaultRotationSpeed,
                    float orbitalRadius, float orbitalSpeed, float axialTilt, int parentId,
-                   List<PlanetLayer> layers, List<TechNode> techNodes, PlanetVisual visual) {
+                   List<PlanetLayer> layers, List<TechNode> techNodes, PlanetVisual visual,
+                     PlanetColorProvider colorProvider) {
         this.name = name;
         this.baseMesh = baseMesh;
         this.defaultRotationSpeed = defaultRotationSpeed;
@@ -41,6 +43,7 @@ public final class Planet {
         this.layers.sort(Comparator.comparingDouble(PlanetLayer::radius));
         this.techNodes = List.copyOf(techNodes);
         this.visual = visual;
+        this.colorProvider = colorProvider;
     }
 
     public String name() { return name; }
@@ -49,6 +52,7 @@ public final class Planet {
     public List<PlanetLayer> layers() { return List.copyOf(layers); }
     public List<TechNode> techNodes() { return techNodes; }
     public PlanetVisual visual() { return visual; }
+    public PlanetColorProvider colorProvider() { return colorProvider; }
     public float orbitalRadius() { return orbitalRadius; }
     public float orbitalSpeed() { return orbitalSpeed; }
     public float axialTilt() { return axialTilt; }
@@ -91,6 +95,7 @@ public final class Planet {
         private int parentId = -1;
         private List<TechNode> techNodes = List.of();
         private PlanetVisual visual = PlanetVisual.DEFAULT;
+        private PlanetColorProvider colorProvider = PlanetColorProvider.DEFAULT;
 
         Builder(String name, Polyhedron baseMesh, float defaultRotationSpeed, PlanetLayer[] layers) {
             this.name = name;
@@ -130,10 +135,15 @@ public final class Planet {
             return this;
         }
 
+        public Builder colorProvider(PlanetColorProvider colorProvider) {
+            this.colorProvider = colorProvider;
+            return this;
+        }
+
         public Planet build() {
             return new Planet(name, baseMesh, defaultRotationSpeed,
                     orbitalRadius, orbitalSpeed, axialTilt, parentId,
-                    layers, techNodes, visual);
+                    layers, techNodes, visual, colorProvider);
         }
     }
 }

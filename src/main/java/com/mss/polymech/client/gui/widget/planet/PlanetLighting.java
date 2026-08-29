@@ -169,8 +169,8 @@ public final class PlanetLighting {
         float g = albedo[1] * d + DARK_G * inv + sl.shadowBlue * 0.30f + reflG;
         float b = albedo[2] * d + DARK_B * inv + sl.shadowBlue + reflB;
         r += 0.60f * sl.rimWarm + 0.04f * sl.rimCool + sl.specular;
-        g += 0.35f * sl.rimWarm + 0.08f * sl.rimCool;
-        b += 0.12f * sl.rimWarm + 0.20f * sl.rimCool;
+        g += 0.35f * sl.rimWarm + 0.08f * sl.rimCool + sl.specular;
+        b += 0.12f * sl.rimWarm + 0.20f * sl.rimCool + sl.specular;
         out[0] = Math.min(1f, r);
         out[1] = Math.min(1f, g);
         out[2] = Math.min(1f, b);

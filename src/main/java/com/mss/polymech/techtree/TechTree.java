@@ -54,6 +54,24 @@ public final class TechTree {
         return new ArrayList<>(NODES.values());
     }
 
+    /**
+     * 获取绑定到指定星球的所有科技节点。
+     */
+    public static List<TechNode> nodesForPlanet(String planetName) {
+        return NODES.values().stream()
+                .filter(n -> n.belongsTo(planetName))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * 获取未绑定任何星球的全局科技节点。
+     */
+    public static List<TechNode> unboundNodes() {
+        return NODES.values().stream()
+                .filter(TechNode::isUnbound)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     public static boolean isEmpty() {
         return NODES.isEmpty();
     }
@@ -160,14 +178,14 @@ public final class TechTree {
         TechNode.builder("tech_steam")
                 .title(Component.translatable("techtree.poly_mech.tech_steam"))
                 .icon(() -> new ItemStack(net.minecraft.world.item.Items.COAL))
-                .tier(0).category("base")
+                .tier(0).category("base").planet("地球")
                 .description(Component.translatable("techtree.poly_mech.tech_steam.desc"))
                 .build();
 
         TechNode.builder("tech_electric")
                 .title(Component.translatable("techtree.poly_mech.tech_electric"))
                 .icon(() -> new ItemStack(net.minecraft.world.item.Items.REDSTONE))
-                .tier(2).category("base")
+                .tier(2).category("base").planet("地球")
                 .prerequisite("tech_steam")
                 .description(Component.translatable("techtree.poly_mech.tech_electric.desc"))
                 .build();
