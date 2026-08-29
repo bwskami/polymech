@@ -5,6 +5,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -574,10 +575,8 @@ public class SolarSystemView extends UIElement {
             if (vlen > 1e-5f) { vnx /= vlen; vny /= vlen; vnz /= vlen; }
             float diff = vnx * curLX + vny * curLY + vnz * curLZ;
             float lit = clamp(diff * curLightScale, 0, 1);
-            float grayMix;
-            if (lit > 0.65f) grayMix = 0.0f;
-            else if (lit > 0.30f) grayMix = 0.45f;
-            else grayMix = 0.92f;
+            // 连续过渡：lit 越亮越保留原色，越暗越趋向灰暗，无硬边界
+            float grayMix = 1f - lit;
             float shadowBlue = (1f - lit) * 0.06f;
             float rim = 1f - Math.abs(vnz);
             rim = rim * rim;
@@ -688,53 +687,65 @@ public class SolarSystemView extends UIElement {
     }
     private void drawAtmosphereLayer(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
         Polyhedron mesh = t.mesh;
+        // ===== 加法混合（Mindustry atmosphere.frag 用 additive blending）=====
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         float[] cxs = new float[6], cys = new float[6], czs = new float[6];
         float[] cam = new float[3];
         float[] atmoCenterCam = new float[3];
         cameraTo(atmoCenterCam, new float[]{0, 0, 0}, 1, t.dwx, t.dwz, sc, ss, cosY, sinY, cosX, sinX);
+        float[] atmColor = atmosphereColor(t.pi);
         for (int f = 0; f < mesh.faces.length; f++) {
             int[] fv = mesh.faces[f];
-            float rzSum = 0;
             for (int k = 0; k < fv.length; k++) {
                 cameraTo(cam, mesh.vertices[fv[k]], t.layerR, t.dwx, t.dwz, sc, ss, cosY, sinY, cosX, sinX);
                 cxs[k] = cam[0]; cys[k] = cam[1]; czs[k] = cam[2];
-                rzSum += cam[2] - atmoCenterCam[2];
             }
-            float rzn = clamp(rzSum / fv.length / t.layerR, -1, 1);
-            float rim = 1 - Math.abs(rzn);
-            float alpha = 0.05f + 0.24f * rim;
-            if (t.pi == 0) alpha *= 1.4f;
-            // 按天体给大气底色，避免全宇宙统一蓝圈
-            float[] atmColor = atmosphereColor(t.pi);
             // 面中心
             float ccx = 0, ccy = 0, ccz = 0;
             for (int k = 0; k < fv.length; k++) { ccx += cxs[k]; ccy += cys[k]; ccz += czs[k]; }
             ccx /= fv.length; ccy /= fv.length; ccz /= fv.length;
-            // 大气面法线（相对行星中心）
+            // 大气面法线（从行星中心指向面中心）
             float anx = ccx - atmoCenterCam[0], any = ccy - atmoCenterCam[1], anz = ccz - atmoCenterCam[2];
             float anLen = (float) Math.sqrt(anx * anx + any * any + anz * anz);
-            float lit = 0;
-            if (anLen > 1e-5f) {
-                float d = Math.max(0, (anx / anLen) * curLX + (any / anLen) * curLY + (anz / anLen) * curLZ);
-                lit = d * curLightScale;
-            }
-            // 大气不参与阳光/暖色混合：固定颜色 + 低透明度，只做一层淡色壳
+            if (anLen < 1e-5f) continue;
+            anx /= anLen; any /= anLen; anz /= anLen;
+            // ===== Rim factor：视线与法线的夹角 =====
+            // 中心 = 0（视线正对法线，穿过的大气最薄）
+            // 边缘 = 1（视线切线，穿过的大气最厚）
+            float vnx = atmoCenterCam[0] - ccx, vny = atmoCenterCam[1] - ccy, vnz = atmoCenterCam[2] - ccz;
+            float vLen = (float) Math.sqrt(vnx * vnx + vny * vny + vnz * vnz);
+            if (vLen < 1e-5f) continue;
+            vnx /= vLen; vny /= vLen; vnz /= vLen;
+            float NdotV = Math.max(0, anx * vnx + any * vny + anz * vnz);
+            float rim = 1f - NdotV;
+            rim = rim * rim; // 平方使边缘更锐利、中心更干净
+            // ===== 太阳散射：只有朝太阳面的大气散射光 =====
+            // atmosphere.frag: optic() + inScatter() — 大气只在有阳光穿过时发光
+            float sunDot = Math.max(0, anx * curLX + any * curLY + anz * curLZ);
+            float sunFactor = sunDot * curLightScale;
+            // ===== 透明度 =====
+            // 中心几乎为0，边缘随太阳方向增强
+            float alpha = rim * sunFactor * 0.35f;
+            if (t.pi == 0) alpha *= 1.4f;
+            if (alpha < 0.003f) continue;
+            // ===== 大气颜色 =====
+            // 只用基础色，亮度完全由 alpha 控制（sunFactor 已在 alpha 中）
+            float r = atmColor[0];
+            float g = atmColor[1];
+            float b = atmColor[2];
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                if (t.pi == 0) {
-                    bb.addVertex(mat, ccx, ccy, ccz).setColor(1.0f, 0.55f, 0.18f, alpha);
-                    bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(1.0f, 0.55f, 0.18f, alpha);
-                    bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(1.0f, 0.55f, 0.18f, alpha);
-                } else {
-                    // 颜色不用 lit 计算，保持大气原本色相，避免暖色+冷底混出绿/紫
-                    bb.addVertex(mat, ccx, ccy, ccz).setColor(atmColor[0], atmColor[1], atmColor[2], alpha);
-                    bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(atmColor[0], atmColor[1], atmColor[2], alpha);
-                    bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(atmColor[0], atmColor[1], atmColor[2], alpha);
-                }
+                bb.addVertex(mat, ccx, ccy, ccz).setColor(r, g, b, alpha);
+                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(r, g, b, alpha);
+                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(r, g, b, alpha);
             }
         }
-        BufferUploader.drawWithShader(bb.buildOrThrow());
+        var rendered = bb.build();
+        if (rendered != null) BufferUploader.drawWithShader(rendered);
+        // ===== 恢复正常混合 =====
+        RenderSystem.defaultBlendFunc();
     }
     private void drawRing(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
         // Ring: flat disc in equatorial plane (y=0), tilted with the planet's axial tilt

@@ -79,18 +79,18 @@ public final class SolarSystem {
         list.add(Planet.of("金星", base, 0.20f, 27f, 0.080f, 3.09f,
                 PlanetLayer.of(PlanetLayerType.BASE, 1.10f),
                 PlanetLayer.of(PlanetLayerType.CLOUD, 1.16f).withRotationSpeed(-0.08f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 1.24f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 1.30f)
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 1.18f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 1.24f)
         ));
 
         // ====== 地球 + 月球 ======
         int earthIdx = list.size();
         list.add(Planet.of("地球", base, 0.25f, 35f, 0.050f, 0.409f,
                 PlanetLayer.of(PlanetLayerType.BASE, 1.92f),
-                PlanetLayer.of(PlanetLayerType.CLOUD, 2.00f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 2.04f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.TECH, 2.07f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 2.10f)
+                PlanetLayer.of(PlanetLayerType.CLOUD, 2.06f),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 2.10f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.TECH, 2.13f),
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 2.16f)
         ));
         list.add(Planet.moon("月球", base, 0.10f, 3.5f, 0.30f, 0.117f, earthIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.50f),
@@ -101,8 +101,8 @@ public final class SolarSystem {
         int marsIdx = list.size();
         list.add(Planet.of("火星", base, 0.24f, 44f, 0.026f, 0.439f,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.80f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.86f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.92f)
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.82f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.87f)
         ));
         list.add(Planet.moon("火卫一", base, 0.80f, 1.6f, 0.60f, 0f, marsIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.18f),
@@ -117,8 +117,8 @@ public final class SolarSystem {
         int jupIdx = list.size();
         list.add(Planet.of("木星", base, 0.40f, 75f, 0.0042f, 0.055f,
                 PlanetLayer.of(PlanetLayerType.BASE, 4.80f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 5.20f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 5.40f)
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.92f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 5.10f)
         ));
         list.add(Planet.moon("木卫一 Io", base, 0.40f, 6.0f, 0.50f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.28f),
@@ -141,9 +141,9 @@ public final class SolarSystem {
         int satIdx = list.size();
         list.add(Planet.of("土星", base, 0.38f, 105f, 0.0017f, 0.467f,
                 PlanetLayer.of(PlanetLayerType.BASE, 4.00f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.20f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.08f, atmoSphere),
                 PlanetLayer.of(PlanetLayerType.RING, 6.40f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 4.40f)
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 4.20f)
         ));
         list.add(Planet.moon("土卫六 Titan", base, 0.10f, 8.0f, 0.25f, 0f, satIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.30f),
@@ -158,17 +158,17 @@ public final class SolarSystem {
         // ====== 天王星 + 星环 ======
         list.add(Planet.of("天王星", base, 0.30f, 140f, 0.0006f, 1.71f,
                 PlanetLayer.of(PlanetLayerType.BASE, 3.60f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.84f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.68f, atmoSphere),
                 PlanetLayer.of(PlanetLayerType.RING, 5.20f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 4.00f)
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 3.80f)
         ));
 
         // ====== 海王星 ======
         list.add(Planet.of("海王星", base, 0.32f, 185f, 0.0003f, 0.49f,
                 PlanetLayer.of(PlanetLayerType.BASE, 3.40f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.64f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.48f, atmoSphere),
                 PlanetLayer.of(PlanetLayerType.RING, 5.20f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 3.80f)
+                PlanetLayer.of(PlanetLayerType.WIREFRAME, 3.60f)
         ));
 
         // ====== 冥王星 + 卡戎 ======
