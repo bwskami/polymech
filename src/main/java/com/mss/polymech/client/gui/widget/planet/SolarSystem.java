@@ -61,7 +61,9 @@ public final class SolarSystem {
     /** 构建完整太阳系。公转半径为缩放后的相对值。 */
     public static SolarSystem createDefault() {
         List<Planet> list = new ArrayList<>();
+        // 高精度多面体用于行星表面（BASE / CLOUD），面数更多更圆滑
         Polyhedron base = Polyhedron.goldberg(3);
+        // 科技网格 / 线框保持低面数（Goldberg 2），保留六边形+五边形风格
         Polyhedron atmoSphere = Polyhedron.sphere(16, 24);
 
         // ====== 太阳 ======
@@ -72,114 +74,117 @@ public final class SolarSystem {
         // ====== 水星 ======
         list.add(Planet.of("水星", base, 0.50f, 20f, 0.20f, 0.0006f,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.55f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.65f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.65f, 2)
         ));
 
         // ====== 金星 ======
         list.add(Planet.of("金星", base, 0.20f, 27f, 0.080f, 3.09f,
                 PlanetLayer.of(PlanetLayerType.BASE, 1.10f),
-                PlanetLayer.of(PlanetLayerType.CLOUD, 1.16f).withRotationSpeed(-0.08f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 1.18f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 1.24f)
+                PlanetLayer.of(PlanetLayerType.CLOUD, 1.14f).withRotationSpeed(-0.45f),
+                PlanetLayer.of(PlanetLayerType.CLOUD, 1.18f).withRotationSpeed(-0.28f),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 1.22f, atmoSphere),
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 1.28f, 2)
         ));
 
         // ====== 地球 + 月球 ======
         int earthIdx = list.size();
         list.add(Planet.of("地球", base, 0.25f, 35f, 0.050f, 0.409f,
                 PlanetLayer.of(PlanetLayerType.BASE, 1.92f),
+                PlanetLayer.of(PlanetLayerType.CLOUD, 2.02f).withRotationSpeed(0.22f),
                 PlanetLayer.of(PlanetLayerType.CLOUD, 2.06f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 2.10f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.TECH, 2.13f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 2.16f)
+                PlanetLayer.of(PlanetLayerType.CLOUD, 2.10f).withRotationSpeed(-0.15f),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 2.14f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.TECH, 2.17f),
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 2.20f, 2)
         ));
         list.add(Planet.moon("月球", base, 0.10f, 3.5f, 0.30f, 0.117f, earthIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.50f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.56f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.56f, 2)
         ));
 
         // ====== 火星 + 火卫一/火卫二 ======
         int marsIdx = list.size();
         list.add(Planet.of("火星", base, 0.24f, 44f, 0.026f, 0.439f,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.80f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.82f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.87f)
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.84f, atmoSphere),
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.89f, 2)
         ));
         list.add(Planet.moon("火卫一", base, 0.80f, 1.6f, 0.60f, 0f, marsIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.18f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.22f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.22f, 2)
         ));
         list.add(Planet.moon("火卫二", base, 0.30f, 2.4f, 0.35f, 0f, marsIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.14f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.18f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.18f, 2)
         ));
 
         // ====== 木星 + 伽利略卫星 ======
         int jupIdx = list.size();
         list.add(Planet.of("木星", base, 0.40f, 75f, 0.0042f, 0.055f,
                 PlanetLayer.of(PlanetLayerType.BASE, 4.80f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.92f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 5.10f)
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.98f, atmoSphere),
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 5.10f, 2)
         ));
         list.add(Planet.moon("木卫一 Io", base, 0.40f, 6.0f, 0.50f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.28f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.33f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.33f, 2)
         ));
         list.add(Planet.moon("木卫二 Europa", base, 0.30f, 7.5f, 0.40f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.26f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.31f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.31f, 2)
         ));
         list.add(Planet.moon("木卫三 Ganymede", base, 0.20f, 9.5f, 0.28f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.34f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.39f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.39f, 2)
         ));
         list.add(Planet.moon("木卫四 Callisto", base, 0.15f, 11.5f, 0.22f, 0f, jupIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.32f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.37f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.37f, 2)
         ));
 
         // ====== 土星 + 土卫六等 + 星环 ======
         int satIdx = list.size();
         list.add(Planet.of("土星", base, 0.38f, 105f, 0.0017f, 0.467f,
                 PlanetLayer.of(PlanetLayerType.BASE, 4.00f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.08f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 4.12f, atmoSphere),
                 PlanetLayer.of(PlanetLayerType.RING, 6.40f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 4.20f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 4.20f, 2)
         ));
         list.add(Planet.moon("土卫六 Titan", base, 0.10f, 8.0f, 0.25f, 0f, satIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.30f),
                 PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 0.36f, atmoSphere),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.40f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.40f, 2)
         ));
         list.add(Planet.moon("土卫二 Enceladus", base, 0.60f, 7.0f, 0.55f, 0f, satIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.16f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.20f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.20f, 2)
         ));
 
         // ====== 天王星 + 星环 ======
         list.add(Planet.of("天王星", base, 0.30f, 140f, 0.0006f, 1.71f,
                 PlanetLayer.of(PlanetLayerType.BASE, 3.60f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.68f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.72f, atmoSphere),
                 PlanetLayer.of(PlanetLayerType.RING, 5.20f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 3.80f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 3.80f, 2)
         ));
 
         // ====== 海王星 ======
         list.add(Planet.of("海王星", base, 0.32f, 185f, 0.0003f, 0.49f,
                 PlanetLayer.of(PlanetLayerType.BASE, 3.40f),
-                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.48f, atmoSphere),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 3.52f, atmoSphere),
                 PlanetLayer.of(PlanetLayerType.RING, 5.20f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 3.60f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 3.60f, 2)
         ));
 
         // ====== 冥王星 + 卡戎 ======
         int pluIdx = list.size();
         list.add(Planet.of("冥王星", base, 0.10f, 230f, 0.00015f, 2.09f,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.45f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.52f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.52f, 2)
         ));
         list.add(Planet.moon("卡戎", base, 0.05f, 1.2f, 0.35f, 0f, pluIdx,
                 PlanetLayer.of(PlanetLayerType.BASE, 0.22f),
-                PlanetLayer.of(PlanetLayerType.WIREFRAME, 0.27f)
+                PlanetLayer.goldberg(PlanetLayerType.WIREFRAME, 0.27f, 2)
         ));
 
         return new SolarSystem(list);
