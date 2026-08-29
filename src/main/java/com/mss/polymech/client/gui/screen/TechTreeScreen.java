@@ -6,11 +6,11 @@ import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
-import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
 import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
-import com.mss.polymech.client.gui.widget.PolyhedronView;
-import com.mss.polymech.techtree.Polyhedron;
+import com.mss.polymech.client.gui.widget.planet.SolarSystem;
+import com.mss.polymech.client.gui.widget.planet.SolarSystemView;
+
 import com.mss.polymech.techtree.TechNode;
 import com.mss.polymech.techtree.TechTree;
 import dev.vfyjxf.taffy.style.FlexDirection;
@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 /**
  * 科技树全屏界面（LDLib2 ModularUIScreen）。
  * <p>
- * 主视觉为一个自转的“地块球”（{@link PolyhedronView}）：正六边形 + 12 五边形拼接，
+ * 主视觉为群星式3D太阳系（{@link SolarSystemView}）：正六边形 + 12 五边形拼接，
  * 每个地块 = 一个科技；纯黑背景、线框显示但正面实体遮挡背面、科技地块用程序化六边形图标。
  * 拖拽旋转、悬停高亮 + 名称提示、点击有科技的面对应节点打开“思索”面板。
  * </p>
@@ -65,15 +65,13 @@ public class TechTreeScreen extends ModularUIScreen {
         root.layout(l -> l.widthPercent(100).heightPercent(100).flexDirection(FlexDirection.COLUMN));
 
         // 外壳（六边形+五边形线框）+ 内核（类地星球），铺满整屏，自带纯黑背景
-        Polyhedron shell = Polyhedron.goldberg(2);
-        Polyhedron atmosphere = Polyhedron.sphere(24, 32);
         List<TechNode> nodes = TechTree.all();
         Consumer<TechNode> onSelect = node -> {
             root.selectId(ID_PONDER).collect(Collectors.toList()).forEach(UIElement::removeSelf);
             root.addChild(buildPonderOverlay(node, root));
             root.markTaffyStyleDirty();
         };
-        var view = new PolyhedronView(shell, atmosphere, nodes, onSelect);
+        var view = new SolarSystemView(SolarSystem.createDefault(), nodes, onSelect);
         view.layout(l -> l.widthPercent(100).heightPercent(100));
         root.addChild(view);
 
@@ -83,7 +81,7 @@ public class TechTreeScreen extends ModularUIScreen {
                 .positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
                 .paddingHorizontal(8).flexDirection(FlexDirection.ROW).gapColumn(8));
         var title = new Label().setText(Component.literal("科技树 / Tech Tree")).layout(l -> l.flex(1));
-        var hint = new Label().setText(Component.literal("拖拽旋转 · 点击科技地块查看思索")).layout(l -> l.marginRight(8));
+        var hint = new Label().setText(Component.literal("滚轮缩放 · 点击切换聚焦 · 点击科技地块查看思索")).layout(l -> l.flex(1));
         var close = new Button()
                 .setText(Component.literal("关闭"))
                 .setOnClick(e -> Minecraft.getInstance().setScreen(null))
