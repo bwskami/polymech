@@ -31,8 +31,11 @@ public final class PlanetVisual {
 
     // ============ 预定义星球外观 ============
 
-    public static final PlanetVisual SUN = new PlanetVisual(
-            new float[]{1.0f, 0.90f, 0.65f}, null, null, 1.0f);
+    /** 恒星专用视觉：表面有米粒组织+黑子纹理，大气层做发光描边 */
+    public static final PlanetVisual STAR = new PlanetVisual(
+            new float[]{1.0f, 0.85f, 0.45f},
+            new float[]{1.0f, 0.75f, 0.30f}, null, 1.0f);
+    public static final PlanetVisual SUN = STAR;
     public static final PlanetVisual MERCURY = new PlanetVisual(
             new float[]{0.65f, 0.60f, 0.55f}, null, null, 0);
     public static final PlanetVisual VENUS = new PlanetVisual(

@@ -197,9 +197,30 @@ public class SolarSystemView extends UIElement {
             float r, g, b;
             float[] tint = PLANET_TINT[pi];
             switch (pi) {
-                case 0: // 太阳：亮黄橙色
-                    r = 1.0f; g = 0.85f; b = 0.30f;
+                case 0: { // 恒星：米粒组织 + 黑子 + 色球层色变
+                    // 米粒组织：高频噪点模拟对流胞
+                    float granule = noise.fbm(cx * 8f + 3.7f, cy * 8f - 1.2f, cz * 8f + 5.3f);
+                    granule = clamp(granule / 0.85f, 0, 1);
+                    // 低频大尺度亮度变化（活动区）
+                    float activity = noise.fbm(cx * 2.5f + 10f, cy * 2.5f + 20f, cz * 2.5f);
+                    activity = clamp(activity / 0.90f, 0, 1);
+                    // 黑子
+                    float spot = noise.fbm(cx * 6f - 5f, cy * 6f + 3f, cz * 6f + 1f);
+                    boolean isSpot = spot > 0.72f && activity < 0.45f;
+                    if (isSpot) {
+                        float sf = (spot - 0.72f) / 0.28f;
+                        r = 0.55f + 0.15f * sf;
+                        g = 0.25f + 0.10f * sf;
+                        b = 0.08f + 0.05f * sf;
+                    } else {
+                        // 正常表面：黄→橙渐变 + 米粒明暗
+                        float brightness = 0.75f + 0.25f * granule + 0.10f * (activity - 0.5f);
+                        r = Math.min(1f, 0.95f * brightness + 0.05f);
+                        g = Math.min(1f, 0.72f * brightness + 0.05f);
+                        b = Math.min(1f, 0.28f * brightness + 0.02f);
+                    }
                     break;
+                }
                 case 3: { // 地球：保留原有的海洋/大陆/极冰
                     if (n < 0.5f) { float t = n / 0.5f; r = 0.05f + 0.04f * t; g = 0.16f + 0.30f * t; b = 0.40f + 0.40f * t; }
                     else { float t = (n - 0.5f) / 0.5f; r = 0.24f + 0.42f * t; g = 0.45f - 0.10f * t; b = 0.18f - 0.10f * t; }
@@ -403,7 +424,6 @@ public class SolarSystemView extends UIElement {
         drawScatteredRocks(idMat, kuiperPos, cosY, sinY, cosX, sinX);
         RenderSystem.depthMask(false);
         for (RenderTask t : tasks) if (!t.type.equals("BASE") && !t.type.equals("CLOUD") && !t.type.equals("TECH")) drawLayer(idMat, t, cosY, sinY, cosX, sinX, focal, cx, cy);
-        drawSunGlow(idMat, cosY, sinY, cosX, sinX, focal);
         RenderSystem.depthMask(false);
         boolean hasWireframe = false;
         boolean hasTech = false;
@@ -872,6 +892,7 @@ public class SolarSystemView extends UIElement {
     }
     private float[] atmosphereColor(int pi) {
         return switch (pi) {
+            case 0 -> new float[]{1.0f, 0.80f, 0.35f}; // 恒星：暖橙描边
             case 2 -> new float[]{0.90f, 0.80f, 0.50f}; // 金星：奶油黄
             case 3 -> new float[]{0.25f, 0.55f, 1.00f}; // 地球：蓝
             case 5 -> new float[]{0.80f, 0.50f, 0.35f}; // 火星：淡红
@@ -915,9 +936,9 @@ public class SolarSystemView extends UIElement {
             float sunDot = Math.max(0, anx * lighting.dirX() + any * lighting.dirY() + anz * lighting.dirZ());
             float atmoShadow = shadowModel.hasShadow(t.pi)
                     ? shadowModel.occlusion(t.pi, mesh.faces[f].length > 0 ? mesh.vertices[mesh.faces[f][0]] : new float[]{0,0,0}, t.layerR, sc, ss, currentTilt, simTime) : 0;
-            float sunFactor = sunDot * lighting.intensity() * (1f - atmoShadow);
-            float alpha = rim * sunFactor * 0.35f;
-            if (t.pi == 0) alpha *= 1.4f;
+            boolean isStar = solarSystem.get(t.pi).visual().isGlowing();
+            float sunFactor = isStar ? 1f : sunDot * lighting.intensity() * (1f - atmoShadow);
+            float alpha = isStar ? rim * 0.55f : rim * sunFactor * 0.35f;
             if (alpha < 0.003f) continue;
             float r = atmColor[0], g = atmColor[1], b = atmColor[2];
             for (int k = 0; k < fv.length; k++) {

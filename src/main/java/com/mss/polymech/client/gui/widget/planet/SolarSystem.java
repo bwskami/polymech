@@ -56,7 +56,8 @@ public final class SolarSystem {
         Polyhedron atmoSphere = Polyhedron.sphere(16, 24);
 
         list.add(Planet.of("\u592a\u9633", base, 0.06f,
-                PlanetLayer.of(PlanetLayerType.BASE, 7.80f))
+                PlanetLayer.of(PlanetLayerType.BASE, 8.50f),
+                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, 8.80f, atmoSphere))
                 .visual(PlanetVisual.SUN).build());
 
         list.add(Planet.of("\u6c34\u661f", base, 0.50f,
