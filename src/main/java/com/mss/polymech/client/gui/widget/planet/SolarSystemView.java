@@ -382,7 +382,7 @@ public class SolarSystemView extends UIElement {
         RenderSystem.setProjectionMatrix(oldProj, VertexSorting.ORTHOGRAPHIC_Z);
         RenderSystem.disableDepthTest(); RenderSystem.depthMask(false);
         mvs.popMatrix(); RenderSystem.applyModelViewMatrix(); RenderSystem.setShaderColor(1, 1, 1, 1);
-        drawLabels(g, vx, vy, vw, vh, cosY, sinY, cosX, sinX, focal, cx, cy);
+        // drawLabels 暂时禁用，后续做附加UI时再启用
     }
     private void drawStarfield(GuiGraphics g, int vx, int vy, int vw, int vh) {
         // TODO: 加载天空盒贴图后替换
@@ -446,7 +446,8 @@ public class SolarSystemView extends UIElement {
             float alpha = (pi == focalIndex) ? 0.90f : 0.55f;
             float[] rgb = (pi == focalIndex) ? new float[]{0.50f, 0.78f, 1.0f} : new float[]{0.45f, 0.62f, 0.85f};
             // 线宽随轨道半径增大，保证远近轨道在屏幕上都有 1~3px
-            float hw = 0.06f + orbR * 0.0006f;
+            boolean isMoon = p.parentId() >= 0;
+              float hw = isMoon ? (0.03f + orbR * 0.0004f) : (0.06f + orbR * 0.0006f);
             // 预计算相机空间点（闭合环：多算两个点用于首尾衔接）
             int n = segments + 1;
             float[] px = new float[n + 1], py = new float[n + 1], pz = new float[n + 1];
