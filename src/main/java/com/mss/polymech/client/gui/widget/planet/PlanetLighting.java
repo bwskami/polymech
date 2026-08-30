@@ -14,21 +14,37 @@ package com.mss.polymech.client.gui.widget.planet;
  */
 public final class PlanetLighting {
     /** 环境光强度。 */
-    public static final float AMBIENT = 0.18f;
+    public static final float AMBIENT = 0.14f;
     /** 高光参数。 */
     private static final float SPEC_POWER = 90f;
     private static final float SPEC_STRENGTH = 0.10f;
 
     /**
-     * 乘法光照的光源色 —— 受光面被染成"光的颜色"，绝不往表面加色。
+     * "亮纯暗灰"光照模型的两端色。
      * <p>
-     * 为什么用乘法（参考 Mindustry planet.frag：{@code color *= diffuse + ambient}）：
-     * 加色会把表面本色污染掉（蓝面+黄光→绿），而乘法只是让表面按光的光谱
-     * 重新加权，蓝面×暖白仍是蓝——色相永远不会被扭转到物理上不可能的颜色。
+     * 光的颜色随受光程度在两者间插值——<b>明度与纯度绑定在一起变化</b>：
+     * <ul>
+     *   <li>受光多 → 高纯暖色恒星光（亮、纯）</li>
+     *   <li>受光少 → 暗灰（暗、灰，纯度自然低）</li>
+     * </ul>
+     * 最终色 = albedo × lightColor(t)，没有独立的亮度增益、没有加色高光，
+     * 因此亮部只会往"高纯暖色"偏，数学上不可能冲白（任何 t 下光色都是 R 占优）。
      */
-    private static final float SUN_R = 1.00f, SUN_G = 0.45f, SUN_B = 0.08f; // 测试：极端暖橙红
-    /** 环境光色：背光面被微弱偏冷的天光染色（地球照片暗面偏蓝的原因）。 */
-    private static final float AMB_R = 0.30f, AMB_G = 0.55f, AMB_B = 1.40f; // 测试：极端冷蓝
+    /** 亮端：高纯度暖色恒星光。 */
+    private static final float SUN_R = 1.00f, SUN_G = 0.52f, SUN_B = 0.20f;
+    /** 暗端：暗灰（微冷）。 */
+    private static final float GRAY_R = 0.12f, GRAY_G = 0.14f, GRAY_B = 0.18f;
+
+    /**
+     * 染色强度随固有色饱和度自适应：
+     * <ul>
+     *   <li>高饱和（海洋/木星色带等有色星球）→ 趋近 {@link #TINT_MAX}，容易被染色</li>
+     *   <li>低饱和（月球/水星等灰色星球）→ 趋近 {@link #TINT_MIN}，保住灰的本色</li>
+     * </ul>
+     * 避免纯乘法染色把灰色天体 100% 吃成光色、丢失辨识度。
+     */
+    private static final float TINT_MIN = 0.25f;
+    private static final float TINT_MAX = 0.85f;
 
     private final BounceLightModel bounceModel = new BounceLightModel();
     private float dirX, dirY, dirZ = 1f;
@@ -194,37 +210,37 @@ public final class PlanetLighting {
      */
     public void lightColor(float lit, float[] out) {
         float t = clamp(lit, 0f, 1f);
-        out[0] = AMB_R + (SUN_R - AMB_R) * t;
-        out[1] = AMB_G + (SUN_G - AMB_G) * t;
-        out[2] = AMB_B + (SUN_B - AMB_B) * t;
+        out[0] = GRAY_R + (SUN_R - GRAY_R) * t;
+        out[1] = GRAY_G + (SUN_G - GRAY_G) * t;
+        out[2] = GRAY_B + (SUN_B - GRAY_B) * t;
     }
 
     public void colorize(float[] albedo, SurfaceLight sl, float[] out) {
         // ---- 受光程度（标量）：直射 + 自反射 + 母星反照 ----
         float lit = clamp(sl.direct + sl.bounce + sl.reflected * 0.6f, 0f, 1.4f);
-        // 明度：暗面保底 AMBIENT，受光面趋向全亮（过曝余量收小，避免冲白）
-        float amount = AMBIENT + (1f - AMBIENT) * Math.min(lit, 1f)
-                     + Math.max(0f, lit - 1f) * 0.22f;
+        float t = clamp(lit, 0f, 1f);
 
-        // ---- 光色：背光=冷天光 → 受光=太阳暖金（内联，零分配） ----
-        float tt = clamp(lit, 0f, 1f);
-        float lr = AMB_R + (SUN_R - AMB_R) * tt;
-        float lg = AMB_G + (SUN_G - AMB_G) * tt;
-        float lb = AMB_B + (SUN_B - AMB_B) * tt;
+        // ---- 亮纯暗灰：光色随受光程度 暗灰 → 高纯暖色，明度与纯度绑定 ----
+        float lr = GRAY_R + (SUN_R - GRAY_R) * t;
+        float lg = GRAY_G + (SUN_G - GRAY_G) * t;
+        float lb = GRAY_B + (SUN_B - GRAY_B) * t;
 
-        // ---- 乘法着色：色相只随光色自然偏移，永不受污染 ----
-        float r = albedo[0] * amount * lr;
-        float g = albedo[1] * amount * lg;
-        float b = albedo[2] * amount * lb;
+        // ---- 按固有色饱和度自适应染色 ----
+        // 固有色饱和度（HSV 的 S）：越高越容易被光染色
+        float maxC = Math.max(albedo[0], Math.max(albedo[1], albedo[2]));
+        float minC = Math.min(albedo[0], Math.min(albedo[1], albedo[2]));
+        float sat = maxC > 1e-5f ? (maxC - minC) / maxC : 0f;
+        float tint = TINT_MIN + (TINT_MAX - TINT_MIN) * sat;
 
-        // 镜面高光：反射光源本色（白），加色符合物理
-        r += sl.specular;
-        g += sl.specular;
-        b += sl.specular;
-
-        out[0] = Math.min(1f, r);
-        out[1] = Math.min(1f, g);
-        out[2] = Math.min(1f, b);
+        // 完全染色：albedo × 光色
+        float tr = albedo[0] * lr, tg = albedo[1] * lg, tb = albedo[2] * lb;
+        // 中性基准：albedo × 光色亮度（只变明度、不动色相，固有色全保留）
+        float ll = (lr + lg + lb) / 3f;
+        float nr = albedo[0] * ll, ng = albedo[1] * ll, nb = albedo[2] * ll;
+        // 按饱和度决定的比例混合
+        out[0] = Math.min(1f, nr + (tr - nr) * tint);
+        out[1] = Math.min(1f, ng + (tg - ng) * tint);
+        out[2] = Math.min(1f, nb + (tb - nb) * tint);
     }
 
     private static float clamp(float v, float lo, float hi) {
