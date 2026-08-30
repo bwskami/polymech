@@ -125,7 +125,7 @@ public class SolarSystemView extends UIElement {
         }
         float[] wp = solarSystem.worldPos(focalIndex, 0);
         camera.setFocal(wp[0], wp[2]);
-        addEventListener(UIEvents.MOUSE_DOWN, e -> { dragging = true; lastMX = (int) e.x; lastMY = (int) e.y; });
+        addEventListener(UIEvents.MOUSE_DOWN, e -> { dragging = true; lastMX = (int) e.x; lastMY = (int) e.y; camera.stopInertia(); });
         addEventListener(UIEvents.MOUSE_UP, e -> dragging = false);
         addEventListener(UIEvents.MOUSE_MOVE, e -> { if (dragging) { int mx = (int) e.x, my = (int) e.y; camera.rotate(mx - lastMX, my - lastMY); lastMX = mx; lastMY = my; } });
         addEventListener(UIEvents.MOUSE_WHEEL, e -> { camera.zoom(e.deltaY, minDistForFocal()); });
@@ -137,6 +137,7 @@ public class SolarSystemView extends UIElement {
             } else {
                 int pi = pickPlanet((int) lastMouseX, (int) lastMouseY, camera.focalLength(), camera.cx(), camera.cy());
                 if (pi >= 0 && pi != focalIndex) {
+                    camera.stopInertia();
                     focalIndex = pi;
                     camera.ensureMinDist(minDistForFocal());
                     camera.beginTransition(solarSystem.worldPos(focalIndex, simTime)[0], solarSystem.worldPos(focalIndex, simTime)[2]);
@@ -197,6 +198,7 @@ public class SolarSystemView extends UIElement {
         float fadeTarget = computeOverlayFadeTarget();
         overlayFade += (fadeTarget - overlayFade) * Math.min(1f, dt * 10f);
         // 摄像机焦点过渡动画（点击行星后平滑飞过去）
+        camera.updateInertia(dt, dragging);
         camera.updateTransition(dt, wp[0], wp[2]);
         GuiGraphics g = guiContext.graphics;
         int vx = (int) getPositionX(), vy = (int) getPositionY();
@@ -274,6 +276,7 @@ public class SolarSystemView extends UIElement {
         RenderSystem.setProjectionMatrix(oldProj, VertexSorting.ORTHOGRAPHIC_Z);
         RenderSystem.disableDepthTest(); RenderSystem.depthMask(false);
         mvs.popMatrix(); RenderSystem.applyModelViewMatrix(); RenderSystem.setShaderColor(1, 1, 1, 1);
+        drawSunGlow(idMat);
         // drawLabels 暂时禁用，后续做附加UI时再启用
     }
     private void drawStarfield(GuiGraphics g, int vx, int vy, int vw, int vh) {
@@ -290,6 +293,52 @@ public class SolarSystemView extends UIElement {
                 g.blit(skyLoc, dx0 + tile * drawW, dy0, uOff + tile * SKY_W, vOff, drawW, drawH, SKY_W, SKY_H);
             }
         }
+    }
+
+
+    /**
+     * 太阳屏幕空间光晕：先把恒星中心投影到屏幕，再以屏幕坐标画径向渐变光晕。
+     * <p>
+     * 屏幕空间绘制保证光晕永远与恒星投影中心同心（3D 公告板在透视下会椭圆化偏移）。
+     * 光晕模拟的是镜头泛光（bloom），发生在镜头/传感器上，不被前景天体遮挡——与真实摄影一致。
+     */
+    private void drawSunGlow(Matrix4f mat) {
+        int sunIdx = 0;
+        float[] pos = solarSystem.worldPos(sunIdx, simTime);
+        float dwx = pos[0] - camera.focalX(), dwz = pos[2] - camera.focalZ();
+        float[] camPos = new float[3];
+        camera.worldToCamera(camPos, 0, 0, 0, dwx, dwz);
+        float depth = -camPos[2];
+        if (depth < 0.15f) return; // 相机在恒星内/后
+        float sunR = 0;
+        for (PlanetLayer l : solarSystem.get(sunIdx).layers()) if (l.type() == PlanetLayerType.BASE) sunR = l.radius();
+        if (sunR < 0.01f) return;
+        float[] scr = camera.toScreen(camPos);
+        float sx = scr[0], sy = scr[1];
+        float rPx = sunR * camera.focalLength() / depth;      // 恒星投影半径（像素）
+        if (rPx < 2f) return;                                  // 太小不可见
+        float scale = Math.min(1f, Math.max(0.35f, rPx / 28f)); // 远处光晕收敛
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        // 内层亮核：贴着恒星边缘的暖光
+        drawGlowFan(mat, sx, sy, rPx * 1.45f, 0.50f * scale, 1.0f, 0.90f, 0.65f);
+        // 外层泛光：大范围暖橙渐隐
+        drawGlowFan(mat, sx, sy, rPx * 2.8f, 0.14f * scale, 1.0f, 0.72f, 0.35f);
+        RenderSystem.defaultBlendFunc();
+    }
+
+    /** 屏幕空间环形渐变光晕（TRIANGLE_FAN：中心实色 → 边缘透明）。 */
+    private void drawGlowFan(Matrix4f mat, float sx, float sy, float outerR,
+                             float alpha, float cr, float cg, float cb) {
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
+        bb.addVertex(mat, sx, sy, 0).setColor(cr, cg, cb, alpha);
+        int seg = 56;
+        for (int j = 0; j <= seg; j++) {
+            float a = (float) (Math.PI * 2 * j / seg);
+            bb.addVertex(mat, sx + (float) Math.cos(a) * outerR, sy + (float) Math.sin(a) * outerR, 0)
+               .setColor(cr, cg, cb, 0f);
+        }
+        BufferUploader.drawWithShader(bb.buildOrThrow());
     }
 
     private void drawOrbitalRings(Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
@@ -444,7 +493,8 @@ public class SolarSystemView extends UIElement {
                 float nwy = rfny;
                 float nwz = -rfnx * sinTB + rfnz * cosTB;
                 float ndotl = nwx * lighting.dirX() + nwy * lighting.dirY() + nwz * lighting.dirZ();
-                float lit = PlanetLighting.AMBIENT + (1 - PlanetLighting.AMBIENT) * lighting.direct(ndotl, 0);
+                float ambR = lighting.ambient();
+                float lit = ambR + (1 - ambR) * lighting.direct(ndotl, 0);
                 lit = Math.max(0.25f, lit);
                 float lr = cr * lit, lg = cg * lit, lb = cb * lit;
                 // 用 cameraTo() 投影每个顶点 — 跟行星完全一致的真3D管线
@@ -533,6 +583,7 @@ public class SolarSystemView extends UIElement {
         float[] bx = new float[n], by = new float[n], bz = new float[n];
         // Per-vertex lighting result (face-independent)
         float[] directV = new float[n], specV = new float[n];
+        float[] limbV = new float[n]; // 恒星临边昏暗系数
         float[] rimWV = new float[n], rimCV = new float[n], shadowBV = new float[n], reflV = new float[n];
         float[] cam = new float[3];
         float[] centerCam = new float[3];
@@ -547,6 +598,12 @@ public class SolarSystemView extends UIElement {
             if (vlen > 1e-5f) { vnx /= vlen; vny /= vlen; vnz /= vlen; }
             if (isSun) {
                 directV[i] = 1f; specV[i] = 0; rimWV[i] = 0; rimCV[i] = 0; shadowBV[i] = 0; reflV[i] = 0;
+                // 临边昏暗：视线与法线夹角越大（越靠边缘）越暗
+                float vlx = -bx[i], vly = -by[i], vlz = -bz[i];
+                float vlLen = (float) Math.sqrt(vlx * vlx + vly * vly + vlz * vlz);
+                if (vlLen > 1e-5f) { vlx /= vlLen; vly /= vlLen; vlz /= vlLen; }
+                float limbDot = Math.max(0, vnx * vlx + vny * vly + vnz * vlz);
+                limbV[i] = 0.50f + 0.50f * (float) Math.pow(limbDot, 1.4f);
                 continue;
             }
             float ndotl = vnx * lighting.dirX() + vny * lighting.dirY() + vnz * lighting.dirZ();
@@ -593,7 +650,8 @@ public class SolarSystemView extends UIElement {
                 int vi = fv[k];
                 sl.set(directV[vi], specV[vi], rimWV[vi], rimCV[vi], shadowBV[vi], reflV[vi]);
                 lighting.colorize(alb, sl, colTmp);
-                vR[k] = colTmp[0]; vG[k] = colTmp[1]; vB[k] = colTmp[2];
+                float limb = isSun ? limbV[vi] : 1f;
+                vR[k] = colTmp[0] * limb; vG[k] = colTmp[1] * limb; vB[k] = colTmp[2] * limb;
                 ccR += vR[k]; ccG += vG[k]; ccB += vB[k];
             }
             ccR /= fv.length; ccG /= fv.length; ccB /= fv.length;
@@ -661,7 +719,8 @@ public class SolarSystemView extends UIElement {
             float ndotlC = nX * lighting.dirX() + nY * lighting.dirY() + nZ * lighting.dirZ();
             float cloudShadow = shadowModel.hasShadow(t.pi)
                     ? shadowModel.occlusion(t.pi, mesh.vertices[mesh.faces[f][0]], t.layerR, sc, ss, currentTilt, simTime) : 0;
-            float shade = PlanetLighting.AMBIENT + (1 - PlanetLighting.AMBIENT) * lighting.direct(ndotlC, cloudShadow);
+            float ambC = lighting.ambient();
+            float shade = ambC + (1 - ambC) * lighting.direct(ndotlC, cloudShadow);
             float fa = 0.55f * shade;
             float fcx = 0, fcy = 0, fcz = 0;
             for (int k = 0; k < fv.length; k++) { fcx += cxs[k]; fcy += cys[k]; fcz += czs[k]; }
@@ -723,8 +782,10 @@ public class SolarSystemView extends UIElement {
             float atmoShadow = shadowModel.hasShadow(t.pi)
                     ? shadowModel.occlusion(t.pi, mesh.faces[f].length > 0 ? mesh.vertices[mesh.faces[f][0]] : new float[]{0,0,0}, t.layerR, sc, ss, currentTilt, simTime) : 0;
             boolean isStar = solarSystem.get(t.pi).visual().isGlowing();
-            float sunFactor = isStar ? 1f : sunDot * lighting.intensity() * (1f - atmoShadow);
-            float alpha = isStar ? rim * 0.55f : rim * sunFactor * 0.35f;
+            // 向日面增亮：sunDot^0.75 曲线让朝阳一侧的大气明显更亮（加色混合，不改变色相）
+            float sunFactor = isStar ? 1f : lighting.intensity() * (1f - atmoShadow);
+            float sunLift = (float) Math.pow(sunDot, 0.75f);
+            float alpha = isStar ? rim * 0.55f : rim * sunFactor * (0.12f + 0.62f * sunLift);
             if (alpha < 0.003f) continue;
             float r = atmColor[0], g = atmColor[1], b = atmColor[2];
             for (int k = 0; k < fv.length; k++) {

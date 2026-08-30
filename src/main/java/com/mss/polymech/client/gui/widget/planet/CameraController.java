@@ -17,6 +17,9 @@ public final class CameraController {
     private static final float ZOOM_FACTOR = 0.85f;
     private static final float ZOOM_INVERSE = 1f / ZOOM_FACTOR;
     private static final float TRANSITION_DURATION = 0.28f;
+    private static final float INERTIA_TAU = 0.45f;      // 惯性衰减时间常数（秒）
+    private static final float INERTIA_MAX_VEL = 6.0f;    // 最大惯性速度（弧度/秒）
+    private static final float INERTIA_MIN_VEL = 0.008f;  // 低于此速度归零
 
     // ===== 视角状态 =====
     private float yaw = 0.6f;
@@ -25,6 +28,10 @@ public final class CameraController {
 
     // ===== 焦点世界坐标 =====
     private float focalX, focalZ;
+
+    // ===== 旋转惯性 =====
+    private float yawVel, pitchVel;   // 弧度/秒
+    private long lastRotateNano = 0;
 
     // ===== 焦点过渡动画 =====
     private float transT = 1.0f;
@@ -37,9 +44,40 @@ public final class CameraController {
     // ==================== 鼠标交互 ====================
 
     public void rotate(float dx, float dy) {
-        yaw += dx * MOUSE_SENSITIVITY;
-        pitch += dy * MOUSE_SENSITIVITY;
+        long now = System.nanoTime();
+        float edt = lastRotateNano == 0 ? 0.016f : (now - lastRotateNano) / 1e9f;
+        lastRotateNano = now;
+        edt = Math.max(edt, 0.001f);
+        float dyaw = dx * MOUSE_SENSITIVITY;
+        float dpitch = dy * MOUSE_SENSITIVITY;
+        yaw += dyaw;
+        pitch += dpitch;
         pitch = clamp(pitch, -1.4f, 1.4f);
+        // 平滑记录瞬时角速度（弧度/秒），松手后作为惯性初速
+        yawVel = clamp(yawVel * 0.4f + (dyaw / edt) * 0.6f, -INERTIA_MAX_VEL, INERTIA_MAX_VEL);
+        pitchVel = clamp(pitchVel * 0.4f + (dpitch / edt) * 0.6f, -INERTIA_MAX_VEL, INERTIA_MAX_VEL);
+    }
+
+    /**
+     * 每帧调用：未拖拽时应用旋转惯性（指数衰减）。
+     */
+    public void updateInertia(float dt, boolean dragging) {
+        if (dragging) return;
+        if (Math.abs(yawVel) < INERTIA_MIN_VEL && Math.abs(pitchVel) < INERTIA_MIN_VEL) {
+            yawVel = 0; pitchVel = 0;
+            return;
+        }
+        yaw += yawVel * dt;
+        pitch += pitchVel * dt;
+        pitch = clamp(pitch, -1.4f, 1.4f);
+        float decay = (float) Math.exp(-dt / INERTIA_TAU);
+        yawVel *= decay;
+        pitchVel *= decay;
+    }
+
+    /** 打断惯性（如点击切换焦点时）。 */
+    public void stopInertia() {
+        yawVel = 0; pitchVel = 0;
     }
 
     public void zoom(float wheelDelta, float minDist) {

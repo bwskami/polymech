@@ -20,9 +20,16 @@ public final class PlanetLighting {
     public static final float DARK_G = 0.12f;
     public static final float DARK_B = 0.16f;
     /** 高光参数。 */
-    private static final float SPEC_POWER = 48f;
-    private static final float SPEC_STRENGTH = 0.35f;
+    private static final float SPEC_POWER = 90f;
+    private static final float SPEC_STRENGTH = 0.10f;
+    /**
+     * 入射光色（金色暖光）。G、B 只降不升——乘法混色下
+     * 蓝/青表面受光只会变暖变深，绝不会凭空加绿。
+     * 红通道保持 1.0 以提亮暖部。
+     */
+    private static final float SUN_R = 1.00f, SUN_G = 0.90f, SUN_B = 0.74f;
 
+    private final BounceLightModel bounceModel = new BounceLightModel();
     private float dirX, dirY, dirZ = 1f;
     private float intensity = 1f;
 
@@ -30,6 +37,9 @@ public final class PlanetLighting {
     public float dirY() { return dirY; }
     public float dirZ() { return dirZ; }
     public float intensity() { return intensity; }
+    /** 环境光基线（常量）。注意：漫反射差异由各面自身受光程度决定，见 {@link BounceLightModel}。 */
+    public float ambient() { return AMBIENT; }
+    public BounceLightModel bounceModel() { return bounceModel; }
 
     /**
      * 根据某个天体的世界位置更新全局光照方向。
@@ -146,12 +156,17 @@ public final class PlanetLighting {
             }
         }
 
+        // 漫反射 ∝ 受光程度：亮面自身散射，暗面接收受光半球的反射光
+        float bounce = ndotl >= 0f
+                ? bounceModel.faceScatter(direct) * (1f - shadow)
+                : bounceModel.selfBounce(ndotl, intensity) * (1f - shadow * 0.5f);
         out.set(direct,
                 specular(ndoth, shadow) * (1f - refl),
                 rimWarm(ndotl, rim, shadow),
                 rimCool(ndotl, rim),
                 shadowBlue(direct),
-                refl);
+                refl,
+                bounce);
     }
 
     /**
@@ -159,18 +174,28 @@ public final class PlanetLighting {
      * 这是全局唯一的一套表面着色公式。
      */
     public void colorize(float[] albedo, SurfaceLight sl, float[] out) {
-        float d = sl.direct;
-        float inv = 1f - d;
-        // 母星反射光：用母星同色系暖光轻微提亮暗面
-        float reflR = albedo[0] * sl.reflected * 0.5f;
-        float reflG = albedo[1] * sl.reflected * 0.4f;
-        float reflB = albedo[2] * sl.reflected * 0.3f;
-        float r = albedo[0] * d + DARK_R * inv + sl.shadowBlue * 0.20f + reflR;
-        float g = albedo[1] * d + DARK_G * inv + sl.shadowBlue * 0.30f + reflG;
-        float b = albedo[2] * d + DARK_B * inv + sl.shadowBlue + reflB;
-        r += 0.60f * sl.rimWarm + 0.04f * sl.rimCool + sl.specular;
-        g += 0.35f * sl.rimWarm + 0.08f * sl.rimCool + sl.specular;
-        b += 0.12f * sl.rimWarm + 0.20f * sl.rimCool + sl.specular;
+        // ── 亮度标量：把"增亮"全部汇成一个不带颜色的数，亮度不扰色相 ──
+        // 反射光（母星反照）与自反射都按标量并入，不再按通道加暖
+        float lum = sl.direct + sl.bounce + sl.reflected * 0.5f;
+        lum = Math.min(lum, 1.0f);
+
+        // ── 受光基色：albedo × 亮度 × 光色（乘法混色）──
+        // 乘法只在表面自身反射波段内重新分配，造不出新色相；
+        // 光色无绿色分量 → 蓝色表面受光仍是蓝，不会变绿。
+        float r = albedo[0] * lum * SUN_R;
+        float g = albedo[1] * lum * SUN_G;
+        float b = albedo[2] * lum * SUN_B;
+
+        // ── 暗部冷色（仅在 lum→0 时生效，物理上是星光/天光，偏冷合理）──
+        float inv = 1f - lum;
+        r += DARK_R * inv + sl.shadowBlue * 0.20f;
+        g += DARK_G * inv + sl.shadowBlue * 0.30f;
+        b += DARK_B * inv + sl.shadowBlue;
+
+        // ── 边缘点缀（晨昏线暖光/背光冷光）与白色高光 ──
+        r += 0.62f * sl.rimWarm + 0.04f * sl.rimCool + sl.specular;
+        g += 0.26f * sl.rimWarm + 0.08f * sl.rimCool + sl.specular;
+        b += 0.09f * sl.rimWarm + 0.20f * sl.rimCool + sl.specular;
         out[0] = Math.min(1f, r);
         out[1] = Math.min(1f, g);
         out[2] = Math.min(1f, b);

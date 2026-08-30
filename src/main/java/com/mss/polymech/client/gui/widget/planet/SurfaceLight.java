@@ -17,15 +17,22 @@ public final class SurfaceLight {
     public float shadowBlue;
     /** 母星反射光（地照/木星照），让被食卫星不进入死黑。 */
     public float reflected;
+    /** 自反射（bounce）：受光半球漫反射到背光半球的光，携带星球自身 albedo 色。 */
+    public float bounce;
 
     public SurfaceLight() {}
 
     public void set(float direct, float specular, float rimWarm, float rimCool, float shadowBlue, float reflected) {
+        set(direct, specular, rimWarm, rimCool, shadowBlue, reflected, 0f);
+    }
+
+    public void set(float direct, float specular, float rimWarm, float rimCool, float shadowBlue, float reflected, float bounce) {
         this.direct = direct;
         this.specular = specular;
         this.rimWarm = rimWarm;
         this.rimCool = rimCool;
         this.shadowBlue = shadowBlue;
         this.reflected = reflected;
+        this.bounce = bounce;
     }
 }
