@@ -642,6 +642,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
     protected void addTranslations() {
         // 科技树
         add("key.poly_mech.tech_tree", "科技树");
+        add("key.poly_mech.mindustry_tech_tree", "星系视图");
         add("techtree.poly_mech.tech_steam", "蒸汽动力");
         add("techtree.poly_mech.tech_steam.desc", "点燃煤炭，驱动你的第一台蒸汽机器。");
         add("techtree.poly_mech.tech_electric", "电气化");

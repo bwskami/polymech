@@ -27,6 +27,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
     protected void addTranslations() {
         // Tech Tree
         add("key.poly_mech.tech_tree", "Tech Tree");
+        add("key.poly_mech.mindustry_tech_tree", "Star System");
         add("techtree.poly_mech.tech_steam", "Steam Power");
         add("techtree.poly_mech.tech_steam.desc", "Light coal to drive your first steam machines.");
         add("techtree.poly_mech.tech_electric", "Electrification");

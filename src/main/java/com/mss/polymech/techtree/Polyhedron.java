@@ -37,6 +37,11 @@ public final class Polyhedron {
 
     // ============================ 三角测地线球（备用） ============================
 
+    /** 由任意顶点/面直接构造（面自动推边）。供细分光照网格等使用。 */
+    public static Polyhedron of(float[][] vertices, int[][] faces) {
+        return new Polyhedron(vertices, faces, buildEdges(java.util.Arrays.asList(faces)));
+    }
+
     public static Polyhedron icosphere(int level) {
         var g = geodesic(level);
         return new Polyhedron(g.v.toArray(new float[0][]), g.faces.toArray(new int[0][]), buildEdges(g.faces));

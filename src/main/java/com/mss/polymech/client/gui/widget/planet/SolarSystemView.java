@@ -4,6 +4,7 @@ import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.event.UIEvents;
 import com.lowdragmc.lowdraglib2.gui.ui.event.HoverTooltips;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
+import com.mojang.blaze3d.shaders.Uniform;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.vertex.BufferBuilder;
@@ -18,6 +19,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.network.chat.Component;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
@@ -44,6 +46,24 @@ public class SolarSystemView extends UIElement {
     private long lastNano = System.nanoTime();
     private int focalIndex = 3;
     private final float[][][] faceColors;
+    /** 聚焦星球的细分光照网格（面内细分：保地块、平滑光照）及 子三角->原地块 映射。 */
+    private Polyhedron shadedBase;
+    private int[] shadeParent;
+    /** 细分网格每顶点所属地块（边界顶点按地块各留一份，保棱线、可逐顶点预计算颜色）。 */
+    private int[] shadeVertexParent;
+    /** 面内细分级数：每个扇形三角 -> 4^N。 */
+    private static final int SHADE_SUBDIV = 2;
+    /** BASE 层光照走 GPU 着色器；置 false 回退到 CPU 逐顶点路径（等价实现，作为兜底）。 */
+    private static final boolean GPU_LIGHTING = true;
+    // GPU 刚体变换 / 局部系光照 的复用临时量（避免每帧分配）
+    private final Matrix4f mvTmp = new Matrix4f();
+    private final float[] lightLocal = new float[3], viewLocal = new float[3];
+    private final float[] reflLocal = new float[3], reflWorld = new float[3];
+    private final float[] mvOrigin = new float[3], mvAxisX = new float[3], mvAxisY = new float[3], mvAxisZ = new float[3];
+    // 逐顶点光照结果缓存（按细分网格尺寸，复用于所有层，避免每帧分配）
+    private float[] lDirect, lSpec, lLimb, lRimW, lRimC, lShadowB, lRefl;
+    private float[] lColR, lColG, lColB;
+    private static final float[] ORIGIN3 = {0,0,0}, AXIS_X3 = {1,0,0}, AXIS_Y3 = {0,1,0}, AXIS_Z3 = {0,0,1};
     private final java.util.HashMap<Long, Noise3> layerNoiseCache = new java.util.HashMap<>();
     private final Map<Polyhedron, List<int[]>> edgeCache = new HashMap<>();
     private final HashMap<Long, Polyhedron> rockCache = new HashMap<>();
@@ -82,8 +102,13 @@ public class SolarSystemView extends UIElement {
         for (int i = 0; i < n; i++) {
             Polyhedron mesh = solarSystem.get(i).baseMesh();
             faceColors[i] = new float[mesh.faces.length][3];
-            precomputeColors(i);
+            precomputeColorsInto(i, mesh, faceColors[i]);
         }
+        buildShadedBase(solarSystem.get(0).baseMesh(), SHADE_SUBDIV);
+        int vn = shadedBase.vertices.length;
+        lDirect = new float[vn]; lSpec = new float[vn]; lLimb = new float[vn];
+        lRimW = new float[vn]; lRimC = new float[vn]; lShadowB = new float[vn]; lRefl = new float[vn];
+        lColR = new float[vn]; lColG = new float[vn]; lColB = new float[vn];
         this.asteroidPos = new float[ASTEROID_COUNT][9];
         this.kuiperPos = new float[KUIPER_COUNT][9];
         long rng1 = 0xDEADBEEF;
@@ -147,10 +172,8 @@ public class SolarSystemView extends UIElement {
             }
         });
     }
-    private void precomputeColors(int pi) {
+    private void precomputeColorsInto(int pi, Polyhedron mesh, float[][] fc) {
         Planet p = solarSystem.get(pi);
-        Polyhedron mesh = p.baseMesh();
-        float[][] fc = faceColors[pi];
         long seed = 0x5EED1234L + pi * 0x1234567L;
         var noise = new Noise3(seed);
         PlanetColorProvider provider = p.colorProvider();
@@ -168,6 +191,94 @@ public class SolarSystemView extends UIElement {
         }
     }
 
+    /**
+     * 用 cameraTo 对原点+三轴采样反推模型视图矩阵（与逐顶点变换逐位一致，零符号误差）。
+     * 刚体变换从此交给 GPU，CPU 不再逐顶点算 cameraTo。
+     */
+    private void buildModelView(RenderTask t, float sc, float ss, Matrix4f out) {
+        camera.cameraTo(mvOrigin, ORIGIN3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
+        camera.cameraTo(mvAxisX, AXIS_X3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
+        camera.cameraTo(mvAxisY, AXIS_Y3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
+        camera.cameraTo(mvAxisZ, AXIS_Z3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
+        float c0x = mvAxisX[0]-mvOrigin[0], c0y = mvAxisX[1]-mvOrigin[1], c0z = mvAxisX[2]-mvOrigin[2];
+        float c1x = mvAxisY[0]-mvOrigin[0], c1y = mvAxisY[1]-mvOrigin[1], c1z = mvAxisY[2]-mvOrigin[2];
+        float c2x = mvAxisZ[0]-mvOrigin[0], c2y = mvAxisZ[1]-mvOrigin[1], c2z = mvAxisZ[2]-mvOrigin[2];
+        out.set(c0x,c0y,c0z,0f, c1x,c1y,c1z,0f, c2x,c2y,c2z,0f, mvOrigin[0],mvOrigin[1],mvOrigin[2],1f);
+    }
+
+    /** 相机空间方向 -> 星球局部系方向（模型视图旋转部分的转置）。 */
+    private void toLocalDir(Matrix4f mv, float cx, float cy, float cz, float[] out) {
+        out[0] = mv.m00()*cx + mv.m01()*cy + mv.m02()*cz;
+        out[1] = mv.m10()*cx + mv.m11()*cy + mv.m12()*cz;
+        out[2] = mv.m20()*cx + mv.m21()*cy + mv.m22()*cz;
+    }
+
+    /** 构建细分光照网格：每个地块扇形三角再细分，保地块 albedo、光照更平滑。
+     *  顶点按 (位置,地块) 去重：边界顶点按地块各留一份——保住地块棱线，
+     *  且每顶点唯一属于一个地块，可逐顶点预计算最终色（免去按面重复 colorize）。 */
+    private void buildShadedBase(Polyhedron tileMesh, int level) {
+        List<float[]> verts = new ArrayList<>();
+        HashMap<Long, Integer> dedup = new HashMap<>();
+        List<int[]> faces = new ArrayList<>();
+        List<Integer> parents = new ArrayList<>();
+        List<Integer> vertParents = new ArrayList<>();
+        float[][] tv = tileMesh.vertices;
+        for (int t = 0; t < tileMesh.faces.length; t++) {
+            int[] tile = tileMesh.faces[t];
+            float cx = 0, cy = 0, cz = 0;
+            for (int v : tile) { cx += tv[v][0]; cy += tv[v][1]; cz += tv[v][2]; }
+            float cl = (float) Math.sqrt(cx*cx + cy*cy + cz*cz);
+            float[] c = {cx/cl, cy/cl, cz/cl};
+            for (int j = 0; j < tile.length; j++) {
+                int a = tile[j], b = tile[(j+1) % tile.length];
+                subdivideSph(c, tv[a], tv[b], level, t, verts, dedup, faces, parents, vertParents);
+            }
+        }
+        int[] pa = new int[faces.size()];
+        for (int i = 0; i < faces.size(); i++) pa[i] = parents.get(i);
+        int[] vpa = new int[verts.size()];
+        for (int i = 0; i < verts.size(); i++) vpa[i] = vertParents.get(i);
+        this.shadedBase = Polyhedron.of(verts.toArray(new float[0][]), faces.toArray(new int[0][]));
+        this.shadeParent = pa;
+        this.shadeVertexParent = vpa;
+    }
+    private void subdivideSph(float[] p1, float[] p2, float[] p3, int level, int parent,
+                              List<float[]> verts, HashMap<Long, Integer> dedup, List<int[]> faces,
+                              List<Integer> parents, List<Integer> vertParents) {
+        if (level == 0) {
+            faces.add(new int[]{addSphVert(p1, parent, verts, dedup, vertParents),
+                                addSphVert(p2, parent, verts, dedup, vertParents),
+                                addSphVert(p3, parent, verts, dedup, vertParents)});
+            parents.add(parent);
+            return;
+        }
+        float[] m12 = sphMid(p1, p2), m23 = sphMid(p2, p3), m31 = sphMid(p3, p1);
+        subdivideSph(p1, m12, m31, level-1, parent, verts, dedup, faces, parents, vertParents);
+        subdivideSph(m12, p2, m23, level-1, parent, verts, dedup, faces, parents, vertParents);
+        subdivideSph(m31, m23, p3, level-1, parent, verts, dedup, faces, parents, vertParents);
+        subdivideSph(m12, m23, m31, level-1, parent, verts, dedup, faces, parents, vertParents);
+    }
+    private static int addSphVert(float[] p, int parent, List<float[]> verts, HashMap<Long, Integer> dedup, List<Integer> vertParents) {
+        long key = sphKey(p[0], p[1], p[2]) * 1024L + parent;
+        Integer idx = dedup.get(key);
+        if (idx != null) return idx;
+        verts.add(new float[]{p[0], p[1], p[2]});
+        vertParents.add(parent);
+        dedup.put(key, verts.size() - 1);
+        return verts.size() - 1;
+    }
+    private static long sphKey(float x, float y, float z) {
+        long qx = Math.round(x * 1e5f) + 100000L;
+        long qy = Math.round(y * 1e5f) + 100000L;
+        long qz = Math.round(z * 1e5f) + 100000L;
+        return qx + qy * 200001L + qz * 200001L * 200001L;
+    }
+    private static float[] sphMid(float[] a, float[] b) {
+        float mx = a[0]+b[0], my = a[1]+b[1], mz = a[2]+b[2];
+        float l = (float) Math.sqrt(mx*mx + my*my + mz*mz);
+        return new float[]{mx/l, my/l, mz/l};
+    }
+
     private static float[] hsvToRgb(float h, float s, float v) {
         float c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
         float r, g, b;
@@ -181,8 +292,12 @@ public class SolarSystemView extends UIElement {
     private static class RenderTask {
         final int pi; final String type; final float layerR, selfRot, camDist, dwx, dwz;
         final Polyhedron mesh;
-        RenderTask(int pi, String type, float layerR, float selfRot, float camDist, float dwx, float dwz, Polyhedron mesh) {
-            this.pi = pi; this.type = type; this.layerR = layerR; this.selfRot = selfRot; this.camDist = camDist; this.dwx = dwx; this.dwz = dwz; this.mesh = mesh;
+        /** BASE 层的地块 albedo（按地块索引）；其他层为 null。 */
+        final float[][] albedo;
+        /** 细分网格的 子三角->原地块 映射；非细分网格为 null（面号即地块号）。 */
+        final int[] faceParent;
+        RenderTask(int pi, String type, float layerR, float selfRot, float camDist, float dwx, float dwz, Polyhedron mesh, float[][] albedo, int[] faceParent) {
+            this.pi = pi; this.type = type; this.layerR = layerR; this.selfRot = selfRot; this.camDist = camDist; this.dwx = dwx; this.dwz = dwz; this.mesh = mesh; this.albedo = albedo; this.faceParent = faceParent;
         }
     }
     @Override
@@ -232,7 +347,18 @@ public class SolarSystemView extends UIElement {
                 if (!layer.visible()) continue;
                 // 网格（线框）只在焦点行星显示
                 if (layer.type() == PlanetLayerType.WIREFRAME && pi != focalIndex) continue;
-                tasks.add(new RenderTask(pi, layer.type().name(), layer.radius(), p2.resolveRotationSpeed(layer), camDist, dwx, dwz, p2.resolveGeometry(layer)));
+                Polyhedron geo = p2.resolveGeometry(layer);
+                float[][] alb = null;
+                int[] fpar = null;
+                if (layer.type() == PlanetLayerType.BASE) {
+                    alb = faceColors[pi];
+                    if (pi == focalIndex) { geo = shadedBase; fpar = shadeParent; }
+                } else if (layer.type() == PlanetLayerType.ATMOSPHERE) {
+                    // 所有星球大气统一用 goldberg 拓扑（比 sphere(16,24) 经纬网格更均匀）；
+                    // 焦点星球用更高精度 shadedBase，远距离的用 baseMesh（642 面）即可。
+                    geo = (pi == focalIndex) ? shadedBase : solarSystem.get(pi).baseMesh();
+                }
+                tasks.add(new RenderTask(pi, layer.type().name(), layer.radius(), p2.resolveRotationSpeed(layer), camDist, dwx, dwz, geo, alb, fpar));
             }
         }
         tasks.sort(Comparator.comparingDouble(t -> -t.camDist));
@@ -576,99 +702,254 @@ public class SolarSystemView extends UIElement {
         }
     }
     private void drawBaseLayer(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
+        if (GPU_LIGHTING && PlanetShaders.isReady()) {
+            drawBaseLayerGPU(mat, t, sc, ss, cosY, sinY, cosX, sinX);
+        } else {
+            drawBaseLayerCPU(mat, t, sc, ss, cosY, sinY, cosX, sinX);
+        }
+    }
+
+    /** BASE 层 GPU 光照：只发 局部坐标+地块albedo+径向法线，光照/阴影全在顶点着色器里算。 */
+    private void drawBaseLayerGPU(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
         Polyhedron mesh = t.mesh;
-        float[][] albedo = faceColors[t.pi];
+        float[][] tileAlbedo = t.albedo != null ? t.albedo : faceColors[t.pi];
+        int[] faceParent = t.faceParent;
+        int nf = mesh.faces.length;
+        boolean isSun = (t.pi == 0);
+
+        // 刚体变换交给 GPU（与 CPU 路径同一套矩阵反推，零误差）
+        buildModelView(t, sc, ss, mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(mvTmp);
+        RenderSystem.applyModelViewMatrix();
+
+        // 光向 / 视线 -> 星球局部系
+        toLocalDir(mvTmp, lighting.dirX(), lighting.dirY(), lighting.dirZ(), lightLocal);
+        float ccx = mvTmp.m30(), ccy = mvTmp.m31(), ccz = mvTmp.m32();
+        float clen = (float) Math.sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
+        if (clen > 1e-5f) { ccx /= clen; ccy /= clen; ccz /= clen; }
+        toLocalDir(mvTmp, -ccx, -ccy, -ccz, viewLocal);
+
+        // ---- 光照 uniforms ----
+        ShaderInstance sh = PlanetShaders.planetShader();
+        sh.getUniform("SunDir").set(lightLocal[0], lightLocal[1], lightLocal[2]);
+        sh.getUniform("ViewDir").set(viewLocal[0], viewLocal[1], viewLocal[2]);
+        sh.getUniform("Intensity").set(lighting.intensity());
+        sh.getUniform("IsSun").set(isSun ? 1f : 0f);
+        float globalSun = isSun ? 1f : shadowModel.globalSunVisibility(t.pi, t.layerR, sc, ss, currentTilt, simTime);
+        sh.getUniform("SunVisibility").set(globalSun);
+
+        // ---- 阴影 uniforms：遮挡天体相对位置（世界系 -> 局部系）----
+        float[] planetWP = solarSystem.worldPos(t.pi, simTime);
+        int[] cast = shadowModel.casters(t.pi);
+        int nC = isSun ? 0 : Math.min(cast.length, 4);
+        sh.getUniform("CasterCount").set((float) nC);
+        float ct = (float) Math.cos(currentTilt), st = (float) Math.sin(currentTilt);
+        for (int i = 0; i < 4; i++) {
+            Uniform uRel = sh.getUniform("CasterRel" + i);
+            Uniform uRad = sh.getUniform("CasterRad" + i);
+            if (i < nC) {
+                int qi = cast[i];
+                float[] cWP = solarSystem.worldPos(qi, simTime);
+                float cwX = cWP[0] - planetWP[0], cwZ = cWP[2] - planetWP[2];
+                // 逆旋转：逆轴倾角 -> 逆自转（occlusion 正向为 自转->轴倾角）
+                float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
+                uRel.set(lx1 * sc + lz1 * ss, ly1, -lx1 * ss + lz1 * sc);
+                uRad.set(shadowModel.bodyRadius(qi));
+            } else {
+                uRel.set(0f, 0f, 0f);
+                uRad.set(0f);
+            }
+        }
+
+        // ---- 母星反射光（仅卫星）----
+        float reflStrength = 0, prx = 0, pry = 0, prz = 0;
+        int parentId = solarSystem.get(t.pi).parentId();
+        if (!isSun && parentId >= 0) {
+            float[] pWP = solarSystem.worldPos(parentId, simTime);
+            float cwX = pWP[0] - planetWP[0], cwZ = pWP[2] - planetWP[2];
+            float dist = (float) Math.sqrt(cwX * cwX + cwZ * cwZ);
+            float parentR = shadowModel.bodyRadius(parentId);
+            reflStrength = Math.max(0f, Math.min(0.5f, parentR / Math.max(dist, 1f) * 0.8f));
+            float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
+            prx = lx1 * sc + lz1 * ss; pry = ly1; prz = -lx1 * ss + lz1 * sc;
+        }
+        sh.getUniform("ParentRel").set(prx, pry, prz);
+        sh.getUniform("ReflStrength").set(reflStrength);
+
+        // ---- 发射：局部坐标 + albedo + 法线，光照全交给 GPU ----
+        RenderSystem.setShader(() -> PlanetShaders.planetShader());
+        boolean drew = false;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        float R = t.layerR;
+        float[][] vs = mesh.vertices;
+        for (int f = 0; f < nf; f++) {
+            int[] fv = mesh.faces[f];
+            int kn = fv.length;
+            // 背面剔除（与 CPU 路径一致）
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            if (fnx * viewLocal[0] + fny * viewLocal[1] + fnz * viewLocal[2] <= 0) continue;
+            float[] alb = tileAlbedo[faceParent == null ? f : faceParent[f]];
+            if (kn == 3) {
+                drew = true;
+                for (int k = 0; k < 3; k++) {
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(alb[0], alb[1], alb[2], 1f)
+                            .setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                }
+            } else {
+                float cx = fnx * R, cy = fny * R, cz = fnz * R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k + 1) % kn;
+                    drew = true;
+                    bb.addVertex(mat, cx, cy, cz).setColor(alb[0], alb[1], alb[2], 1f).setNormal(fnx, fny, fnz);
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                    int vj = fv[a1];
+                    bb.addVertex(mat, vs[vj][0] * R, vs[vj][1] * R, vs[vj][2] * R)
+                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
+                }
+            }
+        }
+        if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);   // 还原，供后续云层/大气使用
+        // 还原模型视图为单位阵
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
+    }
+
+    private void drawBaseLayerCPU(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
+
+        Polyhedron mesh = t.mesh;
+        float[][] tileAlbedo = t.albedo != null ? t.albedo : faceColors[t.pi];
+        int[] faceParent = t.faceParent;
         int n = mesh.vertices.length;
         int nf = mesh.faces.length;
-        float[] bx = new float[n], by = new float[n], bz = new float[n];
-        // Per-vertex lighting result (face-independent)
-        float[] directV = new float[n], specV = new float[n];
-        float[] limbV = new float[n]; // 恒星临边昏暗系数
-        float[] rimWV = new float[n], rimCV = new float[n], shadowBV = new float[n], reflV = new float[n];
-        float[] cam = new float[3];
-        float[] centerCam = new float[3];
-        SurfaceLight sl = new SurfaceLight();
-        camera.cameraTo(centerCam, new float[]{0, 0, 0}, 1, t.dwx, t.dwz, sc, ss, currentTilt);
         boolean isSun = (t.pi == 0);
+
+        // ---- 刚体变换交给 GPU：用 cameraTo 精确反推模型视图矩阵（零误差）----
+        buildModelView(t, sc, ss, mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(mvTmp);
+        RenderSystem.applyModelViewMatrix();
+
+        // ---- 光向 / 视线 -> 星球局部系（同一矩阵转置导出，逐位一致）----
+        toLocalDir(mvTmp, lighting.dirX(), lighting.dirY(), lighting.dirZ(), lightLocal);
+        float ccx = mvTmp.m30(), ccy = mvTmp.m31(), ccz = mvTmp.m32();   // 球心（相机空间）
+        float clen = (float) Math.sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
+        if (clen > 1e-5f) { ccx /= clen; ccy /= clen; ccz /= clen; }
+        toLocalDir(mvTmp, -ccx, -ccy, -ccz, viewLocal);                 // 球心 -> 相机
+
+        // ---- 逐顶点局部系光照（法线=单位球径向，静态，CPU 不再做 cameraTo）----
+        float[] directV = lDirect, specV = lSpec, limbV = lLimb;
+        float[] rimWV = lRimW, rimCV = lRimC, shadowBV = lShadowB, reflV = lRefl;
+        SurfaceLight sl = new SurfaceLight();
+        boolean hasShadow = shadowModel.hasShadow(t.pi);
+        boolean hasParent = solarSystem.get(t.pi).parentId() >= 0;
+        float globalSun = isSun ? 1f : shadowModel.globalSunVisibility(t.pi, t.layerR, sc, ss, currentTilt, simTime);
         for (int i = 0; i < n; i++) {
-            camera.cameraTo(cam, mesh.vertices[i], t.layerR, t.dwx, t.dwz, sc, ss, currentTilt);
-            bx[i] = cam[0]; by[i] = cam[1]; bz[i] = cam[2];
-            float vnx = bx[i] - centerCam[0], vny = by[i] - centerCam[1], vnz = bz[i] - centerCam[2];
-            float vlen = (float) Math.sqrt(vnx * vnx + vny * vny + vnz * vnz);
-            if (vlen > 1e-5f) { vnx /= vlen; vny /= vlen; vnz /= vlen; }
+            float nx = mesh.vertices[i][0], ny = mesh.vertices[i][1], nz = mesh.vertices[i][2];
             if (isSun) {
                 directV[i] = 1f; specV[i] = 0; rimWV[i] = 0; rimCV[i] = 0; shadowBV[i] = 0; reflV[i] = 0;
-                // 临边昏暗：视线与法线夹角越大（越靠边缘）越暗
-                float vlx = -bx[i], vly = -by[i], vlz = -bz[i];
-                float vlLen = (float) Math.sqrt(vlx * vlx + vly * vly + vlz * vlz);
-                if (vlLen > 1e-5f) { vlx /= vlLen; vly /= vlLen; vlz /= vlLen; }
-                float limbDot = Math.max(0, vnx * vlx + vny * vly + vnz * vlz);
+                float limbDot = Math.max(0, nx * viewLocal[0] + ny * viewLocal[1] + nz * viewLocal[2]);
                 limbV[i] = 0.50f + 0.50f * (float) Math.pow(limbDot, 1.4f);
                 continue;
             }
-            float ndotl = vnx * lighting.dirX() + vny * lighting.dirY() + vnz * lighting.dirZ();
-            float shadow = shadowModel.hasShadow(t.pi)
+            float shadow = hasShadow
                     ? shadowModel.occlusion(t.pi, mesh.vertices[i], t.layerR, sc, ss, currentTilt, simTime) : 0;
-            // 母星反射光（地照）：世界方向 -> 相机空间
-            float reflStrength = 0;
-            float reflCx = 0, reflCy = 0, reflCz = 0;
-            float[] reflWorld = new float[3];
-            if (solarSystem.get(t.pi).parentId() >= 0) {
+            float reflStrength = 0, rx = 0, ry = 0, rz = 0;
+            if (hasParent) {
                 reflStrength = shadowModel.parentReflection(t.pi, mesh.vertices[i], t.layerR, sc, ss, currentTilt, simTime, reflWorld);
-                // rotate world direction to camera space (same as updateLightDir's camera rotation)
+                // 世界 -> 相机 -> 局部
                 float rrx = reflWorld[0] * cosY + reflWorld[2] * sinY;
                 float rrz1 = -reflWorld[0] * sinY + reflWorld[2] * cosY;
-                reflCy = reflWorld[1] * cosX - rrz1 * sinX;
-                reflCz = reflWorld[1] * sinX + rrz1 * cosX;
-                reflCx = rrx;
+                float rcy = reflWorld[1] * cosX - rrz1 * sinX;
+                float rcz = reflWorld[1] * sinX + rrz1 * cosX;
+                toLocalDir(mvTmp, rrx, rcy, rcz, reflLocal);
+                rx = reflLocal[0]; ry = reflLocal[1]; rz = reflLocal[2];
             }
-            // 视线方向：表面 -> 相机（相机空间相机在原点）
-            lighting.evaluate(vnx, vny, vnz, -bx[i], -by[i], -bz[i], shadow,
-                    reflCx, reflCy, reflCz, reflStrength, sl);
+            lighting.evaluateLocal(nx, ny, nz, lightLocal[0], lightLocal[1], lightLocal[2],
+                    viewLocal[0], viewLocal[1], viewLocal[2], shadow, globalSun, rx, ry, rz, reflStrength, sl);
             directV[i] = sl.direct; specV[i] = sl.specular;
             rimWV[i] = sl.rimWarm; rimCV[i] = sl.rimCool; shadowBV[i] = sl.shadowBlue;
             reflV[i] = sl.reflected;
         }
-        // ---- emit triangles: per-face albedo -> polygon tile style ----
+
+        // ---- 细分网格：逐顶点预计算最终色（边界顶点已按地块拆开，免去按面重复 colorize）----
+        float[] colTmp = new float[3];
+        if (faceParent != null) {
+            for (int i = 0; i < n; i++) {
+                float[] alb = tileAlbedo[shadeVertexParent[i]];
+                if (isSun) {
+                    float limb = limbV[i];
+                    lColR[i] = alb[0]*limb; lColG[i] = alb[1]*limb; lColB[i] = alb[2]*limb;
+                } else {
+                    sl.set(directV[i], specV[i], rimWV[i], rimCV[i], shadowBV[i], reflV[i]);
+                    lighting.colorize(alb, sl, colTmp);
+                    lColR[i] = colTmp[0]; lColG[i] = colTmp[1]; lColB[i] = colTmp[2];
+                }
+            }
+        }
+
+        // ---- 发射三角形：局部坐标(×layerR)，GPU 应用模型视图+投影 ----
         boolean drew = false;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        float[] colTmp = new float[3];
+        float[] vR = new float[16], vG = new float[16], vB = new float[16];
+        float R = t.layerR;
+        float[][] vs = mesh.vertices;
         for (int f = 0; f < nf; f++) {
             int[] fv = mesh.faces[f];
-            float fcx = 0, fcy = 0, fcz = 0;
-            for (int v : fv) { fcx += bx[v]; fcy += by[v]; fcz += bz[v]; }
-            fcx /= fv.length; fcy /= fv.length; fcz /= fv.length;
-            // Back-face culling for convex sphere: C*P <= |P|^2
-            float dp = centerCam[0] * fcx + centerCam[1] * fcy + centerCam[2] * fcz;
-            float pp = fcx * fcx + fcy * fcy + fcz * fcz;
-            if (dp <= pp) continue;
-            // Per-face albedo -> polygon tile style
-            float[] alb = albedo[f];
-            float ccR = 0, ccG = 0, ccB = 0;
-            float[] vR = new float[fv.length], vG = new float[fv.length], vB = new float[fv.length];
-            for (int k = 0; k < fv.length; k++) {
-                int vi = fv[k];
-                if (isSun) {
-                    // 恒星自发光：不被光色二次染色，直接用自身 albedo（临边昏暗另行乘上）
-                    colTmp[0] = alb[0]; colTmp[1] = alb[1]; colTmp[2] = alb[2];
-                } else {
-                    sl.set(directV[vi], specV[vi], rimWV[vi], rimCV[vi], shadowBV[vi], reflV[vi]);
-                    lighting.colorize(alb, sl, colTmp);
-                }
-                float limb = isSun ? limbV[vi] : 1f;
-                vR[k] = colTmp[0] * limb; vG[k] = colTmp[1] * limb; vB[k] = colTmp[2] * limb;
-                ccR += vR[k]; ccG += vG[k]; ccB += vB[k];
-            }
-            ccR /= fv.length; ccG /= fv.length; ccB /= fv.length;
-            for (int k = 0; k < fv.length; k++) {
-                int a1 = (k + 1) % fv.length;
+            int kn = fv.length;
+            // 背面剔除：局部面法线(面心方向) 与 视线(局部系)
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            if (fnx * viewLocal[0] + fny * viewLocal[1] + fnz * viewLocal[2] <= 0) continue;
+            if (kn == 3) {
+                // 细分三角：直接用预计算顶点色
                 drew = true;
-                bb.addVertex(mat, fcx, fcy, fcz).setColor(ccR, ccG, ccB, 1f);
-                bb.addVertex(mat, bx[fv[k]], by[fv[k]], bz[fv[k]]).setColor(vR[k], vG[k], vB[k], 1f);
-                bb.addVertex(mat, bx[fv[a1]], by[fv[a1]], bz[fv[a1]]).setColor(vR[a1], vG[a1], vB[a1], 1f);
+                bb.addVertex(mat, vs[fv[0]][0]*R, vs[fv[0]][1]*R, vs[fv[0]][2]*R).setColor(lColR[fv[0]], lColG[fv[0]], lColB[fv[0]], 1f);
+                bb.addVertex(mat, vs[fv[1]][0]*R, vs[fv[1]][1]*R, vs[fv[1]][2]*R).setColor(lColR[fv[1]], lColG[fv[1]], lColB[fv[1]], 1f);
+                bb.addVertex(mat, vs[fv[2]][0]*R, vs[fv[2]][1]*R, vs[fv[2]][2]*R).setColor(lColR[fv[2]], lColG[fv[2]], lColB[fv[2]], 1f);
+            } else {
+                // 多边形地块：逐顶点 colorize + 中心扇
+                float[] alb = tileAlbedo[f];
+                float ccR = 0, ccG = 0, ccB = 0;
+                for (int k = 0; k < kn; k++) {
+                    int vi = fv[k];
+                    if (isSun) {
+                        colTmp[0] = alb[0]; colTmp[1] = alb[1]; colTmp[2] = alb[2];
+                    } else {
+                        sl.set(directV[vi], specV[vi], rimWV[vi], rimCV[vi], shadowBV[vi], reflV[vi]);
+                        lighting.colorize(alb, sl, colTmp);
+                    }
+                    float limb = isSun ? limbV[vi] : 1f;
+                    vR[k] = colTmp[0] * limb; vG[k] = colTmp[1] * limb; vB[k] = colTmp[2] * limb;
+                    ccR += vR[k]; ccG += vG[k]; ccB += vB[k];
+                }
+                ccR /= kn; ccG /= kn; ccB /= kn;
+                float cx = fnx * R, cy = fny * R, cz = fnz * R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k + 1) % kn;
+                    drew = true;
+                    bb.addVertex(mat, cx, cy, cz).setColor(ccR, ccG, ccB, 1f);
+                    bb.addVertex(mat, vs[fv[k]][0]*R, vs[fv[k]][1]*R, vs[fv[k]][2]*R).setColor(vR[k], vG[k], vB[k], 1f);
+                    bb.addVertex(mat, vs[fv[a1]][0]*R, vs[fv[a1]][1]*R, vs[fv[a1]][2]*R).setColor(vR[a1], vG[a1], vB[a1], 1f);
+                }
             }
         }
         if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
+        // 还原模型视图为单位阵（其余绘制仍用 cameraTo 烘焙坐标）
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
     }
 
     private void drawCloudLayer(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
@@ -722,24 +1003,33 @@ public class SolarSystemView extends UIElement {
             float nLen = (float) Math.sqrt(nX * nX + nY * nY + nZ * nZ);
             if (nLen > 1e-5f) { nX /= nLen; nY /= nLen; nZ /= nLen; }
             float ndotlC = nX * lighting.dirX() + nY * lighting.dirY() + nZ * lighting.dirZ();
-            float cloudShadow = shadowModel.hasShadow(t.pi)
-                    ? shadowModel.occlusion(t.pi, mesh.vertices[mesh.faces[f][0]], t.layerR, sc, ss, currentTilt, simTime) : 0;
             float ambC = lighting.ambient();
-            float directC = lighting.direct(ndotlC, cloudShadow);
-            float shade = ambC + (1 - ambC) * directC;
-            float fa = 0.55f * shade;
-            // 云色吃光色：受光云偏暖金，背光云偏冷蓝（乘法，色相安全）
-            float[] lcC = new float[3];
-            lighting.lightColor(directC, lcC);
-            float cR = 0.96f * lcC[0], cG = 0.97f * lcC[1], cB = 1.0f * lcC[2];
+            // 逐顶点阴影：让投影边缘在三角形内插值出平滑过渡，不再被面片精度卡住
+            float[] vShade = new float[fv.length];
+            float[] vCR = new float[fv.length], vCG = new float[fv.length], vCB = new float[fv.length];
+            for (int k = 0; k < fv.length; k++) {
+                float vs = shadowModel.hasShadow(t.pi)
+                        ? shadowModel.occlusion(t.pi, mesh.vertices[fv[k]], t.layerR, sc, ss, currentTilt, simTime) : 0;
+                float vDirC = lighting.direct(ndotlC, vs);
+                float vs2 = ambC + (1 - ambC) * vDirC;
+                vShade[k] = 0.55f * vs2;
+                float[] lcV = new float[3];
+                lighting.lightColor(vDirC, lcV);
+                vCR[k] = 0.96f * lcV[0]; vCG[k] = 0.97f * lcV[1]; vCB[k] = 1.0f * lcV[2];
+            }
             float fcx = 0, fcy = 0, fcz = 0;
             for (int k = 0; k < fv.length; k++) { fcx += cxs[k]; fcy += cys[k]; fcz += czs[k]; }
             fcx /= fv.length; fcy /= fv.length; fcz /= fv.length;
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                bb.addVertex(mat, fcx, fcy, fcz).setColor(cR * 0.92f, cG * 0.92f, cB * 0.92f, fa);
-                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(cR, cG, cB, fa);
-                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(cR, cG, cB, fa);
+                // 中心顶点：取三顶点平均
+                float fcR = (vCR[0] + vCR[1] + vCR[2]) / 3f;
+                float fcG = (vCG[0] + vCG[1] + vCG[2]) / 3f;
+                float fcB = (vCB[0] + vCB[1] + vCB[2]) / 3f;
+                float fcA = (vShade[0] + vShade[1] + vShade[2]) / 3f;
+                bb.addVertex(mat, fcx, fcy, fcz).setColor(fcR * 0.92f, fcG * 0.92f, fcB * 0.92f, fcA);
+                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(vCR[k], vCG[k], vCB[k], vShade[k]);
+                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(vCR[a1], vCG[a1], vCB[a1], vShade[a1]);
             }
             drew = true;
         }
@@ -788,21 +1078,25 @@ public class SolarSystemView extends UIElement {
             vnx /= vLen; vny /= vLen; vnz /= vLen;
             float NdotV = Math.max(0, anx * vnx + any * vny + anz * vnz);
             float rim = 1f - NdotV; rim = rim * rim;
-            float sunDot = Math.max(0, anx * lighting.dirX() + any * lighting.dirY() + anz * lighting.dirZ());
-            float atmoShadow = shadowModel.hasShadow(t.pi)
-                    ? shadowModel.occlusion(t.pi, mesh.faces[f].length > 0 ? mesh.vertices[mesh.faces[f][0]] : new float[]{0,0,0}, t.layerR, sc, ss, currentTilt, simTime) : 0;
             boolean isStar = solarSystem.get(t.pi).visual().isGlowing();
-            // 向日面增亮：sunDot^0.75 曲线让朝阳一侧的大气明显更亮（加色混合，不改变色相）
-            float sunFactor = isStar ? 1f : lighting.intensity() * (1f - atmoShadow);
+            float sunDot = Math.max(0, anx * lighting.dirX() + any * lighting.dirY() + anz * lighting.dirZ());
+            // 逐顶点阴影：大气投影边缘不再被面片数卡住
+            float[] vAlpha = new float[fv.length];
             float sunLift = (float) Math.pow(sunDot, 0.75f);
-            float alpha = isStar ? rim * 0.55f : rim * sunFactor * (0.12f + 0.62f * sunLift);
-            if (alpha < 0.003f) continue;
+            for (int k = 0; k < fv.length; k++) {
+                float vs = shadowModel.hasShadow(t.pi)
+                        ? shadowModel.occlusion(t.pi, mesh.vertices[fv[k]], t.layerR, sc, ss, currentTilt, simTime) : 0;
+                float sunF = isStar ? 1f : lighting.intensity() * (1f - vs);
+                vAlpha[k] = isStar ? rim * 0.55f : rim * sunF * (0.12f + 0.62f * sunLift);
+            }
+            if (vAlpha[0] < 0.003f && vAlpha[1] < 0.003f && vAlpha[2] < 0.003f) continue;
             float r = atmColor[0], g = atmColor[1], b = atmColor[2];
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                bb.addVertex(mat, ccx, ccy, ccz).setColor(r, g, b, alpha);
-                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(r, g, b, alpha);
-                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(r, g, b, alpha);
+                float ca = (vAlpha[0] + vAlpha[1] + vAlpha[2]) / 3f;
+                bb.addVertex(mat, ccx, ccy, ccz).setColor(r, g, b, ca);
+                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(r, g, b, vAlpha[k]);
+                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(r, g, b, vAlpha[a1]);
             }
         }
         var rendered = bb.build();

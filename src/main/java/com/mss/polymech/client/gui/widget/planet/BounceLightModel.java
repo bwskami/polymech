@@ -44,9 +44,10 @@ public final class BounceLightModel {
      * @return bounce 光强
      */
     public float selfBounce(float ndotl, float receivedLight) {
-        if (ndotl >= 0f) return 0f;
+        // 不再在 ndotl>=0 时直接返回 0，由调用方用 smoothstep 与亮面散射混合，
+        // 否则 ndotl=0 处会产生硬跳变（亮暗两面被一条分界切开）。
         // ndotl=0 → 1，ndotl≤-2/3 → 0：晨昏线附近最强，快速衰减
-        float f = Math.max(0f, 1f + ndotl * 1.5f);
+        float f = Math.max(0f, Math.min(1f, 1f + ndotl * 1.5f));
         return f * f * receivedLight * SELF_BOUNCE_STRENGTH;
     }
 }

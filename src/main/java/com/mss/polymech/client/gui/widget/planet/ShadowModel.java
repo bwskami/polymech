@@ -53,6 +53,38 @@ public final class ShadowModel {
         return casters[pi].length > 0;
     }
 
+    /** 能遮挡天体 pi 的天体下标列表（供 GPU 着色器构造阴影数据）。 */
+    public int[] casters(int pi) {
+        return casters[pi];
+    }
+
+    /** 天体 pi 的 BASE 层半径。 */
+    public float bodyRadius(int pi) {
+        return baseRadius[pi];
+    }
+
+    /**
+     * 天体整体能看到恒星的比例（0..1）。
+     * 用“本天体正对恒星的子星点（sub-solar point）”的遮挡来近似：
+     * 月全食时 ≈0，平常 ≈1，日偏食/半影时取中间值。
+     * 用来同时压低直射余光与自反射，避免“整体被食但夜面仍像有光”。
+     */
+    public float globalSunVisibility(int pi, float layerR, float sc, float ss, float tilt, float simTime) {
+        float[] wp = solarSystem.worldPos(pi, simTime);
+        float swx = -wp[0], swz = -wp[2];
+        float len = (float) Math.sqrt(swx * swx + swz * swz);
+        if (len < 1e-4f) return 1f;
+        swx /= len; swz /= len;
+        // 世界系“行星->太阳”方向 -> 局部系（逆自转 -> 逆轴倾角）
+        float ct = (float) Math.cos(tilt), st = (float) Math.sin(tilt);
+        float lx1 = swx * ct, ly1 = -swx * st, lz1 = swz;
+        float lsx = lx1 * sc + lz1 * ss;
+        float lsy = ly1;
+        float lsz = -lx1 * ss + lz1 * sc;
+        float sh = occlusion(pi, new float[]{lsx, lsy, lsz}, layerR, sc, ss, tilt, simTime);
+        return Math.max(0f, Math.min(1f, 1f - sh));
+    }
+
     /**
      * 计算母星反射光（地照/木星照）。
      * 当卫星被食或处于背光面时，母星反射光让暗面保留可见细节，而不是死黑。
