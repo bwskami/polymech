@@ -409,7 +409,11 @@ public class SolarSystemView extends UIElement {
 
         // FPS
         var font = Minecraft.getInstance().font;
-        g.drawString(font, "FPS: " + (int) fpsSmooth, vx + 4, vy + 4, 0xFFFFFF00);
+        String gpuStatus = (GPU_LIGHTING && PlanetShaders.isReady()) ? "GPU" : "CPU";
+        String cloudStatus = PlanetShaders.isCloudReady() ? "GPU" : "CPU";
+        String atmoStatus = PlanetShaders.isAtmoReady() ? "GPU" : "CPU";
+        g.drawString(font, "FPS: " + (int) fpsSmooth + "  B:" + gpuStatus + " C:" + cloudStatus + " A:" + atmoStatus,
+                vx + 4, vy + 4, 0xFFFFFF00);
     }
     private void drawStarfield(GuiGraphics g, int vx, int vy, int vw, int vh) {
         // TODO: 加载天空盒贴图后替换
@@ -959,15 +963,123 @@ public class SolarSystemView extends UIElement {
     }
 
     private void drawCloudLayer(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
+        if (PlanetShaders.isCloudReady()) {
+            drawCloudLayerGPU(mat, t, sc, ss, cosY, sinY, cosX, sinX);
+        } else {
+            drawCloudLayerCPU(mat, t, sc, ss, cosY, sinY, cosX, sinX);
+        }
+    }
+
+    /** 空安全的 uniform 设置：着色器可能优化掉未使用的 uniform。 */
+    private static void setUniform(ShaderInstance sh, String name, float... values) {
+        Uniform u = sh.getUniform(name);
+        if (u != null) u.set(values);
+    }
+
+    /** CLOUD 层 GPU：局部坐标+径向法线+密度阈值(Color.r)，噪声/光照/阴影全在片元着色器。 */
+    private void drawCloudLayerGPU(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
         Polyhedron mesh = t.mesh;
-        // Per-layer noise seed (cached): same planet, different layer -> different pattern
+        int cloudIdx = 0;
+        for (PlanetLayer cl : solarSystem.get(t.pi).layers())
+            if (cl.type() == PlanetLayerType.CLOUD && cl.radius() < t.layerR - 1e-4f) cloudIdx++;
+        float densityFactor = 0.42f + cloudIdx * 0.08f;
         long layerSeed = 0x5EED1234L + t.pi * 0x1234567L + (long)(t.layerR * 1000) * 0x9E3779B9L;
         Noise3 layerNoise = layerNoiseCache.get(layerSeed);
-        if (layerNoise == null) {
-            layerNoise = new Noise3(layerSeed);
-            layerNoiseCache.put(layerSeed, layerNoise);
+        if (layerNoise == null) { layerNoise = new Noise3(layerSeed); layerNoiseCache.put(layerSeed, layerNoise); }
+
+        buildModelView(t, sc, ss, mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(mvTmp);
+        RenderSystem.applyModelViewMatrix();
+
+        toLocalDir(mvTmp, lighting.dirX(), lighting.dirY(), lighting.dirZ(), lightLocal);
+        float ccx = mvTmp.m30(), ccy = mvTmp.m31(), ccz = mvTmp.m32();
+        float clen = (float) Math.sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
+        if (clen > 1e-5f) { ccx /= clen; ccy /= clen; ccz /= clen; }
+        toLocalDir(mvTmp, -ccx, -ccy, -ccz, viewLocal);
+
+        ShaderInstance sh = PlanetShaders.cloudShader();
+        setUniform(sh, "SunDir", lightLocal[0], lightLocal[1], lightLocal[2]);
+        setUniform(sh, "Intensity", lighting.intensity());
+
+        float[] planetWP = solarSystem.worldPos(t.pi, simTime);
+        int[] cast = shadowModel.casters(t.pi);
+        int nC = Math.min(cast.length, 4);
+        setUniform(sh, "CasterCount", (float) nC);
+        float ct = (float) Math.cos(currentTilt), st = (float) Math.sin(currentTilt);
+        for (int i = 0; i < 4; i++) {
+            Uniform uRel = sh.getUniform("CasterRel" + i);
+            Uniform uRad = sh.getUniform("CasterRad" + i);
+            if (i < nC) {
+                int qi = cast[i];
+                float[] cWP = solarSystem.worldPos(qi, simTime);
+                float cwX = cWP[0] - planetWP[0], cwZ = cWP[2] - planetWP[2];
+                float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
+                if (uRel != null) uRel.set(lx1 * sc + lz1 * ss, ly1, -lx1 * ss + lz1 * sc);
+                if (uRad != null) uRad.set(shadowModel.bodyRadius(qi));
+            } else {
+                if (uRel != null) uRel.set(0f, 0f, 0f);
+                if (uRad != null) uRad.set(0f);
+            }
         }
-        // Per-layer density: each successive cloud layer is sparser
+
+        RenderSystem.setShader(() -> PlanetShaders.cloudShader());
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        float R = t.layerR;
+        float[][] vs = mesh.vertices;
+        boolean drew = false;
+        for (int f = 0; f < mesh.faces.length; f++) {
+            int[] fv = mesh.faces[f];
+            int kn = fv.length;
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            if (fnx * viewLocal[0] + fny * viewLocal[1] + fnz * viewLocal[2] <= 0) continue;
+            // CPU 用原版 Noise3 算云形状，跳过空面，保证形状和以前完全一致
+            float cloudVal = layerNoise.fbm(fnx * 2.5f + 7.3f, fny * 2.5f + 13.7f, fnz * 2.5f + 3.1f);
+            float threshold = densityFactor + Math.abs(fny) * 0.18f;
+            if (cloudVal < threshold) continue;
+
+            if (kn == 3) {
+                drew = true;
+                for (int k = 0; k < 3; k++) {
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
+                            .setColor(1f, 0, 0, 1f)
+                            .setNormal(fnx, fny, fnz);
+                }
+            } else {
+                float cnx = fnx*R, cny = fny*R, cnz = fnz*R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k+1) % kn;
+                    drew = true;
+                    bb.addVertex(mat, cnx, cny, cnz).setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
+                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                    int vj = fv[a1];
+                    bb.addVertex(mat, vs[vj][0]*R, vs[vj][1]*R, vs[vj][2]*R)
+                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                }
+            }
+        }
+        if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
+    }
+
+    /** CLOUD 层 CPU 回退。 */
+    private void drawCloudLayerCPU(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
+        Polyhedron mesh = t.mesh;
+        long layerSeed = 0x5EED1234L + t.pi * 0x1234567L + (long)(t.layerR * 1000) * 0x9E3779B9L;
+        Noise3 layerNoise = layerNoiseCache.get(layerSeed);
+        if (layerNoise == null) { layerNoise = new Noise3(layerSeed); layerNoiseCache.put(layerSeed, layerNoise); }
         int cloudIdx = 0;
         for (PlanetLayer cl : solarSystem.get(t.pi).layers())
             if (cl.type() == PlanetLayerType.CLOUD && cl.radius() < t.layerR - 1e-4f) cloudIdx++;
@@ -977,65 +1089,47 @@ public class SolarSystemView extends UIElement {
         float[] cxs = new float[6], cys = new float[6], czs = new float[6];
         float[] cam = new float[3];
         float[] cloudCenterCam = new float[3];
-        camera.cameraTo(cloudCenterCam, new float[]{0, 0, 0}, 1, t.dwx, t.dwz, sc, ss, currentTilt);
+        camera.cameraTo(cloudCenterCam, new float[]{0,0,0}, 1, t.dwx, t.dwz, sc, ss, currentTilt);
         for (int f = 0; f < mesh.faces.length; f++) {
             int[] fv = mesh.faces[f];
-            float nx = 0, ny = 0, nz = 0;
+            float nx=0, ny=0, nz=0;
             for (int k = 0; k < fv.length; k++) {
                 float[] v = mesh.vertices[fv[k]];
                 nx += v[0]; ny += v[1]; nz += v[2];
                 camera.cameraTo(cam, v, t.layerR, t.dwx, t.dwz, sc, ss, currentTilt);
                 cxs[k] = cam[0]; cys[k] = cam[1]; czs[k] = cam[2];
             }
-            float nlen = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+            float nlen = (float) Math.sqrt(nx*nx+ny*ny+nz*nz);
             if (nlen < 1e-6f) continue;
-            nx /= nlen; ny /= nlen; nz /= nlen;
-            float lat = Math.abs(ny);
-            float threshold = densityFactor + lat * 0.18f;
-            float cloudVal = layerNoise.fbm(nx * 2.5f + 7.3f, ny * 2.5f + 13.7f, nz * 2.5f + 3.1f);
+            nx/=nlen; ny/=nlen; nz/=nlen;
+            float threshold = densityFactor + Math.abs(ny)*0.18f;
+            float cloudVal = layerNoise.fbm(nx*2.5f+7.3f, ny*2.5f+13.7f, nz*2.5f+3.1f);
             if (cloudVal < threshold) continue;
-            // backface culling for convex sphere: C·P <= |P|² means back-facing
-            {
-                float fcx2 = (cxs[0] + cxs[1] + cxs[2]) / 3f;
-                float fcy2 = (cys[0] + cys[1] + cys[2]) / 3f;
-                float fcz2 = (czs[0] + czs[1] + czs[2]) / 3f;
-                float dp = cloudCenterCam[0] * fcx2 + cloudCenterCam[1] * fcy2 + cloudCenterCam[2] * fcz2;
-                float pp = fcx2 * fcx2 + fcy2 * fcy2 + fcz2 * fcz2;
-                if (dp <= pp) continue;
-            }
-            float nX = cxs[0] - cloudCenterCam[0] + cxs[1] - cloudCenterCam[0] + cxs[2] - cloudCenterCam[0];
-            float nY = cys[0] - cloudCenterCam[1] + cys[1] - cloudCenterCam[1] + cys[2] - cloudCenterCam[1];
-            float nZ = czs[0] - cloudCenterCam[2] + czs[1] - cloudCenterCam[2] + czs[2] - cloudCenterCam[2];
-            float nLen = (float) Math.sqrt(nX * nX + nY * nY + nZ * nZ);
-            if (nLen > 1e-5f) { nX /= nLen; nY /= nLen; nZ /= nLen; }
-            float ndotlC = nX * lighting.dirX() + nY * lighting.dirY() + nZ * lighting.dirZ();
-            float ambC = lighting.ambient();
-            // 逐顶点阴影：让投影边缘在三角形内插值出平滑过渡，不再被面片精度卡住
-            float[] vShade = new float[fv.length];
-            float[] vCR = new float[fv.length], vCG = new float[fv.length], vCB = new float[fv.length];
-            for (int k = 0; k < fv.length; k++) {
-                float vs = shadowModel.hasShadow(t.pi)
-                        ? shadowModel.occlusion(t.pi, mesh.vertices[fv[k]], t.layerR, sc, ss, currentTilt, simTime) : 0;
-                float vDirC = lighting.direct(ndotlC, vs);
-                float vs2 = ambC + (1 - ambC) * vDirC;
-                vShade[k] = 0.55f * vs2;
-                float[] lcV = new float[3];
-                lighting.lightColor(vDirC, lcV);
-                vCR[k] = 0.96f * lcV[0]; vCG[k] = 0.97f * lcV[1]; vCB[k] = 1.0f * lcV[2];
-            }
-            float fcx = 0, fcy = 0, fcz = 0;
-            for (int k = 0; k < fv.length; k++) { fcx += cxs[k]; fcy += cys[k]; fcz += czs[k]; }
-            fcx /= fv.length; fcy /= fv.length; fcz /= fv.length;
-            for (int k = 0; k < fv.length; k++) {
-                int a1 = (k + 1) % fv.length;
-                // 中心顶点：取三顶点平均
-                float fcR = (vCR[0] + vCR[1] + vCR[2]) / 3f;
-                float fcG = (vCG[0] + vCG[1] + vCG[2]) / 3f;
-                float fcB = (vCB[0] + vCB[1] + vCB[2]) / 3f;
-                float fcA = (vShade[0] + vShade[1] + vShade[2]) / 3f;
-                bb.addVertex(mat, fcx, fcy, fcz).setColor(fcR * 0.92f, fcG * 0.92f, fcB * 0.92f, fcA);
-                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(vCR[k], vCG[k], vCB[k], vShade[k]);
-                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(vCR[a1], vCG[a1], vCB[a1], vShade[a1]);
+            { float fcx2=(cxs[0]+cxs[1]+cxs[2])/3f, fcy2=(cys[0]+cys[1]+cys[2])/3f, fcz2=(czs[0]+czs[1]+czs[2])/3f;
+              float dp=cloudCenterCam[0]*fcx2+cloudCenterCam[1]*fcy2+cloudCenterCam[2]*fcz2;
+              float pp=fcx2*fcx2+fcy2*fcy2+fcz2*fcz2;
+              if (dp <= pp) continue; }
+            float nX=cxs[0]-cloudCenterCam[0]+cxs[1]-cloudCenterCam[0]+cxs[2]-cloudCenterCam[0];
+            float nY=cys[0]-cloudCenterCam[1]+cys[1]-cloudCenterCam[1]+cys[2]-cloudCenterCam[1];
+            float nZ=czs[0]-cloudCenterCam[2]+czs[1]-cloudCenterCam[2]+czs[2]-cloudCenterCam[2];
+            float nLen=(float)Math.sqrt(nX*nX+nY*nY+nZ*nZ);
+            if(nLen>1e-5f){nX/=nLen;nY/=nLen;nZ/=nLen;}
+            float ndotlC=nX*lighting.dirX()+nY*lighting.dirY()+nZ*lighting.dirZ();
+            float ambC=lighting.ambient();
+            float cloudShadow=shadowModel.hasShadow(t.pi)?shadowModel.occlusion(t.pi,mesh.vertices[mesh.faces[f][0]],t.layerR,sc,ss,currentTilt,simTime):0;
+            float directC=lighting.direct(ndotlC,cloudShadow);
+            float shade=ambC+(1-ambC)*directC;
+            float fa=0.55f*shade;
+            float[]lcC=new float[3];lighting.lightColor(directC,lcC);
+            float cR=0.96f*lcC[0],cG=0.97f*lcC[1],cB=1.0f*lcC[2];
+            float fcx=0,fcy=0,fcz=0;
+            for(int k=0;k<fv.length;k++){fcx+=cxs[k];fcy+=cys[k];fcz+=czs[k];}
+            fcx/=fv.length;fcy/=fv.length;fcz/=fv.length;
+            for(int k=0;k<fv.length;k++){
+                int a1=(k+1)%fv.length;
+                bb.addVertex(mat,fcx,fcy,fcz).setColor(cR*0.92f,cG*0.92f,cB*0.92f,fa);
+                bb.addVertex(mat,cxs[k],cys[k],czs[k]).setColor(cR,cG,cB,fa);
+                bb.addVertex(mat,cxs[a1],cys[a1],czs[a1]).setColor(cR,cG,cB,fa);
             }
             drew = true;
         }
@@ -1056,6 +1150,110 @@ public class SolarSystemView extends UIElement {
         };
     }
     private void drawAtmosphereLayer(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
+        if (PlanetShaders.isAtmoReady()) {
+            drawAtmosphereLayerGPU(mat, t, sc, ss, cosY, sinY, cosX, sinX);
+        } else {
+            drawAtmosphereLayerCPU(mat, t, sc, ss, cosY, sinY, cosX, sinX);
+        }
+    }
+
+    /** ATMO 层 GPU：局部坐标+径向法线，rim/日照/阴影全在片元着色器。 */
+    private void drawAtmosphereLayerGPU(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
+        Polyhedron mesh = t.mesh;
+        float[] atmColor = atmosphereColor(t.pi);
+        boolean isStar = solarSystem.get(t.pi).visual().isGlowing();
+
+        buildModelView(t, sc, ss, mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(mvTmp);
+        RenderSystem.applyModelViewMatrix();
+
+        toLocalDir(mvTmp, lighting.dirX(), lighting.dirY(), lighting.dirZ(), lightLocal);
+        float ccx = mvTmp.m30(), ccy = mvTmp.m31(), ccz = mvTmp.m32();
+        float clen = (float) Math.sqrt(ccx * ccx + ccy * ccy + ccz * ccz);
+        if (clen > 1e-5f) { ccx /= clen; ccy /= clen; ccz /= clen; }
+        toLocalDir(mvTmp, -ccx, -ccy, -ccz, viewLocal);
+
+        ShaderInstance sh = PlanetShaders.atmoShader();
+        setUniform(sh, "SunDir", lightLocal[0], lightLocal[1], lightLocal[2]);
+        setUniform(sh, "ViewDir", viewLocal[0], viewLocal[1], viewLocal[2]);
+        setUniform(sh, "Intensity", lighting.intensity());
+        setUniform(sh, "IsSun", isStar ? 1f : 0f);
+        float baseR = 0;
+        for (PlanetLayer l : solarSystem.get(t.pi).layers())
+            if (l.type() == PlanetLayerType.BASE) baseR = l.radius();
+        setUniform(sh, "AtmoInner", baseR > 0 ? baseR / t.layerR : 0.9f);
+        setUniform(sh, "AtmoColor", atmColor[0], atmColor[1], atmColor[2]);
+
+        float[] planetWP = solarSystem.worldPos(t.pi, simTime);
+        int[] cast = shadowModel.casters(t.pi);
+        int nC = Math.min(cast.length, 4);
+        setUniform(sh, "CasterCount", (float) nC);
+        float ct = (float) Math.cos(currentTilt), st = (float) Math.sin(currentTilt);
+        for (int i = 0; i < 4; i++) {
+            Uniform uRel = sh.getUniform("CasterRel" + i);
+            Uniform uRad = sh.getUniform("CasterRad" + i);
+            if (i < nC) {
+                int qi = cast[i];
+                float[] cWP = solarSystem.worldPos(qi, simTime);
+                float cwX = cWP[0] - planetWP[0], cwZ = cWP[2] - planetWP[2];
+                float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
+                if (uRel != null) uRel.set(lx1 * sc + lz1 * ss, ly1, -lx1 * ss + lz1 * sc);
+                if (uRad != null) uRad.set(shadowModel.bodyRadius(qi));
+            } else {
+                if (uRel != null) uRel.set(0f, 0f, 0f);
+                if (uRad != null) uRad.set(0f);
+            }
+        }
+
+        RenderSystem.setShader(() -> PlanetShaders.atmoShader());
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        float R = t.layerR;
+        float[][] vs = mesh.vertices;
+        boolean drew = false;
+        for (int f = 0; f < mesh.faces.length; f++) {
+            int[] fv = mesh.faces[f];
+            int kn = fv.length;
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            if (fnx * viewLocal[0] + fny * viewLocal[1] + fnz * viewLocal[2] <= 0) continue;
+            if (kn == 3) {
+                drew = true;
+                for (int k = 0; k < 3; k++) {
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
+                            .setColor(1f, 1f, 1f, 1f)
+                            .setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                }
+            } else {
+                float cnx = fnx*R, cny = fny*R, cnz = fnz*R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k+1) % kn;
+                    drew = true;
+                    bb.addVertex(mat, cnx, cny, cnz).setColor(1f, 1f, 1f, 1f).setNormal(fnx, fny, fnz);
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
+                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                    int vj = fv[a1];
+                    bb.addVertex(mat, vs[vj][0]*R, vs[vj][1]*R, vs[vj][2]*R)
+                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
+                }
+            }
+        }
+        if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
+    }
+
+    /** ATMO 层 CPU 回退。 */
+    private void drawAtmosphereLayerCPU(Matrix4f mat, RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
         Polyhedron mesh = t.mesh;
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
@@ -1083,26 +1281,33 @@ public class SolarSystemView extends UIElement {
             if (vLen < 1e-5f) continue;
             vnx /= vLen; vny /= vLen; vnz /= vLen;
             float NdotV = Math.max(0, anx * vnx + any * vny + anz * vnz);
-            float rim = 1f - NdotV; rim = rim * rim;
-            boolean isStar = solarSystem.get(t.pi).visual().isGlowing();
-            float sunDot = Math.max(0, anx * lighting.dirX() + any * lighting.dirY() + anz * lighting.dirZ());
-            // 逐顶点阴影：大气投影边缘不再被面片数卡住
-            float[] vAlpha = new float[fv.length];
-            float sunLift = (float) Math.pow(sunDot, 0.75f);
-            for (int k = 0; k < fv.length; k++) {
-                float vs = shadowModel.hasShadow(t.pi)
-                        ? shadowModel.occlusion(t.pi, mesh.vertices[fv[k]], t.layerR, sc, ss, currentTilt, simTime) : 0;
-                float sunF = isStar ? 1f : lighting.intensity() * (1f - vs * sunDot);
-                vAlpha[k] = isStar ? rim * 0.55f : rim * sunF * (0.12f + 0.62f * sunLift);
+            // 与 GPU 版一致：行星边缘最亮，向外渐隐
+            float dAtmo = (float) Math.sqrt(Math.max(0f, 1f - NdotV * NdotV));
+            float innerAtmo = 0.9f;
+            for (PlanetLayer l : solarSystem.get(t.pi).layers())
+                if (l.type() == PlanetLayerType.BASE) innerAtmo = Math.max(0.001f, l.radius() / t.layerR);
+            float rim;
+            if (dAtmo > innerAtmo) {
+                float tt = (dAtmo - innerAtmo) / (1f - innerAtmo);
+                rim = (float) Math.pow(1f - tt, 1.5f); // 平缓衰减：边缘逐渐变透明
+            } else {
+                float tt = dAtmo / innerAtmo;
+                rim = tt * tt;
             }
-            if (vAlpha[0] < 0.003f && vAlpha[1] < 0.003f && vAlpha[2] < 0.003f) continue;
+            float sunDot = Math.max(0, anx * lighting.dirX() + any * lighting.dirY() + anz * lighting.dirZ());
+            boolean isStar = solarSystem.get(t.pi).visual().isGlowing();
+            float atmoShadow = shadowModel.hasShadow(t.pi)
+                    ? shadowModel.occlusion(t.pi, mesh.faces[f].length > 0 ? mesh.vertices[mesh.faces[f][0]] : new float[]{0,0,0}, t.layerR, sc, ss, currentTilt, simTime) : 0;
+            float sunF = isStar ? 1f : lighting.intensity() * (1f - atmoShadow * sunDot);
+            float sunLift = (float) Math.pow(sunDot, 0.75f);
+            float alpha = isStar ? rim * 0.45f : rim * sunF * (0.14f + 0.44f * sunLift);
+            if (alpha < 0.003f) continue;
             float r = atmColor[0], g = atmColor[1], b = atmColor[2];
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                float ca = (vAlpha[0] + vAlpha[1] + vAlpha[2]) / 3f;
-                bb.addVertex(mat, ccx, ccy, ccz).setColor(r, g, b, ca);
-                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(r, g, b, vAlpha[k]);
-                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(r, g, b, vAlpha[a1]);
+                bb.addVertex(mat, ccx, ccy, ccz).setColor(r, g, b, alpha);
+                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(r, g, b, alpha);
+                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(r, g, b, alpha);
             }
         }
         var rendered = bb.build();

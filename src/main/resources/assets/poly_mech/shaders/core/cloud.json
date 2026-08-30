@@ -1,0 +1,21 @@
+{
+    "vertex": "poly_mech:cloud",
+    "fragment": "poly_mech:cloud",
+    "attributes": ["Position", "Color", "Normal"],
+    "samplers": [],
+    "uniforms": [
+        { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] },
+        { "name": "SunDir", "type": "float", "count": 3, "values": [0,1,0] },
+        { "name": "Intensity", "type": "float", "count": 1, "values": [1] },
+        { "name": "CasterCount", "type": "float", "count": 1, "values": [0] },
+        { "name": "CasterRel0", "type": "float", "count": 3, "values": [0,0,0] },
+        { "name": "CasterRel1", "type": "float", "count": 3, "values": [0,0,0] },
+        { "name": "CasterRel2", "type": "float", "count": 3, "values": [0,0,0] },
+        { "name": "CasterRel3", "type": "float", "count": 3, "values": [0,0,0] },
+        { "name": "CasterRad0", "type": "float", "count": 1, "values": [0] },
+        { "name": "CasterRad1", "type": "float", "count": 1, "values": [0] },
+        { "name": "CasterRad2", "type": "float", "count": 1, "values": [0] },
+        { "name": "CasterRad3", "type": "float", "count": 1, "values": [0] }
+    ]
+}
