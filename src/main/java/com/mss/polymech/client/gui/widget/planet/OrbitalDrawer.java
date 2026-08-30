@@ -26,33 +26,29 @@ class OrbitalDrawer {
         float[] camPos = new float[3];
         v.camera.worldToCamera(camPos, 0, 0, 0, dwx, dwz);
         float depth = -camPos[2];
-        if (depth < 0.15f) return; // 相机在恒星内/后
+        if (depth < 0.15f) return;
         float sunR = 0;
         for (PlanetLayer l : v.solarSystem.get(sunIdx).layers()) if (l.type() == PlanetLayerType.BASE) sunR = l.radius();
         if (sunR < 0.01f) return;
-        float[] scr = v.camera.toScreen(camPos);
-        float sx = scr[0], sy = scr[1];
-        float rPx = sunR * v.camera.focalLength() / depth;      // 恒星投影半径（像素）
-        if (rPx < 2f) return;                                  // 太小不可见
-        float scale = Math.min(1f, Math.max(0.35f, rPx / 28f)); // 远处光晕收敛
+        // 3D billboard: world-space disc at sun position, depth-tested against planets
+        float cx3d = camPos[0], cy3d = camPos[1], cz3d = camPos[2];
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
-        // 内层亮核：贴着恒星边缘的暖光
-        drawGlowFan(mat, sx, sy, rPx * 1.45f, 0.50f * scale, 1.0f, 0.90f, 0.65f);
-        // 外层泛光：大范围暖橙渐隐
-        drawGlowFan(mat, sx, sy, rPx * 2.8f, 0.14f * scale, 1.0f, 0.72f, 0.35f);
+        // 极薄一圈镜头溢光，模拟极微弱的镜头散射（太空几乎无介质）
+        drawGlowBillboard(mat, cx3d, cy3d, cz3d, sunR * 1.08f, 0.06f, 1.0f, 0.95f, 0.85f);
         RenderSystem.defaultBlendFunc();
     }
 
-    /** 屏幕空间环形渐变光晕（TRIANGLE_FAN：中心实色 → 边缘透明）。 */
-    void drawGlowFan(Matrix4f mat, float sx, float sy, float outerR,
-                             float alpha, float cr, float cg, float cb) {
+    /** 3D Billboard 发光圆盘：以恒星世界位置为中心，朝向摄像机的平面圆盘，从中心到边缘渐变透明。 */
+    void drawGlowBillboard(Matrix4f mat, float cx3d, float cy3d, float cz3d,
+                            float worldR, float alpha, float cr, float cg, float cb) {
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
-        bb.addVertex(mat, sx, sy, 0).setColor(cr, cg, cb, alpha);
+        bb.addVertex(mat, cx3d, cy3d, cz3d).setColor(cr, cg, cb, alpha);
         int seg = 56;
         for (int j = 0; j <= seg; j++) {
             float a = (float) (Math.PI * 2 * j / seg);
-            bb.addVertex(mat, sx + (float) Math.cos(a) * outerR, sy + (float) Math.sin(a) * outerR, 0)
+            bb.addVertex(mat, cx3d + (float) Math.cos(a) * worldR,
+                              cy3d + (float) Math.sin(a) * worldR, cz3d)
                .setColor(cr, cg, cb, 0f);
         }
         BufferUploader.drawWithShader(bb.buildOrThrow());

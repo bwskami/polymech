@@ -69,11 +69,16 @@ void main() {
     vec3 nrm = normalize(vNrm);
     vec3 alb = vAlb;
 
-    // 恒星：自发光 + 边缘昏暗
+    // 恒星：自身就是光源，输出 HDR 亮度 —— 中心灼白，边缘暖橙
+    // framebuffer 会 clamp 到 [0,1]，但中心的过曝白 → 边缘的暖色
+    // 自然形成「发光」视觉，不依赖任何外部光晕圆盘
     if (IsSun > 0.5) {
         float limbDot = max(0.0, dot(nrm, ViewDir));
-        float limb = 0.5 + 0.5 * pow(limbDot, 1.4);
-        fragColor = vec4(alb * limb, 1.0);
+        // 边缘衰减：edges dim，center blazing
+        float limb = 0.3 + 0.7 * pow(limbDot, 0.8);
+        // HDR 亮度：中心输出 ~3.5x，被 clamp 后灼白
+        float brightness = 1.0 + 2.5 * pow(limbDot, 1.5);
+        fragColor = vec4(alb * limb * brightness, 1.0);
         return;
     }
 

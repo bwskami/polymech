@@ -382,6 +382,8 @@ public class SolarSystemView extends UIElement {
         RenderSystem.depthMask(false);
         for (RenderTask t : tasks) if (!t.type.equals("BASE") && !t.type.equals("CLOUD") && !t.type.equals("TECH")) drawLayer(idMat, t, cosY, sinY, cosX, sinX, focal, cx, cy);
         RenderSystem.depthMask(false);
+        // ── 3D 恒星光晕：在透视投影 + 深度检测下绘制，行星自然遮挡 ──
+        drawSunGlow(idMat);
         boolean hasWireframe = false;
         boolean hasTech = false;
         for (PlanetLayer l : solarSystem.get(focalIndex).layers()) {
@@ -413,7 +415,6 @@ public class SolarSystemView extends UIElement {
         RenderSystem.setProjectionMatrix(oldProj, VertexSorting.ORTHOGRAPHIC_Z);
         RenderSystem.disableDepthTest(); RenderSystem.depthMask(false);
         mvs.popMatrix(); RenderSystem.applyModelViewMatrix(); RenderSystem.setShaderColor(1, 1, 1, 1);
-        drawSunGlow(idMat);
         // drawLabels 暂时禁用，后续做附加UI时再启用
 
         // FPS
@@ -451,11 +452,7 @@ public class SolarSystemView extends UIElement {
         orbitalDrawer.drawSunGlow(mat);
     }
 
-    /** 屏幕空间环形渐变光晕（TRIANGLE_FAN：中心实色 → 边缘透明）。 */
-    private void drawGlowFan(Matrix4f mat, float sx, float sy, float outerR,
-                             float alpha, float cr, float cg, float cb) {
-        orbitalDrawer.drawGlowFan(mat, sx, sy, outerR, alpha, cr, cg, cb);
-    }
+
 
     private void drawOrbitalRings(Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
         orbitalDrawer.drawOrbitalRings(mat, cosY, sinY, cosX, sinX, focal, cx, cy);
