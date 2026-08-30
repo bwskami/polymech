@@ -44,6 +44,7 @@ public class SolarSystemView extends UIElement {
     private boolean dragging;
     private int lastMX, lastMY;
     private long lastNano = System.nanoTime();
+    private double fpsSmooth = 60.0;
     private int focalIndex = 3;
     private final float[][][] faceColors;
     /** 聚焦星球的细分光照网格（面内细分：保地块、平滑光照）及 子三角->原地块 映射。 */
@@ -307,6 +308,7 @@ public class SolarSystemView extends UIElement {
         lastNano = now;
         if (dt > 0.1f) dt = 0.1f;
         simTime += dt;
+        fpsSmooth = fpsSmooth * 0.9 + (dt > 0 ? 1.0 / dt : 0) * 0.1;
         float[] wp = solarSystem.worldPos(focalIndex, simTime);
         camera.ensureMinDist(minDistForFocal());
         // 科技层/网格层随最近距离淡入淡出
@@ -404,6 +406,10 @@ public class SolarSystemView extends UIElement {
         mvs.popMatrix(); RenderSystem.applyModelViewMatrix(); RenderSystem.setShaderColor(1, 1, 1, 1);
         drawSunGlow(idMat);
         // drawLabels 暂时禁用，后续做附加UI时再启用
+
+        // FPS
+        var font = Minecraft.getInstance().font;
+        g.drawString(font, "FPS: " + (int) fpsSmooth, vx + 4, vy + 4, 0xFFFFFF00);
     }
     private void drawStarfield(GuiGraphics g, int vx, int vy, int vw, int vh) {
         // TODO: 加载天空盒贴图后替换
@@ -1086,7 +1092,7 @@ public class SolarSystemView extends UIElement {
             for (int k = 0; k < fv.length; k++) {
                 float vs = shadowModel.hasShadow(t.pi)
                         ? shadowModel.occlusion(t.pi, mesh.vertices[fv[k]], t.layerR, sc, ss, currentTilt, simTime) : 0;
-                float sunF = isStar ? 1f : lighting.intensity() * (1f - vs);
+                float sunF = isStar ? 1f : lighting.intensity() * (1f - vs * sunDot);
                 vAlpha[k] = isStar ? rim * 0.55f : rim * sunF * (0.12f + 0.62f * sunLift);
             }
             if (vAlpha[0] < 0.003f && vAlpha[1] < 0.003f && vAlpha[2] < 0.003f) continue;
