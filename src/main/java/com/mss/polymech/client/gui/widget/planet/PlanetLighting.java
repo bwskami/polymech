@@ -15,19 +15,20 @@ package com.mss.polymech.client.gui.widget.planet;
 public final class PlanetLighting {
     /** 环境光强度。 */
     public static final float AMBIENT = 0.18f;
-    /** 暗部底色（统一由本模型决定，不再是各图层各写一份）。 */
-    public static final float DARK_R = 0.10f;
-    public static final float DARK_G = 0.12f;
-    public static final float DARK_B = 0.16f;
     /** 高光参数。 */
     private static final float SPEC_POWER = 90f;
     private static final float SPEC_STRENGTH = 0.10f;
+
     /**
-     * 入射光色（金色暖光）。G、B 只降不升——乘法混色下
-     * 蓝/青表面受光只会变暖变深，绝不会凭空加绿。
-     * 红通道保持 1.0 以提亮暖部。
+     * 乘法光照的光源色 —— 受光面被染成"光的颜色"，绝不往表面加色。
+     * <p>
+     * 为什么用乘法（参考 Mindustry planet.frag：{@code color *= diffuse + ambient}）：
+     * 加色会把表面本色污染掉（蓝面+黄光→绿），而乘法只是让表面按光的光谱
+     * 重新加权，蓝面×暖白仍是蓝——色相永远不会被扭转到物理上不可能的颜色。
      */
-    private static final float SUN_R = 1.00f, SUN_G = 0.90f, SUN_B = 0.74f;
+    private static final float SUN_R = 1.00f, SUN_G = 0.45f, SUN_B = 0.08f; // 测试：极端暖橙红
+    /** 环境光色：背光面被微弱偏冷的天光染色（地球照片暗面偏蓝的原因）。 */
+    private static final float AMB_R = 0.30f, AMB_G = 0.55f, AMB_B = 1.40f; // 测试：极端冷蓝
 
     private final BounceLightModel bounceModel = new BounceLightModel();
     private float dirX, dirY, dirZ = 1f;
@@ -170,32 +171,57 @@ public final class PlanetLighting {
     }
 
     /**
-     * 统一的颜色合成：albedo 与光照结果混合，输出到 outR/outG/outB（0..1）。
-     * 这是全局唯一的一套表面着色公式。
+     * 统一的颜色合成：乘法有色光照（Mindustry planet.frag 同款原理）。
+     * <p>
+     * <pre>
+     * final = albedo × lightAmount × lightColor + specular
+     * </pre>
+     * <ul>
+     *   <li><b>lightAmount</b>（标量）：受光程度 = 直射 + 自反射 + 母星反照，
+     *       映射到 [AMBIENT, 1+]，只控制明度。</li>
+     *   <li><b>lightColor</b>（RGB）：光的颜色——受光面按太阳暖白染色，
+     *       背光面按冷天光染色。乘法保证色相只会向光色方向自然偏移，
+     *       绝不会出现"蓝面变绿"这类加色污染。</li>
+     *   <li><b>specular</b>：镜面反射物理上反射的是光源本色（白），故加色合理。</li>
+     * </ul>
      */
+    /**
+     * 光的颜色：按受光程度在冷天光(AMB)与太阳暖金(SUN)之间插值。
+     * <p>单一来源，供 {@link #colorize} 与云层/其它图层共用。
+     *
+     * @param lit 受光程度 0(纯背光)..1+(正对光)
+     * @param out 输出 RGB 光色
+     */
+    public void lightColor(float lit, float[] out) {
+        float t = clamp(lit, 0f, 1f);
+        out[0] = AMB_R + (SUN_R - AMB_R) * t;
+        out[1] = AMB_G + (SUN_G - AMB_G) * t;
+        out[2] = AMB_B + (SUN_B - AMB_B) * t;
+    }
+
     public void colorize(float[] albedo, SurfaceLight sl, float[] out) {
-        // ── 亮度标量：把"增亮"全部汇成一个不带颜色的数，亮度不扰色相 ──
-        // 反射光（母星反照）与自反射都按标量并入，不再按通道加暖
-        float lum = sl.direct + sl.bounce + sl.reflected * 0.5f;
-        lum = Math.min(lum, 1.0f);
+        // ---- 受光程度（标量）：直射 + 自反射 + 母星反照 ----
+        float lit = clamp(sl.direct + sl.bounce + sl.reflected * 0.6f, 0f, 1.4f);
+        // 明度：暗面保底 AMBIENT，受光面趋向全亮（过曝余量收小，避免冲白）
+        float amount = AMBIENT + (1f - AMBIENT) * Math.min(lit, 1f)
+                     + Math.max(0f, lit - 1f) * 0.22f;
 
-        // ── 受光基色：albedo × 亮度 × 光色（乘法混色）──
-        // 乘法只在表面自身反射波段内重新分配，造不出新色相；
-        // 光色无绿色分量 → 蓝色表面受光仍是蓝，不会变绿。
-        float r = albedo[0] * lum * SUN_R;
-        float g = albedo[1] * lum * SUN_G;
-        float b = albedo[2] * lum * SUN_B;
+        // ---- 光色：背光=冷天光 → 受光=太阳暖金（内联，零分配） ----
+        float tt = clamp(lit, 0f, 1f);
+        float lr = AMB_R + (SUN_R - AMB_R) * tt;
+        float lg = AMB_G + (SUN_G - AMB_G) * tt;
+        float lb = AMB_B + (SUN_B - AMB_B) * tt;
 
-        // ── 暗部冷色（仅在 lum→0 时生效，物理上是星光/天光，偏冷合理）──
-        float inv = 1f - lum;
-        r += DARK_R * inv + sl.shadowBlue * 0.20f;
-        g += DARK_G * inv + sl.shadowBlue * 0.30f;
-        b += DARK_B * inv + sl.shadowBlue;
+        // ---- 乘法着色：色相只随光色自然偏移，永不受污染 ----
+        float r = albedo[0] * amount * lr;
+        float g = albedo[1] * amount * lg;
+        float b = albedo[2] * amount * lb;
 
-        // ── 边缘点缀（晨昏线暖光/背光冷光）与白色高光 ──
-        r += 0.62f * sl.rimWarm + 0.04f * sl.rimCool + sl.specular;
-        g += 0.26f * sl.rimWarm + 0.08f * sl.rimCool + sl.specular;
-        b += 0.09f * sl.rimWarm + 0.20f * sl.rimCool + sl.specular;
+        // 镜面高光：反射光源本色（白），加色符合物理
+        r += sl.specular;
+        g += sl.specular;
+        b += sl.specular;
+
         out[0] = Math.min(1f, r);
         out[1] = Math.min(1f, g);
         out[2] = Math.min(1f, b);

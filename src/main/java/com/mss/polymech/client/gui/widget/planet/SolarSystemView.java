@@ -648,8 +648,13 @@ public class SolarSystemView extends UIElement {
             float[] vR = new float[fv.length], vG = new float[fv.length], vB = new float[fv.length];
             for (int k = 0; k < fv.length; k++) {
                 int vi = fv[k];
-                sl.set(directV[vi], specV[vi], rimWV[vi], rimCV[vi], shadowBV[vi], reflV[vi]);
-                lighting.colorize(alb, sl, colTmp);
+                if (isSun) {
+                    // 恒星自发光：不被光色二次染色，直接用自身 albedo（临边昏暗另行乘上）
+                    colTmp[0] = alb[0]; colTmp[1] = alb[1]; colTmp[2] = alb[2];
+                } else {
+                    sl.set(directV[vi], specV[vi], rimWV[vi], rimCV[vi], shadowBV[vi], reflV[vi]);
+                    lighting.colorize(alb, sl, colTmp);
+                }
                 float limb = isSun ? limbV[vi] : 1f;
                 vR[k] = colTmp[0] * limb; vG[k] = colTmp[1] * limb; vB[k] = colTmp[2] * limb;
                 ccR += vR[k]; ccG += vG[k]; ccB += vB[k];
@@ -720,16 +725,21 @@ public class SolarSystemView extends UIElement {
             float cloudShadow = shadowModel.hasShadow(t.pi)
                     ? shadowModel.occlusion(t.pi, mesh.vertices[mesh.faces[f][0]], t.layerR, sc, ss, currentTilt, simTime) : 0;
             float ambC = lighting.ambient();
-            float shade = ambC + (1 - ambC) * lighting.direct(ndotlC, cloudShadow);
+            float directC = lighting.direct(ndotlC, cloudShadow);
+            float shade = ambC + (1 - ambC) * directC;
             float fa = 0.55f * shade;
+            // 云色吃光色：受光云偏暖金，背光云偏冷蓝（乘法，色相安全）
+            float[] lcC = new float[3];
+            lighting.lightColor(directC, lcC);
+            float cR = 0.96f * lcC[0], cG = 0.97f * lcC[1], cB = 1.0f * lcC[2];
             float fcx = 0, fcy = 0, fcz = 0;
             for (int k = 0; k < fv.length; k++) { fcx += cxs[k]; fcy += cys[k]; fcz += czs[k]; }
             fcx /= fv.length; fcy /= fv.length; fcz /= fv.length;
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                bb.addVertex(mat, fcx, fcy, fcz).setColor(0.95f, 0.97f, 1.0f, fa);
-                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(1f, 1f, 1f, fa);
-                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(1f, 1f, 1f, fa);
+                bb.addVertex(mat, fcx, fcy, fcz).setColor(cR * 0.92f, cG * 0.92f, cB * 0.92f, fa);
+                bb.addVertex(mat, cxs[k], cys[k], czs[k]).setColor(cR, cG, cB, fa);
+                bb.addVertex(mat, cxs[a1], cys[a1], czs[a1]).setColor(cR, cG, cB, fa);
             }
             drew = true;
         }
