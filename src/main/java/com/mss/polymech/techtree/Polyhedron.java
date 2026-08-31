@@ -361,6 +361,11 @@ int[][] F = new int[][]{
      * @param roughness 0..1，0=接近正二十面体，1=极度不规则
      */
     public static Polyhedron rock(long seed, float roughness) {
+        return rock(seed, roughness, 1);
+    }
+
+    /** subdiv=0 低模（20 面），subdiv=1 高模（80 面）。 */
+    public static Polyhedron rock(long seed, float roughness, int subdiv) {
         float t = (float) ((1 + Math.sqrt(5)) / 2);
         float[][] base = {
             {-1, t, 0}, {1, t, 0}, {-1, -t, 0}, {1, -t, 0},
@@ -377,19 +382,21 @@ int[][] F = new int[][]{
         };
         List<int[]> faces = new ArrayList<>();
         for (int[] f : baseFaces) faces.add(f.clone());
-        // 细分一次 → 80 三角面，每面都是小三角形，棱角分明
-        Map<Long, Integer> midCache = new HashMap<>();
-        List<int[]> subdiv = new ArrayList<>();
-        for (int[] tri : faces) {
-            int a = midpoint(tri[0], tri[1], verts, midCache);
-            int b = midpoint(tri[1], tri[2], verts, midCache);
-            int c = midpoint(tri[2], tri[0], verts, midCache);
-            subdiv.add(new int[]{tri[0], a, c});
-            subdiv.add(new int[]{tri[1], b, a});
-            subdiv.add(new int[]{tri[2], c, b});
-            subdiv.add(new int[]{a, b, c});
+        if (subdiv > 0) {
+            // 细分一次 → 80 三角面，每面都是小三角形，棱角分明
+            Map<Long, Integer> midCache = new HashMap<>();
+            List<int[]> subdivList = new ArrayList<>();
+            for (int[] tri : faces) {
+                int a = midpoint(tri[0], tri[1], verts, midCache);
+                int b = midpoint(tri[1], tri[2], verts, midCache);
+                int c = midpoint(tri[2], tri[0], verts, midCache);
+                subdivList.add(new int[]{tri[0], a, c});
+                subdivList.add(new int[]{tri[1], b, a});
+                subdivList.add(new int[]{tri[2], c, b});
+                subdivList.add(new int[]{a, b, c});
+            }
+            faces = subdivList;
         }
-        faces = subdiv;
         // 随机拉扯每个顶点的径向距离
         long rng = seed;
         for (int i = 0; i < verts.size(); i++) {

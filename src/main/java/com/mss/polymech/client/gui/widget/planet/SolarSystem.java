@@ -27,6 +27,9 @@ public final class SolarSystem {
     }
 
     public List<Planet> planets() { return planets; }
+    /** Reusable output for worldPosTo (avoids per-call allocation). */
+    private final float[] _wpOut = new float[3];
+
     public int size() { return planets.size(); }
     public Planet get(int i) { return planets.get(i); }
 
@@ -43,6 +46,23 @@ public final class SolarSystem {
             x += pp[0]; z += pp[2];
         }
         return new float[]{x, 0, z};
+    }
+
+    /** Zero-allocation version of worldPos: writes result into out[0..2]. */
+    public float[] worldPosTo(float[] out, int i, float t) {
+        Planet p = planets.get(i);
+        float x = 0, z = 0;
+        if (p.orbitalRadius() > 0) {
+            float angle = p.orbitalSpeed() * t + phases[i];
+            x = p.orbitalRadius() * (float) Math.cos(angle);
+            z = p.orbitalRadius() * (float) Math.sin(angle);
+        }
+        if (p.parentId() >= 0) {
+            float[] parentWP = worldPosTo(out, p.parentId(), t);
+            x += parentWP[0]; z += parentWP[2];
+        }
+        out[0] = x; out[1] = 0; out[2] = z;
+        return out;
     }
 
     public int indexOf(String name) {

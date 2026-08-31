@@ -9,19 +9,48 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.GameRenderer;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import com.mss.polymech.techtree.Polyhedron;
+import com.mojang.blaze3d.vertex.VertexBuffer;
+import net.minecraft.client.renderer.ShaderInstance;
 
 /**
  * 轨道环、小行星带、Kuiper 带、恒星光晕。
  */
 class OrbitalDrawer {
     final SolarSystemView v;
+    // Reusable arrays for drawOrbitalRings (avoids per-planet per-frame allocation)
+    // Reusable array for drawScatteredRocks face vertices (avoids per-face per-rock allocation)
+    /** Reusable vertex array for scattered rocks (max 6 verts x 3 components). */
+    private final float[] rockVtx = new float[18];
+    /** Reusable ring arrays (segments+1+1 entries). */
+    private final float[] ringPx = new float[258], ringPy = new float[258], ringPz = new float[258];
+    private final boolean[] ringValid = new boolean[258];
+    private final float[] ringLx = new float[258], ringLy = new float[258];
+    private final float[] ringRx = new float[258], ringRy = new float[258];
+    // ---- VBO for belt bands (static geometry, uploaded once per config) ----
+    private VertexBuffer beltBandVBO1, beltBandVBO2;
+    // ---- Rock LOD meshes ----
+    private Polyhedron rockHighMesh, rockLowMesh;
+    // ---- Rock instancing ----
+    private RockInstancedRenderer rockInstanced;
 
-    OrbitalDrawer(SolarSystemView v) { this.v = v; }
+    OrbitalDrawer(SolarSystemView v) {
+        this.v = v;
+        this.rockInstanced = new RockInstancedRenderer(v);
+    }
+
+    /** 释放环带 VBO。 */
+    void closeVBOs() {
+        if (beltBandVBO1 != null) beltBandVBO1.close();
+        if (beltBandVBO2 != null) beltBandVBO2.close();
+        beltBandVBO1 = beltBandVBO2 = null;
+        rockInstanced.close();
+    }
 
     void drawSunGlow(Matrix4f mat) {
         int sunIdx = 0;
-        float[] pos = v.solarSystem.worldPos(sunIdx, v.simTime);
+        float[] pos = v.solarSystem.worldPosTo(v._tmpWp1, sunIdx, v.simTime);
         float dwx = pos[0] - v.camera.focalX(), dwz = pos[2] - v.camera.focalZ();
         float[] camPos = new float[3];
         v.camera.worldToCamera(camPos, 0, 0, 0, dwx, dwz);
@@ -55,26 +84,27 @@ class OrbitalDrawer {
     }
 
     void drawOrbitalRings(Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
-        // 轨道：用连续的 TRIANGLE_STRIP 环带，每点沿切线垂直方向偏移，横截面连续一致
-        RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc(); RenderSystem.depthMask(false); RenderSystem.enableDepthTest();
+        // 轨道：用连续的 TRIANGLE_STRIP 环带，每点沿切线垂直方向偏移（相机空间），横截面连续一致
+        SolarSystemView.setupTransparentBlend();
         int segments = 256;
         for (int pi = 0; pi < v.solarSystem.size(); pi++) {
             Planet p = v.solarSystem.get(pi);
             float orbR = p.orbitalRadius();
             if (orbR < 0.01f) continue;
             float alpha = (pi == v.focalIndex) ? 0.90f : 0.55f;
-            float[] rgb = (pi == v.focalIndex) ? new float[]{0.50f, 0.78f, 1.0f} : new float[]{0.45f, 0.62f, 0.85f};
+            float orbCr, orbCg, orbCb;
+            if (pi == v.focalIndex) { orbCr = 0.50f; orbCg = 0.78f; orbCb = 1.0f; } else { orbCr = 0.45f; orbCg = 0.62f; orbCb = 0.85f; }
             // 线宽随轨道半径增大，保证远近轨道在屏幕上都有 1~3px
             boolean isMoon = p.parentId() >= 0;
-              float hw = isMoon ? (0.03f + orbR * 0.0004f) : (0.06f + orbR * 0.0006f);
+            float hw = isMoon ? (0.03f + orbR * 0.0004f) : (0.06f + orbR * 0.0006f);
             // 预计算相机空间点（闭合环：多算两个点用于首尾衔接）
             int n = segments + 1;
-            float[] px = new float[n + 1], py = new float[n + 1], pz = new float[n + 1];
-            boolean[] valid = new boolean[n + 1];
+            float[] px = ringPx, py = ringPy, pz = ringPz;
+            boolean[] valid = ringValid;
             // 卫星轨道围绕母星，行星轨道围绕太阳
             float orbitCx = 0, orbitCz = 0;
             if (p.parentId() >= 0) {
-                float[] pp = v.solarSystem.worldPos(p.parentId(), v.simTime);
+                float[] pp = v.solarSystem.worldPosTo(v._tmpWp1, p.parentId(), v.simTime);
                 orbitCx = pp[0]; orbitCz = pp[2];
             }
             for (int i = 0; i < n; i++) {
@@ -92,7 +122,7 @@ class OrbitalDrawer {
             // 闭合：第 n 个点 = 第 0 个点
             px[n] = px[0]; py[n] = py[0]; pz[n] = pz[0]; valid[n] = valid[0];
             // 预计算每个点的左右偏移（切线在相机空间 xy 平面的垂直方向）
-            float[] lx = new float[n + 1], ly = new float[n + 1], rx2 = new float[n + 1], ry2 = new float[n + 1];
+            float[] lx = ringLx, ly = ringLy, rx2 = ringRx, ry2 = ringRy;
             for (int i = 0; i <= n; i++) {
                 int prev = (i == 0) ? n - 1 : i - 1;
                 int next = (i == n) ? 1 : i + 1;
@@ -111,28 +141,22 @@ class OrbitalDrawer {
                 if (end > start) {
                     BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
                     for (int i = start; i <= end; i++) {
-                        bb.addVertex(mat, lx[i], ly[i], pz[i]).setColor(rgb[0], rgb[1], rgb[2], alpha);
-                        bb.addVertex(mat, rx2[i], ry2[i], pz[i]).setColor(rgb[0], rgb[1], rgb[2], alpha);
+                        bb.addVertex(mat, lx[i], ly[i], pz[i]).setColor(orbCr, orbCg, orbCb, alpha);
+                        bb.addVertex(mat, rx2[i], ry2[i], pz[i]).setColor(orbCr, orbCg, orbCb, alpha);
                     }
                     BufferUploader.drawWithShader(bb.buildOrThrow());
                 }
                 start = end + 1;
             }
         }
-        RenderSystem.depthMask(true);
+        SolarSystemView.teardownTransparent();
     }
     /** Compute moon shadow on planet surface vertex. Returns 0 (no shadow) to 1 (full shadow). */
     /** Quick check: does planet pi have any shadow-casting body (moon or parent)? */
     /** Draw a translucent flat ring band (background layer for belts) */
-    void drawBeltBand(Matrix4f mat, float innerR, float outerR, int bands,
-            float cosY, float sinY, float cosX, float sinX,
+    private VertexBuffer buildBeltBandVBO(float innerR, float outerR, int bands,
             float cr, float cg, float cb, float baseAlpha) {
-        RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc();
-        RenderSystem.depthMask(false); RenderSystem.enableDepthTest();
-        float savedTilt = v.currentTilt; v.currentTilt = 0;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        float[] c00 = new float[3], c01 = new float[3], c11 = new float[3], c10 = new float[3];
-        float[] p00 = new float[3], p01 = new float[3], p11 = new float[3], p10 = new float[3];
         int segs = 128;
         for (int b = 0; b < bands; b++) {
             float t0 = (float) b / bands, t1 = (float) (b + 1) / bands;
@@ -144,39 +168,60 @@ class OrbitalDrawer {
                 float a1 = (float) Math.PI * 2 * (s + 1) / segs;
                 float x0 = (float) Math.cos(a0), z0 = (float) Math.sin(a0);
                 float x1 = (float) Math.cos(a1), z1 = (float) Math.sin(a1);
-                float ddx = -v.camera.focalX(), ddz = -v.camera.focalZ();
-                p00[0] = x0 * r0; p00[1] = 0; p00[2] = z0 * r0;
-                p01[0] = x0 * r1; p01[1] = 0; p01[2] = z0 * r1;
-                p11[0] = x1 * r1; p11[1] = 0; p11[2] = z1 * r1;
-                p10[0] = x1 * r0; p10[1] = 0; p10[2] = z1 * r0;
-                v.camera.cameraTo(c00, p00, 1, ddx, ddz, 1, 0, v.currentTilt);
-                v.camera.cameraTo(c01, p01, 1, ddx, ddz, 1, 0, v.currentTilt);
-                v.camera.cameraTo(c11, p11, 1, ddx, ddz, 1, 0, v.currentTilt);
-                v.camera.cameraTo(c10, p10, 1, ddx, ddz, 1, 0, v.currentTilt);
-                if (c00[2] > 0 && c01[2] > 0 && c11[2] > 0 && c10[2] > 0) continue;
-                bb.addVertex(mat, c00[0], c00[1], c00[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c01[0], c01[1], c01[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c11[0], c11[1], c11[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c00[0], c00[1], c00[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c11[0], c11[1], c11[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c10[0], c10[1], c10[2]).setColor(cr, cg, cb, alpha);
+                bb.addVertex(v.idMat, x0 * r0, 0, z0 * r0).setColor(cr, cg, cb, alpha);
+                bb.addVertex(v.idMat, x0 * r1, 0, z0 * r1).setColor(cr, cg, cb, alpha);
+                bb.addVertex(v.idMat, x1 * r1, 0, z1 * r1).setColor(cr, cg, cb, alpha);
+                bb.addVertex(v.idMat, x0 * r0, 0, z0 * r0).setColor(cr, cg, cb, alpha);
+                bb.addVertex(v.idMat, x1 * r1, 0, z1 * r1).setColor(cr, cg, cb, alpha);
+                bb.addVertex(v.idMat, x1 * r0, 0, z1 * r0).setColor(cr, cg, cb, alpha);
             }
         }
-        var rendered = bb.build();
-        if (rendered != null) BufferUploader.drawWithShader(rendered);
-        v.currentTilt = savedTilt;
-        RenderSystem.depthMask(true);
+        VertexBuffer vb = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        vb.bind();            // CRITICAL: bind own VAO so upload sets attribs on it, not the shared immediate VAO
+        vb.upload(bb.buildOrThrow());
+        VertexBuffer.unbind(); // restore VAO 0; next BufferUploader re-binds its own immediate buffer
+        return vb;
     }
+    void drawBeltBand(Matrix4f mat, float innerR, float outerR, int bands,
+            float cosY, float sinY, float cosX, float sinX,
+            float cr, float cg, float cb, float baseAlpha) {
+        SolarSystemView.setupTransparentBlend();
+        float dwx = -v.camera.focalX(), dwz = -v.camera.focalZ();
+        v.buildTransformMatrix(dwx, dwz, 1, 0, 0, v.mvTmp);
+        if (innerR < 100f) {
+            if (beltBandVBO1 == null)
+                beltBandVBO1 = buildBeltBandVBO(innerR, outerR, bands, cr, cg, cb, baseAlpha);
+        } else {
+            if (beltBandVBO2 == null)
+                beltBandVBO2 = buildBeltBandVBO(innerR, outerR, bands, cr, cg, cb, baseAlpha);
+        }
+        VertexBuffer vb = (innerR < 100f) ? beltBandVBO1 : beltBandVBO2;
+        ShaderInstance shader = GameRenderer.getPositionColorShader();
+        org.joml.Matrix4f projMat = RenderSystem.getProjectionMatrix();
+        vb.bind();            // CRITICAL: bind own VAO before draw
+        vb.drawWithShader(v.mvTmp, projMat, shader);
+        VertexBuffer.unbind(); // restore VAO 0 so following BufferUploader draws re-bind correctly
+        SolarSystemView.teardownTransparent();
+    }
+
     /** Render 3D rock polyhedra scattered in a belt — filled faces + wireframe edges */
     /** Render 3D rock polyhedra scattered in a belt — 真3D: cameraTo() + GPU透视投影 */
     void drawScatteredRocks(Matrix4f mat, float[][] particles,
             float cosY, float sinY, float cosX, float sinX) {
         RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc();
         RenderSystem.depthMask(true); RenderSystem.enableDepthTest();
+        if (rockInstanced.ready() && PlanetShaders.rockShader() != null) {
+            rockInstanced.draw(particles);
+            RenderSystem.depthMask(true);
+            return;
+        }
         float savedTilt = v.currentTilt; v.currentTilt = 0;
-        // mesh selected per-rock below
-        float[] cam = new float[3];
-        // 第一遍：填充面
+        float fX = v.camera.focalX(), fZ = v.camera.focalZ();
+        // GPU transform: build camera modelview once, send world-space coords
+        v.buildTransformMatrix(-fX, -fZ, 1, 0, 0, v.mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(v.mvTmp);
+        RenderSystem.applyModelViewMatrix();
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (int i = 0; i < particles.length; i++) {
             float[] p = particles[i];
@@ -184,21 +229,26 @@ class OrbitalDrawer {
             float radius = p[1], yPos = p[2], sz = p[3];
             float tiltA = p[4], tiltB = p[5];
             float cr = p[6], cg = p[7], cb = p[8];
-            int seed = (int) p[8]; Polyhedron mesh = v.rockCache.getOrDefault((long)seed, null);
-            if (mesh == null) { mesh = Polyhedron.rock((long)seed, 0.8f); v.rockCache.put((long)seed, mesh); }
-            float dwx = (float) Math.cos(angle) * radius - v.camera.focalX();
-            float dwz = (float) Math.sin(angle) * radius - v.camera.focalZ();
-            v.lighting.updateForWorldPos(dwx + v.camera.focalX(), dwz + v.camera.focalZ(), cosY, sinY, cosX, sinX);
+            boolean low = (particles == v.kuiperPos) || (sz < 0.18f);
+            Polyhedron mesh;
+            if (low) {
+                if (rockLowMesh == null) rockLowMesh = Polyhedron.rock(0L, 0.8f, 0);
+                mesh = rockLowMesh;
+            } else {
+                if (rockHighMesh == null) rockHighMesh = Polyhedron.rock(0L, 0.8f, 1);
+                mesh = rockHighMesh;
+            }
+            float wxCenter = (float) Math.cos(angle) * radius;
+            float wzCenter = (float) Math.sin(angle) * radius;
+            v.lighting.updateForWorldPos(wxCenter, wzCenter, cosY, sinY, cosX, sinX);
             float cosTA = (float) Math.cos(tiltA), sinTA = (float) Math.sin(tiltA);
             float cosTB = (float) Math.cos(tiltB), sinTB = (float) Math.sin(tiltB);
             for (int f = 0; f < mesh.faces.length; f++) {
                 int[] fv = mesh.faces[f];
-                // 计算面法线用于光照
                 float fnx = 0, fny = 0, fnz = 0;
                 for (int vi : fv) { fnx += mesh.vertices[vi][0]; fny += mesh.vertices[vi][1]; fnz += mesh.vertices[vi][2]; }
                 float fnLen = (float) Math.sqrt(fnx*fnx + fny*fny + fnz*fnz);
                 if (fnLen > 1e-5f) { fnx /= fnLen; fny /= fnLen; fnz /= fnLen; }
-                // 碎石自转
                 float rfnx = fnx * cosTA - fny * sinTA;
                 float rfny = fnx * sinTA + fny * cosTA;
                 float rfnz = fnz;
@@ -206,41 +256,37 @@ class OrbitalDrawer {
                 float nwy = rfny;
                 float nwz = -rfnx * sinTB + rfnz * cosTB;
                 float ndotl = nwx * v.lighting.dirX() + nwy * v.lighting.dirY() + nwz * v.lighting.dirZ();
-                float ambR = v.lighting.ambient();
-                float lit = ambR + (1 - ambR) * v.lighting.direct(ndotl, 0);
+                float lit = v.lighting.ambient() + (1 - v.lighting.ambient()) * v.lighting.direct(ndotl, 0);
                 lit = Math.max(0.25f, lit);
                 float lr = cr * lit, lg = cg * lit, lb = cb * lit;
-                // 用 cameraTo() 投影每个顶点 — 跟行星完全一致的真3D管线
-                boolean behind = false;
-                float[] vsx = new float[fv.length], vsy = new float[fv.length], vsz = new float[fv.length];
-                for (int vk = 0; vk < fv.length; vk++) {
-                    float[] vtx = mesh.vertices[fv[vk]];
-                    // apply tiltA then tiltB
-                    float tlx = vtx[0] * sz, tly = vtx[1] * sz, tlz = vtx[2] * sz;
+                int n = Math.min(fv.length, 6);
+                float[] vtx = rockVtx;
+                for (int vk = 0; vk < n; vk++) {
+                    float[] ve = mesh.vertices[fv[vk]];
+                    float tlx = ve[0] * sz, tly = ve[1] * sz, tlz = ve[2] * sz;
                     float tlx2 = tlx * cosTA - tly * sinTA, tly2 = tlx * sinTA + tly * cosTA;
                     float flx = tlx2 * cosTB + tlz * sinTB;
                     float fly = tly2;
                     float flz = -tlx2 * sinTB + tlz * cosTB;
-                    // build a fake planet layer vertex for cameraTo()
-                    // cameraTo needs: v[0]=lx, v[1]=ly, v[2]=lz, layerR=1, dwx, dwz, sc=cos(rotAngle), ss=sin(rotAngle)
-                    float[] localV = { flx, fly + yPos, flz };
-                    v.camera.cameraTo(cam, localV, 1f, dwx, dwz, 1f, 0f, v.currentTilt);
-                    vsx[vk] = cam[0]; vsy[vk] = cam[1]; vsz[vk] = cam[2];
-                    if (cam[2] > -0.02f) behind = true;
+                    // World-space coords (GPU applies camera transform via modelview)
+                    vtx[vk*3]   = flx + wxCenter;
+                    vtx[vk*3+1] = fly + yPos;
+                    vtx[vk*3+2] = flz + wzCenter;
                 }
-                if (behind) continue;
-                for (int vi2 = 1; vi2 + 1 < fv.length; vi2++) {
-                    bb.addVertex(mat, vsx[0], vsy[0], vsz[0]).setColor(lr, lg, lb, 1f);
-                    bb.addVertex(mat, vsx[vi2], vsy[vi2], vsz[vi2]).setColor(lr, lg, lb, 1f);
-                    bb.addVertex(mat, vsx[vi2+1], vsy[vi2+1], vsz[vi2+1]).setColor(lr, lg, lb, 1f);
+                for (int vi2 = 1; vi2 + 1 < n; vi2++) {
+                    bb.addVertex(mat, vtx[0], vtx[1], vtx[2]).setColor(lr, lg, lb, 1f);
+                    bb.addVertex(mat, vtx[vi2*3], vtx[vi2*3+1], vtx[vi2*3+2]).setColor(lr, lg, lb, 1f);
+                    bb.addVertex(mat, vtx[(vi2+1)*3], vtx[(vi2+1)*3+1], vtx[(vi2+1)*3+2]).setColor(lr, lg, lb, 1f);
                 }
             }
         }
         var rendered = bb.build();
         if (rendered != null) BufferUploader.drawWithShader(rendered);
-
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
         v.currentTilt = savedTilt;
         RenderSystem.depthMask(true);
     }
+
 
 }

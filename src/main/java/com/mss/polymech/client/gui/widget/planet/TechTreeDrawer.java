@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
+import org.joml.Matrix4fStack;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,59 +26,58 @@ class TechTreeDrawer {
     TechTreeDrawer(SolarSystemView v) { this.v = v; }
 
     void drawTechMarkers(GuiGraphics g2, Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focalLength, float cx, float cy) {
-        // 与 PolyhedronView 一致：科技项用 3D 半透明面 + 亮边绘制在 TECH 层
         Planet fp = v.solarSystem.get(v.focalIndex);
-        // Unified: tech markers / wireframe / selection all use WIREFRAME's mesh+radius
         PlanetLayer gridL = gridLayer(fp);
         if (gridL == null) return;
         float gridR = gridL.radius();
         Polyhedron gridMesh = fp.resolveGeometry(gridL);
-        float[] wp = v.solarSystem.worldPos(v.focalIndex, v.simTime);
+        float[] wp = v.solarSystem.worldPosTo(v._tmpWp1, v.focalIndex, v.simTime);
         float dwx = wp[0] - v.camera.focalX(), dwz = wp[2] - v.camera.focalZ();
         float selfAngle = fp.resolveRotationSpeed(gridL) * v.simTime;
         float sc = (float) Math.cos(selfAngle), ss = (float) Math.sin(selfAngle);
         v.currentTilt = fp.axialTilt();
-
         if (v.overlayFade < 0.01f) return;
         List<TechNode> focalNodes = fp.techNodes();
         int count = Math.min(gridMesh.faces.length, focalNodes.size());
+        v.buildTransformMatrix(dwx, dwz, sc, ss, v.currentTilt, v.mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(v.mvTmp); RenderSystem.applyModelViewMatrix();
+        float ccx3 = v.mvTmp.m30(), ccy3 = v.mvTmp.m31(), ccz3 = v.mvTmp.m32();
+        float clen = (float) Math.sqrt(ccx3*ccx3+ccy3*ccy3+ccz3*ccz3);
+        if (clen > 1e-5f) { ccx3 /= clen; ccy3 /= clen; ccz3 /= clen; }
+        v.toLocalDir(v.mvTmp, -ccx3, -ccy3, -ccz3, v.viewLocal);
+        float R = gridR; float[][] vs = gridMesh.vertices;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         boolean drew = false;
         for (int f = 0; f < count; f++) {
             int[] fv = gridMesh.faces[f];
             int col = tierColor(focalNodes.get(f).tier());
-            float cr = ((col >> 16) & 0xFF) / 255f;
-            float cg = ((col >> 8) & 0xFF) / 255f;
-            float cb = (col & 0xFF) / 255f;
-            // 面顶点相机坐标
-            float[] px = new float[fv.length], py = new float[fv.length], pz = new float[fv.length];
-            float ccx = 0, ccy = 0, ccz = 0;
-            boolean behind = false;
-            for (int k = 0; k < fv.length; k++) {
-                float[] cam = v.camera.camera(gridMesh.vertices[fv[k]], gridR, dwx, dwz, sc, ss, v.currentTilt);
-                px[k] = cam[0]; py[k] = cam[1]; pz[k] = cam[2];
-                ccx += cam[0]; ccy += cam[1]; ccz += cam[2];
-                if (cam[2] > 0) behind = true;
-            }
-            if (behind) continue;
-            ccx /= fv.length; ccy /= fv.length; ccz /= fv.length;
-            // 半透明面
+            float cr = ((col >> 16) & 0xFF) / 255f, cg = ((col >> 8) & 0xFF) / 255f, cb = (col & 0xFF) / 255f;
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int k = 0; k < fv.length; k++) { fnx += vs[fv[k]][0]; fny += vs[fv[k]][1]; fnz += vs[fv[k]][2]; }
+            float fl = (float) Math.sqrt(fnx*fnx+fny*fny+fnz*fnz);
+            if (fl < 1e-6f) continue; fnx /= fl; fny /= fl; fnz /= fl;
+            if (fnx * v.viewLocal[0] + fny * v.viewLocal[1] + fnz * v.viewLocal[2] <= 0) continue;
+            float fcx = 0, fcy = 0, fcz = 0;
+            for (int k = 0; k < fv.length; k++) { fcx += vs[fv[k]][0]*R; fcy += vs[fv[k]][1]*R; fcz += vs[fv[k]][2]*R; }
+            fcx /= fv.length; fcy /= fv.length; fcz /= fv.length;
             float fa = 0.28f * v.overlayFade;
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                bb.addVertex(mat, ccx, ccy, ccz).setColor(cr, cg, cb, fa);
-                bb.addVertex(mat, px[k], py[k], pz[k]).setColor(cr, cg, cb, fa);
-                bb.addVertex(mat, px[a1], py[a1], pz[a1]).setColor(cr, cg, cb, fa);
+                bb.addVertex(mat, fcx, fcy, fcz).setColor(cr, cg, cb, fa);
+                bb.addVertex(mat, vs[fv[k]][0]*R, vs[fv[k]][1]*R, vs[fv[k]][2]*R).setColor(cr, cg, cb, fa);
+                bb.addVertex(mat, vs[fv[a1]][0]*R, vs[fv[a1]][1]*R, vs[fv[a1]][2]*R).setColor(cr, cg, cb, fa);
             }
-            // 亮边
-            float ea = 0.8f * v.overlayFade; float hw = 0.006f;
+            float ea = 0.8f * v.overlayFade; float hw = 0.01f;
             for (int k = 0; k < fv.length; k++) {
                 int a1 = (k + 1) % fv.length;
-                SolarSystemView.addQuad3D(bb, mat, px[k], py[k], pz[k], px[a1], py[a1], pz[a1], hw, cr, cg, cb, ea);
+                SolarSystemView.addQuad3DLocal(bb, mat, vs[fv[k]][0]*R, vs[fv[k]][1]*R, vs[fv[k]][2]*R,
+                    vs[fv[a1]][0]*R, vs[fv[a1]][1]*R, vs[fv[a1]][2]*R, hw, cr, cg, cb, ea);
             }
             drew = true;
         }
         if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
+        mvs.identity(); RenderSystem.applyModelViewMatrix();
     }
 
     PlanetLayer gridLayer(Planet p) {
@@ -85,100 +85,60 @@ class TechTreeDrawer {
         return null;
     }
 
+
     void drawTechHighlight(Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focalLength, float cx, float cy) {
-        int f;
-        if (v.hoveredTile >= 0) f = v.hoveredTile;
-        else if (v.selectedTile >= 0) f = v.selectedTile;
-        else f = -1;
-
-        long now = System.nanoTime();
-        float dt = (now - v.lastHighlightNano) / 1e9f;
-        v.lastHighlightNano = now;
-        if (dt > 0.1f) dt = 0.1f;
-
-        boolean active = (f >= 0);
+        int f; if (v.hoveredTile >= 0) f = v.hoveredTile; else if (v.selectedTile >= 0) f = v.selectedTile; else f = -1;
+        long now = System.nanoTime(); float dt = (now - v.lastHighlightNano) / 1e9f; v.lastHighlightNano = now;
+        if (dt > 0.1f) dt = 0.1f; boolean active = (f >= 0);
         if (active) { if (v.hoverStartNano == 0) v.hoverStartNano = now; } else v.hoverStartNano = 0;
         float elapsed = active ? (now - v.hoverStartNano) / 1e9f : 0f;
         float fadeIn = 1f - (float) Math.pow(1f - Math.min(1f, elapsed / 0.12f), 3);
         v.hoverAlpha += ((active ? fadeIn : 0f) - v.hoverAlpha) * Math.min(1f, dt * (active ? 18f : 8f));
         if (v.hoverAlpha < 0.005f) { v.hoverAlpha = 0; v.chaseFace = -1; v.chaseActive = false; return; }
         float a = v.hoverAlpha * (0.85f + 0.15f * (float) Math.sin(elapsed * 4.5f)) * v.overlayFade;
-
-        Planet fp = v.solarSystem.get(v.focalIndex);
-        v.currentTilt = fp.axialTilt();
-        PlanetLayer gridL = gridLayer(fp);
-        if (gridL == null) return;
-        float wireR = gridL.radius();
-        Polyhedron mesh = fp.resolveGeometry(gridL);
-
+        Planet fp = v.solarSystem.get(v.focalIndex); v.currentTilt = fp.axialTilt();
+        PlanetLayer gridL = gridLayer(fp); if (gridL == null) return;
+        float wireR = gridL.radius(); Polyhedron mesh = fp.resolveGeometry(gridL);
         if (f >= 0 && f != v.chaseFace) {
             boolean firstEver = (v.chaseFace == -1);
             v.chaseFace = f; v.chaseActive = true; v.chaseFaceVerts = mesh.faces[f].length;
             int[] fv = mesh.faces[f];
             if (firstEver) {
-                for (int i = 0; i < fv.length; i++) {
-                    v.chaseWx[i] = mesh.vertices[fv[i]][0];
-                    v.chaseWy[i] = mesh.vertices[fv[i]][1];
-                    v.chaseWz[i] = mesh.vertices[fv[i]][2];
-                }
+                for (int i = 0; i < fv.length; i++) { v.chaseWx[i] = mesh.vertices[fv[i]][0]; v.chaseWy[i] = mesh.vertices[fv[i]][1]; v.chaseWz[i] = mesh.vertices[fv[i]][2]; }
                 v.chaseWMx = 0; v.chaseWMy = 0; v.chaseWMz = 0;
                 for (int vi : fv) { v.chaseWMx += mesh.vertices[vi][0]; v.chaseWMy += mesh.vertices[vi][1]; v.chaseWMz += mesh.vertices[vi][2]; }
                 v.chaseWMx /= fv.length; v.chaseWMy /= fv.length; v.chaseWMz /= fv.length;
                 if (fv.length < 6) { v.chaseWx[5] = v.chaseWMx; v.chaseWy[5] = v.chaseWMy; v.chaseWz[5] = v.chaseWMz; }
-                v.chaseActive = false;
-            }
-        }
+                v.chaseActive = false; } }
         if (f < 0) { v.chaseFace = -1; v.chaseActive = false; return; }
         if (v.chaseFace < 0) return;
-
-        int[] fv = mesh.faces[v.chaseFace];
-        int drawN = fv.length;
-
+        int[] fv = mesh.faces[v.chaseFace]; int drawN = fv.length;
         if (v.chaseActive) {
-            float ch = 1f - (float) Math.exp(-dt / 0.06f);
-            float maxD2 = 0;
+            float ch = 1f - (float) Math.exp(-dt / 0.06f); float maxD2 = 0;
             for (int i = 0; i < fv.length; i++) {
-                float ttx = mesh.vertices[fv[i]][0];
-                float tty = mesh.vertices[fv[i]][1];
-                float ttz = mesh.vertices[fv[i]][2];
-                v.chaseWx[i] += (ttx - v.chaseWx[i]) * ch;
-                v.chaseWy[i] += (tty - v.chaseWy[i]) * ch;
-                v.chaseWz[i] += (ttz - v.chaseWz[i]) * ch;
+                float ttx = mesh.vertices[fv[i]][0], tty = mesh.vertices[fv[i]][1], ttz = mesh.vertices[fv[i]][2];
+                v.chaseWx[i] += (ttx - v.chaseWx[i]) * ch; v.chaseWy[i] += (tty - v.chaseWy[i]) * ch; v.chaseWz[i] += (ttz - v.chaseWz[i]) * ch;
                 float dx = ttx - v.chaseWx[i], dy = tty - v.chaseWy[i], dz = ttz - v.chaseWz[i];
-                maxD2 = Math.max(maxD2, dx * dx + dy * dy + dz * dz);
-            }
+                maxD2 = Math.max(maxD2, dx*dx + dy*dy + dz*dz); }
             v.chaseWMx = 0; v.chaseWMy = 0; v.chaseWMz = 0;
             for (int i = 0; i < fv.length; i++) { v.chaseWMx += v.chaseWx[i]; v.chaseWMy += v.chaseWy[i]; v.chaseWMz += v.chaseWz[i]; }
             v.chaseWMx /= fv.length; v.chaseWMy /= fv.length; v.chaseWMz /= fv.length;
             if (fv.length < 6) { v.chaseWx[5] = v.chaseWMx; v.chaseWy[5] = v.chaseWMy; v.chaseWz[5] = v.chaseWMz; }
             if (maxD2 < 1e-6f) v.chaseActive = false;
         } else {
-            for (int i = 0; i < fv.length; i++) {
-                v.chaseWx[i] = mesh.vertices[fv[i]][0];
-                v.chaseWy[i] = mesh.vertices[fv[i]][1];
-                v.chaseWz[i] = mesh.vertices[fv[i]][2];
-            }
+            for (int i = 0; i < fv.length; i++) { v.chaseWx[i] = mesh.vertices[fv[i]][0]; v.chaseWy[i] = mesh.vertices[fv[i]][1]; v.chaseWz[i] = mesh.vertices[fv[i]][2]; }
             v.chaseWMx = 0; v.chaseWMy = 0; v.chaseWMz = 0;
             for (int vi : fv) { v.chaseWMx += mesh.vertices[vi][0]; v.chaseWMy += mesh.vertices[vi][1]; v.chaseWMz += mesh.vertices[vi][2]; }
             v.chaseWMx /= fv.length; v.chaseWMy /= fv.length; v.chaseWMz /= fv.length;
-            if (fv.length < 6) { v.chaseWx[5] = v.chaseWMx; v.chaseWy[5] = v.chaseWMy; v.chaseWz[5] = v.chaseWMz; }
-        }
-
-        float[] wp = v.solarSystem.worldPos(v.focalIndex, v.simTime);
+            if (fv.length < 6) { v.chaseWx[5] = v.chaseWMx; v.chaseWy[5] = v.chaseWMy; v.chaseWz[5] = v.chaseWMz; } }
+        float[] wp = v.solarSystem.worldPosTo(v._tmpWp1, v.focalIndex, v.simTime);
         float dwx = wp[0] - v.camera.focalX(), dwz = wp[2] - v.camera.focalZ();
         float selfAngle = fp.resolveRotationSpeed(gridL) * v.simTime;
         float sc = (float) Math.cos(selfAngle), ss = (float) Math.sin(selfAngle);
-
-        float[] pcx = new float[6], pcy = new float[6], pcz = new float[6];
-        for (int i = 0; i < drawN; i++) {
-            float[] cam = v.camera.camera(new float[]{v.chaseWx[i], v.chaseWy[i], v.chaseWz[i]}, wireR, dwx, dwz, sc, ss, v.currentTilt);
-            pcx[i] = cam[0]; pcy[i] = cam[1]; pcz[i] = cam[2];
-        }
-        float[] cm = v.camera.camera(new float[]{v.chaseWMx, v.chaseWMy, v.chaseWMz}, wireR, dwx, dwz, sc, ss, v.currentTilt);
-
-        float cr, cg, cb;
+        v.buildTransformMatrix(dwx, dwz, sc, ss, v.currentTilt, v.mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack(); mvs.set(v.mvTmp); RenderSystem.applyModelViewMatrix();
+        float R = wireR; float cr, cg, cb;
         List<TechNode> hNodes = v.solarSystem.get(v.focalIndex).techNodes();
-
         if (v.chaseFace >= 0 && v.chaseFace < hNodes.size()) {
             int col = tierColor(hNodes.get(v.chaseFace).tier());
             cr = ((col >> 16) & 0xFF) / 255f; cg = ((col >> 8) & 0xFF) / 255f; cb = (col & 0xFF) / 255f;
@@ -187,30 +147,23 @@ class TechTreeDrawer {
             cg = Math.min(1f, v.faceColors[v.focalIndex][v.chaseFace][1] * 1.5f);
             cb = Math.min(1f, v.faceColors[v.focalIndex][v.chaseFace][2] * 1.5f);
         } else { cr = 1; cg = 1; cb = 1; }
-
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        float cmx = 0, cmy = 0, cmz = 0;
+        for (int i = 0; i < drawN; i++) { cmx += v.chaseWx[i]*R; cmy += v.chaseWy[i]*R; cmz += v.chaseWz[i]*R; }
+        cmx /= drawN; cmy /= drawN; cmz /= drawN;
         float fa = 0.22f * a;
-        if (fa > 0.01f) {
-            for (int k = 0; k < drawN; k++) {
-                int a1 = (k + 1) % drawN;
-                bb.addVertex(mat, cm[0], cm[1], cm[2]).setColor(cr, cg, cb, fa);
-                bb.addVertex(mat, pcx[k], pcy[k], pcz[k]).setColor(cr, cg, cb, fa);
-                bb.addVertex(mat, pcx[a1], pcy[a1], pcz[a1]).setColor(cr, cg, cb, fa);
-            }
-        }
-        float ea = 0.95f * a; float hw = 0.015f;
-        for (int k = 0; k < drawN; k++) {
-            int a1 = (k + 1) % drawN;
-            SolarSystemView.addQuad3D(bb, mat, pcx[k], pcy[k], pcz[k], pcx[a1], pcy[a1], pcz[a1], hw, cr, cg, cb, ea);
-        }
+        if (fa > 0.01f) { for (int k = 0; k < drawN; k++) { int a1 = (k + 1) % drawN;
+            bb.addVertex(mat, cmx, cmy, cmz).setColor(cr, cg, cb, fa);
+            bb.addVertex(mat, v.chaseWx[k]*R, v.chaseWy[k]*R, v.chaseWz[k]*R).setColor(cr, cg, cb, fa);
+            bb.addVertex(mat, v.chaseWx[a1]*R, v.chaseWy[a1]*R, v.chaseWz[a1]*R).setColor(cr, cg, cb, fa); } }
+        float ea = 0.95f * a; float hw = 0.02f;
+        for (int k = 0; k < drawN; k++) { int a1 = (k + 1) % drawN;
+            SolarSystemView.addQuad3DLocal(bb, mat, v.chaseWx[k]*R, v.chaseWy[k]*R, v.chaseWz[k]*R, v.chaseWx[a1]*R, v.chaseWy[a1]*R, v.chaseWz[a1]*R, hw, cr, cg, cb, ea); }
         float ca = 0.95f * a;
-        for (int i = 0; i < drawN; i++) {
-            int pv = (i - 1 + drawN) % drawN;
-            int q = (i + 1) % drawN;
-            appendCornerCap(bb, mat, pcx[i], pcy[i], pcz[i], pcx[pv], pcy[pv], pcz[pv], pcx[q], pcy[q], pcz[q], hw, cr, cg, cb, ca);
-        }
-        var rendered = bb.build();
-        if (rendered != null) BufferUploader.drawWithShader(rendered);
+        for (int i = 0; i < drawN; i++) { int pv = (i - 1 + drawN) % drawN; int q = (i + 1) % drawN;
+            SolarSystemView.appendCornerCapLocal(bb, mat, v.chaseWx[i]*R, v.chaseWy[i]*R, v.chaseWz[i]*R, v.chaseWx[pv]*R, v.chaseWy[pv]*R, v.chaseWz[pv]*R, v.chaseWx[q]*R, v.chaseWy[q]*R, v.chaseWz[q]*R, hw, cr, cg, cb, ca); }
+        var rendered = bb.build(); if (rendered != null) BufferUploader.drawWithShader(rendered);
+        mvs.identity(); RenderSystem.applyModelViewMatrix();
     }
 
     static int tierColor(int tier) {

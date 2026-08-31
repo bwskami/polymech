@@ -13,6 +13,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
+import com.mss.polymech.Polymech;
 import com.mss.polymech.techtree.Polyhedron;
 import com.mss.polymech.techtree.TechNode;
 import net.minecraft.client.Minecraft;
@@ -33,8 +34,13 @@ import java.util.function.Consumer;
 public class SolarSystemView extends UIElement {
     // 光照方向已改为每个行星实时计算（向太阳方向），旧常量不再使用
     // ===== skybox =====
-    ResourceLocation skyLoc;
-    static final int SKY_W = 1024, SKY_H = 512;
+    static final ResourceLocation SKY_FRONT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/front.png");
+    static final ResourceLocation SKY_BACK  = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/back.png");
+    static final ResourceLocation SKY_LEFT  = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/left.png");
+    static final ResourceLocation SKY_RIGHT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/right.png");
+    static final ResourceLocation SKY_TOP   = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/top.png");
+    static final ResourceLocation SKY_BOTTOM = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/bottom.png");
+    static final float SKY_R = 1500f;
 
     final SolarSystem solarSystem;
     final Consumer<TechNode> onSelect;
@@ -58,6 +64,12 @@ public class SolarSystemView extends UIElement {
     static final boolean GPU_LIGHTING = true;
     // GPU 刚体变换 / 局部系光照 的复用临时量（避免每帧分配）
     final Matrix4f mvTmp = new Matrix4f();
+    /** Identity matrix reused every frame (avoids per-frame allocation). */
+    final Matrix4f idMat = new Matrix4f();
+    /** Skybox view rotation (rotation only, no translation). */
+    final Matrix4f skyRot = new Matrix4f();
+    /** Reusable vec3 for worldPosTo calls from PlanetLayerDrawer/OrbitalDrawer (avoids per-call allocation). */
+    final float[] _tmpWp1 = new float[3], _tmpWp2 = new float[3];
     final float[] lightLocal = new float[3], viewLocal = new float[3];
     final float[] reflLocal = new float[3], reflWorld = new float[3];
     final float[] mvOrigin = new float[3], mvAxisX = new float[3], mvAxisY = new float[3], mvAxisZ = new float[3];
@@ -88,6 +100,8 @@ public class SolarSystemView extends UIElement {
     int pickCount;
     float[] tileSx, tileSy, tileZ;
     float tileDist;
+    /** Reusable arrays for tile screen coord computation (avoids per-frame allocation). */
+    final float[] tmpCam = new float[3];
     float currentTilt;
     float overlayFade = 1f;
     final PlanetLighting lighting = new PlanetLighting();
@@ -202,18 +216,23 @@ public class SolarSystemView extends UIElement {
     }
 
     /**
-     * 用 cameraTo 对原点+三轴采样反推模型视图矩阵（与逐顶点变换逐位一致，零符号误差）。
-     * 刚体变换从此交给 GPU，CPU 不再逐顶点算 cameraTo。
+     * General-purpose: probe cameraTo() with origin + 3 axes, reconstruct a 4x4 matrix
+     * that transforms local-space coords to camera space (identical to cameraTo, zero error).
      */
-    void buildModelView(RenderTask t, float sc, float ss, Matrix4f out) {
-        camera.cameraTo(mvOrigin, ORIGIN3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
-        camera.cameraTo(mvAxisX, AXIS_X3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
-        camera.cameraTo(mvAxisY, AXIS_Y3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
-        camera.cameraTo(mvAxisZ, AXIS_Z3, 1f, t.dwx, t.dwz, sc, ss, currentTilt);
+    void buildTransformMatrix(float dwx, float dwz, float sc, float ss, float tilt, Matrix4f out) {
+        camera.cameraTo(mvOrigin, ORIGIN3, 1f, dwx, dwz, sc, ss, tilt);
+        camera.cameraTo(mvAxisX, AXIS_X3, 1f, dwx, dwz, sc, ss, tilt);
+        camera.cameraTo(mvAxisY, AXIS_Y3, 1f, dwx, dwz, sc, ss, tilt);
+        camera.cameraTo(mvAxisZ, AXIS_Z3, 1f, dwx, dwz, sc, ss, tilt);
         float c0x = mvAxisX[0]-mvOrigin[0], c0y = mvAxisX[1]-mvOrigin[1], c0z = mvAxisX[2]-mvOrigin[2];
         float c1x = mvAxisY[0]-mvOrigin[0], c1y = mvAxisY[1]-mvOrigin[1], c1z = mvAxisY[2]-mvOrigin[2];
         float c2x = mvAxisZ[0]-mvOrigin[0], c2y = mvAxisZ[1]-mvOrigin[1], c2z = mvAxisZ[2]-mvOrigin[2];
         out.set(c0x,c0y,c0z,0f, c1x,c1y,c1z,0f, c2x,c2y,c2z,0f, mvOrigin[0],mvOrigin[1],mvOrigin[2],1f);
+    }
+
+    /** Shorthand: build transform for a RenderTask's planet. */
+    void buildModelView(RenderTask t, float sc, float ss, Matrix4f out) {
+        buildTransformMatrix(t.dwx, t.dwz, sc, ss, currentTilt, out);
     }
 
     /** 相机空间方向 -> 星球局部系方向（模型视图旋转部分的转置）。 */
@@ -331,12 +350,11 @@ public class SolarSystemView extends UIElement {
         int vw = (int) getSizeWidth(), vh = (int) getSizeHeight();
         g.fill(vx, vy, vx + vw, vy + vh, 0xFF020208);
         g.flush();
-        drawStarfield(g, vx, vy, vw, vh);
         camera.updateProjection(vw, vh);
         float focal = camera.focalLength(), cx = camera.cx(), cy = camera.cy();
         lastMouseX = guiContext.mouseX; lastMouseY = guiContext.mouseY;
         float cosY = camera.cosY(), sinY = camera.sinY(), cosX = camera.cosX(), sinX = camera.sinX();
-        Matrix4f idMat = new Matrix4f();
+        // idMat is a field (avoids per-frame allocation)
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc(); RenderSystem.disableCull();
         Matrix4f oldProj = new Matrix4f(RenderSystem.getProjectionMatrix());
@@ -347,6 +365,9 @@ public class SolarSystemView extends UIElement {
         RenderSystem.setProjectionMatrix(proj, VertexSorting.DISTANCE_TO_ORIGIN);
         RenderSystem.enableDepthTest(); RenderSystem.depthMask(true);
         RenderSystem.clearDepth(1.0f); RenderSystem.clear(0x100, false);
+        drawSkybox(idMat);
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.enableDepthTest(); RenderSystem.depthMask(true);
         List<RenderTask> tasks = new ArrayList<>();
         for (int pi = 0; pi < solarSystem.size(); pi++) {
             float[] pos = solarSystem.worldPos(pi, simTime);
@@ -404,9 +425,11 @@ public class SolarSystemView extends UIElement {
             int nv = tileMesh.vertices.length;
             tileSx = new float[nv]; tileSy = new float[nv]; tileZ = new float[nv]; tileDist = camera.dist();
             for (int i = 0; i < nv; i++) {
-                float[] cam = camera.camera(tileMesh.vertices[i], pickR, pdwx, pdwz, sc, ss, currentTilt);
-                float[] scr = camera.toScreen(cam);
-                tileSx[i] = scr[0]; tileSy[i] = scr[1]; tileZ[i] = scr[2];
+                camera.cameraToNoAlloc(tmpCam, tileMesh.vertices[i], pickR, pdwx, pdwz, sc, ss, currentTilt);
+                float d = Math.max(-tmpCam[2], 0.15f);
+                tileSx[i] = camera.cx() + tmpCam[0] * camera.focalLength() / d;
+                tileSy[i] = camera.cy() - tmpCam[1] * camera.focalLength() / d;
+                tileZ[i] = tmpCam[2];
             }
             updateHover(guiContext);
             drawTechMarkers(g, idMat, cosY, sinY, cosX, sinX, focal, cx, cy);
@@ -425,20 +448,56 @@ public class SolarSystemView extends UIElement {
         g.drawString(font, "FPS: " + (int) fpsSmooth + "  B:" + gpuStatus + " C:" + cloudStatus + " A:" + atmoStatus,
                 vx + 4, vy + 4, 0xFFFFFF00);
     }
-    private void drawStarfield(GuiGraphics g, int vx, int vy, int vw, int vh) {
-        // TODO: 加载天空盒贴图后替换
-        if (skyLoc != null) {
-            float uOff = -camera.yaw() / (2.0f * (float) Math.PI) * SKY_W;
-            float vOff = -camera.pitch() / (float) Math.PI * SKY_H;
-            float zoom = 1.1f;
-            int drawH = (int)(vh * zoom);
-            int drawW = (int)(drawH * 2.0f);
-            int dx0 = vx + (vw - drawW) / 2;
-            int dy0 = vy + (vh - drawH) / 2;
-            for (int tile = -1; tile <= 1; tile++) {
-                g.blit(skyLoc, dx0 + tile * drawW, dy0, uOff + tile * SKY_W, vOff, drawW, drawH, SKY_W, SKY_H);
-            }
-        }
+    private void drawSkybox(Matrix4f mat) {
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
+        RenderSystem.disableDepthTest();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableCull();
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+
+        // 天空盒只跟随相机旋转，不跟随相机平移（相当于无限远）。
+        // 当前流水线用 modelview=identity + 相机空间坐标绘制场景，
+        // 因此这里临时把 modelview 设为世界->相机旋转矩阵。
+        skyRot.identity().rotateX(camera.pitch()).rotateY(camera.yaw());
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.pushMatrix();
+        mvs.mul(skyRot);
+        RenderSystem.applyModelViewMatrix();
+
+        float r = SKY_R;
+        // 每个面按“左上、右上、右下、左下”顺序给出四个角。
+        drawSkyFace(mat, SKY_FRONT,
+                -r, r, -r,  r, r, -r,  r, -r, -r,  -r, -r, -r);
+        drawSkyFace(mat, SKY_BACK,
+                 r, r, r, -r, r, r, -r, -r, r,  r, -r, r);
+        drawSkyFace(mat, SKY_LEFT,
+                -r, r, r, -r, r, -r, -r, -r, -r, -r, -r, r);
+        drawSkyFace(mat, SKY_RIGHT,
+                 r, r, -r,  r, r, r,  r, -r, r,  r, -r, -r);
+        drawSkyFace(mat, SKY_TOP,
+                -r, r, r,  r, r, r,  r, r, -r, -r, r, -r);
+        drawSkyFace(mat, SKY_BOTTOM,
+                -r, -r, -r, r, -r, -r, r, -r, r, -r, -r, r);
+
+        mvs.popMatrix();
+        RenderSystem.applyModelViewMatrix();
+        RenderSystem.depthMask(true);
+    }
+
+    private void drawSkyFace(Matrix4f mat, ResourceLocation texture,
+                             float ax, float ay, float az,
+                             float bx, float by, float bz,
+                             float cx, float cy, float cz,
+                             float dx, float dy, float dz) {
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
+        bb.addVertex(mat, ax, ay, az).setUv(0f, 0f);
+        bb.addVertex(mat, bx, by, bz).setUv(1f, 0f);
+        bb.addVertex(mat, cx, cy, cz).setUv(1f, 1f);
+        bb.addVertex(mat, ax, ay, az).setUv(0f, 0f);
+        bb.addVertex(mat, cx, cy, cz).setUv(1f, 1f);
+        bb.addVertex(mat, dx, dy, dz).setUv(0f, 1f);
+        RenderSystem.setShaderTexture(0, texture);
+        BufferUploader.drawWithShader(bb.buildOrThrow());
     }
 
 
@@ -454,6 +513,20 @@ public class SolarSystemView extends UIElement {
 
 
 
+    // ---- RenderType-like state helpers (encapsulate common GL state) ----
+    static void setupTransparentBlend() {
+        RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc();
+        RenderSystem.depthMask(false); RenderSystem.enableDepthTest();
+    }
+    static void teardownTransparent() { RenderSystem.depthMask(true); }
+    static void setupAdditiveBlend() {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        RenderSystem.depthMask(false); RenderSystem.enableDepthTest();
+    }
+    static void teardownAdditiveBlend() {
+        RenderSystem.depthMask(true); RenderSystem.defaultBlendFunc();
+    }
     private void drawOrbitalRings(Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {
         orbitalDrawer.drawOrbitalRings(mat, cosY, sinY, cosX, sinX, focal, cx, cy);
     }
@@ -582,15 +655,77 @@ public class SolarSystemView extends UIElement {
 
     private void drawWireframe(Matrix4f mat, Polyhedron mesh, float layerR, float dwx, float dwz, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy, float alpha) {
         List<int[]> edges = edgeCache.computeIfAbsent(mesh, SolarSystemView::buildEdges);
-        float hw = 0.005f;
+        float hw = 0.012f;
+        // GPU transform: build modelview, send local-space coords
+        buildTransformMatrix(dwx, dwz, sc, ss, currentTilt, mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(mvTmp);
+        RenderSystem.applyModelViewMatrix();
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        float[] c0 = new float[3], c1 = new float[3];
+        float R = layerR;
+        float[][] vs = mesh.vertices;
         for (int[] e : edges) {
-            camera.cameraTo(c0, mesh.vertices[e[0]], layerR, dwx, dwz, sc, ss, currentTilt);
-            camera.cameraTo(c1, mesh.vertices[e[1]], layerR, dwx, dwz, sc, ss, currentTilt);
-            addQuad3D(bb, mat, c0[0], c0[1], c0[2], c1[0], c1[1], c1[2], hw, 0.55f, 0.85f, 1.0f, alpha);
+            float[] v0 = vs[e[0]], v1 = vs[e[1]];
+            float x0 = v0[0]*R, y0 = v0[1]*R, z0 = v0[2]*R;
+            float x1 = v1[0]*R, y1 = v1[1]*R, z1 = v1[2]*R;
+            addQuad3DLocal(bb, mat, x0, y0, z0, x1, y1, z1, hw, 0.55f, 0.85f, 1.0f, alpha);
         }
         BufferUploader.drawWithShader(bb.buildOrThrow());
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
+    }
+    /** 3D-local-space quad: perpendicular via cross(edge, normal) — tangent to sphere surface. */
+    static boolean addQuad3DLocal(BufferBuilder bb, Matrix4f m,
+                                  float x0, float y0, float z0,
+                                  float x1, float y1, float z1,
+                                  float hw, float r, float g, float b, float a) {
+        float ex = x1-x0, ey = y1-y0, ez = z1-z0;
+        float mx = (x0+x1)/2, my = (y0+y1)/2, mz = (z0+z1)/2;
+        float ml = (float) Math.sqrt(mx*mx+my*my+mz*mz);
+        if (ml < 1e-5f) return false;
+        mx /= ml; my /= ml; mz /= ml;
+        float px = ey*mz - ez*my, py = ez*mx - ex*mz, pz = ex*my - ey*mx;
+        float pl = (float) Math.sqrt(px*px+py*py+pz*pz);
+        if (pl < 1e-5f) return false;
+        px /= pl; py /= pl; pz /= pl;
+        float nx = px*hw, ny = py*hw, nz = pz*hw;
+        bb.addVertex(m, x0-nx, y0-ny, z0-nz).setColor(r, g, b, a);
+        bb.addVertex(m, x0+nx, y0+ny, z0+nz).setColor(r, g, b, a);
+        bb.addVertex(m, x1-nx, y1-ny, z1-nz).setColor(r, g, b, a);
+        bb.addVertex(m, x0+nx, y0+ny, z0+nz).setColor(r, g, b, a);
+        bb.addVertex(m, x1+nx, y1+ny, z1+nz).setColor(r, g, b, a);
+        bb.addVertex(m, x1-nx, y1-ny, z1-nz).setColor(r, g, b, a);
+        return true;
+    }
+    /** Corner cap for local-space wireframe edges on a sphere surface. */
+    static void appendCornerCapLocal(BufferBuilder bb, Matrix4f m,
+                                     float vx, float vy, float vz,
+                                     float px0, float py0, float pz0,
+                                     float qx, float qy, float qz,
+                                     float hw, float r, float g, float b, float a) {
+        // Normal at vertex (sphere surface)
+        float nl = (float) Math.sqrt(vx*vx+vy*vy+vz*vz);
+        if (nl < 1e-5f) return;
+        float nx = vx/nl, ny = vy/nl, nz = vz/nl;
+        // Edge directions
+        float e1x = vx-px0, e1y = vy-py0, e1z = vz-pz0;
+        float e2x = qx-vx, e2y = qy-vy, e2z = qz-vz;
+        // Project to tangent plane & cross with normal → perpendiculars
+        float d1 = e1x*nx+e1y*ny+e1z*nz; e1x -= d1*nx; e1y -= d1*ny; e1z -= d1*nz;
+        float d2 = e2x*nx+e2y*ny+e2z*nz; e2x -= d2*nx; e2y -= d2*ny; e2z -= d2*nz;
+        float p1x = e1y*nz-e1z*ny, p1y = e1z*nx-e1x*nz, p1z = e1x*ny-e1y*nx;
+        float p2x = e2y*nz-e2z*ny, p2y = e2z*nx-e2x*nz, p2z = e2x*ny-e2y*nx;
+        float l1 = (float) Math.sqrt(p1x*p1x+p1y*p1y+p1z*p1z);
+        float l2 = (float) Math.sqrt(p2x*p2x+p2y*p2y+p2z*p2z);
+        if (l1 > 1e-5f) { p1x/=l1; p1y/=l1; p1z/=l1; }
+        if (l2 > 1e-5f) { p2x/=l2; p2y/=l2; p2z/=l2; }
+        p1x*=hw; p1y*=hw; p1z*=hw; p2x*=hw; p2y*=hw; p2z*=hw;
+        bb.addVertex(m, vx-p1x, vy-p1y, vz-p1z).setColor(r,g,b,a);
+        bb.addVertex(m, vx+p1x, vy+p1y, vz+p1z).setColor(r,g,b,a);
+        bb.addVertex(m, vx+p2x, vy+p2y, vz+p2z).setColor(r,g,b,a);
+        bb.addVertex(m, vx-p1x, vy-p1y, vz-p1z).setColor(r,g,b,a);
+        bb.addVertex(m, vx+p2x, vy+p2y, vz+p2z).setColor(r,g,b,a);
+        bb.addVertex(m, vx-p2x, vy-p2y, vz-p2z).setColor(r,g,b,a);
     }
     static boolean addQuad3D(BufferBuilder bb, Matrix4f m, float x0, float y0, float z0, float x1, float y1, float z1, float hw, float r, float g, float b, float a) {
         float dx = x1 - x0, dy = y1 - y0;
@@ -702,6 +837,12 @@ public class SolarSystemView extends UIElement {
             }
         }
         return new ArrayList<>(edgeMap.values());
+    }
+    @Override
+    protected void onRemoved() {
+        super.onRemoved();
+        if (layerDrawer != null) layerDrawer.closeVBOs();
+        if (orbitalDrawer != null) orbitalDrawer.closeVBOs();
     }
     public int getFocalIndex() { return focalIndex; }
     public float getSimTime() { return simTime; }

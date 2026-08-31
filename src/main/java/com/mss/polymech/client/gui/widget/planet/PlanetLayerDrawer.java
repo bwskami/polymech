@@ -6,6 +6,7 @@ import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -13,6 +14,8 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import com.mss.polymech.techtree.Polyhedron;
 import com.mojang.blaze3d.shaders.Uniform;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -20,8 +23,156 @@ import com.mojang.blaze3d.shaders.Uniform;
  */
 class PlanetLayerDrawer {
     final SolarSystemView v;
+    /** 行星图层静态几何 VBO 缓存（键：pi_类型_半径_网格）。 */
+    private final Map<String, VertexBuffer> vboCache = new HashMap<>();
 
     PlanetLayerDrawer(SolarSystemView v) { this.v = v; }
+
+    /** 释放所有缓存的 VBO（GUI 移除时调用，避免 GPU 内存泄漏）。 */
+    void closeVBOs() {
+        for (VertexBuffer vb : vboCache.values()) vb.close();
+        vboCache.clear();
+    }
+
+    /** 构建 BASE 层静态 VBO：全部面（不做背面剔除，交给 GPU CULL），局部坐标+albedo+法线。 */
+    private VertexBuffer getOrBuildBaseVBO(String key, Matrix4f mat, Polyhedron mesh, float layerR,
+                                           float[][] tileAlbedo, int[] faceParent) {
+        VertexBuffer cached = vboCache.get(key);
+        if (cached != null) return cached;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        float R = layerR;
+        float[][] vs = mesh.vertices;
+        for (int f = 0; f < mesh.faces.length; f++) {
+            int[] fv = mesh.faces[f];
+            int kn = fv.length;
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            float[] alb = tileAlbedo[faceParent == null ? f : faceParent[f]];
+            if (kn == 3) {
+                for (int k = 0; k < 3; k++) {
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(alb[0], alb[1], alb[2], 1f)
+                            .setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                }
+            } else {
+                float cx = fnx * R, cy = fny * R, cz = fnz * R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k + 1) % kn;
+                    bb.addVertex(mat, cx, cy, cz).setColor(alb[0], alb[1], alb[2], 1f).setNormal(fnx, fny, fnz);
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                    int vj = fv[a1];
+                    bb.addVertex(mat, vs[vj][0] * R, vs[vj][1] * R, vs[vj][2] * R)
+                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
+                }
+            }
+        }
+        VertexBuffer vb = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        vb.bind();
+        vb.upload(bb.buildOrThrow());
+        VertexBuffer.unbind();
+        vboCache.put(key, vb);
+        return vb;
+    }
+
+    /** 构建 CLOUD 层静态 VBO：只保留 CPU 噪声面剔除后仍保留的面（噪声输入全为静态局部量）。 */
+    private VertexBuffer getOrBuildCloudVBO(String key, Matrix4f mat, Polyhedron mesh, float layerR,
+                                            float densityFactor, Noise3 layerNoise) {
+        VertexBuffer cached = vboCache.get(key);
+        if (cached != null) return cached;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        float R = layerR;
+        float[][] vs = mesh.vertices;
+        int emitted = 0;
+        for (int f = 0; f < mesh.faces.length; f++) {
+            int[] fv = mesh.faces[f];
+            int kn = fv.length;
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            float cloudVal = layerNoise.fbm(fnx * 2.5f + 7.3f, fny * 2.5f + 13.7f, fnz * 2.5f + 3.1f);
+            float threshold = densityFactor + Math.abs(fny) * 0.18f;
+            if (cloudVal < threshold) continue;
+            if (kn == 3) {
+                for (int k = 0; k < 3; k++) {
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                }
+                emitted++;
+            } else {
+                float cnx = fnx * R, cny = fny * R, cnz = fnz * R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k + 1) % kn;
+                    bb.addVertex(mat, cnx, cny, cnz).setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                    int vj = fv[a1];
+                    bb.addVertex(mat, vs[vj][0] * R, vs[vj][1] * R, vs[vj][2] * R)
+                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
+                }
+                emitted++;
+            }
+        }
+        if (emitted == 0) return null;
+        VertexBuffer vb = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        vb.bind();
+        vb.upload(bb.buildOrThrow());
+        VertexBuffer.unbind();
+        vboCache.put(key, vb);
+        return vb;
+    }
+
+    /** 构建 ATMO 层静态 VBO：全部面（背面剔除交给 GPU CULL），颜色白，法线为径向/面法线。 */
+    private VertexBuffer getOrBuildAtmoVBO(String key, Matrix4f mat, Polyhedron mesh, float layerR) {
+        VertexBuffer cached = vboCache.get(key);
+        if (cached != null) return cached;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
+        float R = layerR;
+        float[][] vs = mesh.vertices;
+        for (int f = 0; f < mesh.faces.length; f++) {
+            int[] fv = mesh.faces[f];
+            int kn = fv.length;
+            float fnx = 0, fny = 0, fnz = 0;
+            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
+            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
+            if (fl < 1e-6f) continue;
+            fnx /= fl; fny /= fl; fnz /= fl;
+            if (kn == 3) {
+                for (int k = 0; k < 3; k++) {
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                }
+            } else {
+                float cnx = fnx * R, cny = fny * R, cnz = fnz * R;
+                for (int k = 0; k < kn; k++) {
+                    int a1 = (k + 1) % kn;
+                    bb.addVertex(mat, cnx, cny, cnz).setColor(1f, 1f, 1f, 1f).setNormal(fnx, fny, fnz);
+                    int vi = fv[k];
+                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
+                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                    int vj = fv[a1];
+                    bb.addVertex(mat, vs[vj][0] * R, vs[vj][1] * R, vs[vj][2] * R)
+                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
+                }
+            }
+        }
+        VertexBuffer vb = new VertexBuffer(VertexBuffer.Usage.STATIC);
+        vb.bind();
+        vb.upload(bb.buildOrThrow());
+        VertexBuffer.unbind();
+        vboCache.put(key, vb);
+        return vb;
+    }
 
     void drawBaseLayer(Matrix4f mat, SolarSystemView.RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
         if (SolarSystemView.GPU_LIGHTING && PlanetShaders.isReady()) {
@@ -36,7 +187,6 @@ class PlanetLayerDrawer {
         Polyhedron mesh = t.mesh;
         float[][] tileAlbedo = t.albedo != null ? t.albedo : v.faceColors[t.pi];
         int[] faceParent = t.faceParent;
-        int nf = mesh.faces.length;
         boolean isSun = (t.pi == 0);
 
         // 刚体变换交给 GPU（与 CPU 路径同一套矩阵反推，零误差）
@@ -62,7 +212,7 @@ class PlanetLayerDrawer {
         sh.getUniform("SunVisibility").set(globalSun);
 
         // ---- 阴影 uniforms：遮挡天体相对位置（世界系 -> 局部系）----
-        float[] planetWP = v.solarSystem.worldPos(t.pi, v.simTime);
+        float[] planetWP = v.solarSystem.worldPosTo(v._tmpWp1, t.pi, v.simTime);
         int[] cast = v.shadowModel.casters(t.pi);
         int nC = isSun ? 0 : Math.min(cast.length, 4);
         sh.getUniform("CasterCount").set((float) nC);
@@ -72,7 +222,7 @@ class PlanetLayerDrawer {
             Uniform uRad = sh.getUniform("CasterRad" + i);
             if (i < nC) {
                 int qi = cast[i];
-                float[] cWP = v.solarSystem.worldPos(qi, v.simTime);
+                float[] cWP = v.solarSystem.worldPosTo(v._tmpWp2, qi, v.simTime);
                 float cwX = cWP[0] - planetWP[0], cwZ = cWP[2] - planetWP[2];
                 // 逆旋转：逆轴倾角 -> 逆自转（occlusion 正向为 自转->轴倾角）
                 float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
@@ -88,7 +238,7 @@ class PlanetLayerDrawer {
         float reflStrength = 0, prx = 0, pry = 0, prz = 0;
         int parentId = v.solarSystem.get(t.pi).parentId();
         if (!isSun && parentId >= 0) {
-            float[] pWP = v.solarSystem.worldPos(parentId, v.simTime);
+            float[] pWP = v.solarSystem.worldPosTo(v._tmpWp2, parentId, v.simTime);
             float cwX = pWP[0] - planetWP[0], cwZ = pWP[2] - planetWP[2];
             float dist = (float) Math.sqrt(cwX * cwX + cwZ * cwZ);
             float parentR = v.shadowModel.bodyRadius(parentId);
@@ -99,47 +249,17 @@ class PlanetLayerDrawer {
         sh.getUniform("ParentRel").set(prx, pry, prz);
         sh.getUniform("ReflStrength").set(reflStrength);
 
-        // ---- 发射：局部坐标 + albedo + 法线，光照全交给 GPU ----
-        RenderSystem.setShader(() -> PlanetShaders.planetShader());
-        boolean drew = false;
-        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
-        float R = t.layerR;
-        float[][] vs = mesh.vertices;
-        for (int f = 0; f < nf; f++) {
-            int[] fv = mesh.faces[f];
-            int kn = fv.length;
-            // 背面剔除（与 CPU 路径一致）
-            float fnx = 0, fny = 0, fnz = 0;
-            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
-            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
-            if (fl < 1e-6f) continue;
-            fnx /= fl; fny /= fl; fnz /= fl;
-            if (fnx * v.viewLocal[0] + fny * v.viewLocal[1] + fnz * v.viewLocal[2] <= 0) continue;
-            float[] alb = tileAlbedo[faceParent == null ? f : faceParent[f]];
-            if (kn == 3) {
-                drew = true;
-                for (int k = 0; k < 3; k++) {
-                    int vi = fv[k];
-                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
-                            .setColor(alb[0], alb[1], alb[2], 1f)
-                            .setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
-                }
-            } else {
-                float cx = fnx * R, cy = fny * R, cz = fnz * R;
-                for (int k = 0; k < kn; k++) {
-                    int a1 = (k + 1) % kn;
-                    drew = true;
-                    bb.addVertex(mat, cx, cy, cz).setColor(alb[0], alb[1], alb[2], 1f).setNormal(fnx, fny, fnz);
-                    int vi = fv[k];
-                    bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
-                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
-                    int vj = fv[a1];
-                    bb.addVertex(mat, vs[vj][0] * R, vs[vj][1] * R, vs[vj][2] * R)
-                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
-                }
-            }
+        // ---- 发射：局部坐标 + albedo + 法线，光照全交给 GPU（VBO 缓存静态几何）----
+        String vboKey = "BASE_" + t.pi + "_" + t.layerR + (mesh == v.shadedBase ? "_S" : "_B");
+        VertexBuffer vb = getOrBuildBaseVBO(vboKey, mat, mesh, t.layerR, tileAlbedo, faceParent);
+        if (vb != null) {
+            RenderSystem.setShader(() -> PlanetShaders.planetShader());
+            RenderSystem.enableCull();
+            vb.bind();
+            vb.drawWithShader(v.mvTmp, RenderSystem.getProjectionMatrix(), PlanetShaders.planetShader());
+            VertexBuffer.unbind();
+            RenderSystem.disableCull();
         }
-        if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
         RenderSystem.setShader(GameRenderer::getPositionColorShader);   // 还原，供后续云层/大气使用
         // 还原模型视图为单位阵
         mvs.identity();
@@ -314,7 +434,7 @@ class PlanetLayerDrawer {
         SolarSystemView.setUniform(sh, "SunDir", v.lightLocal[0], v.lightLocal[1], v.lightLocal[2]);
         SolarSystemView.setUniform(sh, "Intensity", v.lighting.intensity());
 
-        float[] planetWP = v.solarSystem.worldPos(t.pi, v.simTime);
+        float[] planetWP = v.solarSystem.worldPosTo(v._tmpWp1, t.pi, v.simTime);
         int[] cast = v.shadowModel.casters(t.pi);
         int nC = Math.min(cast.length, 4);
         SolarSystemView.setUniform(sh, "CasterCount", (float) nC);
@@ -324,7 +444,7 @@ class PlanetLayerDrawer {
             Uniform uRad = sh.getUniform("CasterRad" + i);
             if (i < nC) {
                 int qi = cast[i];
-                float[] cWP = v.solarSystem.worldPos(qi, v.simTime);
+                float[] cWP = v.solarSystem.worldPosTo(v._tmpWp2, qi, v.simTime);
                 float cwX = cWP[0] - planetWP[0], cwZ = cWP[2] - planetWP[2];
                 float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
                 if (uRel != null) uRel.set(lx1 * sc + lz1 * ss, ly1, -lx1 * ss + lz1 * sc);
@@ -338,48 +458,15 @@ class PlanetLayerDrawer {
         RenderSystem.setShader(() -> PlanetShaders.cloudShader());
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
-        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
-        float R = t.layerR;
-        float[][] vs = mesh.vertices;
-        boolean drew = false;
-        for (int f = 0; f < mesh.faces.length; f++) {
-            int[] fv = mesh.faces[f];
-            int kn = fv.length;
-            float fnx = 0, fny = 0, fnz = 0;
-            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
-            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
-            if (fl < 1e-6f) continue;
-            fnx /= fl; fny /= fl; fnz /= fl;
-            if (fnx * v.viewLocal[0] + fny * v.viewLocal[1] + fnz * v.viewLocal[2] <= 0) continue;
-            // CPU 用原版 Noise3 算云形状，跳过空面，保证形状和以前完全一致
-            float cloudVal = layerNoise.fbm(fnx * 2.5f + 7.3f, fny * 2.5f + 13.7f, fnz * 2.5f + 3.1f);
-            float threshold = densityFactor + Math.abs(fny) * 0.18f;
-            if (cloudVal < threshold) continue;
-
-            if (kn == 3) {
-                drew = true;
-                for (int k = 0; k < 3; k++) {
-                    int vi = fv[k];
-                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
-                            .setColor(1f, 0, 0, 1f)
-                            .setNormal(fnx, fny, fnz);
-                }
-            } else {
-                float cnx = fnx*R, cny = fny*R, cnz = fnz*R;
-                for (int k = 0; k < kn; k++) {
-                    int a1 = (k+1) % kn;
-                    drew = true;
-                    bb.addVertex(mat, cnx, cny, cnz).setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
-                    int vi = fv[k];
-                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
-                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
-                    int vj = fv[a1];
-                    bb.addVertex(mat, vs[vj][0]*R, vs[vj][1]*R, vs[vj][2]*R)
-                            .setColor(1f, 0, 0, 1f).setNormal(fnx, fny, fnz);
-                }
-            }
+        String vboKey = "CLOUD_" + t.pi + "_" + t.layerR;
+        VertexBuffer vb = getOrBuildCloudVBO(vboKey, mat, mesh, t.layerR, densityFactor, layerNoise);
+        if (vb != null) {
+            RenderSystem.enableCull();
+            vb.bind();
+            vb.drawWithShader(v.mvTmp, RenderSystem.getProjectionMatrix(), PlanetShaders.cloudShader());
+            VertexBuffer.unbind();
+            RenderSystem.disableCull();
         }
-        if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         mvs.identity();
@@ -497,7 +584,7 @@ class PlanetLayerDrawer {
         SolarSystemView.setUniform(sh, "AtmoInner", baseR > 0 ? baseR / t.layerR : 0.9f);
         SolarSystemView.setUniform(sh, "AtmoColor", atmColor[0], atmColor[1], atmColor[2]);
 
-        float[] planetWP = v.solarSystem.worldPos(t.pi, v.simTime);
+        float[] planetWP = v.solarSystem.worldPosTo(v._tmpWp1, t.pi, v.simTime);
         int[] cast = v.shadowModel.casters(t.pi);
         int nC = Math.min(cast.length, 4);
         SolarSystemView.setUniform(sh, "CasterCount", (float) nC);
@@ -507,7 +594,7 @@ class PlanetLayerDrawer {
             Uniform uRad = sh.getUniform("CasterRad" + i);
             if (i < nC) {
                 int qi = cast[i];
-                float[] cWP = v.solarSystem.worldPos(qi, v.simTime);
+                float[] cWP = v.solarSystem.worldPosTo(v._tmpWp2, qi, v.simTime);
                 float cwX = cWP[0] - planetWP[0], cwZ = cWP[2] - planetWP[2];
                 float lx1 = cwX * ct, ly1 = -cwX * st, lz1 = cwZ;
                 if (uRel != null) uRel.set(lx1 * sc + lz1 * ss, ly1, -lx1 * ss + lz1 * sc);
@@ -521,43 +608,15 @@ class PlanetLayerDrawer {
         RenderSystem.setShader(() -> PlanetShaders.atmoShader());
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
-        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
-        float R = t.layerR;
-        float[][] vs = mesh.vertices;
-        boolean drew = false;
-        for (int f = 0; f < mesh.faces.length; f++) {
-            int[] fv = mesh.faces[f];
-            int kn = fv.length;
-            float fnx = 0, fny = 0, fnz = 0;
-            for (int v : fv) { fnx += vs[v][0]; fny += vs[v][1]; fnz += vs[v][2]; }
-            float fl = (float) Math.sqrt(fnx * fnx + fny * fny + fnz * fnz);
-            if (fl < 1e-6f) continue;
-            fnx /= fl; fny /= fl; fnz /= fl;
-            if (fnx * v.viewLocal[0] + fny * v.viewLocal[1] + fnz * v.viewLocal[2] <= 0) continue;
-            if (kn == 3) {
-                drew = true;
-                for (int k = 0; k < 3; k++) {
-                    int vi = fv[k];
-                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
-                            .setColor(1f, 1f, 1f, 1f)
-                            .setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
-                }
-            } else {
-                float cnx = fnx*R, cny = fny*R, cnz = fnz*R;
-                for (int k = 0; k < kn; k++) {
-                    int a1 = (k+1) % kn;
-                    drew = true;
-                    bb.addVertex(mat, cnx, cny, cnz).setColor(1f, 1f, 1f, 1f).setNormal(fnx, fny, fnz);
-                    int vi = fv[k];
-                    bb.addVertex(mat, vs[vi][0]*R, vs[vi][1]*R, vs[vi][2]*R)
-                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
-                    int vj = fv[a1];
-                    bb.addVertex(mat, vs[vj][0]*R, vs[vj][1]*R, vs[vj][2]*R)
-                            .setColor(1f, 1f, 1f, 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
-                }
-            }
+        String vboKey = "ATMO_" + t.pi + "_" + t.layerR + (mesh == v.shadedBase ? "_S" : "_B");
+        VertexBuffer vb = getOrBuildAtmoVBO(vboKey, mat, mesh, t.layerR);
+        if (vb != null) {
+            RenderSystem.enableCull();
+            vb.bind();
+            vb.drawWithShader(v.mvTmp, RenderSystem.getProjectionMatrix(), PlanetShaders.atmoShader());
+            VertexBuffer.unbind();
+            RenderSystem.disableCull();
         }
-        if (drew) BufferUploader.drawWithShader(bb.buildOrThrow());
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         mvs.identity();
@@ -627,71 +686,51 @@ class PlanetLayerDrawer {
         RenderSystem.defaultBlendFunc();
     }
     void drawRing(Matrix4f mat, SolarSystemView.RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
-        // Ring: flat disc in equatorial plane (y=0), tilted with the planet's axial tilt
         float baseR = 0;
         for (PlanetLayer l : v.solarSystem.get(t.pi).layers()) if (l.type() == PlanetLayerType.BASE) baseR = l.radius();
         float innerR = Math.max(baseR * 1.15f, t.layerR * 0.65f);
         float outerR = t.layerR;
-        int bands = 24;
-        int segs = 96;
+        int bands = 24, segs = 96;
+        v.buildTransformMatrix(t.dwx, t.dwz, sc, ss, v.currentTilt, v.mvTmp);
+        Matrix4fStack mvs = RenderSystem.getModelViewStack();
+        mvs.set(v.mvTmp);
+        RenderSystem.applyModelViewMatrix();
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (int b = 0; b < bands; b++) {
             float t0 = (float) b / bands, t1 = (float) (b + 1) / bands;
             float r0 = innerR + (outerR - innerR) * t0;
             float r1 = innerR + (outerR - innerR) * t1;
-            // Cassini division gap (only Saturn has the prominent gap)
-            float gap0 = 0.42f, gap1 = 0.50f;
-            float alpha;
+            float gap0 = 0.42f, gap1 = 0.50f, alpha;
             if (t0 >= gap0 && t1 <= gap1) alpha = 0f;
             else if (t0 < gap0 && t1 > gap0) alpha = 0.15f;
             else if (t0 < gap1 && t1 > gap1) alpha = 0.15f;
-            else {
-                float mid = (t0 + t1) / 2f;
-                alpha = 0.35f - 0.15f * Math.abs(mid - 0.3f);
-            }
-            // 冰巨行星的环更淡
+            else { float mid = (t0 + t1) / 2f; alpha = 0.35f - 0.15f * Math.abs(mid - 0.3f); }
             if (t.pi == 16 || t.pi == 17) alpha *= 0.55f;
             if (alpha < 0.01f) continue;
             float cr, cg, cb;
-            if (t.pi == 13) { // 土星：暖金色
-                cr = 0.82f + 0.08f * (float) Math.sin(t0 * 40f);
-                cg = 0.72f + 0.06f * (float) Math.cos(t0 * 55f);
-                cb = 0.55f + 0.10f * (float) Math.sin(t0 * 70f);
-            } else if (t.pi == 16) { // 天王星：淡青灰
-                cr = 0.55f; cg = 0.75f; cb = 0.82f;
-            } else if (t.pi == 17) { // 海王星：蓝白
-                cr = 0.45f; cg = 0.68f; cb = 0.92f;
-            } else {
-                cr = 0.75f; cg = 0.70f; cb = 0.65f;
-            }
-            float[] c00 = new float[3], c01 = new float[3], c11 = new float[3], c10 = new float[3];
-            float[] p00 = new float[3], p01 = new float[3], p11 = new float[3], p10 = new float[3];
+            if (t.pi == 13) { cr = 0.82f + 0.08f * (float) Math.sin(t0 * 40f); cg = 0.72f + 0.06f * (float) Math.cos(t0 * 55f); cb = 0.55f + 0.10f * (float) Math.sin(t0 * 70f); }
+            else if (t.pi == 16) { cr = 0.55f; cg = 0.75f; cb = 0.82f; }
+            else if (t.pi == 17) { cr = 0.45f; cg = 0.68f; cb = 0.92f; }
+            else { cr = 0.75f; cg = 0.70f; cb = 0.65f; }
             for (int s = 0; s < segs; s++) {
                 float a0 = (float) Math.PI * 2 * s / segs;
                 float a1 = (float) Math.PI * 2 * (s + 1) / segs;
                 float x0 = (float) Math.cos(a0), z0 = (float) Math.sin(a0);
                 float x1 = (float) Math.cos(a1), z1 = (float) Math.sin(a1);
-                p00[0] = x0 * r0; p00[1] = 0; p00[2] = z0 * r0;
-                p01[0] = x0 * r1; p01[1] = 0; p01[2] = z0 * r1;
-                p11[0] = x1 * r1; p11[1] = 0; p11[2] = z1 * r1;
-                p10[0] = x1 * r0; p10[1] = 0; p10[2] = z1 * r0;
-                v.camera.cameraTo(c00, p00, 1, t.dwx, t.dwz, sc, ss, v.currentTilt);
-                v.camera.cameraTo(c01, p01, 1, t.dwx, t.dwz, sc, ss, v.currentTilt);
-                v.camera.cameraTo(c11, p11, 1, t.dwx, t.dwz, sc, ss, v.currentTilt);
-                v.camera.cameraTo(c10, p10, 1, t.dwx, t.dwz, sc, ss, v.currentTilt);
-                // Skip if entirely behind the v.camera
-                if (c00[2] > 0 && c01[2] > 0 && c11[2] > 0 && c10[2] > 0) continue;
-                bb.addVertex(mat, c00[0], c00[1], c00[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c01[0], c01[1], c01[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c11[0], c11[1], c11[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c00[0], c00[1], c00[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c11[0], c11[1], c11[2]).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, c10[0], c10[1], c10[2]).setColor(cr, cg, cb, alpha);
+                bb.addVertex(mat, x0 * r0, 0, z0 * r0).setColor(cr, cg, cb, alpha);
+                bb.addVertex(mat, x0 * r1, 0, z0 * r1).setColor(cr, cg, cb, alpha);
+                bb.addVertex(mat, x1 * r1, 0, z1 * r1).setColor(cr, cg, cb, alpha);
+                bb.addVertex(mat, x0 * r0, 0, z0 * r0).setColor(cr, cg, cb, alpha);
+                bb.addVertex(mat, x1 * r1, 0, z1 * r1).setColor(cr, cg, cb, alpha);
+                bb.addVertex(mat, x1 * r0, 0, z1 * r0).setColor(cr, cg, cb, alpha);
             }
         }
         var rendered = bb.build();
         if (rendered != null) BufferUploader.drawWithShader(rendered);
+        mvs.identity();
+        RenderSystem.applyModelViewMatrix();
     }
+
 
 
 }

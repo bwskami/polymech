@@ -20,6 +20,10 @@ public final class ShadowModel {
     private final int[][] casters;
     /** 每个天体的 BASE 层半径。 */
     private final float[] baseRadius;
+    /** Reusable vec3 for occlusion calls (avoids per-call allocation). */
+    private final float[] _occDir = new float[3];
+    /** Reusable vec3 for worldPosTo calls (avoids per-call allocation). */
+    private final float[] _wpOut = new float[3];
 
     public ShadowModel(SolarSystem solarSystem) {
         this.solarSystem = solarSystem;
@@ -70,7 +74,7 @@ public final class ShadowModel {
      * 用来同时压低直射余光与自反射，避免“整体被食但夜面仍像有光”。
      */
     public float globalSunVisibility(int pi, float layerR, float sc, float ss, float tilt, float simTime) {
-        float[] wp = solarSystem.worldPos(pi, simTime);
+        float[] wp = solarSystem.worldPosTo(_wpOut, pi, simTime);
         float swx = -wp[0], swz = -wp[2];
         float len = (float) Math.sqrt(swx * swx + swz * swz);
         if (len < 1e-4f) return 1f;
@@ -81,7 +85,8 @@ public final class ShadowModel {
         float lsx = lx1 * sc + lz1 * ss;
         float lsy = ly1;
         float lsz = -lx1 * ss + lz1 * sc;
-        float sh = occlusion(pi, new float[]{lsx, lsy, lsz}, layerR, sc, ss, tilt, simTime);
+        _occDir[0] = lsx; _occDir[1] = lsy; _occDir[2] = lsz;
+        float sh = occlusion(pi, _occDir, layerR, sc, ss, tilt, simTime);
         return Math.max(0f, Math.min(1f, 1f - sh));
     }
 
@@ -96,11 +101,11 @@ public final class ShadowModel {
                                   float tilt, float simTime, float[] outDir) {
         int parentId = solarSystem.get(pi).parentId();
         if (parentId < 0) return 0;
-        float[] parentWP = solarSystem.worldPos(parentId, simTime);
+        float[] parentWP = solarSystem.worldPosTo(_wpOut, parentId, simTime);
         float parentR = baseRadius[parentId];
         if (parentR < 0.01f) return 0;
 
-        float[] planetWP = solarSystem.worldPos(pi, simTime);
+        float[] planetWP = solarSystem.worldPosTo(_wpOut, pi, simTime);
         float planetWx = planetWP[0], planetWz = planetWP[2];
 
         // 顶点行星局部世界坐标（与 occlusion 相同的旋转顺序）
@@ -142,7 +147,7 @@ public final class ShadowModel {
         int[] c = casters[pi];
         if (c.length == 0) return 0;
 
-        float[] planetWP = solarSystem.worldPos(pi, simTime);
+        float[] planetWP = solarSystem.worldPosTo(_wpOut, pi, simTime);
         float planetWx = planetWP[0], planetWz = planetWP[2];
         float sunDx = -planetWx, sunDz = -planetWz;
         float sunLen = (float) Math.sqrt(sunDx * sunDx + sunDz * sunDz);
@@ -162,7 +167,7 @@ public final class ShadowModel {
         for (int qi : c) {
             float casterR = baseRadius[qi];
             if (casterR < 0.01f) continue;
-            float[] casterWP = solarSystem.worldPos(qi, simTime);
+            float[] casterWP = solarSystem.worldPosTo(_wpOut, qi, simTime);
             float casterRelX = casterWP[0] - planetWx;
             float casterRelZ = casterWP[2] - planetWz;
 

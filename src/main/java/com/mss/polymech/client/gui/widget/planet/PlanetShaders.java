@@ -22,6 +22,7 @@ public final class PlanetShaders {
     private static ShaderInstance planetShader;
     private static ShaderInstance cloudShader;
     private static ShaderInstance atmoShader;
+    private static ShaderInstance rockShader;
 
     private PlanetShaders() {}
 
@@ -54,11 +55,21 @@ public final class PlanetShaders {
         } catch (IOException | RuntimeException e) {
             LOGGER.error("[poly_mech] 行星 ATMO 着色器加载失败，将回退 CPU", e);
         }
+        try {
+            event.registerShader(
+                    new ShaderInstance(event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "rock"),
+                            DefaultVertexFormat.POSITION_COLOR_NORMAL),
+                    instance -> rockShader = instance);
+        } catch (IOException | RuntimeException e) {
+            LOGGER.error("[poly_mech] 岩石实例化着色器加载失败，将回退批量绘制", e);
+        }
     }
 
     public static ShaderInstance planetShader() { return planetShader; }
     public static ShaderInstance cloudShader() { return cloudShader; }
     public static ShaderInstance atmoShader() { return atmoShader; }
+    public static ShaderInstance rockShader() { return rockShader; }
     public static boolean isReady() { return planetShader != null; }
     public static boolean isCloudReady() { return cloudShader != null; }
     public static boolean isAtmoReady() { return atmoShader != null; }

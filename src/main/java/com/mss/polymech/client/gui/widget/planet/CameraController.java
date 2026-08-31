@@ -236,6 +236,42 @@ public final class CameraController {
         return dist - rz1 * cosX;
     }
 
+
+    // ==================== 无分配坐标变换（热路径优化）====================
+
+    /**
+     * 与 {@link #cameraTo} 相同的变换，但写入已有数组，不分配新对象。
+     */
+    public void cameraToNoAlloc(float[] out, float[] v, float layerR,
+                                float dwx, float dwz, float sc, float ss, float tilt) {
+        float lx = (v[0] * sc - v[2] * ss) * layerR;
+        float lz = (v[0] * ss + v[2] * sc) * layerR;
+        float ly = v[1] * layerR;
+        float ct = (float) Math.cos(tilt), st = (float) Math.sin(tilt);
+        float wx = lx * ct - ly * st + dwx;
+        float wz = lz + dwz;
+        float wy = lx * st + ly * ct;
+        float rx = wx * cosY + wz * sinY;
+        float rz1 = -wx * sinY + wz * cosY;
+        float ry2 = wy * cosX - rz1 * sinX;
+        float rz = wy * sinX + rz1 * cosX;
+        out[0] = rx;
+        out[1] = ry2;
+        out[2] = rz - dist;
+    }
+
+    /**
+     * 与 {@link #toScreen} 相同，但结果写入已有数组。
+     */
+    public void toScreenNoAlloc(float[] out, float[] cam) {
+        float d = Math.max(-cam[2], 0.15f);
+        out[0] = cx + cam[0] * focalLength / d;
+        out[1] = cy - cam[1] * focalLength / d;
+        out[2] = cam[2];
+    }
+
+
+
     // ==================== Getters ====================
 
     public float yaw() { return yaw; }
