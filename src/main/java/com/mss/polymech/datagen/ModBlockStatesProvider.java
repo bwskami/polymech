@@ -23,6 +23,11 @@ public class ModBlockStatesProvider extends BlockStateProvider {
     protected void registerStatesAndModels() {
         simpleBlockWithItem(ModBlocks.COKE_OVEN_BRICK.get(), cubeAll(ModBlocks.COKE_OVEN_BRICK.get()));
         simpleBlockWithItem(ModBlocks.FLUID_TANK.get(), cubeAll(ModBlocks.FLUID_TANK.get()));
+        simpleBlockWithItem(ModBlocks.MERCURY_STONE.get(), cubeAll(ModBlocks.MERCURY_STONE.get()));
+        simpleBlockWithItem(ModBlocks.VENUS_STONE.get(), cubeAll(ModBlocks.VENUS_STONE.get()));
+        simpleBlockWithItem(ModBlocks.MOON_STONE.get(), cubeAll(ModBlocks.MOON_STONE.get()));
+        simpleBlockWithItem(ModBlocks.MARS_STONE.get(), cubeAll(ModBlocks.MARS_STONE.get()));
+        simpleBlockWithItem(ModBlocks.GLACIO_STONE.get(), cubeAll(ModBlocks.GLACIO_STONE.get()));
 
         // 石油流体方块（真流体）
         simpleBlock(ModFluids.OIL_BLOCK.get(), models().getBuilder("petroleum")

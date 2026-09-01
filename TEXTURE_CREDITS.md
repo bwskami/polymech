@@ -60,3 +60,18 @@
 
 **说明**: 以上素材仅作个人学习与模组开发用途，不构成对原始作品的任何权利主张。
 若计划公开发布本模组，请再次核对上述许可的具体条款（特别是传播义务与源码公开义务）。
+
+## 4. Ad Astra (1.21.1) — 星球群系/世界生成数据参考 + 行星地表贴图
+
+- **来源仓库**: `Ad-Astra-1.21.1`
+- **许可**: 代码与 `resources/data/...` 数据文件按 [MIT](https://mit-license.org/) 授权；贴图素材按仓库许可为 All Rights Reserved（本次经仓库所有者/使用者确认后临时使用，发布前请再次确认）。
+- **使用方式**:
+  1. 参考/改写了其星球群系参数（温度、降雨、天空/雾/水色、特征放置）与噪声设置结构，生成 `poly_mech` 自己的星球群系 JSON。
+  2. 复制了 5 张行星地表贴图，用于本模组行星地表方块。
+- **使用的贴图**:
+  - `mercury_stone.png` → `assets/poly_mech/textures/block/mercury_stone.png`
+  - `venus_stone.png` → `assets/poly_mech/textures/block/venus_stone.png`
+  - `moon_stone.png` → `assets/poly_mech/textures/block/moon_stone.png`
+  - `mars_stone.png` → `assets/poly_mech/textures/block/mars_stone.png`
+  - `glacio_stone.png` → `assets/poly_mech/textures/block/glacio_stone.png`
+- **受影响数据**: `data/poly_mech/worldgen/` 与 `data/poly_mech/dimension*/`。

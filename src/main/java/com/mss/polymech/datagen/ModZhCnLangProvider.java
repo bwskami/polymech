@@ -783,6 +783,12 @@ public class ModZhCnLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
+        add(ModItems.TELEPORTER.get(), "星际传送器");
+        add(ModBlocks.MERCURY_STONE.get(), "水星地表岩");
+        add(ModBlocks.VENUS_STONE.get(), "金星地表岩");
+        add(ModBlocks.MOON_STONE.get(), "月球地表岩");
+        add(ModBlocks.MARS_STONE.get(), "火星地表岩");
+        add(ModBlocks.GLACIO_STONE.get(), "冰卫星地表岩");
 
         // 区域岩石（群峦岩种，与ROCK_ZH_NAMES同源）
         for (var rockEntry : ModBlocks.ROCKS.entrySet()) {

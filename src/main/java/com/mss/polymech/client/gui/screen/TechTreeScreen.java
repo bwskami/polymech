@@ -1,23 +1,14 @@
 package com.mss.polymech.client.gui.screen;
 
-import com.lowdragmc.lowdraglib2.gui.holder.ModularUIScreen;
-import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
-import com.lowdragmc.lowdraglib2.gui.ui.UI;
 import com.lowdragmc.lowdraglib2.gui.ui.UIElement;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Button;
 import com.lowdragmc.lowdraglib2.gui.ui.elements.Label;
 import com.lowdragmc.lowdraglib2.gui.ui.rendering.GUIContext;
-import com.lowdragmc.lowdraglib2.gui.ui.style.StylesheetManager;
 import com.mss.polymech.client.gui.widget.planet.SolarSystem;
 import com.mss.polymech.client.gui.widget.planet.SolarSystemView;
-
 import com.mss.polymech.techtree.TechNode;
-import com.mss.polymech.techtree.TechTree;
-import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -28,33 +19,25 @@ import java.util.stream.Collectors;
 /**
  * 科技树全屏界面（LDLib2 ModularUIScreen）。
  * <p>
- * 主视觉为群星式3D太阳系（{@link SolarSystemView}）：正六边形 + 12 五边形拼接，
- * 每个地块 = 一个科技；纯黑背景、线框显示但正面实体遮挡背面、科技地块用程序化六边形图标。
+ * 继承 {@link StarMapScreen} 的纯星图部分（全屏 3D 太阳系 + 顶栏），
+ * 再叠加科技树特有的网格科技项、选择框与“思索”面板。
  * 操作逻辑：左键/右键长按拖拽旋转视角，中键长按拖拽进入并移动自由视角，滚轮缩放，左键单点星球锁定摄像机；
  * 悬停高亮 + 名称提示，点击有科技的面对应节点打开“思索”面板。
  * </p>
  */
-public class TechTreeScreen extends ModularUIScreen {
+public class TechTreeScreen extends StarMapScreen {
 
     /** 遮罩层固定 id，用于点击节点时先移除旧面板再开新面板。 */
     private static final String ID_PONDER = "ponder_overlay";
 
-    private final UIElement root;
-    private final SolarSystemView view;
-
     private TechTreeScreen(State s, Component title) {
-        super(s.ui, title);
-        this.root = s.root;
-        this.view = s.view;
+        super(s, title);
     }
 
+    /** M 键打开纯星图。 */
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_M) {
-            StarMapScreen.open(view.getSystemIndex());
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+    protected void onMKeyPressed() {
+        StarMapScreen.open(view.getSystemIndex());
     }
 
     /** 打开科技树（客户端调用，默认太阳系）。 */
@@ -71,46 +54,21 @@ public class TechTreeScreen extends ModularUIScreen {
 
     // ============================ 构建 ============================
 
-    private static final class State {
-        ModularUI ui;
-        UIElement root;
-        SolarSystemView view;
-    }
-
     private static State buildState(int initialSystemIndex) {
-        State s = new State();
-
-        var root = new UIElement();
-        root.layout(l -> l.widthPercent(100).heightPercent(100).flexDirection(FlexDirection.COLUMN));
-
-        // 外壳（六边形+五边形线框）+ 内核（类地星球），铺满整屏，自带纯黑背景
-        Consumer<TechNode> onSelect = node -> {
-            root.selectId(ID_PONDER).collect(Collectors.toList()).forEach(UIElement::removeSelf);
-            root.addChild(buildPonderOverlay(node, root));
-            root.markTaffyStyleDirty();
-        };
-        var view = new SolarSystemView(SolarSystem.createDefault(), onSelect);
-        view.layout(l -> l.widthPercent(100).heightPercent(100));
-        root.addChild(view);
-        view.enterSystem(initialSystemIndex);
-        s.view = view;
-
-        // 顶栏（覆盖在球体上方）
-        var header = new TopBar();
-        header.layout(l -> l.widthPercent(100).height(28)
-                .positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
-                .paddingHorizontal(8).flexDirection(FlexDirection.ROW).gapColumn(8));
-        var title = new Label().setText(Component.literal("科技树 / Tech Tree")).layout(l -> l.flex(1));
-        var hint = new Label().setText(Component.literal("左/右键拖动旋转 · 中键拖动自由视角 · 滚轮缩放 · 左键单击星球锁定 · 单击地块查看思索 · M 星图")).layout(l -> l.flex(1));
-        var close = new Button()
-                .setText(Component.literal("关闭"))
-                .setOnClick(e -> Minecraft.getInstance().setScreen(null))
-                .layout(l -> l.height(20).width(48));
-        header.addChildren(title, hint, close);
-        root.addChild(header);
-
-        s.root = root;
-        s.ui = ModularUI.of(UI.of(root, StylesheetManager.INSTANCE.getStylesheetSafe(StylesheetManager.MC)));
+        State s = buildState(
+                Component.literal("科技树 / Tech Tree"),
+                Component.literal("左/右键拖动旋转 · 中键拖动自由视角 · 滚轮缩放 · 左键单击星球锁定 · 单击地块查看思索 · M 星图"),
+                root -> {
+                    Consumer<TechNode> onSelect = node -> {
+                        root.selectId(ID_PONDER).collect(Collectors.toList()).forEach(UIElement::removeSelf);
+                        root.addChild(buildPonderOverlay(node, root));
+                        root.markTaffyStyleDirty();
+                    };
+                    return new SolarSystemView(SolarSystem.createDefault(), onSelect);
+                });
+        s.view.enterSystem(initialSystemIndex);
+        // 科技树覆盖层：网格科技项 + 选择框（基类默认已关闭）。
+        s.view.setTechOverlayEnabled(true);
         return s;
     }
 
@@ -180,19 +138,6 @@ public class TechTreeScreen extends ModularUIScreen {
     }
 
     // ============================ 子控件 ============================
-
-    /** 顶栏半透明深色条。 */
-    private static final class TopBar extends UIElement {
-        @Override
-        public void drawBackgroundAdditional(GUIContext guiContext) {
-            var g = guiContext.graphics;
-            int x = (int) getPositionX();
-            int y = (int) getPositionY();
-            int w = (int) getSizeWidth();
-            int h = (int) getSizeHeight();
-            g.fill(x, y, x + w, y + h, 0xAA000000);
-        }
-    }
 
     /** 半透明遮罩层。 */
     private static final class DimLayer extends UIElement {

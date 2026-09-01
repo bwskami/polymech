@@ -1,0 +1,11 @@
+{
+  "type": "poly_mech:deimos",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "poly_mech:deimos",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "poly_mech:deimos_wastelands"
+    }
+  }
+}

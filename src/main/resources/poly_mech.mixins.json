@@ -2,7 +2,16 @@
   "required": true,
   "package": "com.mss.polymech.mixin",
   "compatibilityLevel": "JAVA_21",
-  "mixins": [],
+  "mixins": [
+    "LivingEntityGravityMixin",
+    "GravityEntityMixin",
+    "AbstractArrowGravityMixin",
+    "BoatGravityMixin",
+    "FishingHookGravityMixin",
+    "ThrowableProjectileGravityMixin",
+    "ThrownPotionGravityMixin",
+    "ThrownExperienceBottleGravityMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   },

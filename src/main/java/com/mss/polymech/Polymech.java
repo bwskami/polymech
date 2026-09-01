@@ -36,6 +36,7 @@ import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
 import com.mss.polymech.network.SetCellCapacityPacket;
+import com.mss.polymech.network.TeleportToPlanetPacket;
 import com.mss.polymech.network.WireSyncPacket;
 import com.mss.polymech.network.ClampMeterMeasurementPacket;
 import com.mss.polymech.machine.production.BatteryBlockEntity;
@@ -219,6 +220,11 @@ public class Polymech {
                 BatchConfigPacket.TYPE,
                 BatchConfigPacket.STREAM_CODEC,
                 BatchConfigPacket::handle
+        );
+        registrar.playToServer(
+                TeleportToPlanetPacket.TYPE,
+                TeleportToPlanetPacket.STREAM_CODEC,
+                TeleportToPlanetPacket::handle
         );
         // 电网电线连接同步（服务端 → 客户端，登录/连接变化时推送渲染数据）
         registrar.playToClient(

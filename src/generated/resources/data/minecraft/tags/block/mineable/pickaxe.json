@@ -2,6 +2,11 @@
   "values": [
     "poly_mech:coke_oven_brick",
     "poly_mech:fluid_tank",
+    "poly_mech:mercury_stone",
+    "poly_mech:venus_stone",
+    "poly_mech:moon_stone",
+    "poly_mech:mars_stone",
+    "poly_mech:glacio_stone",
     "poly_mech:native_copper_ore",
     "poly_mech:deepslate_native_copper_ore",
     "poly_mech:native_copper_netherrack_ore",

@@ -129,6 +129,7 @@ public class ModItemModelsProvider extends ItemModelProvider {
             "wire_cutter",
             "clamp_meter",
             "prospector",
+            "teleporter",
             // 在这里列出所有需要独立纹理的普通物品
     };
     private boolean isNormalItem(String path) {

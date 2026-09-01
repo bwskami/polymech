@@ -1,0 +1,11 @@
+{
+  "type": "poly_mech:europa",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "poly_mech:europa",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "poly_mech:europa_ice_plains"
+    }
+  }
+}

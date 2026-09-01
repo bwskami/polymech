@@ -82,6 +82,38 @@ public class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .noOcclusion()));
 
+    // ========== 行星地表方块（贴图取自 Ad Astra，用于星球维度群系地表） ==========
+
+    public static final DeferredBlock<Block> MERCURY_STONE =
+            registerBlocks("mercury_stone", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.NETHER_ORE)
+                    .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<Block> VENUS_STONE =
+            registerBlocks("venus_stone", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.NETHER_ORE)
+                    .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<Block> MOON_STONE =
+            registerBlocks("moon_stone", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.STONE)
+                    .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<Block> MARS_STONE =
+            registerBlocks("mars_stone", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.STONE)
+                    .requiresCorrectToolForDrops()));
+
+    public static final DeferredBlock<Block> GLACIO_STONE =
+            registerBlocks("glacio_stone", () -> new Block(Block.Properties.ofFullCopy(Blocks.STONE)
+                    .strength(2.5F, 6.0F)
+                    .sound(SoundType.STONE)
+                    .requiresCorrectToolForDrops()));
+
     /* 传送带方块（多材质数据驱动注册，见下方 CONVEYOR_TABLE） */
 
     /* 小型蒸汽锅炉（单方块机器） */

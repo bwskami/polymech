@@ -21,7 +21,18 @@ public class ModBlockTagsProvider extends BlockTagsProvider {
     protected void addTags(HolderLookup.Provider provider) {
         tag(BlockTags.MINEABLE_WITH_PICKAXE)
                 .add(ModBlocks.COKE_OVEN_BRICK.get())
-                .add(ModBlocks.FLUID_TANK.get());
+                .add(ModBlocks.FLUID_TANK.get())
+                .add(ModBlocks.MERCURY_STONE.get())
+                .add(ModBlocks.VENUS_STONE.get())
+                .add(ModBlocks.MOON_STONE.get())
+                .add(ModBlocks.MARS_STONE.get())
+                .add(ModBlocks.GLACIO_STONE.get());
+        tag(BlockTags.NEEDS_STONE_TOOL)
+                .add(ModBlocks.MERCURY_STONE.get())
+                .add(ModBlocks.VENUS_STONE.get())
+                .add(ModBlocks.MOON_STONE.get())
+                .add(ModBlocks.MARS_STONE.get())
+                .add(ModBlocks.GLACIO_STONE.get());
 
         // 矿石挖掘标签：全部矿石需镐开采；按开采等级划分石镐级/铁镐级
         var mineable = tag(BlockTags.MINEABLE_WITH_PICKAXE);

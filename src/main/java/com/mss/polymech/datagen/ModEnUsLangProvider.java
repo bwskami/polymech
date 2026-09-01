@@ -238,6 +238,12 @@ public class ModEnUsLangProvider extends LanguageProvider {
 
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
+        add(ModItems.TELEPORTER.get(), "Teleporter");
+        add(ModBlocks.MERCURY_STONE.get(), "Mercury Stone");
+        add(ModBlocks.VENUS_STONE.get(), "Venus Stone");
+        add(ModBlocks.MOON_STONE.get(), "Moon Stone");
+        add(ModBlocks.MARS_STONE.get(), "Mars Stone");
+        add(ModBlocks.GLACIO_STONE.get(), "Glacio Stone");
 
         // 区域岩石（21种，贴图取自TerraFirmaCraft）
         add(ModBlocks.ROCKS.get("limestone").get(), "Limestone");

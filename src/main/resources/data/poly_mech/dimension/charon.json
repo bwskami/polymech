@@ -1,0 +1,11 @@
+{
+  "type": "poly_mech:charon",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "poly_mech:charon",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "poly_mech:charon_ice_plains"
+    }
+  }
+}

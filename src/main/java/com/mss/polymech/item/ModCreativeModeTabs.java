@@ -161,6 +161,13 @@ public class ModCreativeModeTabs {
                         output.accept(ModBlocks.COKE_OVEN_BRICK.get());
                         output.accept(ModBlocks.FLUID_TANK.get());
 
+                        // 行星地表方块
+                        output.accept(ModBlocks.MERCURY_STONE.get());
+                        output.accept(ModBlocks.VENUS_STONE.get());
+                        output.accept(ModBlocks.MOON_STONE.get());
+                        output.accept(ModBlocks.MARS_STONE.get());
+                        output.accept(ModBlocks.GLACIO_STONE.get());
+
                         // 金属存储块（按材料名遍历）
                         for (var entry : ModBlocks.MATERIAL_BLOCKS.entrySet()) {
                             output.accept(entry.getValue().get());
@@ -254,6 +261,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.WIRE_CUTTER.get());
                         output.accept(ModItems.CLAMP_METER.get());
                         output.accept(ModItems.PROSPECTOR.get());
+                        output.accept(ModItems.TELEPORTER.get());
                         
                         // 如果有目标为TOOL的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {

@@ -54,7 +54,10 @@ public class SolarSystemView extends UIElement {
     boolean dragging;
     boolean freeView;
     boolean galaxyMapMode;
+    /** 是否绘制并响应科技树覆盖层（线框网格 + 网格科技项 + 选择框）。纯星图/太空 UI 默认关闭。 */
+    boolean techOverlayEnabled = false;
     IntConsumer onStarSelect;
+    IntConsumer onPlanetSelect;
     int dragButton = -1;
     boolean dragMoved;
     int lastMX, lastMY;
@@ -204,6 +207,7 @@ public class SolarSystemView extends UIElement {
                     camera.beginTransition(solarSystem.worldPos(focalIndex, simTime)[0], solarSystem.worldPos(focalIndex, simTime)[2]);
                     selectedTile = -1;
                     hoveredTile = -1;
+                    if (onPlanetSelect != null) onPlanetSelect.accept(pi);
                 }
                 return;
             }
@@ -227,6 +231,7 @@ public class SolarSystemView extends UIElement {
                     camera.beginTransition(solarSystem.worldPos(focalIndex, simTime)[0], solarSystem.worldPos(focalIndex, simTime)[2]);
                     selectedTile = -1;
                     hoveredTile = -1;
+                    if (onPlanetSelect != null) onPlanetSelect.accept(pi);
                 }
             }
         });
@@ -236,6 +241,7 @@ public class SolarSystemView extends UIElement {
     public SolarSystemView(SolarSystem solarSystem, Consumer<TechNode> onSelect, IntConsumer onStarSelect) {
         this(solarSystem, onSelect);
         this.galaxyMapMode = true;
+        this.techOverlayEnabled = false;
         this.onStarSelect = onStarSelect;
         this.systemIndex = -1; // 不绘制恒星系边境/航道箭头/小行星带
         this.asteroidPos = new float[0][9];
@@ -261,6 +267,26 @@ public class SolarSystemView extends UIElement {
         }
         camera.setFocal(cx, cy, cz);
         camera.setDist(Math.max(30f, maxR * 2.2f));
+    }
+
+    /** 开启/关闭科技树覆盖层（网格科技项 + 选择框）。关闭后仍可旋转/缩放/锁定星球。 */
+    public SolarSystemView setTechOverlayEnabled(boolean enabled) {
+        this.techOverlayEnabled = enabled;
+        if (!enabled) {
+            this.hoveredTile = -1;
+            this.selectedTile = -1;
+            this.hoverAlpha = 0;
+            this.tileMesh = null;
+        }
+        return this;
+    }
+
+    public boolean isTechOverlayEnabled() { return techOverlayEnabled; }
+
+    /** 设置普通行星点击监听（非星图模式、非科技地块点击）。用于传送器等界面。 */
+    public SolarSystemView setPlanetSelectListener(IntConsumer listener) {
+        this.onPlanetSelect = listener;
+        return this;
     }
 
     void rebuildScene(SolarSystem solarSystem) {
@@ -574,8 +600,9 @@ public class SolarSystemView extends UIElement {
             Planet p2 = solarSystem.get(pi);
             for (PlanetLayer layer : p2.layers()) {
                 if (!layer.visible()) continue;
-                // 网格（线框）只在焦点行星显示
-                if (layer.type() == PlanetLayerType.WIREFRAME && pi != focalIndex) continue;
+                // 网格（线框）只在焦点行星显示，且仅科技树界面开启（纯星图/传送器不显示网格）
+                if (layer.type() == PlanetLayerType.WIREFRAME && (!techOverlayEnabled || pi != focalIndex)) continue;
+                if (layer.type() == PlanetLayerType.TECH && !techOverlayEnabled) continue;
                 Polyhedron geo = p2.resolveGeometry(layer);
                 float[][] alb = null;
                 int[] fpar = null;
@@ -613,7 +640,7 @@ public class SolarSystemView extends UIElement {
             if (l.type() == PlanetLayerType.WIREFRAME && l.visible()) hasWireframe = true;
             if (l.type() == PlanetLayerType.TECH) hasTech = true;
         }
-        if (hasWireframe && !freeView) {
+        if (hasWireframe && !freeView && techOverlayEnabled) {
             // 预计算拾取网格的屏幕坐标（与 PolyhedronView 一致：每帧一次，拾取直接用）
             Planet fp = solarSystem.get(focalIndex);
             PlanetLayer gridL = gridLayer(fp);
