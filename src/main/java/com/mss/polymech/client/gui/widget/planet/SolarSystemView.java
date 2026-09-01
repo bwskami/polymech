@@ -30,34 +30,54 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 public class SolarSystemView extends UIElement {
     // 光照方向已改为每个行星实时计算（向太阳方向），旧常量不再使用
     // ===== skybox =====
-    static final ResourceLocation SKY_FRONT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/front.png");
-    static final ResourceLocation SKY_BACK  = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/back.png");
-    static final ResourceLocation SKY_LEFT  = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/left.png");
-    static final ResourceLocation SKY_RIGHT = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/right.png");
-    static final ResourceLocation SKY_TOP   = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/top.png");
-    static final ResourceLocation SKY_BOTTOM = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/gui/skybox/bottom.png");
+    // 新的 cubemap 格式：单张 4x3 十字布局贴图。0 号只给星图；1~11 随机分配给各恒星系。
+    static final ResourceLocation[] SKYBOX_CUBEMAPS = new ResourceLocation[12];
+    static {
+        for (int i = 0; i < 12; i++) {
+            SKYBOX_CUBEMAPS[i] = ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID,
+                    "textures/gui/skybox/cubemap/cubemap_space" + i + ".png");
+        }
+    }
     static final float SKY_R = 1500f;
+    static final boolean DEBUG_SKYBOX_ORIENTATION = true;
 
-    final SolarSystem solarSystem;
+    SolarSystem solarSystem;
     final Consumer<TechNode> onSelect;
     final CameraController camera = new CameraController();
     float simTime;
     float lastMouseX, lastMouseY;
     boolean dragging;
+    boolean freeView;
+    boolean galaxyMapMode;
+    IntConsumer onStarSelect;
+    int dragButton = -1;
+    boolean dragMoved;
     int lastMX, lastMY;
     long lastNano = System.nanoTime();
     double fpsSmooth = 60.0;
     int focalIndex = 3;
-    final float[][][] faceColors;
-    /** 聚焦星球的细分光照网格（面内细分：保地块、平滑光照）及 子三角->原地块 映射。 */
-    Polyhedron shadedBase;
-    int[] shadeParent;
-    /** 细分网格每顶点所属地块（边界顶点按地块各留一份，保棱线、可逐顶点预计算颜色）。 */
-    int[] shadeVertexParent;
+    int systemIndex = 0;
+    float[][][] faceColors;
+    SurfaceMaterial[][] faceMaterials;
+    /** 每个星球是否含有海洋材质面片（需要海洋层+陆地层分离渲染）。 */
+    boolean[] hasOcean;
+    PlanetHeight[] planetHeights;
+    /** 细分光照网格缓存：每种 baseMesh 一份（不同分辨率的星球各自一份）。 */
+    java.util.Map<Polyhedron, ShadedBase> shadedBaseCache = new java.util.HashMap<>();
+    /** 细分网格及 子三角->原地块 映射。 */
+    static class ShadedBase {
+        final Polyhedron mesh;
+        final int[] faceParent;
+        final int[] vertexParent;
+        ShadedBase(Polyhedron mesh, int[] faceParent, int[] vertexParent) {
+            this.mesh = mesh; this.faceParent = faceParent; this.vertexParent = vertexParent;
+        }
+    }
     /** 面内细分级数：每个扇形三角 -> 4^N。 */
     static final int SHADE_SUBDIV = 2;
     /** BASE 层光照走 GPU 着色器；置 false 回退到 CPU 逐顶点路径（等价实现，作为兜底）。 */
@@ -83,8 +103,8 @@ public class SolarSystemView extends UIElement {
 
     static final int ASTEROID_COUNT = 300;
     static final int KUIPER_COUNT = 90;
-    final float[][] asteroidPos;  // [i]={angle,radius,y,size,tiltA,tiltB,r,g,b}
-    final float[][] kuiperPos;
+    float[][] asteroidPos;  // [i]={angle,radius,y,size,tiltA,tiltB,r,g,b}
+    float[][] kuiperPos;
 
     int hoveredTile = -1;
     int selectedTile = -1;
@@ -102,22 +122,154 @@ public class SolarSystemView extends UIElement {
     float tileDist;
     /** Reusable arrays for tile screen coord computation (avoids per-frame allocation). */
     final float[] tmpCam = new float[3];
+    private double sceneMsSmooth = 0;
+    private final List<RenderTask> taskList = new ArrayList<>(48);
+    private final float[] _taskWp = new float[3];
     float currentTilt;
     float overlayFade = 1f;
     final PlanetLighting lighting = new PlanetLighting();
-    final ShadowModel shadowModel;
+    ShadowModel shadowModel;
     Polyhedron tileMesh;
+    // 超空间航道箭头（边境上的可点击箭头）
+    private final float[] arrowSx = new float[8], arrowSy = new float[8];
+    private final int[] arrowTargets = new int[8];
+    private int arrowCount;
+    private int hoveredArrow = -1;
+    private final float[] _tmpCam2 = new float[3], _tmpScr = new float[3];
+    private final float[] _laneA = new float[3], _laneB = new float[3];
+    private final float[] _glintCam = new float[3];
 
     // ---- rendering subsystems (extracted) ----
-    final PlanetLayerDrawer layerDrawer;
-    final OrbitalDrawer orbitalDrawer;
-    final TechTreeDrawer techTreeDrawer;
+    PlanetLayerDrawer layerDrawer;
+    OrbitalDrawer orbitalDrawer;
+    TechTreeDrawer techTreeDrawer;
 
     public SolarSystemView(SolarSystem solarSystem, Consumer<TechNode> onSelect) {
-        this.solarSystem = solarSystem;
         this.onSelect = onSelect;
+        rebuildScene(solarSystem);
+        float[] wp0 = solarSystem.worldPos(focalIndex, 0);
+        camera.setFocal(wp0[0], wp0[2]);
+        addEventListener(UIEvents.MOUSE_DOWN, e -> {
+            dragging = true; dragButton = e.button; dragMoved = false;
+            lastMX = (int) e.x; lastMY = (int) e.y; camera.stopInertia();
+            // 按下中键立即进入自由视角，无需等待拖动阈值
+            if (e.button == 2 && !freeView) {
+                freeView = true; selectedTile = -1; hoveredTile = -1;
+            }
+        });
+        addEventListener(UIEvents.MOUSE_UP, e -> dragging = false);
+        addEventListener(UIEvents.MOUSE_MOVE, e -> {
+            if (!dragging) return;
+            int mx = (int) e.x, my = (int) e.y;
+            if (Math.abs(mx - lastMX) + Math.abs(my - lastMY) > 4) dragMoved = true;
+            if (dragButton == 0 || dragButton == 1) {
+                // 左键/右键长按拖拽：转动视角（拖拽松手不触发点击）
+                camera.rotate(mx - lastMX, my - lastMY);
+            } else if (dragButton == 2) {
+                // 中键拖拽：按下即已进入自由视角，移动立即生效（无需阈值）
+                camera.pan(mx - lastMX, my - lastMY);
+                camera.clampFocal(systemBorderRadius());
+            }
+            lastMX = mx; lastMY = my;
+        });
+        addEventListener(UIEvents.MOUSE_WHEEL, e -> { camera.zoom(e.deltaY, minDistForFocal()); });
+        addEventListener(UIEvents.CLICK, e -> {
+            if (e.button != 0) {
+                // 只有左键单击会触发选择/锁定；右键单击无事发生，中键单击也仅用于拖拽
+                return;
+            }
+            // 长按拖拽后松手不算点击：左键拖动只转动视角，不触发选中/锁定
+            if (dragMoved) return;
+            if (galaxyMapMode && onStarSelect != null) {
+                int pi = pickPlanet((int) lastMouseX, (int) lastMouseY, camera.focalLength(), camera.cx(), camera.cy());
+                if (pi >= 0) onStarSelect.accept(pi);
+                return;
+            }
+            if (freeView) {
+                // 自由视角下：左键点击箭头同样可以切换星系（切换后保持自由视角）
+                for (int i = 0; i < arrowCount; i++) {
+                    float adx = (int) e.x - arrowSx[i], ady = (int) e.y - arrowSy[i];
+                    if (adx * adx + ady * ady < 14 * 14) {
+                        switchToSystem(arrowTargets[i]);
+                        return;
+                    }
+                }
+                // 自由视角下：左键点击星球重新锁定摄像机到该星球
+                int pi = pickPlanet((int) lastMouseX, (int) lastMouseY, camera.focalLength(), camera.cx(), camera.cy());
+                if (pi >= 0) {
+                    freeView = false;
+                    camera.stopInertia();
+                    focalIndex = pi;
+                    camera.ensureMinDist(minDistForFocal());
+                    camera.beginTransition(solarSystem.worldPos(focalIndex, simTime)[0], solarSystem.worldPos(focalIndex, simTime)[2]);
+                    selectedTile = -1;
+                    hoveredTile = -1;
+                }
+                return;
+            }
+            if (hoveredTile >= 0) {
+                selectedTile = hoveredTile;
+                List<TechNode> fn = solarSystem.get(focalIndex).techNodes();
+                if (hoveredTile >= 0 && hoveredTile < fn.size()) onSelect.accept(fn.get(hoveredTile));
+            } else {
+                for (int i = 0; i < arrowCount; i++) {
+                    float adx = (int) e.x - arrowSx[i], ady = (int) e.y - arrowSy[i];
+                    if (adx * adx + ady * ady < 14 * 14) {
+                        switchToSystem(arrowTargets[i]);
+                        return;
+                    }
+                }
+                int pi = pickPlanet((int) lastMouseX, (int) lastMouseY, camera.focalLength(), camera.cx(), camera.cy());
+                if (pi >= 0 && pi != focalIndex) {
+                    camera.stopInertia();
+                    focalIndex = pi;
+                    camera.ensureMinDist(minDistForFocal());
+                    camera.beginTransition(solarSystem.worldPos(focalIndex, simTime)[0], solarSystem.worldPos(focalIndex, simTime)[2]);
+                    selectedTile = -1;
+                    hoveredTile = -1;
+                }
+            }
+        });
+    }
+
+    /** 星图模式：把星图看作一个“大恒星系”，复用星球/图层/着色器渲染。 */
+    public SolarSystemView(SolarSystem solarSystem, Consumer<TechNode> onSelect, IntConsumer onStarSelect) {
+        this(solarSystem, onSelect);
+        this.galaxyMapMode = true;
+        this.onStarSelect = onStarSelect;
+        this.systemIndex = -1; // 不绘制恒星系边境/航道箭头/小行星带
+        this.asteroidPos = new float[0][9];
+        this.kuiperPos = new float[0][9];
+        // 初始相机对准整张星图的包围盒中心
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        float minZ = Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
+        for (int i = 0; i < solarSystem.size(); i++) {
+            float[] wp = solarSystem.worldPos(i, 0);
+            minX = Math.min(minX, wp[0]); maxX = Math.max(maxX, wp[0]);
+            minY = Math.min(minY, wp[1]); maxY = Math.max(maxY, wp[1]);
+            minZ = Math.min(minZ, wp[2]); maxZ = Math.max(maxZ, wp[2]);
+        }
+        float cx = (minX + maxX) / 2f;
+        float cy = (minY + maxY) / 2f;
+        float cz = (minZ + maxZ) / 2f;
+        float maxR = 0;
+        for (int i = 0; i < solarSystem.size(); i++) {
+            float[] wp = solarSystem.worldPos(i, 0);
+            float dx = wp[0] - cx, dy = wp[1] - cy, dz = wp[2] - cz;
+            maxR = Math.max(maxR, (float) Math.sqrt(dx * dx + dy * dy + dz * dz));
+        }
+        camera.setFocal(cx, cy, cz);
+        camera.setDist(Math.max(30f, maxR * 2.2f));
+    }
+
+    void rebuildScene(SolarSystem solarSystem) {
+        this.solarSystem = solarSystem;
         int n = solarSystem.size();
         this.faceColors = new float[n][][];
+        this.faceMaterials = new SurfaceMaterial[n][];
+        this.hasOcean = new boolean[n];
+        this.planetHeights = new PlanetHeight[n];
 
         this.shadowModel = new ShadowModel(solarSystem);
         this.layerDrawer = new PlanetLayerDrawer(this);
@@ -126,10 +278,15 @@ public class SolarSystemView extends UIElement {
         for (int i = 0; i < n; i++) {
             Polyhedron mesh = solarSystem.get(i).baseMesh();
             faceColors[i] = new float[mesh.faces.length][3];
+            faceMaterials[i] = new SurfaceMaterial[mesh.faces.length];
+            planetHeights[i] = new PlanetHeight(i, mesh, solarSystem.get(i).heightScale());
             precomputeColorsInto(i, mesh, faceColors[i]);
+            precomputeMaterialsInto(i, mesh, faceMaterials[i]);
+            for (SurfaceMaterial m : faceMaterials[i]) if (m == SurfaceMaterial.OCEAN) hasOcean[i] = true;
+            if (hasOcean[i]) planetHeights[i].clampToSea = true;
         }
-        buildShadedBase(solarSystem.get(0).baseMesh(), SHADE_SUBDIV);
-        int vn = shadedBase.vertices.length;
+        ShadedBase sunShaded = shadedBaseFor(solarSystem.get(0).baseMesh());
+        int vn = sunShaded.mesh.vertices.length;
         lDirect = new float[vn]; lSpec = new float[vn]; lLimb = new float[vn];
         lRimW = new float[vn]; lRimC = new float[vn]; lShadowB = new float[vn]; lRefl = new float[vn];
         lColR = new float[vn]; lColG = new float[vn]; lColB = new float[vn];
@@ -172,30 +329,40 @@ public class SolarSystemView extends UIElement {
             rng1 = rng1 * 6364136223846793005L + 1442695040888963407L;
               kuiperPos[i] = new float[]{angle, radius, yPos, sz, tiltA, tiltB, bright*0.7f, bright*0.75f, bright*0.85f, (float)(int)rng1};
         }
-        float[] wp = solarSystem.worldPos(focalIndex, 0);
-        camera.setFocal(wp[0], wp[2]);
-        addEventListener(UIEvents.MOUSE_DOWN, e -> { dragging = true; lastMX = (int) e.x; lastMY = (int) e.y; camera.stopInertia(); });
-        addEventListener(UIEvents.MOUSE_UP, e -> dragging = false);
-        addEventListener(UIEvents.MOUSE_MOVE, e -> { if (dragging) { int mx = (int) e.x, my = (int) e.y; camera.rotate(mx - lastMX, my - lastMY); lastMX = mx; lastMY = my; } });
-        addEventListener(UIEvents.MOUSE_WHEEL, e -> { camera.zoom(e.deltaY, minDistForFocal()); });
-        addEventListener(UIEvents.CLICK, e -> {
-            if (hoveredTile >= 0) {
-                selectedTile = hoveredTile;
-                List<TechNode> fn = solarSystem.get(focalIndex).techNodes();
-                if (hoveredTile >= 0 && hoveredTile < fn.size()) onSelect.accept(fn.get(hoveredTile));
-            } else {
-                int pi = pickPlanet((int) lastMouseX, (int) lastMouseY, camera.focalLength(), camera.cx(), camera.cy());
-                if (pi >= 0 && pi != focalIndex) {
-                    camera.stopInertia();
-                    focalIndex = pi;
-                    camera.ensureMinDist(minDistForFocal());
-                    camera.beginTransition(solarSystem.worldPos(focalIndex, simTime)[0], solarSystem.worldPos(focalIndex, simTime)[2]);
-                    selectedTile = -1;
-                    hoveredTile = -1;
-                }
-            }
-        });
+        if (systemIndex != 0) {
+            asteroidPos = new float[0][9];
+            kuiperPos = new float[0][9];
+        }
     }
+
+    /** 切换到另一个恒星系（每个星系独立场景）。 */
+    void switchToSystem(int newIndex) {
+        if (newIndex < 0 || newIndex >= StarSystemCatalog.size() || newIndex == systemIndex) return;
+        systemIndex = newIndex;
+        // 清空旧场景资源
+        layerDrawer.closeVBOs();
+        orbitalDrawer.closeVBOs();
+        shadedBaseCache.clear();
+        layerNoiseCache.clear();
+        edgeCache.clear();
+        rockCache.clear();
+        tileMesh = null;
+        selectedTile = -1;
+        hoveredTile = -1;
+        hoverAlpha = 0;
+        // 生成新场景
+        SolarSystem sys = newIndex == 0
+                ? SolarSystem.createDefault()
+                : SolarSystemGenerator.generate(StarSystemCatalog.get(newIndex));
+        rebuildScene(sys);
+        focalIndex = 0; // 进入新星系先聚焦恒星
+        float starR = 0;
+        for (PlanetLayer l : solarSystem.get(0).layers()) if (l.type() == PlanetLayerType.BASE) { starR = l.radius(); break; }
+        float[] wp = solarSystem.worldPos(0, 0);
+        camera.setFocal(wp[0], wp[2]);
+        camera.stopInertia();
+    }
+
     void precomputeColorsInto(int pi, Polyhedron mesh, float[][] fc) {
         Planet p = solarSystem.get(pi);
         long seed = 0x5EED1234L + pi * 0x1234567L;
@@ -208,10 +375,27 @@ public class SolarSystemView extends UIElement {
             float len = (float) Math.sqrt(cx * cx + cy * cy + cz * cz);
             cx /= len; cy /= len; cz /= len;
             float lat = Math.abs(cy);
-            float[] color = provider.compute(f, cx, cy, cz, lat, noise);
+            float height = planetHeights[pi].rawHeight(cx, cy, cz);
+            float[] color = provider.compute(f, cx, cy, cz, lat, height, noise);
             fc[f][0] = clamp(color[0], 0, 1);
             fc[f][1] = clamp(color[1], 0, 1);
             fc[f][2] = clamp(color[2], 0, 1);
+        }
+    }
+
+    void precomputeMaterialsInto(int pi, Polyhedron mesh, SurfaceMaterial[] fm) {
+        Planet p = solarSystem.get(pi);
+        long seed = 0x5EED1234L + pi * 0x1234567L;
+        var noise = new Noise3(seed);
+        PlanetColorProvider provider = p.colorProvider();
+        for (int f = 0; f < mesh.faces.length; f++) {
+            int[] fv = mesh.faces[f];
+            float cx = 0, cy = 0, cz = 0;
+            for (int v : fv) { cx += mesh.vertices[v][0]; cy += mesh.vertices[v][1]; cz += mesh.vertices[v][2]; }
+            float len = (float) Math.sqrt(cx * cx + cy * cy + cz * cz);
+            if (len < 1e-6f) len = 1f;
+            cx /= len; cy /= len; cz /= len;
+            fm[f] = provider.material(f, cx, cy, cz, Math.abs(cy), planetHeights[pi].rawHeight(cx, cy, cz), noise);
         }
     }
 
@@ -219,11 +403,11 @@ public class SolarSystemView extends UIElement {
      * General-purpose: probe cameraTo() with origin + 3 axes, reconstruct a 4x4 matrix
      * that transforms local-space coords to camera space (identical to cameraTo, zero error).
      */
-    void buildTransformMatrix(float dwx, float dwz, float sc, float ss, float tilt, Matrix4f out) {
-        camera.cameraTo(mvOrigin, ORIGIN3, 1f, dwx, dwz, sc, ss, tilt);
-        camera.cameraTo(mvAxisX, AXIS_X3, 1f, dwx, dwz, sc, ss, tilt);
-        camera.cameraTo(mvAxisY, AXIS_Y3, 1f, dwx, dwz, sc, ss, tilt);
-        camera.cameraTo(mvAxisZ, AXIS_Z3, 1f, dwx, dwz, sc, ss, tilt);
+    void buildTransformMatrix(float dwx, float dwy, float dwz, float sc, float ss, float tilt, Matrix4f out) {
+        camera.cameraTo(mvOrigin, ORIGIN3, 1f, dwx, dwy, dwz, sc, ss, tilt);
+        camera.cameraTo(mvAxisX, AXIS_X3, 1f, dwx, dwy, dwz, sc, ss, tilt);
+        camera.cameraTo(mvAxisY, AXIS_Y3, 1f, dwx, dwy, dwz, sc, ss, tilt);
+        camera.cameraTo(mvAxisZ, AXIS_Z3, 1f, dwx, dwy, dwz, sc, ss, tilt);
         float c0x = mvAxisX[0]-mvOrigin[0], c0y = mvAxisX[1]-mvOrigin[1], c0z = mvAxisX[2]-mvOrigin[2];
         float c1x = mvAxisY[0]-mvOrigin[0], c1y = mvAxisY[1]-mvOrigin[1], c1z = mvAxisY[2]-mvOrigin[2];
         float c2x = mvAxisZ[0]-mvOrigin[0], c2y = mvAxisZ[1]-mvOrigin[1], c2z = mvAxisZ[2]-mvOrigin[2];
@@ -232,7 +416,7 @@ public class SolarSystemView extends UIElement {
 
     /** Shorthand: build transform for a RenderTask's planet. */
     void buildModelView(RenderTask t, float sc, float ss, Matrix4f out) {
-        buildTransformMatrix(t.dwx, t.dwz, sc, ss, currentTilt, out);
+        buildTransformMatrix(t.dwx, t.dwy, t.dwz, sc, ss, currentTilt, out);
     }
 
     /** 相机空间方向 -> 星球局部系方向（模型视图旋转部分的转置）。 */
@@ -245,7 +429,7 @@ public class SolarSystemView extends UIElement {
     /** 构建细分光照网格：每个地块扇形三角再细分，保地块 albedo、光照更平滑。
      *  顶点按 (位置,地块) 去重：边界顶点按地块各留一份——保住地块棱线，
      *  且每顶点唯一属于一个地块，可逐顶点预计算最终色（免去按面重复 colorize）。 */
-    void buildShadedBase(Polyhedron tileMesh, int level) {
+    ShadedBase buildShadedBase(Polyhedron tileMesh, int level) {
         List<float[]> verts = new ArrayList<>();
         HashMap<Long, Integer> dedup = new HashMap<>();
         List<int[]> faces = new ArrayList<>();
@@ -267,9 +451,15 @@ public class SolarSystemView extends UIElement {
         for (int i = 0; i < faces.size(); i++) pa[i] = parents.get(i);
         int[] vpa = new int[verts.size()];
         for (int i = 0; i < verts.size(); i++) vpa[i] = vertParents.get(i);
-        this.shadedBase = Polyhedron.of(verts.toArray(new float[0][]), faces.toArray(new int[0][]));
-        this.shadeParent = pa;
-        this.shadeVertexParent = vpa;
+        return new ShadedBase(Polyhedron.of(verts.toArray(new float[0][]), faces.toArray(new int[0][])), pa, vpa);
+    }
+
+    /** 获取某 baseMesh 对应的细分网格（按面数选择细分级别，保持约 1 万面）。 */
+    ShadedBase shadedBaseFor(Polyhedron baseMesh) {
+        return shadedBaseCache.computeIfAbsent(baseMesh, m -> {
+            int level = m.faces.length >= 2000 ? 1 : SHADE_SUBDIV;
+            return buildShadedBase(m, level);
+        });
     }
     private void subdivideSph(float[] p1, float[] p2, float[] p3, int level, int parent,
                               List<float[]> verts, HashMap<Long, Integer> dedup, List<int[]> faces,
@@ -319,14 +509,16 @@ public class SolarSystemView extends UIElement {
     static float clamp(float v, float lo, float hi) { return Math.max(lo, Math.min(hi, v)); }
     static float easeOutCubic(float t) { return 1f - (1f - t) * (1f - t) * (1f - t); }
     static class RenderTask {
-        final int pi; final String type; final float layerR, selfRot, camDist, dwx, dwz;
+        final int pi; final String type; final float layerR, selfRot, camDist, dwx, dwy, dwz;
         final Polyhedron mesh;
         /** BASE 层的地块 albedo（按地块索引）；其他层为 null。 */
         final float[][] albedo;
         /** 细分网格的 子三角->原地块 映射；非细分网格为 null（面号即地块号）。 */
         final int[] faceParent;
-        RenderTask(int pi, String type, float layerR, float selfRot, float camDist, float dwx, float dwz, Polyhedron mesh, float[][] albedo, int[] faceParent) {
-            this.pi = pi; this.type = type; this.layerR = layerR; this.selfRot = selfRot; this.camDist = camDist; this.dwx = dwx; this.dwz = dwz; this.mesh = mesh; this.albedo = albedo; this.faceParent = faceParent;
+        /** 细分网格的 顶点->原地块 映射；非细分网格为 null。 */
+        final int[] vertexParent;
+        RenderTask(int pi, String type, float layerR, float selfRot, float camDist, float dwx, float dwy, float dwz, Polyhedron mesh, float[][] albedo, int[] faceParent, int[] vertexParent) {
+            this.pi = pi; this.type = type; this.layerR = layerR; this.selfRot = selfRot; this.camDist = camDist; this.dwx = dwx; this.dwy = dwy; this.dwz = dwz; this.mesh = mesh; this.albedo = albedo; this.faceParent = faceParent; this.vertexParent = vertexParent;
         }
     }
     @Override
@@ -342,9 +534,12 @@ public class SolarSystemView extends UIElement {
         // 科技层/网格层随最近距离淡入淡出
         float fadeTarget = computeOverlayFadeTarget();
         overlayFade += (fadeTarget - overlayFade) * Math.min(1f, dt * 10f);
-        // 摄像机焦点过渡动画（点击行星后平滑飞过去）
+        // 摄像机旋转惯性 + 焦点过渡动画（点击行星后平滑飞过去）。
+        // 自由视角下不追踪原焦点星球，让右键拖拽平移的摄像机保持在原位。
         camera.updateInertia(dt, dragging);
-        camera.updateTransition(dt, wp[0], wp[2]);
+        if (!freeView && !galaxyMapMode) {
+            camera.updateTransition(dt, wp[0], wp[2]);
+        }
         GuiGraphics g = guiContext.graphics;
         int vx = (int) getPositionX(), vy = (int) getPositionY();
         int vw = (int) getSizeWidth(), vh = (int) getSizeHeight();
@@ -354,6 +549,7 @@ public class SolarSystemView extends UIElement {
         float focal = camera.focalLength(), cx = camera.cx(), cy = camera.cy();
         lastMouseX = guiContext.mouseX; lastMouseY = guiContext.mouseY;
         float cosY = camera.cosY(), sinY = camera.sinY(), cosX = camera.cosX(), sinX = camera.sinX();
+        long sceneStart = System.nanoTime();
         // idMat is a field (avoids per-frame allocation)
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend(); RenderSystem.defaultBlendFunc(); RenderSystem.disableCull();
@@ -368,12 +564,13 @@ public class SolarSystemView extends UIElement {
         drawSkybox(idMat);
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableDepthTest(); RenderSystem.depthMask(true);
-        List<RenderTask> tasks = new ArrayList<>();
+        List<RenderTask> tasks = taskList;
+        tasks.clear();
         for (int pi = 0; pi < solarSystem.size(); pi++) {
-            float[] pos = solarSystem.worldPos(pi, simTime);
-            float dwx = pos[0] - camera.focalX(), dwz = pos[2] - camera.focalZ();
+            float[] pos = solarSystem.worldPosTo(_taskWp, pi, simTime);
+            float dwx = pos[0] - camera.focalX(), dwy = pos[1], dwz = pos[2] - camera.focalZ();
             float rz1 = -dwx * sinY + dwz * cosY;
-            float camDist = camera.dist() - rz1 * cosX;
+            float camDist = camera.dist() - (dwy - camera.focalY()) * sinX - rz1 * cosX;
             Planet p2 = solarSystem.get(pi);
             for (PlanetLayer layer : p2.layers()) {
                 if (!layer.visible()) continue;
@@ -382,36 +579,41 @@ public class SolarSystemView extends UIElement {
                 Polyhedron geo = p2.resolveGeometry(layer);
                 float[][] alb = null;
                 int[] fpar = null;
+                int[] vpar = null;
                 if (layer.type() == PlanetLayerType.BASE) {
                     alb = faceColors[pi];
-                    if (pi == focalIndex) { geo = shadedBase; fpar = shadeParent; }
+                    if (pi == focalIndex) { ShadedBase sb = shadedBaseFor(solarSystem.get(pi).baseMesh()); geo = sb.mesh; fpar = sb.faceParent; vpar = sb.vertexParent; }
                 } else if (layer.type() == PlanetLayerType.ATMOSPHERE) {
                     // 所有星球大气统一用 goldberg 拓扑（比 sphere(16,24) 经纬网格更均匀）；
-                    // 焦点星球用更高精度 shadedBase，远距离的用 baseMesh（642 面）即可。
-                    geo = (pi == focalIndex) ? shadedBase : solarSystem.get(pi).baseMesh();
+                    // 焦点星球用更高精度 shadedBase，远距离的用 baseMesh 即可。
+                    geo = (pi == focalIndex) ? shadedBaseFor(solarSystem.get(pi).baseMesh()).mesh : solarSystem.get(pi).baseMesh();
                 }
-                tasks.add(new RenderTask(pi, layer.type().name(), layer.radius(), p2.resolveRotationSpeed(layer), camDist, dwx, dwz, geo, alb, fpar));
+                tasks.add(new RenderTask(pi, layer.type().name(), layer.radius(), p2.resolveRotationSpeed(layer), camDist, dwx, dwy, dwz, geo, alb, fpar, vpar));
             }
         }
         tasks.sort(Comparator.comparingDouble(t -> -t.camDist));
         for (RenderTask t : tasks) if (t.type.equals("BASE") || t.type.equals("CLOUD")) drawLayer(idMat, t, cosY, sinY, cosX, sinX, focal, cx, cy);
         drawOrbitalRings(idMat, cosY, sinY, cosX, sinX, focal, cx, cy);
-        drawBeltBand(idMat, 50f, 65f, 5, cosY, sinY, cosX, sinX, 0.60f, 0.50f, 0.40f, 0.10f);
-        drawBeltBand(idMat, 230f, 280f, 4, cosY, sinY, cosX, sinX, 0.45f, 0.50f, 0.60f, 0.06f);
+        if (systemIndex == 0) {
+            drawBeltBand(idMat, 50f, 65f, 5, cosY, sinY, cosX, sinX, 0.60f, 0.50f, 0.40f, 0.10f);
+            drawBeltBand(idMat, 230f, 280f, 4, cosY, sinY, cosX, sinX, 0.45f, 0.50f, 0.60f, 0.06f);
+        }
         drawScatteredRocks(idMat, asteroidPos, cosY, sinY, cosX, sinX);
         drawScatteredRocks(idMat, kuiperPos, cosY, sinY, cosX, sinX);
         RenderSystem.depthMask(false);
         for (RenderTask t : tasks) if (!t.type.equals("BASE") && !t.type.equals("CLOUD") && !t.type.equals("TECH")) drawLayer(idMat, t, cosY, sinY, cosX, sinX, focal, cx, cy);
         RenderSystem.depthMask(false);
         // ── 3D 恒星光晕：在透视投影 + 深度检测下绘制，行星自然遮挡 ──
-        drawSunGlow(idMat);
+        if (!galaxyMapMode) {
+            drawSunGlow(idMat);
+        }
         boolean hasWireframe = false;
         boolean hasTech = false;
         for (PlanetLayer l : solarSystem.get(focalIndex).layers()) {
             if (l.type() == PlanetLayerType.WIREFRAME && l.visible()) hasWireframe = true;
             if (l.type() == PlanetLayerType.TECH) hasTech = true;
         }
-        if (hasWireframe) {
+        if (hasWireframe && !freeView) {
             // 预计算拾取网格的屏幕坐标（与 PolyhedronView 一致：每帧一次，拾取直接用）
             Planet fp = solarSystem.get(focalIndex);
             PlanetLayer gridL = gridLayer(fp);
@@ -420,12 +622,12 @@ public class SolarSystemView extends UIElement {
             float selfAngle = (gridL != null ? fp.resolveRotationSpeed(gridL) : 0) * simTime;
             float sc = (float) Math.cos(selfAngle), ss = (float) Math.sin(selfAngle);
             float[] wp2 = solarSystem.worldPos(focalIndex, simTime);
-            float pdwx = wp2[0] - camera.focalX(), pdwz = wp2[2] - camera.focalZ();
+            float pdwx = wp2[0] - camera.focalX(), pdwy = wp2[1], pdwz = wp2[2] - camera.focalZ();
             currentTilt = fp.axialTilt();
             int nv = tileMesh.vertices.length;
             tileSx = new float[nv]; tileSy = new float[nv]; tileZ = new float[nv]; tileDist = camera.dist();
             for (int i = 0; i < nv; i++) {
-                camera.cameraToNoAlloc(tmpCam, tileMesh.vertices[i], pickR, pdwx, pdwz, sc, ss, currentTilt);
+                camera.cameraToNoAlloc(tmpCam, tileMesh.vertices[i], pickR, pdwx, pdwy, pdwz, sc, ss, currentTilt);
                 float d = Math.max(-tmpCam[2], 0.15f);
                 tileSx[i] = camera.cx() + tmpCam[0] * camera.focalLength() / d;
                 tileSy[i] = camera.cy() - tmpCam[1] * camera.focalLength() / d;
@@ -435,19 +637,157 @@ public class SolarSystemView extends UIElement {
             drawTechMarkers(g, idMat, cosY, sinY, cosX, sinX, focal, cx, cy);
             drawTechHighlight(idMat, cosY, sinY, cosX, sinX, focal, cx, cy);
         } else { hoveredTile = -1; hoverAlpha = 0; tileMesh = null; }
+        drawSystemOverlay3D(idMat);
+        if (galaxyMapMode) {
+            drawGalaxyHyperlanes(idMat);
+            drawGalaxyStarGlows(idMat);
+        }
         RenderSystem.setProjectionMatrix(oldProj, VertexSorting.ORTHOGRAPHIC_Z);
         RenderSystem.disableDepthTest(); RenderSystem.depthMask(false);
         mvs.popMatrix(); RenderSystem.applyModelViewMatrix(); RenderSystem.setShaderColor(1, 1, 1, 1);
         // drawLabels 暂时禁用，后续做附加UI时再启用
+        drawSystemOverlay(g, vx, vy, camera.cx(), camera.cy());
+
+        drawSkyboxOrientationDebug(g);
 
         // FPS
         var font = Minecraft.getInstance().font;
         String gpuStatus = (GPU_LIGHTING && PlanetShaders.isReady()) ? "GPU" : "CPU";
         String cloudStatus = PlanetShaders.isCloudReady() ? "GPU" : "CPU";
         String atmoStatus = PlanetShaders.isAtmoReady() ? "GPU" : "CPU";
-        g.drawString(font, "FPS: " + (int) fpsSmooth + "  B:" + gpuStatus + " C:" + cloudStatus + " A:" + atmoStatus,
+        double sceneMs = (System.nanoTime() - sceneStart) / 1.0e6;
+        sceneMsSmooth = sceneMsSmooth * 0.9 + sceneMs * 0.1;
+        g.drawString(font, "FPS: " + (int) fpsSmooth + "  scene:" + String.format("%.2f", sceneMsSmooth) + "ms  B:" + gpuStatus + " C:" + cloudStatus + " A:" + atmoStatus,
                 vx + 4, vy + 4, 0xFFFFFF00);
     }
+    /** 3D 部分：绘制重力井虚线、边境虚线、超空间航道箭头（与轨道线同画法）。 */
+    void drawSystemOverlay3D(Matrix4f mat) {
+        if (systemIndex < 0 || systemIndex >= StarSystemCatalog.size()) return;
+        StarSystem sys = StarSystemCatalog.get(systemIndex);
+        float maxOrb = 0;
+        for (int i = 0; i < solarSystem.size(); i++)
+            maxOrb = Math.max(maxOrb, solarSystem.get(i).orbitalRadius());
+        float starR = 0;
+        for (PlanetLayer l : solarSystem.get(0).layers())
+            if (l.type() == PlanetLayerType.BASE) { starR = l.radius(); break; }
+        float gravR = Math.max(maxOrb * 1.15f, starR * 5f);
+        float borderR = gravR * 1.45f;
+        float hw = Math.max(0.12f, borderR * 0.002f);
+
+        orbitalDrawer.drawDashedWorldCircle(mat, gravR, hw, 0.20f, 0.53f, 0.67f, 0.55f, 8, 4);
+        orbitalDrawer.drawDashedWorldCircle(mat, borderR, hw, 1f, 1f, 1f, 0.45f, 10, 5);
+
+        for (int h : sys.hyperlanes) {
+            if (h < 0 || h >= StarSystemCatalog.size()) continue;
+            StarSystem tgt = StarSystemCatalog.get(h);
+            float dx = tgt.x - sys.x, dz = tgt.z - sys.z;
+            float ang = (float) Math.atan2(dz, dx);
+            orbitalDrawer.drawHyperlaneArrow3D(mat, ang, borderR, borderR * 0.08f, hw * 1.2f, 1f, 0.80f, 0.10f, 0.85f);
+        }
+    }
+
+    /** 2D 部分：记录箭头屏幕位置，并绘制悬浮的星系名。 */
+    /** 星图模式下的超空间航道：相机空间 3D 条带（始终面向相机，固定屏幕宽度）。 */
+    private void drawGalaxyHyperlanes(Matrix4f mat) {
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (int i = 0; i < StarSystemCatalog.size(); i++) {
+            StarSystem a = StarSystemCatalog.get(i);
+            for (int h : a.hyperlanes) {
+                if (h <= i || h >= StarSystemCatalog.size()) continue;
+                StarSystem b = StarSystemCatalog.get(h);
+                camera.worldToCamera(_laneA, a.x * SolarSystem.GALAXY_MAP_SCALE, a.y * SolarSystem.GALAXY_MAP_SCALE, a.z * SolarSystem.GALAXY_MAP_SCALE, -camera.focalX(), -camera.focalZ());
+                camera.worldToCamera(_laneB, b.x * SolarSystem.GALAXY_MAP_SCALE, b.y * SolarSystem.GALAXY_MAP_SCALE, b.z * SolarSystem.GALAXY_MAP_SCALE, -camera.focalX(), -camera.focalZ());
+                if (_laneA[2] > -0.2f || _laneB[2] > -0.2f) continue;
+                // 透视正确：世界/相机空间宽度固定，投影后近宽远窄
+                float hw = 0.05f;
+                float dx = _laneB[0] - _laneA[0];
+                float dy = _laneB[1] - _laneA[1];
+                float len = (float) Math.sqrt(dx * dx + dy * dy);
+                if (len < 1e-4f) continue;
+                float px = -dy / len * hw;
+                float py = dx / len * hw;
+                float a0x = _laneA[0] - px, a0y = _laneA[1] - py;
+                float a1x = _laneA[0] + px, a1y = _laneA[1] + py;
+                float b0x = _laneB[0] - px, b0y = _laneB[1] - py;
+                float b1x = _laneB[0] + px, b1y = _laneB[1] + py;
+                float[] ca = solarSystem.get(i).visual().baseColor();
+                float[] cb = solarSystem.get(h).visual().baseColor();
+                bb.addVertex(idMat, a0x, a0y, _laneA[2]).setColor(ca[0], ca[1], ca[2], 0.85f);
+                bb.addVertex(idMat, a1x, a1y, _laneA[2]).setColor(ca[0], ca[1], ca[2], 0.85f);
+                bb.addVertex(idMat, b1x, b1y, _laneB[2]).setColor(cb[0], cb[1], cb[2], 0.85f);
+                bb.addVertex(idMat, a0x, a0y, _laneA[2]).setColor(ca[0], ca[1], ca[2], 0.85f);
+                bb.addVertex(idMat, b1x, b1y, _laneB[2]).setColor(cb[0], cb[1], cb[2], 0.85f);
+                bb.addVertex(idMat, b0x, b0y, _laneB[2]).setColor(cb[0], cb[1], cb[2], 0.85f);
+            }
+        }
+        BufferUploader.drawWithShader(bb.buildOrThrow());
+    }
+
+    /** 星图模式下的恒星辉光：与恒星系内 drawSunGlow 相同的日冕光晕。 */
+    private void drawGalaxyStarGlows(Matrix4f mat) {
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
+        for (int i = 0; i < solarSystem.size(); i++) {
+            Planet p = solarSystem.get(i);
+            if (!p.visual().isGlowing()) continue;
+            float[] wp = solarSystem.worldPosTo(_tmpWp1, i, simTime);
+            camera.worldToCamera(_glintCam, wp[0], wp[1], wp[2], -camera.focalX(), -camera.focalZ());
+            if (_glintCam[2] > -0.2f) continue;
+            float baseR = 0;
+            for (PlanetLayer l : p.layers()) if (l.type() == PlanetLayerType.BASE) { baseR = l.radius(); break; }
+            if (baseR < 0.01f) continue;
+            float[] bc = p.visual().baseColor();
+            float gr = bc[0] * 0.65f + 0.35f;
+            float gg = bc[1] * 0.65f + 0.35f;
+            float gb = bc[2] * 0.65f + 0.35f;
+            orbitalDrawer.drawGlowHalo(mat, _glintCam[0], _glintCam[1], _glintCam[2],
+                    baseR * 1.00f, baseR * 2.40f, 0.35f, gr, gg, gb);
+        }
+        RenderSystem.defaultBlendFunc();
+    }
+
+    void drawSystemOverlay(GuiGraphics g, int vx, int vy, float pcx, float pcy) {
+        if (systemIndex < 0 || systemIndex >= StarSystemCatalog.size()) return;
+        StarSystem sys = StarSystemCatalog.get(systemIndex);
+        float fX = camera.focalX(), fZ = camera.focalZ();
+        float maxOrb = 0;
+        for (int i = 0; i < solarSystem.size(); i++)
+            maxOrb = Math.max(maxOrb, solarSystem.get(i).orbitalRadius());
+        float starR = 0;
+        for (PlanetLayer l : solarSystem.get(0).layers())
+            if (l.type() == PlanetLayerType.BASE) { starR = l.radius(); break; }
+        float gravR = Math.max(maxOrb * 1.15f, starR * 5f);
+        float borderR = gravR * 1.45f;
+
+        arrowCount = 0;
+        hoveredArrow = -1;
+        for (int h : sys.hyperlanes) {
+            if (h < 0 || h >= StarSystemCatalog.size() || arrowCount >= arrowSx.length) continue;
+            StarSystem tgt = StarSystemCatalog.get(h);
+            float dx = tgt.x - sys.x, dz = tgt.z - sys.z;
+            float ang = (float) Math.atan2(dz, dx);
+            float wx = (float) Math.cos(ang) * borderR;
+            float wz = (float) Math.sin(ang) * borderR;
+            camera.worldToCamera(_tmpCam2, wx, 0, wz, -fX, -fZ);
+            if (_tmpCam2[2] > -0.3f) continue;
+            camera.toScreenNoAlloc(_tmpScr, _tmpCam2);
+            float sx = _tmpScr[0], sy = _tmpScr[1];
+            if (sx < -50 || sy < -50 || sx > 9999 || sy > 9999) continue;
+            arrowSx[arrowCount] = sx;
+            arrowSy[arrowCount] = sy;
+            arrowTargets[arrowCount] = h;
+            float mdx = lastMouseX - sx, mdy = lastMouseY - sy;
+            if (mdx * mdx + mdy * mdy < 16 * 16) hoveredArrow = arrowCount;
+            arrowCount++;
+        }
+        if (hoveredArrow >= 0) {
+            StarSystem tgt = StarSystemCatalog.get(arrowTargets[hoveredArrow]);
+            var font = Minecraft.getInstance().font;
+            g.drawString(font, tgt.name + " (" + tgt.nameEn + ")", vx + (int) lastMouseX + 12, vy + (int) lastMouseY - 6, 0xFFFFFF00);
+        }
+    }
+
     private void drawSkybox(Matrix4f mat) {
         RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.disableDepthTest();
@@ -456,46 +796,117 @@ public class SolarSystemView extends UIElement {
         RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
 
         // 天空盒只跟随相机旋转，不跟随相机平移（相当于无限远）。
-        // 当前流水线用 modelview=identity + 相机空间坐标绘制场景，
-        // 因此这里临时把 modelview 设为世界->相机旋转矩阵。
         skyRot.identity().rotateX(camera.pitch()).rotateY(camera.yaw());
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
         mvs.pushMatrix();
         mvs.mul(skyRot);
         RenderSystem.applyModelViewMatrix();
 
+        ResourceLocation tex = currentSkyboxTexture();
         float r = SKY_R;
-        // 每个面按“左上、右上、右下、左下”顺序给出四个角。
-        drawSkyFace(mat, SKY_FRONT,
-                -r, r, -r,  r, r, -r,  r, -r, -r,  -r, -r, -r);
-        drawSkyFace(mat, SKY_BACK,
-                 r, r, r, -r, r, r, -r, -r, r,  r, -r, r);
-        drawSkyFace(mat, SKY_LEFT,
-                -r, r, r, -r, r, -r, -r, -r, -r, -r, -r, r);
-        drawSkyFace(mat, SKY_RIGHT,
-                 r, r, -r,  r, r, r,  r, -r, r,  r, -r, -r);
-        drawSkyFace(mat, SKY_TOP,
-                -r, r, r,  r, r, r,  r, r, -r, -r, r, -r);
-        drawSkyFace(mat, SKY_BOTTOM,
-                -r, -r, -r, r, -r, -r, r, -r, r, -r, -r, r);
+        float cu = 1f / 4f, cv = 1f / 3f;
+        // 标准 4x3 十字 cubemap：
+        // 上：行0列1；左：行1列0；前：行1列1；右：行1列2；后：行1列3；下：行2列1。
+        drawSkyFace(mat, tex, cu, cv, cu * 2f, cv * 2f,
+                -r, r, -r,  r, r, -r,  r, -r, -r,  -r, -r, -r); // front
+        drawSkyFace(mat, tex, cu * 3f, cv, cu * 4f, cv * 2f,
+                 r, r, r, -r, r, r, -r, -r, r,  r, -r, r); // back
+        drawSkyFace(mat, tex, 0f, cv, cu, cv * 2f,
+                -r, r, r, -r, r, -r, -r, -r, -r, -r, -r, r); // left
+        drawSkyFace(mat, tex, cu * 2f, cv, cu * 3f, cv * 2f,
+                 r, r, -r,  r, r, r,  r, -r, r,  r, -r, -r); // right
+        drawSkyFace(mat, tex, cu, 0f, cu * 2f, cv,
+                -r, r, r,  r, r, r,  r, r, -r, -r, r, -r); // top
+        drawSkyFace(mat, tex, cu, cv * 2f, cu * 2f, cv * 3f,
+                -r, -r, -r, r, -r, -r, r, -r, r, -r, -r, r); // bottom
 
         mvs.popMatrix();
         RenderSystem.applyModelViewMatrix();
         RenderSystem.depthMask(true);
     }
 
+    /** 临时调试：把每个天空盒面的中心/四边朝向画在屏幕上，用于确认哪一面反了。 */
+    private void drawSkyboxOrientationDebug(GuiGraphics g) {
+        if (!DEBUG_SKYBOX_ORIENTATION) return;
+        float focal = camera.focalLength();
+        float cx = camera.cx(), cy = camera.cy();
+        var font = Minecraft.getInstance().font;
+        drawSkyDirLabel(g, font, "FRONT", 0, 0, -1, cx, cy, focal, 0xFFFFFF00);
+        drawSkyDirLabel(g, font, "BACK", 0, 0, 1, cx, cy, focal, 0xFFFFFF00);
+        drawSkyDirLabel(g, font, "LEFT", -1, 0, 0, cx, cy, focal, 0xFFFFFF00);
+        drawSkyDirLabel(g, font, "RIGHT", 1, 0, 0, cx, cy, focal, 0xFFFFFF00);
+        drawSkyDirLabel(g, font, "TOP", 0, 1, 0, cx, cy, focal, 0xFFFFFF00);
+        drawSkyDirLabel(g, font, "BOTTOM", 0, -1, 0, cx, cy, focal, 0xFFFFFF00);
+
+        // 四边方向标记：T=纹理上边，B=纹理下边，L=纹理左边，R=纹理右边
+        int tCol = 0xFFFFFF00, bCol = 0xFFFFA500, lCol = 0xFF00FFFF, rCol = 0xFFFF00FF;
+        // front
+        drawSkyDirLabel(g, font, "T", 0, 1, -1, cx, cy, focal, tCol);
+        drawSkyDirLabel(g, font, "B", 0, -1, -1, cx, cy, focal, bCol);
+        drawSkyDirLabel(g, font, "L", -1, 0, -1, cx, cy, focal, lCol);
+        drawSkyDirLabel(g, font, "R", 1, 0, -1, cx, cy, focal, rCol);
+        // back
+        drawSkyDirLabel(g, font, "T", 0, 1, 1, cx, cy, focal, tCol);
+        drawSkyDirLabel(g, font, "B", 0, -1, 1, cx, cy, focal, bCol);
+        drawSkyDirLabel(g, font, "L", 1, 0, 1, cx, cy, focal, lCol);
+        drawSkyDirLabel(g, font, "R", -1, 0, 1, cx, cy, focal, rCol);
+        // left
+        drawSkyDirLabel(g, font, "T", -1, 1, 0, cx, cy, focal, tCol);
+        drawSkyDirLabel(g, font, "B", -1, -1, 0, cx, cy, focal, bCol);
+        drawSkyDirLabel(g, font, "L", -1, 0, 1, cx, cy, focal, lCol);
+        drawSkyDirLabel(g, font, "R", -1, 0, -1, cx, cy, focal, rCol);
+        // right
+        drawSkyDirLabel(g, font, "T", 1, 1, 0, cx, cy, focal, tCol);
+        drawSkyDirLabel(g, font, "B", 1, -1, 0, cx, cy, focal, bCol);
+        drawSkyDirLabel(g, font, "L", 1, 0, -1, cx, cy, focal, lCol);
+        drawSkyDirLabel(g, font, "R", 1, 0, 1, cx, cy, focal, rCol);
+        // top
+        drawSkyDirLabel(g, font, "T", 0, 1, 1, cx, cy, focal, tCol);
+        drawSkyDirLabel(g, font, "B", 0, 1, -1, cx, cy, focal, bCol);
+        drawSkyDirLabel(g, font, "L", -1, 1, 0, cx, cy, focal, lCol);
+        drawSkyDirLabel(g, font, "R", 1, 1, 0, cx, cy, focal, rCol);
+        // bottom
+        drawSkyDirLabel(g, font, "T", 0, -1, -1, cx, cy, focal, tCol);
+        drawSkyDirLabel(g, font, "B", 0, -1, 1, cx, cy, focal, bCol);
+        drawSkyDirLabel(g, font, "L", -1, -1, 0, cx, cy, focal, lCol);
+        drawSkyDirLabel(g, font, "R", 1, -1, 0, cx, cy, focal, rCol);
+    }
+
+    private void drawSkyDirLabel(GuiGraphics g, net.minecraft.client.gui.Font font, String text,
+                                 float dx, float dy, float dz,
+                                 float cx, float cy, float focal, int color) {
+        var v = new org.joml.Vector3f(dx, dy, dz);
+        skyRot.transformDirection(v);
+        if (v.z > -0.05f) return;
+        float sx = cx + v.x * focal / -v.z;
+        float sy = cy - v.y * focal / -v.z;
+        g.drawString(font, text, (int) sx, (int) sy, color);
+    }
+
+    /** 选择天空盒 cubemap：星图固定 0 号，恒星系按目录 seed 在 1~11 之间稳定分配。 */
+    private ResourceLocation currentSkyboxTexture() {
+        if (galaxyMapMode) return SKYBOX_CUBEMAPS[0];
+        int idx = 1;
+        if (systemIndex >= 0 && systemIndex < StarSystemCatalog.size()) {
+            long seed = StarSystemCatalog.get(systemIndex).seed;
+            idx = 1 + (int) ((seed >>> 16) % 11L);
+        }
+        return SKYBOX_CUBEMAPS[idx];
+    }
+
     private void drawSkyFace(Matrix4f mat, ResourceLocation texture,
+                             float u0, float v0, float u1, float v1,
                              float ax, float ay, float az,
                              float bx, float by, float bz,
                              float cx, float cy, float cz,
                              float dx, float dy, float dz) {
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_TEX);
-        bb.addVertex(mat, ax, ay, az).setUv(0f, 0f);
-        bb.addVertex(mat, bx, by, bz).setUv(1f, 0f);
-        bb.addVertex(mat, cx, cy, cz).setUv(1f, 1f);
-        bb.addVertex(mat, ax, ay, az).setUv(0f, 0f);
-        bb.addVertex(mat, cx, cy, cz).setUv(1f, 1f);
-        bb.addVertex(mat, dx, dy, dz).setUv(0f, 1f);
+        bb.addVertex(mat, ax, ay, az).setUv(u0, v0);
+        bb.addVertex(mat, bx, by, bz).setUv(u1, v0);
+        bb.addVertex(mat, cx, cy, cz).setUv(u1, v1);
+        bb.addVertex(mat, ax, ay, az).setUv(u0, v0);
+        bb.addVertex(mat, cx, cy, cz).setUv(u1, v1);
+        bb.addVertex(mat, dx, dy, dz).setUv(u0, v1);
         RenderSystem.setShaderTexture(0, texture);
         BufferUploader.drawWithShader(bb.buildOrThrow());
     }
@@ -551,6 +962,18 @@ public class SolarSystemView extends UIElement {
         if (r < 0.01f) r = 1.0f;
         return Math.max(1.5f, r * 1.6f + 0.5f);
     }
+
+    /** 当前恒星系的自由视角边界半径：与 3D/2D 边境虚线同源（gravR * 1.45）。 */
+    private float systemBorderRadius() {
+        float maxOrb = 0;
+        for (int i = 0; i < solarSystem.size(); i++)
+            maxOrb = Math.max(maxOrb, solarSystem.get(i).orbitalRadius());
+        float starR = 0;
+        for (PlanetLayer l : solarSystem.get(0).layers())
+            if (l.type() == PlanetLayerType.BASE) { starR = l.radius(); break; }
+        float gravR = Math.max(maxOrb * 1.15f, starR * 5f);
+        return gravR * 1.45f;
+    }
     private float computeOverlayFadeTarget() {
         Planet fp = solarSystem.get(focalIndex);
         float baseR = 0;
@@ -573,14 +996,14 @@ public class SolarSystemView extends UIElement {
             case "CLOUD" -> drawCloudLayer(mat, t, sc, ss, cosY, sinY, cosX, sinX, focal, cx, cy);
             case "ATMOSPHERE" -> drawAtmosphereLayer(mat, t, sc, ss, cosY, sinY, cosX, sinX, focal, cx, cy);
             case "RING" -> drawRing(mat, t, sc, ss, cosY, sinY, cosX, sinX);
-            case "WIREFRAME" -> drawWireframe(mat, t.mesh, t.layerR, t.dwx, t.dwz, sc, ss, cosY, sinY, cosX, sinX, focal, cx, cy, 0.35f * overlayFade);
+            case "WIREFRAME" -> drawWireframe(mat, t.mesh, t.layerR, t.dwx, t.dwy, t.dwz, sc, ss, cosY, sinY, cosX, sinX, focal, cx, cy, 0.35f * overlayFade);
             default -> {
                 BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
                 for (int f = 0; f < t.mesh.faces.length; f++) {
                     int[] fv = t.mesh.faces[f];
                     for (int j = 1; j + 1 < fv.length; j++) {
                         for (int k : new int[]{0, j, j + 1}) {
-                            float[] camPos = camera.camera(t.mesh.vertices[fv[k]], t.layerR, t.dwx, t.dwz, sc, ss, currentTilt);
+                            float[] camPos = camera.camera(t.mesh.vertices[fv[k]], t.layerR, t.dwx, t.dwy, t.dwz, sc, ss, currentTilt);
                             float[] c = hsvToRgb(((p.name().hashCode() >> 8) & 0xFF) / 255f * 360, 0.5f, 0.6f);
                             bb.addVertex(mat, camPos[0], camPos[1], camPos[2]).setColor(c[0], c[1], c[2], 1f);
                         }
@@ -653,11 +1076,11 @@ public class SolarSystemView extends UIElement {
         layerDrawer.drawRing(mat, t, sc, ss, cosY, sinY, cosX, sinX);
     }
 
-    private void drawWireframe(Matrix4f mat, Polyhedron mesh, float layerR, float dwx, float dwz, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy, float alpha) {
+    private void drawWireframe(Matrix4f mat, Polyhedron mesh, float layerR, float dwx, float dwy, float dwz, float sc, float ss, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy, float alpha) {
         List<int[]> edges = edgeCache.computeIfAbsent(mesh, SolarSystemView::buildEdges);
         float hw = 0.012f;
         // GPU transform: build modelview, send local-space coords
-        buildTransformMatrix(dwx, dwz, sc, ss, currentTilt, mvTmp);
+        buildTransformMatrix(dwx, dwy, dwz, sc, ss, currentTilt, mvTmp);
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
         mvs.set(mvTmp);
         RenderSystem.applyModelViewMatrix();
@@ -844,6 +1267,15 @@ public class SolarSystemView extends UIElement {
         if (layerDrawer != null) layerDrawer.closeVBOs();
         if (orbitalDrawer != null) orbitalDrawer.closeVBOs();
     }
+
+    /** 供星图/外部界面跳转到指定恒星系。 */
+    public void enterSystem(int newIndex) {
+        if (newIndex >= 0 && newIndex < StarSystemCatalog.size()) {
+            switchToSystem(newIndex);
+        }
+    }
+
+    public int getSystemIndex() { return systemIndex; }
     public int getFocalIndex() { return focalIndex; }
     public float getSimTime() { return simTime; }
     public SolarSystem getSolarSystem() { return solarSystem; }

@@ -27,11 +27,15 @@ public final class Planet {
     private final float orbitalSpeed;
     private final float axialTilt;
     private final int parentId;
+    private final float heightScale;
+    private final boolean hasStaticPos;
+    private final float staticX, staticY, staticZ;
 
     private Planet(String name, Polyhedron baseMesh, float defaultRotationSpeed,
                    float orbitalRadius, float orbitalSpeed, float axialTilt, int parentId,
                    List<PlanetLayer> layers, List<TechNode> techNodes, PlanetVisual visual,
-                     PlanetColorProvider colorProvider) {
+                     PlanetColorProvider colorProvider, float heightScale,
+                   boolean hasStaticPos, float staticX, float staticY, float staticZ) {
         this.name = name;
         this.baseMesh = baseMesh;
         this.defaultRotationSpeed = defaultRotationSpeed;
@@ -44,6 +48,11 @@ public final class Planet {
         this.techNodes = List.copyOf(techNodes);
         this.visual = visual;
         this.colorProvider = colorProvider;
+        this.heightScale = heightScale;
+        this.hasStaticPos = hasStaticPos;
+        this.staticX = staticX;
+        this.staticY = staticY;
+        this.staticZ = staticZ;
     }
 
     public String name() { return name; }
@@ -55,8 +64,23 @@ public final class Planet {
     public PlanetColorProvider colorProvider() { return colorProvider; }
     public float orbitalRadius() { return orbitalRadius; }
     public float orbitalSpeed() { return orbitalSpeed; }
+
+    /** 返回一个仅公转轨道半径不同的副本（用于自动安全距离调整）。 */
+    public Planet withOrbitalRadius(float newOrbitalRadius) {
+        return new Planet(name, baseMesh, defaultRotationSpeed,
+                newOrbitalRadius, orbitalSpeed, axialTilt, parentId,
+                layers, techNodes, visual, colorProvider, heightScale,
+                hasStaticPos, staticX, staticY, staticZ);
+    }
+
+    public boolean hasStaticPos() { return hasStaticPos; }
+    public float staticX() { return staticX; }
+    public float staticY() { return staticY; }
+    public float staticZ() { return staticZ; }
     public float axialTilt() { return axialTilt; }
     public int parentId() { return parentId; }
+    /** 表面地形起伏强度：0=光滑（气态巨行星/恒星），>0 为相对半径的高度幅度。 */
+    public float heightScale() { return heightScale; }
 
     public Optional<PlanetLayer> layer(PlanetLayerType type) {
         return layers.stream().filter(l -> l.type() == type).findFirst();
@@ -96,6 +120,9 @@ public final class Planet {
         private List<TechNode> techNodes = List.of();
         private PlanetVisual visual = PlanetVisual.DEFAULT;
         private PlanetColorProvider colorProvider = PlanetColorProvider.DEFAULT;
+        private float heightScale = 0f;
+        private boolean hasStaticPos = false;
+        private float staticX, staticY, staticZ;
 
         Builder(String name, Polyhedron baseMesh, float defaultRotationSpeed, PlanetLayer[] layers) {
             this.name = name;
@@ -140,10 +167,25 @@ public final class Planet {
             return this;
         }
 
+        public Builder heightScale(float heightScale) {
+            this.heightScale = heightScale;
+            return this;
+        }
+
+        /** 静态位置（星图用）：不参与公转，直接放在世界坐标 (x, y, z)。 */
+        public Builder staticPos(float x, float y, float z) {
+            this.hasStaticPos = true;
+            this.staticX = x;
+            this.staticY = y;
+            this.staticZ = z;
+            return this;
+        }
+
         public Planet build() {
             return new Planet(name, baseMesh, defaultRotationSpeed,
                     orbitalRadius, orbitalSpeed, axialTilt, parentId,
-                    layers, techNodes, visual, colorProvider);
+                    layers, techNodes, visual, colorProvider, heightScale,
+                    hasStaticPos, staticX, staticY, staticZ);
         }
     }
 }

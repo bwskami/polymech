@@ -16,6 +16,7 @@ import com.mss.polymech.techtree.TechTree;
 import dev.vfyjxf.taffy.style.FlexDirection;
 import dev.vfyjxf.taffy.style.TaffyPosition;
 import net.minecraft.client.Minecraft;
+import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -29,7 +30,8 @@ import java.util.stream.Collectors;
  * <p>
  * 主视觉为群星式3D太阳系（{@link SolarSystemView}）：正六边形 + 12 五边形拼接，
  * 每个地块 = 一个科技；纯黑背景、线框显示但正面实体遮挡背面、科技地块用程序化六边形图标。
- * 拖拽旋转、悬停高亮 + 名称提示、点击有科技的面对应节点打开“思索”面板。
+ * 操作逻辑：左键/右键长按拖拽旋转视角，中键长按拖拽进入并移动自由视角，滚轮缩放，左键单点星球锁定摄像机；
+ * 悬停高亮 + 名称提示，点击有科技的面对应节点打开“思索”面板。
  * </p>
  */
 public class TechTreeScreen extends ModularUIScreen {
@@ -38,15 +40,31 @@ public class TechTreeScreen extends ModularUIScreen {
     private static final String ID_PONDER = "ponder_overlay";
 
     private final UIElement root;
+    private final SolarSystemView view;
 
     private TechTreeScreen(State s, Component title) {
         super(s.ui, title);
         this.root = s.root;
+        this.view = s.view;
     }
 
-    /** 打开科技树（客户端调用）。 */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_M) {
+            StarMapScreen.open(view.getSystemIndex());
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** 打开科技树（客户端调用，默认太阳系）。 */
     public static void open() {
-        State s = buildState();
+        open(0);
+    }
+
+    /** 打开科技树并直接进入指定恒星系。 */
+    public static void open(int systemIndex) {
+        State s = buildState(systemIndex);
         TechTreeScreen screen = new TechTreeScreen(s, Component.literal("科技树 / Tech Tree"));
         Minecraft.getInstance().setScreen(screen);
     }
@@ -56,9 +74,10 @@ public class TechTreeScreen extends ModularUIScreen {
     private static final class State {
         ModularUI ui;
         UIElement root;
+        SolarSystemView view;
     }
 
-    private static State buildState() {
+    private static State buildState(int initialSystemIndex) {
         State s = new State();
 
         var root = new UIElement();
@@ -73,6 +92,8 @@ public class TechTreeScreen extends ModularUIScreen {
         var view = new SolarSystemView(SolarSystem.createDefault(), onSelect);
         view.layout(l -> l.widthPercent(100).heightPercent(100));
         root.addChild(view);
+        view.enterSystem(initialSystemIndex);
+        s.view = view;
 
         // 顶栏（覆盖在球体上方）
         var header = new TopBar();
@@ -80,7 +101,7 @@ public class TechTreeScreen extends ModularUIScreen {
                 .positionType(TaffyPosition.ABSOLUTE).left(0).top(0)
                 .paddingHorizontal(8).flexDirection(FlexDirection.ROW).gapColumn(8));
         var title = new Label().setText(Component.literal("科技树 / Tech Tree")).layout(l -> l.flex(1));
-        var hint = new Label().setText(Component.literal("滚轮缩放 · 点击切换聚焦 · 点击科技地块查看思索")).layout(l -> l.flex(1));
+        var hint = new Label().setText(Component.literal("左/右键拖动旋转 · 中键拖动自由视角 · 滚轮缩放 · 左键单击星球锁定 · 单击地块查看思索 · M 星图")).layout(l -> l.flex(1));
         var close = new Button()
                 .setText(Component.literal("关闭"))
                 .setOnClick(e -> Minecraft.getInstance().setScreen(null))

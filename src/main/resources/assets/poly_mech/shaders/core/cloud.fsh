@@ -53,12 +53,12 @@ void main() {
     float ndotl = dot(nrm, SunDir);
     float shadow = computeShadow(vPos);
     float direct = max(0.0, ndotl) * Intensity * (1.0 - shadow);
-    // 与 CPU 云层一致：ambient 用 PlanetLighting.AMBIENT（夜面云可见）
-    float ambient = 0.14;
+    // 夜面云也要可见：ambient 抬高，并给一个冷灰蓝的夜色云色
+    float ambient = 0.40;
     float shade = ambient + (1.0 - ambient) * direct;
 
-    // 云色：受光偏暖金，背光偏冷蓝
-    vec3 lightC = mix(vec3(0.12, 0.14, 0.18), vec3(1.00, 0.52, 0.20), clamp(direct, 0.0, 1.0));
+    // 云色：受光偏暖金，背光偏冷蓝灰（可见，而不是死黑）
+    vec3 lightC = mix(vec3(0.35, 0.40, 0.55), vec3(1.00, 0.52, 0.20), clamp(direct, 0.0, 1.0));
     vec3 cloudColor = vec3(0.96, 0.97, 1.0) * lightC;
     float alpha = 0.55 * shade * vDensity;
 

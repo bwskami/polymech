@@ -34,14 +34,18 @@ class PlanetLayerDrawer {
         vboCache.clear();
     }
 
-    /** 构建 BASE 层静态 VBO：全部面（不做背面剔除，交给 GPU CULL），局部坐标+albedo+法线。 */
+    /** 构建 BASE 层静态 VBO：全部面（不做背面剔除，交给 GPU CULL），局部坐标+albedo+法线。
+     *  heightScale > 0 时做真实几何位移（顶点径向位移 + 平面法线）。 */
     private VertexBuffer getOrBuildBaseVBO(String key, Matrix4f mat, Polyhedron mesh, float layerR,
-                                           float[][] tileAlbedo, int[] faceParent) {
+                                           float[][] tileAlbedo, int[] faceParent,
+                                           SurfaceMaterial[] materials, Planet planet, int pi) {
         VertexBuffer cached = vboCache.get(key);
         if (cached != null) return cached;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
         float R = layerR;
         float[][] vs = mesh.vertices;
+        float hs = planet.heightScale();
+        PlanetHeight ph = v.planetHeights[pi];
         for (int f = 0; f < mesh.faces.length; f++) {
             int[] fv = mesh.faces[f];
             int kn = fv.length;
@@ -51,24 +55,41 @@ class PlanetLayerDrawer {
             if (fl < 1e-6f) continue;
             fnx /= fl; fny /= fl; fnz /= fl;
             float[] alb = tileAlbedo[faceParent == null ? f : faceParent[f]];
-            if (kn == 3) {
+            SurfaceMaterial material = materials[faceParent == null ? f : faceParent[f]];
+            float specAlpha = (material == SurfaceMaterial.OCEAN || material == SurfaceMaterial.ICE) ? 1f : 0f;
+            if (hs > 0f) {
+                if (kn == 3) {
+                    addTriFlat(bb, mat,
+                            ph.displaced(vs[fv[0]][0], vs[fv[0]][1], vs[fv[0]][2], R),
+                            ph.displaced(vs[fv[1]][0], vs[fv[1]][1], vs[fv[1]][2], R),
+                            ph.displaced(vs[fv[2]][0], vs[fv[2]][1], vs[fv[2]][2], R), alb, specAlpha);
+                } else {
+                    float[] pc = ph.displaced(fnx, fny, fnz, R);
+                    for (int k = 0; k < kn; k++) {
+                        int a1 = (k + 1) % kn;
+                        addTriFlat(bb, mat, pc,
+                                ph.displaced(vs[fv[k]][0], vs[fv[k]][1], vs[fv[k]][2], R),
+                                ph.displaced(vs[fv[a1]][0], vs[fv[a1]][1], vs[fv[a1]][2], R), alb, specAlpha);
+                    }
+                }
+            } else if (kn == 3) {
                 for (int k = 0; k < 3; k++) {
                     int vi = fv[k];
                     bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
-                            .setColor(alb[0], alb[1], alb[2], 1f)
+                            .setColor(alb[0], alb[1], alb[2], specAlpha)
                             .setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
                 }
             } else {
                 float cx = fnx * R, cy = fny * R, cz = fnz * R;
                 for (int k = 0; k < kn; k++) {
                     int a1 = (k + 1) % kn;
-                    bb.addVertex(mat, cx, cy, cz).setColor(alb[0], alb[1], alb[2], 1f).setNormal(fnx, fny, fnz);
+                    bb.addVertex(mat, cx, cy, cz).setColor(alb[0], alb[1], alb[2], specAlpha).setNormal(fnx, fny, fnz);
                     int vi = fv[k];
                     bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
-                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
+                            .setColor(alb[0], alb[1], alb[2], specAlpha).setNormal(vs[vi][0], vs[vi][1], vs[vi][2]);
                     int vj = fv[a1];
                     bb.addVertex(mat, vs[vj][0] * R, vs[vj][1] * R, vs[vj][2] * R)
-                            .setColor(alb[0], alb[1], alb[2], 1f).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
+                            .setColor(alb[0], alb[1], alb[2], specAlpha).setNormal(vs[vj][0], vs[vj][1], vs[vj][2]);
                 }
             }
         }
@@ -80,14 +101,28 @@ class PlanetLayerDrawer {
         return vb;
     }
 
-    /** 构建 CLOUD 层静态 VBO：只保留 CPU 噪声面剔除后仍保留的面（噪声输入全为静态局部量）。 */
+    /** 发射一个三角形，法线从位移后的几何重新计算（平面着色）。 */
+    private static void addTriFlat(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2, float[] alb, float alpha) {
+        float ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2];
+        float vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2];
+        float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        float nl = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (nl < 1e-6f) { nx = 0; ny = 1; nz = 0; } else { nx /= nl; ny /= nl; nz /= nl; }
+        bb.addVertex(mat, p0[0], p0[1], p0[2]).setColor(alb[0], alb[1], alb[2], alpha).setNormal(nx, ny, nz);
+        bb.addVertex(mat, p1[0], p1[1], p1[2]).setColor(alb[0], alb[1], alb[2], alpha).setNormal(nx, ny, nz);
+        bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(alb[0], alb[1], alb[2], alpha).setNormal(nx, ny, nz);
+    }
+
+    /** 构建 CLOUD 层静态 VBO：只保留 CPU 噪声面剔除后仍保留的面。heightScale>0 时跟随地形位移。 */
     private VertexBuffer getOrBuildCloudVBO(String key, Matrix4f mat, Polyhedron mesh, float layerR,
-                                            float densityFactor, Noise3 layerNoise) {
+                                            float densityFactor, Noise3 layerNoise, Planet planet, int pi) {
         VertexBuffer cached = vboCache.get(key);
         if (cached != null) return cached;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
         float R = layerR;
         float[][] vs = mesh.vertices;
+        float hs = planet.heightScale();
+        PlanetHeight ph = v.planetHeights[pi];
         int emitted = 0;
         for (int f = 0; f < mesh.faces.length; f++) {
             int[] fv = mesh.faces[f];
@@ -100,7 +135,23 @@ class PlanetLayerDrawer {
             float cloudVal = layerNoise.fbm(fnx * 2.5f + 7.3f, fny * 2.5f + 13.7f, fnz * 2.5f + 3.1f);
             float threshold = densityFactor + Math.abs(fny) * 0.18f;
             if (cloudVal < threshold) continue;
-            if (kn == 3) {
+            if (hs > 0f) {
+                if (kn == 3) {
+                    addTriFlatCloud(bb, mat,
+                            ph.displaced(vs[fv[0]][0], vs[fv[0]][1], vs[fv[0]][2], R),
+                            ph.displaced(vs[fv[1]][0], vs[fv[1]][1], vs[fv[1]][2], R),
+                            ph.displaced(vs[fv[2]][0], vs[fv[2]][1], vs[fv[2]][2], R));
+                } else {
+                    float[] pc = ph.displaced(fnx, fny, fnz, R);
+                    for (int k = 0; k < kn; k++) {
+                        int a1 = (k + 1) % kn;
+                        addTriFlatCloud(bb, mat, pc,
+                                ph.displaced(vs[fv[k]][0], vs[fv[k]][1], vs[fv[k]][2], R),
+                                ph.displaced(vs[fv[a1]][0], vs[fv[a1]][1], vs[fv[a1]][2], R));
+                    }
+                }
+                emitted++;
+            } else if (kn == 3) {
                 for (int k = 0; k < 3; k++) {
                     int vi = fv[k];
                     bb.addVertex(mat, vs[vi][0] * R, vs[vi][1] * R, vs[vi][2] * R)
@@ -129,6 +180,18 @@ class PlanetLayerDrawer {
         VertexBuffer.unbind();
         vboCache.put(key, vb);
         return vb;
+    }
+
+    /** 发射一个云层三角形（颜色固定），法线从位移后的几何重新计算。 */
+    private static void addTriFlatCloud(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2) {
+        float ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2];
+        float vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2];
+        float nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        float nl = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (nl < 1e-6f) { nx = 0; ny = 1; nz = 0; } else { nx /= nl; ny /= nl; nz /= nl; }
+        bb.addVertex(mat, p0[0], p0[1], p0[2]).setColor(1f, 0, 0, 1f).setNormal(nx, ny, nz);
+        bb.addVertex(mat, p1[0], p1[1], p1[2]).setColor(1f, 0, 0, 1f).setNormal(nx, ny, nz);
+        bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(1f, 0, 0, 1f).setNormal(nx, ny, nz);
     }
 
     /** 构建 ATMO 层静态 VBO：全部面（背面剔除交给 GPU CULL），颜色白，法线为径向/面法线。 */
@@ -187,7 +250,7 @@ class PlanetLayerDrawer {
         Polyhedron mesh = t.mesh;
         float[][] tileAlbedo = t.albedo != null ? t.albedo : v.faceColors[t.pi];
         int[] faceParent = t.faceParent;
-        boolean isSun = (t.pi == 0);
+        boolean isSun = v.solarSystem.get(t.pi).visual().isGlowing();
 
         // 刚体变换交给 GPU（与 CPU 路径同一套矩阵反推，零误差）
         v.buildModelView(t, sc, ss, v.mvTmp);
@@ -208,7 +271,12 @@ class PlanetLayerDrawer {
         sh.getUniform("ViewDir").set(v.viewLocal[0], v.viewLocal[1], v.viewLocal[2]);
         sh.getUniform("Intensity").set(v.lighting.intensity());
         sh.getUniform("IsSun").set(isSun ? 1f : 0f);
-        float globalSun = isSun ? 1f : v.shadowModel.globalSunVisibility(t.pi, t.layerR, sc, ss, v.currentTilt, v.simTime);
+        float globalSun = 1f;
+        if (!isSun && v.solarSystem.get(t.pi).parentId() >= 0) {
+            // 只有卫星被母星本影整体吞没时，才允许整体环境光变暗；
+            // 行星不会被自己的小卫星整体遮暗
+            globalSun = v.shadowModel.globalSunVisibility(t.pi, t.layerR, sc, ss, v.currentTilt, v.simTime);
+        }
         sh.getUniform("SunVisibility").set(globalSun);
 
         // ---- 阴影 uniforms：遮挡天体相对位置（世界系 -> 局部系）----
@@ -249,17 +317,37 @@ class PlanetLayerDrawer {
         sh.getUniform("ParentRel").set(prx, pry, prz);
         sh.getUniform("ReflStrength").set(reflStrength);
 
-        // ---- 发射：局部坐标 + albedo + 法线，光照全交给 GPU（VBO 缓存静态几何）----
-        String vboKey = "BASE_" + t.pi + "_" + t.layerR + (mesh == v.shadedBase ? "_S" : "_B");
-        VertexBuffer vb = getOrBuildBaseVBO(vboKey, mat, mesh, t.layerR, tileAlbedo, faceParent);
+        // ---- 镜面高光 ----
+        PlanetVisual pv = v.solarSystem.get(t.pi).visual();
+        SolarSystemView.setUniform(sh, "SpecularStrength", pv.specularStrength());
+        SolarSystemView.setUniform(sh, "SpecularPower", pv.specularPower());
+
+        // ---- 环影（环平面 y=0，沿太阳方向射线求交）----
+        Planet planet = v.solarSystem.get(t.pi);
+        float ringInner = 0, ringOuter = 0, ringShadowStrength = 0;
+        for (PlanetLayer l : planet.layers()) {
+            if (l.type() == PlanetLayerType.RING) {
+                ringOuter = l.radius();
+                ringInner = Math.max(t.layerR * 1.15f, ringOuter * 0.65f);
+                ringShadowStrength = (t.pi == 13) ? 0.55f : 0.35f;
+                break;
+            }
+        }
+        SolarSystemView.setUniform(sh, "RingInner", ringInner);
+        SolarSystemView.setUniform(sh, "RingOuter", ringOuter);
+        SolarSystemView.setUniform(sh, "RingShadowStrength", ringShadowStrength);
+
+        // ---- 发射：单层连续网格（高度场决定陆地/海洋，海面以下钳平到海平面）----
+        RenderSystem.setShader(() -> PlanetShaders.planetShader());
+        RenderSystem.enableCull();
+        String vboKey = "BASE_" + t.pi + "_" + t.layerR + (mesh == planet.baseMesh() ? "_B" : "_S");
+        VertexBuffer vb = getOrBuildBaseVBO(vboKey, mat, mesh, t.layerR, tileAlbedo, faceParent, v.faceMaterials[t.pi], planet, t.pi);
         if (vb != null) {
-            RenderSystem.setShader(() -> PlanetShaders.planetShader());
-            RenderSystem.enableCull();
             vb.bind();
             vb.drawWithShader(v.mvTmp, RenderSystem.getProjectionMatrix(), PlanetShaders.planetShader());
             VertexBuffer.unbind();
-            RenderSystem.disableCull();
         }
+        RenderSystem.disableCull();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);   // 还原，供后续云层/大气使用
         // 还原模型视图为单位阵
         mvs.identity();
@@ -273,7 +361,7 @@ class PlanetLayerDrawer {
         int[] faceParent = t.faceParent;
         int n = mesh.vertices.length;
         int nf = mesh.faces.length;
-        boolean isSun = (t.pi == 0);
+        boolean isSun = v.solarSystem.get(t.pi).visual().isGlowing();
 
         // ---- 刚体变换交给 GPU：用 cameraTo 精确反推模型视图矩阵（零误差）----
         v.buildModelView(t, sc, ss, v.mvTmp);
@@ -294,7 +382,10 @@ class PlanetLayerDrawer {
         SurfaceLight sl = new SurfaceLight();
         boolean hasShadow = v.shadowModel.hasShadow(t.pi);
         boolean hasParent = v.solarSystem.get(t.pi).parentId() >= 0;
-        float globalSun = isSun ? 1f : v.shadowModel.globalSunVisibility(t.pi, t.layerR, sc, ss, v.currentTilt, v.simTime);
+        float globalSun = 1f;
+        if (!isSun && v.solarSystem.get(t.pi).parentId() >= 0) {
+            globalSun = v.shadowModel.globalSunVisibility(t.pi, t.layerR, sc, ss, v.currentTilt, v.simTime);
+        }
         for (int i = 0; i < n; i++) {
             float nx = mesh.vertices[i][0], ny = mesh.vertices[i][1], nz = mesh.vertices[i][2];
             if (isSun) {
@@ -327,7 +418,7 @@ class PlanetLayerDrawer {
         float[] colTmp = new float[3];
         if (faceParent != null) {
             for (int i = 0; i < n; i++) {
-                float[] alb = tileAlbedo[v.shadeVertexParent[i]];
+                float[] alb = tileAlbedo[t.vertexParent != null ? t.vertexParent[i] : i];
                 if (isSun) {
                     float limb = limbV[i];
                     v.lColR[i] = alb[0]*limb; v.lColG[i] = alb[1]*limb; v.lColB[i] = alb[2]*limb;
@@ -459,7 +550,7 @@ class PlanetLayerDrawer {
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
         String vboKey = "CLOUD_" + t.pi + "_" + t.layerR;
-        VertexBuffer vb = getOrBuildCloudVBO(vboKey, mat, mesh, t.layerR, densityFactor, layerNoise);
+        VertexBuffer vb = getOrBuildCloudVBO(vboKey, mat, mesh, t.layerR, densityFactor, layerNoise, v.solarSystem.get(t.pi), t.pi);
         if (vb != null) {
             RenderSystem.enableCull();
             vb.bind();
@@ -559,8 +650,9 @@ class PlanetLayerDrawer {
     /** ATMO 层 GPU：局部坐标+径向法线，rim/日照/阴影全在片元着色器。 */
     void drawAtmosphereLayerGPU(Matrix4f mat, SolarSystemView.RenderTask t, float sc, float ss, float cosY, float sinY, float cosX, float sinX) {
         Polyhedron mesh = t.mesh;
+        Planet planet = v.solarSystem.get(t.pi);
         float[] atmColor = v.atmosphereColor(t.pi);
-        boolean isStar = v.solarSystem.get(t.pi).visual().isGlowing();
+        boolean isStar = planet.visual().isGlowing();
 
         v.buildModelView(t, sc, ss, v.mvTmp);
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
@@ -608,7 +700,7 @@ class PlanetLayerDrawer {
         RenderSystem.setShader(() -> PlanetShaders.atmoShader());
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
-        String vboKey = "ATMO_" + t.pi + "_" + t.layerR + (mesh == v.shadedBase ? "_S" : "_B");
+        String vboKey = "ATMO_" + t.pi + "_" + t.layerR + (mesh == planet.baseMesh() ? "_B" : "_S");
         VertexBuffer vb = getOrBuildAtmoVBO(vboKey, mat, mesh, t.layerR);
         if (vb != null) {
             RenderSystem.enableCull();
@@ -691,10 +783,13 @@ class PlanetLayerDrawer {
         float innerR = Math.max(baseR * 1.15f, t.layerR * 0.65f);
         float outerR = t.layerR;
         int bands = 24, segs = 96;
-        v.buildTransformMatrix(t.dwx, t.dwz, sc, ss, v.currentTilt, v.mvTmp);
+        v.buildTransformMatrix(t.dwx, t.dwy, t.dwz, sc, ss, v.currentTilt, v.mvTmp);
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
         mvs.set(v.mvTmp);
         RenderSystem.applyModelViewMatrix();
+        // 太阳方向（局部系），用于行星本影投在环上
+        v.toLocalDir(v.mvTmp, v.lighting.dirX(), v.lighting.dirY(), v.lighting.dirZ(), v.lightLocal);
+        float sunX = v.lightLocal[0], sunY = v.lightLocal[1], sunZ = v.lightLocal[2];
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
         for (int b = 0; b < bands; b++) {
             float t0 = (float) b / bands, t1 = (float) (b + 1) / bands;
@@ -702,10 +797,10 @@ class PlanetLayerDrawer {
             float r1 = innerR + (outerR - innerR) * t1;
             float gap0 = 0.42f, gap1 = 0.50f, alpha;
             if (t0 >= gap0 && t1 <= gap1) alpha = 0f;
-            else if (t0 < gap0 && t1 > gap0) alpha = 0.15f;
-            else if (t0 < gap1 && t1 > gap1) alpha = 0.15f;
-            else { float mid = (t0 + t1) / 2f; alpha = 0.35f - 0.15f * Math.abs(mid - 0.3f); }
-            if (t.pi == 16 || t.pi == 17) alpha *= 0.55f;
+            else if (t0 < gap0 && t1 > gap0) alpha = 0.25f;
+            else if (t0 < gap1 && t1 > gap1) alpha = 0.25f;
+            else { float mid = (t0 + t1) / 2f; alpha = 0.55f - 0.20f * Math.abs(mid - 0.3f); }
+            if (t.pi == 16 || t.pi == 17) alpha *= 0.75f;
             if (alpha < 0.01f) continue;
             float cr, cg, cb;
             if (t.pi == 13) { cr = 0.82f + 0.08f * (float) Math.sin(t0 * 40f); cg = 0.72f + 0.06f * (float) Math.cos(t0 * 55f); cb = 0.55f + 0.10f * (float) Math.sin(t0 * 70f); }
@@ -717,18 +812,38 @@ class PlanetLayerDrawer {
                 float a1 = (float) Math.PI * 2 * (s + 1) / segs;
                 float x0 = (float) Math.cos(a0), z0 = (float) Math.sin(a0);
                 float x1 = (float) Math.cos(a1), z1 = (float) Math.sin(a1);
-                bb.addVertex(mat, x0 * r0, 0, z0 * r0).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, x0 * r1, 0, z0 * r1).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, x1 * r1, 0, z1 * r1).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, x0 * r0, 0, z0 * r0).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, x1 * r1, 0, z1 * r1).setColor(cr, cg, cb, alpha);
-                bb.addVertex(mat, x1 * r0, 0, z1 * r0).setColor(cr, cg, cb, alpha);
+                float sh00 = ringShadowFactor(x0 * r0, z0 * r0, sunX, sunY, sunZ, baseR);
+                float sh01 = ringShadowFactor(x0 * r1, z0 * r1, sunX, sunY, sunZ, baseR);
+                float sh11 = ringShadowFactor(x1 * r1, z1 * r1, sunX, sunY, sunZ, baseR);
+                float sh10 = ringShadowFactor(x1 * r0, z1 * r0, sunX, sunY, sunZ, baseR);
+                float m00 = 1f - 0.50f * sh00, a00 = alpha;
+                float m01 = 1f - 0.50f * sh01, a01 = alpha;
+                float m11 = 1f - 0.50f * sh11, a11 = alpha;
+                float m10 = 1f - 0.50f * sh10, a10 = alpha;
+                bb.addVertex(mat, x0 * r0, 0, z0 * r0).setColor(cr * m00, cg * m00, cb * m00, a00);
+                bb.addVertex(mat, x0 * r1, 0, z0 * r1).setColor(cr * m01, cg * m01, cb * m01, a01);
+                bb.addVertex(mat, x1 * r1, 0, z1 * r1).setColor(cr * m11, cg * m11, cb * m11, a11);
+                bb.addVertex(mat, x0 * r0, 0, z0 * r0).setColor(cr * m00, cg * m00, cb * m00, a00);
+                bb.addVertex(mat, x1 * r1, 0, z1 * r1).setColor(cr * m11, cg * m11, cb * m11, a11);
+                bb.addVertex(mat, x1 * r0, 0, z1 * r0).setColor(cr * m10, cg * m10, cb * m10, a10);
             }
         }
         var rendered = bb.build();
         if (rendered != null) BufferUploader.drawWithShader(rendered);
         mvs.identity();
         RenderSystem.applyModelViewMatrix();
+    }
+
+    /** 环上一点是否落在行星本影里。返回 0..1 阴影因子。 */
+    private static float ringShadowFactor(float x, float z, float sunX, float sunY, float sunZ, float baseR) {
+        float dotP = x * sunX + z * sunZ; // 环平面 y=0
+        float t = -dotP;
+        if (t <= 0) return 0;
+        float dist2 = (x * x + z * z) - t * t;
+        if (dist2 >= baseR * baseR) return 0;
+        float d = (float) Math.sqrt(Math.max(0, dist2));
+        if (d > baseR * 0.85f) return (baseR - d) / (baseR * 0.15f);
+        return 1f;
     }
 
 

@@ -13,10 +13,12 @@ uniform mat4 ProjMat;
 out vec3 vPos;
 out vec3 vNrm;
 out vec3 vAlb;
+out float vSpec;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
     vPos = Position;
     vNrm = normalize(Normal);
     vAlb = Color.rgb;
+    vSpec = Color.a; // 材质高光掩码：海洋/冰面=1，陆地/岩石=0
 }

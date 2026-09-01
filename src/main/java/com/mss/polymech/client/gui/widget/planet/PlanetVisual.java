@@ -13,12 +13,21 @@ public final class PlanetVisual {
     private final float[] atmosphereColor; // 大气散射色 (3)，null = 不渲染大气
     private final float[] ringColor;       // 星环色 (3)，null = 无星环
     private final float glowStrength;      // 自发光强度（太阳用），0 = 不自发光
+    private final float specularStrength;  // 镜面高光强度（海洋/冰面）
+    private final float specularPower;     // 镜面高光锐度（shininess）
 
     private PlanetVisual(float[] baseColor, float[] atmosphereColor, float[] ringColor, float glowStrength) {
+        this(baseColor, atmosphereColor, ringColor, glowStrength, 0f, 32f);
+    }
+
+    private PlanetVisual(float[] baseColor, float[] atmosphereColor, float[] ringColor, float glowStrength,
+                         float specularStrength, float specularPower) {
         this.baseColor = baseColor;
         this.atmosphereColor = atmosphereColor;
         this.ringColor = ringColor;
         this.glowStrength = glowStrength;
+        this.specularStrength = specularStrength;
+        this.specularPower = specularPower;
     }
 
     public float[] baseColor() { return baseColor; }
@@ -28,6 +37,8 @@ public final class PlanetVisual {
     public boolean hasAtmosphere() { return atmosphereColor != null; }
     public boolean hasRing() { return ringColor != null; }
     public boolean isGlowing() { return glowStrength > 0; }
+    public float specularStrength() { return specularStrength; }
+    public float specularPower() { return specularPower; }
 
     // ============ 预定义星球外观 ============
 
@@ -43,7 +54,7 @@ public final class PlanetVisual {
             new float[]{0.90f, 0.80f, 0.50f}, null, 0);
     public static final PlanetVisual EARTH = new PlanetVisual(
             new float[]{0.30f, 0.55f, 0.90f},
-            new float[]{0.25f, 0.55f, 1.00f}, null, 0);
+            new float[]{0.25f, 0.55f, 1.00f}, null, 0, 0.35f, 48f);
     public static final PlanetVisual MOON = new PlanetVisual(
             new float[]{0.55f, 0.53f, 0.50f}, null, null, 0);
     public static final PlanetVisual MARS = new PlanetVisual(
@@ -76,13 +87,13 @@ public final class PlanetVisual {
     public static final PlanetVisual IO = new PlanetVisual(
             new float[]{0.90f, 0.75f, 0.20f}, null, null, 0);
     public static final PlanetVisual EUROPA = new PlanetVisual(
-            new float[]{0.85f, 0.82f, 0.75f}, null, null, 0);
+            new float[]{0.85f, 0.82f, 0.75f}, null, null, 0, 0.55f, 96f);
     public static final PlanetVisual GANYMEDE = new PlanetVisual(
-            new float[]{0.60f, 0.55f, 0.50f}, null, null, 0);
+            new float[]{0.60f, 0.55f, 0.50f}, null, null, 0, 0.15f, 32f);
     public static final PlanetVisual CALLISTO = new PlanetVisual(
-            new float[]{0.40f, 0.38f, 0.35f}, null, null, 0);
+            new float[]{0.40f, 0.38f, 0.35f}, null, null, 0, 0.12f, 24f);
     public static final PlanetVisual ENCELADUS = new PlanetVisual(
-            new float[]{0.92f, 0.95f, 0.98f}, null, null, 0);
+            new float[]{0.92f, 0.95f, 0.98f}, null, null, 0, 0.60f, 128f);
     public static final PlanetVisual PHOBOS = new PlanetVisual(
             new float[]{0.45f, 0.42f, 0.38f}, null, null, 0);
     public static final PlanetVisual DEIMOS = new PlanetVisual(
@@ -101,5 +112,16 @@ public final class PlanetVisual {
     public static PlanetVisual withAtmosphere(float r, float g, float b,
                                               float ar, float ag, float ab) {
         return new PlanetVisual(new float[]{r, g, b}, new float[]{ar, ag, ab}, null, 0);
+    }
+
+    /** 构造带镜面高光的外观（海洋/冰面）。 */
+    public static PlanetVisual withSpecular(float r, float g, float b, float specStrength, float specPower) {
+        return new PlanetVisual(new float[]{r, g, b}, null, null, 0, specStrength, specPower);
+    }
+
+    /** 构造恒星外观（用于未来不同光谱型的恒星系）。 */
+    public static PlanetVisual star(float r, float g, float b) {
+        return new PlanetVisual(new float[]{r, g, b},
+                new float[]{r, g * 0.88f, b * 0.67f}, null, 1.0f);
     }
 }

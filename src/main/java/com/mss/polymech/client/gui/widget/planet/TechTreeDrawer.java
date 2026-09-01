@@ -39,7 +39,7 @@ class TechTreeDrawer {
         if (v.overlayFade < 0.01f) return;
         List<TechNode> focalNodes = fp.techNodes();
         int count = Math.min(gridMesh.faces.length, focalNodes.size());
-        v.buildTransformMatrix(dwx, dwz, sc, ss, v.currentTilt, v.mvTmp);
+        v.buildTransformMatrix(dwx, 0f, dwz, sc, ss, v.currentTilt, v.mvTmp);
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
         mvs.set(v.mvTmp); RenderSystem.applyModelViewMatrix();
         float ccx3 = v.mvTmp.m30(), ccy3 = v.mvTmp.m31(), ccz3 = v.mvTmp.m32();
@@ -135,7 +135,7 @@ class TechTreeDrawer {
         float dwx = wp[0] - v.camera.focalX(), dwz = wp[2] - v.camera.focalZ();
         float selfAngle = fp.resolveRotationSpeed(gridL) * v.simTime;
         float sc = (float) Math.cos(selfAngle), ss = (float) Math.sin(selfAngle);
-        v.buildTransformMatrix(dwx, dwz, sc, ss, v.currentTilt, v.mvTmp);
+        v.buildTransformMatrix(dwx, 0f, dwz, sc, ss, v.currentTilt, v.mvTmp);
         Matrix4fStack mvs = RenderSystem.getModelViewStack(); mvs.set(v.mvTmp); RenderSystem.applyModelViewMatrix();
         float R = wireR; float cr, cg, cb;
         List<TechNode> hNodes = v.solarSystem.get(v.focalIndex).techNodes();
@@ -202,8 +202,9 @@ class TechTreeDrawer {
             float dwx = pos[0] - v.camera.focalX(), dwz = pos[2] - v.camera.focalZ();
             float rx = dwx * cosY + dwz * sinY;
             float rz1 = -dwx * sinY + dwz * cosY;
-            float ry2 = -rz1 * sinX;
-            float rz = rz1 * cosX;
+            float wyRel = pos[1] - v.camera.focalY();
+            float ry2 = wyRel * cosX - rz1 * sinX;
+            float rz = wyRel * sinX + rz1 * cosX;
             float camZ = rz - v.camera.dist();
             if (camZ > -0.5f) continue;
             float scrX = cx + rx * focal / Math.max(-camZ, 0.01f);
@@ -221,10 +222,11 @@ class TechTreeDrawer {
             float[] pos = v.solarSystem.worldPos(pi, v.simTime);
             float dwx = pos[0] - v.camera.focalX(), dwz = pos[2] - v.camera.focalZ();
             float rz1 = -dwx * sinY + dwz * cosY;
-            float camZ = rz1 * cosX - v.camera.dist();
+            float wyRel = pos[1] - v.camera.focalY();
+            float camZ = wyRel * sinX + rz1 * cosX - v.camera.dist();
             if (camZ > -0.2f) continue;
             float rx = dwx * cosY + dwz * sinY;
-            float ry2 = -rz1 * sinX;
+            float ry2 = wyRel * cosX - rz1 * sinX;
             Planet p = v.solarSystem.get(pi);
             float r = 0;
             for (PlanetLayer l : p.layers()) if (l.type() == PlanetLayerType.BASE) r = l.radius();

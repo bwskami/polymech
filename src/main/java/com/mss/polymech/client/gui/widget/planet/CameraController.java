@@ -27,7 +27,7 @@ public final class CameraController {
     private float dist = 3.2f;
 
     // ===== 焦点世界坐标 =====
-    private float focalX, focalZ;
+    private float focalX, focalY, focalZ;
 
     // ===== 旋转惯性 =====
     private float yawVel, pitchVel;   // 弧度/秒
@@ -35,7 +35,7 @@ public final class CameraController {
 
     // ===== 焦点过渡动画 =====
     private float transT = 1.0f;
-    private float fromX, fromZ;
+    private float fromX, fromY, fromZ;
 
     // ===== 每帧缓存的投影参数 =====
     private float focalLength, cx, cy;
@@ -83,11 +83,50 @@ public final class CameraController {
     public void zoom(float wheelDelta, float minDist) {
         if (wheelDelta > 0) dist *= ZOOM_FACTOR;
         else dist *= ZOOM_INVERSE;
-        dist = clamp(dist, minDist, 300f);
+        dist = clamp(dist, minDist, 1200f);
+    }
+
+    /**
+     * 自由视角下的拖拽平移：真正的屏幕空间拖拽。
+     * 拖右，场景跟手向右；拖下，场景跟手向下。
+     * 焦点沿相机 right/up 向量移动，速度随距离缩放。
+     */
+    public void pan(float dx, float dy) {
+        if (focalLength <= 0) return;
+        float scale = dist / focalLength;
+        // 相机基向量（世界系）：right = (cosY, 0, sinY)
+        // up = (sinY*sinX, cosX, -cosY*sinX)
+        float rightX = cosY, rightY = 0, rightZ = sinY;
+        float upX = sinY * sinX, upY = cosX, upZ = -cosY * sinX;
+        // 场景跟手：鼠标向右 -> 焦点向左；鼠标向下 -> 焦点向上
+        focalX += (-rightX * dx + upX * dy) * scale;
+        focalY += (-rightY * dx + upY * dy) * scale;
+        focalZ += (-rightZ * dx + upZ * dy) * scale;
     }
 
     public void ensureMinDist(float minDist) {
         dist = Math.max(dist, minDist);
+    }
+
+    /**
+     * 把焦点限制在恒星系边界内（XZ 圆盘半径 + Y 高度），避免自由视角漂太远回不来。
+     */
+    public void clampFocal(float maxRadius) {
+        if (maxRadius <= 0) return;
+        float h2 = focalX * focalX + focalZ * focalZ;
+        if (h2 > maxRadius * maxRadius) {
+            float h = (float) Math.sqrt(h2);
+            float s = maxRadius / h;
+            focalX *= s;
+            focalZ *= s;
+        }
+        if (focalY > maxRadius) focalY = maxRadius;
+        else if (focalY < -maxRadius) focalY = -maxRadius;
+    }
+
+    /** 直接设置相机距离（切换星系时用于重新取景）。 */
+    public void setDist(float d) {
+        dist = clamp(d, 1.5f, 1200f);
     }
 
     // ==================== 焦点过渡 ====================
@@ -96,10 +135,16 @@ public final class CameraController {
      * 开始从当前位置过渡到新的焦点星球。
      */
     public void beginTransition(float targetX, float targetZ) {
+        beginTransition(targetX, 0, targetZ);
+    }
+
+    public void beginTransition(float targetX, float targetY, float targetZ) {
         fromX = focalX;
+        fromY = focalY;
         fromZ = focalZ;
         transT = 0;
         focalX = targetX;
+        focalY = targetY;
         focalZ = targetZ;
     }
 
@@ -107,14 +152,20 @@ public final class CameraController {
      * 每帧更新过渡动画。返回 true 表示仍在过渡中。
      */
     public boolean updateTransition(float dt, float targetX, float targetZ) {
+        return updateTransition(dt, targetX, 0, targetZ);
+    }
+
+    public boolean updateTransition(float dt, float targetX, float targetY, float targetZ) {
         if (transT < 1.0f) {
             transT = Math.min(1.0f, transT + dt / TRANSITION_DURATION);
             float t = easeInCubic(transT);
             focalX = fromX + (targetX - fromX) * t;
+            focalY = fromY + (targetY - fromY) * t;
             focalZ = fromZ + (targetZ - fromZ) * t;
             return true;
         } else {
             focalX = targetX;
+            focalY = targetY;
             focalZ = targetZ;
             return false;
         }
@@ -126,9 +177,15 @@ public final class CameraController {
      * 直接设置焦点坐标（不经过过渡动画）。
      */
     public void setFocal(float x, float z) {
+        setFocal(x, 0, z);
+    }
+
+    public void setFocal(float x, float y, float z) {
         focalX = x;
+        focalY = y;
         focalZ = z;
         fromX = x;
+        fromY = y;
         fromZ = z;
         transT = 1.0f;
     }
@@ -168,13 +225,18 @@ public final class CameraController {
      */
     public void cameraTo(float[] out, float[] v, float layerR,
                          float dwx, float dwz, float sc, float ss, float tilt) {
+        cameraTo(out, v, layerR, dwx, 0f, dwz, sc, ss, tilt);
+    }
+
+    public void cameraTo(float[] out, float[] v, float layerR,
+                         float dwx, float dwy, float dwz, float sc, float ss, float tilt) {
         float lx = (v[0] * sc - v[2] * ss) * layerR;
         float lz = (v[0] * ss + v[2] * sc) * layerR;
         float ly = v[1] * layerR;
         float ct = (float) Math.cos(tilt), st = (float) Math.sin(tilt);
         float wx = lx * ct - ly * st + dwx;
         float wz = lz + dwz;
-        float wy = lx * st + ly * ct;
+        float wy = lx * st + ly * ct + dwy - focalY;
         float rx = wx * cosY + wz * sinY;
         float rz1 = -wx * sinY + wz * cosY;
         float ry2 = wy * cosX - rz1 * sinX;
@@ -188,8 +250,12 @@ public final class CameraController {
      * 将星球局部坐标变换到相机空间（返回新数组）。
      */
     public float[] camera(float[] v, float layerR, float dwx, float dwz, float sc, float ss, float tilt) {
+        return camera(v, layerR, dwx, 0f, dwz, sc, ss, tilt);
+    }
+
+    public float[] camera(float[] v, float layerR, float dwx, float dwy, float dwz, float sc, float ss, float tilt) {
         float[] out = new float[3];
-        cameraTo(out, v, layerR, dwx, dwz, sc, ss, tilt);
+        cameraTo(out, v, layerR, dwx, dwy, dwz, sc, ss, tilt);
         return out;
     }
 
@@ -218,7 +284,7 @@ public final class CameraController {
                               float dwx, float dwz) {
         float wx = worldX + dwx;
         float wz = worldZ + dwz;
-        float wy = worldY;
+        float wy = worldY - focalY;
         float rx = wx * cosY + wz * sinY;
         float rz1 = -wx * sinY + wz * cosY;
         float ry2 = wy * cosX - rz1 * sinX;
@@ -244,13 +310,18 @@ public final class CameraController {
      */
     public void cameraToNoAlloc(float[] out, float[] v, float layerR,
                                 float dwx, float dwz, float sc, float ss, float tilt) {
+        cameraToNoAlloc(out, v, layerR, dwx, 0f, dwz, sc, ss, tilt);
+    }
+
+    public void cameraToNoAlloc(float[] out, float[] v, float layerR,
+                                float dwx, float dwy, float dwz, float sc, float ss, float tilt) {
         float lx = (v[0] * sc - v[2] * ss) * layerR;
         float lz = (v[0] * ss + v[2] * sc) * layerR;
         float ly = v[1] * layerR;
         float ct = (float) Math.cos(tilt), st = (float) Math.sin(tilt);
         float wx = lx * ct - ly * st + dwx;
         float wz = lz + dwz;
-        float wy = lx * st + ly * ct;
+        float wy = lx * st + ly * ct + dwy - focalY;
         float rx = wx * cosY + wz * sinY;
         float rz1 = -wx * sinY + wz * cosY;
         float ry2 = wy * cosX - rz1 * sinX;
@@ -278,6 +349,7 @@ public final class CameraController {
     public float pitch() { return pitch; }
     public float dist() { return dist; }
     public float focalX() { return focalX; }
+    public float focalY() { return focalY; }
     public float focalZ() { return focalZ; }
     public float focalLength() { return focalLength; }
     public float cx() { return cx; }

@@ -6,26 +6,235 @@
         "Color",
         "Normal"
     ],
-    "samplers": [
-    ],
+    "samplers": [],
     "uniforms": [
-        { "name": "ModelViewMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-        { "name": "ProjMat", "type": "matrix4x4", "count": 16, "values": [ 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0 ] },
-        { "name": "SunDir", "type": "float", "count": 3, "values": [ 0.0, 1.0, 0.0 ] },
-        { "name": "ViewDir", "type": "float", "count": 3, "values": [ 0.0, 0.0, 1.0 ] },
-        { "name": "Intensity", "type": "float", "count": 1, "values": [ 1.0 ] },
-        { "name": "IsSun", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "SunVisibility", "type": "float", "count": 1, "values": [ 1.0 ] },
-        { "name": "CasterCount", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "CasterRel0", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
-        { "name": "CasterRel1", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
-        { "name": "CasterRel2", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
-        { "name": "CasterRel3", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
-        { "name": "CasterRad0", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "CasterRad1", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "CasterRad2", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "CasterRad3", "type": "float", "count": 1, "values": [ 0.0 ] },
-        { "name": "ParentRel", "type": "float", "count": 3, "values": [ 0.0, 0.0, 0.0 ] },
-        { "name": "ReflStrength", "type": "float", "count": 1, "values": [ 0.0 ] }
+        {
+            "name": "ModelViewMat",
+            "type": "matrix4x4",
+            "count": 16,
+            "values": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ]
+        },
+        {
+            "name": "ProjMat",
+            "type": "matrix4x4",
+            "count": 16,
+            "values": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0
+            ]
+        },
+        {
+            "name": "SunDir",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                1.0,
+                0.0
+            ]
+        },
+        {
+            "name": "ViewDir",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                0.0,
+                1.0
+            ]
+        },
+        {
+            "name": "Intensity",
+            "type": "float",
+            "count": 1,
+            "values": [
+                1.0
+            ]
+        },
+        {
+            "name": "IsSun",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "SunVisibility",
+            "type": "float",
+            "count": 1,
+            "values": [
+                1.0
+            ]
+        },
+        {
+            "name": "CasterCount",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRel0",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRel1",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRel2",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRel3",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRad0",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRad1",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRad2",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "CasterRad3",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "ParentRel",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0.0,
+                0.0,
+                0.0
+            ]
+        },
+        {
+            "name": "ReflStrength",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "SpecularStrength",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "SpecularPower",
+            "type": "float",
+            "count": 1,
+            "values": [
+                32.0
+            ]
+        },
+        {
+            "name": "RingInner",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "RingOuter",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
+            "name": "RingShadowStrength",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        }
     ]
 }

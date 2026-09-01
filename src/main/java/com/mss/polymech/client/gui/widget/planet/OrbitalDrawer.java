@@ -48,6 +48,88 @@ class OrbitalDrawer {
         rockInstanced.close();
     }
 
+    /** 世界平面 y=0 上的虚线圆（与轨道线同一套相机空间画法）。 */
+    void drawDashedWorldCircle(Matrix4f mat, float radius, float hw,
+                               float r, float g, float b, float a,
+                               int dashPeriod, int dashOn) {
+        int steps = 128;
+        float cosY = v.camera.cosY(), sinY = v.camera.sinY(), cosX = v.camera.cosX(), sinX = v.camera.sinX();
+        float fX = v.camera.focalX(), fZ = v.camera.focalZ();
+        float[] px = ringPx, py = ringPy, pz = ringPz;
+        for (int i = 0; i < steps; i++) {
+            float ang = (float) (Math.PI * 2 * i / steps);
+            float wx = (float) Math.cos(ang) * radius;
+            float wz = (float) Math.sin(ang) * radius;
+            float dwx = wx - fX, dwz = wz - fZ;
+            float rx = dwx * cosY + dwz * sinY;
+            float rz1 = -dwx * sinY + dwz * cosY;
+            float wyRel = -v.camera.focalY();
+            px[i] = rx;
+            py[i] = wyRel * cosX - rz1 * sinX;
+            pz[i] = wyRel * sinX + rz1 * cosX - v.camera.dist();
+        }
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (int i = 0; i < steps; i++) {
+            if (i % dashPeriod >= dashOn) continue;
+            int j = (i + 1) % steps;
+            SolarSystemView.addQuad3D(bb, mat, px[i], py[i], pz[i], px[j], py[j], pz[j], hw, r, g, b, a);
+        }
+        BufferUploader.drawWithShader(bb.buildOrThrow());
+    }
+
+    /** 世界平面 y=0 上的 3D 箭头（三棱柱，超空间航道入口）。 */
+    void drawHyperlaneArrow3D(Matrix4f mat, float angle, float radius, float size, float hw,
+                              float r, float g, float b, float a) {
+        float ca = (float) Math.cos(angle), sa = (float) Math.sin(angle);
+        float halfW = size * 0.45f;
+        float thick = Math.max(0.06f, size * 0.16f);
+        // 三棱柱 6 个顶点（世界坐标，y=±thick）
+        float bLx = ca * radius - sa * halfW, bLz = sa * radius + ca * halfW;
+        float bRx = ca * radius + sa * halfW, bRz = sa * radius - ca * halfW;
+        float tipX = ca * (radius + size), tipZ = sa * (radius + size);
+        float[] blt = camPoint3(mat, bLx, thick, bLz);
+        float[] brt = camPoint3(mat, bRx, thick, bRz);
+        float[] tt = camPoint3(mat, tipX, thick, tipZ);
+        float[] blb = camPoint3(mat, bLx, -thick, bLz);
+        float[] brb = camPoint3(mat, bRx, -thick, bRz);
+        float[] tb = camPoint3(mat, tipX, -thick, tipZ);
+
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        tri(bb, mat, blt, brt, tt, r, g, b, a);   // 顶面
+        tri(bb, mat, brb, blb, tb, r, g, b, a);   // 底面
+        quad(bb, mat, blt, blb, brb, brt, r, g, b, a); // 底面边
+        quad(bb, mat, brt, brb, tb, tt, r, g, b, a);   // 右斜面
+        quad(bb, mat, tt, tb, blb, blt, r, g, b, a);   // 左斜面
+        BufferUploader.drawWithShader(bb.buildOrThrow());
+    }
+
+    private static void tri(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2,
+                            float r, float g, float b, float a) {
+        bb.addVertex(mat, p0[0], p0[1], p0[2]).setColor(r, g, b, a);
+        bb.addVertex(mat, p1[0], p1[1], p1[2]).setColor(r, g, b, a);
+        bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(r, g, b, a);
+    }
+
+    private static void quad(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2, float[] p3,
+                             float r, float g, float b, float a) {
+        tri(bb, mat, p0, p1, p2, r, g, b, a);
+        tri(bb, mat, p0, p2, p3, r, g, b, a);
+    }
+
+    private float[] camPoint3(Matrix4f mat, float wx, float wy, float wz) {
+        float[] out = new float[3];
+        float fX = v.camera.focalX(), fZ = v.camera.focalZ();
+        float dx = wx - fX, dz = wz - fZ;
+        float cosY = v.camera.cosY(), sinY = v.camera.sinY(), cosX = v.camera.cosX(), sinX = v.camera.sinX();
+        float rx = dx * cosY + dz * sinY;
+        float rz1 = -dx * sinY + dz * cosY;
+        float wyRel = wy - v.camera.focalY();
+        out[0] = rx;
+        out[1] = wyRel * cosX - rz1 * sinX;
+        out[2] = wyRel * sinX + rz1 * cosX - v.camera.dist();
+        return out;
+    }
+
     void drawSunGlow(Matrix4f mat) {
         int sunIdx = 0;
         float[] pos = v.solarSystem.worldPosTo(v._tmpWp1, sunIdx, v.simTime);
@@ -61,11 +143,44 @@ class OrbitalDrawer {
         if (sunR < 0.01f) return;
         // 3D billboard: world-space disc at sun position, depth-tested against planets
         float cx3d = camPos[0], cy3d = camPos[1], cz3d = camPos[2];
+        // 光晕颜色取恒星自身颜色（什么颜色就发什么光），不是写死的白色
+        float[] bc = v.solarSystem.get(sunIdx).visual().baseColor();
+        float gr = bc[0] * 0.65f + 0.35f;
+        float gg = bc[1] * 0.65f + 0.35f;
+        float gb = bc[2] * 0.65f + 0.35f;
         RenderSystem.enableBlend();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
-        // 极薄一圈镜头溢光，模拟极微弱的镜头散射（太空几乎无介质）
-        drawGlowBillboard(mat, cx3d, cy3d, cz3d, sunR * 1.08f, 0.06f, 1.0f, 0.95f, 0.85f);
+        // 单层连续日冕：从恒星边缘最亮，按二次曲线平滑衰减到外缘透明，避免分层断层
+        drawGlowHalo(mat, cx3d, cy3d, cz3d, sunR * 1.00f, sunR * 2.40f, 0.35f, gr, gg, gb);
         RenderSystem.defaultBlendFunc();
+    }
+
+    /** 3D 辉光日冕：单层多段径向渐变，内缘最亮，按 (1-t)^2 平滑衰减到外缘透明。 */
+    void drawGlowHalo(Matrix4f mat, float cx3d, float cy3d, float cz3d,
+                      float innerR, float outerR, float alpha, float cr, float cg, float cb) {
+        int radialSteps = 24, segs = 72;
+        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
+        for (int i = 0; i < radialSteps; i++) {
+            float t0 = (float) i / radialSteps, t1 = (float) (i + 1) / radialSteps;
+            float r0 = innerR + (outerR - innerR) * t0;
+            float r1 = innerR + (outerR - innerR) * t1;
+            float a0 = alpha * (1f - t0) * (1f - t0);
+            float a1 = alpha * (1f - t1) * (1f - t1);
+            for (int j = 0; j < segs; j++) {
+                float ang0 = (float) (Math.PI * 2 * j / segs);
+                float ang1 = (float) (Math.PI * 2 * (j + 1) / segs);
+                float c00 = (float) Math.cos(ang0), s00 = (float) Math.sin(ang0);
+                float c01 = (float) Math.cos(ang1), s01 = (float) Math.sin(ang1);
+                // 两个三角形组成一个径向格子
+                bb.addVertex(mat, cx3d + c00 * r0, cy3d + s00 * r0, cz3d).setColor(cr, cg, cb, a0);
+                bb.addVertex(mat, cx3d + c00 * r1, cy3d + s00 * r1, cz3d).setColor(cr, cg, cb, a1);
+                bb.addVertex(mat, cx3d + c01 * r1, cy3d + s01 * r1, cz3d).setColor(cr, cg, cb, a1);
+                bb.addVertex(mat, cx3d + c00 * r0, cy3d + s00 * r0, cz3d).setColor(cr, cg, cb, a0);
+                bb.addVertex(mat, cx3d + c01 * r1, cy3d + s01 * r1, cz3d).setColor(cr, cg, cb, a1);
+                bb.addVertex(mat, cx3d + c01 * r0, cy3d + s01 * r0, cz3d).setColor(cr, cg, cb, a0);
+            }
+        }
+        BufferUploader.drawWithShader(bb.buildOrThrow());
     }
 
     /** 3D Billboard 发光圆盘：以恒星世界位置为中心，朝向摄像机的平面圆盘，从中心到边缘渐变透明。 */
@@ -91,12 +206,11 @@ class OrbitalDrawer {
             Planet p = v.solarSystem.get(pi);
             float orbR = p.orbitalRadius();
             if (orbR < 0.01f) continue;
-            float alpha = (pi == v.focalIndex) ? 0.90f : 0.55f;
-            float orbCr, orbCg, orbCb;
-            if (pi == v.focalIndex) { orbCr = 0.50f; orbCg = 0.78f; orbCb = 1.0f; } else { orbCr = 0.45f; orbCg = 0.62f; orbCb = 0.85f; }
-            // 线宽随轨道半径增大，保证远近轨道在屏幕上都有 1~3px
+            float alpha = (pi == v.focalIndex) ? 0.75f : 0.40f;
+            float orbCr = 1.0f, orbCg = 1.0f, orbCb = 1.0f;
+            // 线宽随轨道半径增大，保证远近轨道在屏幕上都有 ~1px（白色半透明细线）
             boolean isMoon = p.parentId() >= 0;
-            float hw = isMoon ? (0.03f + orbR * 0.0004f) : (0.06f + orbR * 0.0006f);
+            float hw = isMoon ? (0.018f + orbR * 0.00024f) : (0.036f + orbR * 0.00036f);
             // 预计算相机空间点（闭合环：多算两个点用于首尾衔接）
             int n = segments + 1;
             float[] px = ringPx, py = ringPy, pz = ringPz;
@@ -114,7 +228,8 @@ class OrbitalDrawer {
                 float dwx = wx - v.camera.focalX(), dwz = wz - v.camera.focalZ();
                 float rx = dwx * cosY + dwz * sinY;
                 float rz1 = -dwx * sinY + dwz * cosY;
-                float ry2 = -rz1 * sinX; float rz = rz1 * cosX;
+                float wyRel = -v.camera.focalY();
+                float ry2 = wyRel * cosX - rz1 * sinX; float rz = wyRel * sinX + rz1 * cosX;
                 float pzc = rz - v.camera.dist();
                 px[i] = rx; py[i] = ry2; pz[i] = pzc;
                 valid[i] = pzc < -0.05f;
@@ -187,7 +302,7 @@ class OrbitalDrawer {
             float cr, float cg, float cb, float baseAlpha) {
         SolarSystemView.setupTransparentBlend();
         float dwx = -v.camera.focalX(), dwz = -v.camera.focalZ();
-        v.buildTransformMatrix(dwx, dwz, 1, 0, 0, v.mvTmp);
+        v.buildTransformMatrix(dwx, 0f, dwz, 1, 0, 0, v.mvTmp);
         if (innerR < 100f) {
             if (beltBandVBO1 == null)
                 beltBandVBO1 = buildBeltBandVBO(innerR, outerR, bands, cr, cg, cb, baseAlpha);
@@ -218,7 +333,7 @@ class OrbitalDrawer {
         float savedTilt = v.currentTilt; v.currentTilt = 0;
         float fX = v.camera.focalX(), fZ = v.camera.focalZ();
         // GPU transform: build camera modelview once, send world-space coords
-        v.buildTransformMatrix(-fX, -fZ, 1, 0, 0, v.mvTmp);
+        v.buildTransformMatrix(-fX, 0f, -fZ, 1, 0, 0, v.mvTmp);
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
         mvs.set(v.mvTmp);
         RenderSystem.applyModelViewMatrix();

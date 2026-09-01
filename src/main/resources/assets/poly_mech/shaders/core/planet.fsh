@@ -1,17 +1,11 @@
 #version 150
 
-// 行星 BASE 层：逐像素光照/阴影。
-// 所有光源独立求和：
-//   direct   = max(0, ndotl) * I * (1 - shadow)
-//   bounce   = direct * 0.16
-//   ambient  = 0.06 * I * SunVisibility
-//   refl     = max(0, dot(nrm, parentDir)) * ReflStrength
-//   lit      = direct + bounce + ambient + refl * 0.6
-// 昼夜面是 max(0, ndotl) 的自然结果。
+// 行星 BASE 层：逐像素光照/阴影 + 环影 + 云影 + 镜面高光 + ACES 色调映射。
 
 in vec3 vPos;
 in vec3 vNrm;
 in vec3 vAlb;
+in float vSpec;
 
 uniform vec3 ViewDir;
 uniform vec3 SunDir;
@@ -30,6 +24,12 @@ uniform float CasterRad3;
 uniform vec3 ParentRel;
 uniform float ReflStrength;
 
+uniform float SpecularStrength;
+uniform float SpecularPower;
+uniform float RingInner;
+uniform float RingOuter;
+uniform float RingShadowStrength;
+
 out vec4 fragColor;
 
 vec3 casterRel(int i) {
@@ -43,6 +43,10 @@ float casterRad(int i) {
     if (i == 1) return CasterRad1;
     if (i == 2) return CasterRad2;
     return CasterRad3;
+}
+
+vec3 aces(vec3 x) {
+    return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
 
 // 阴影锥：纯几何遮挡 —— "这个像素能否看到恒星"。
@@ -69,22 +73,31 @@ void main() {
     vec3 nrm = normalize(vNrm);
     vec3 alb = vAlb;
 
-    // 恒星：自身就是光源，输出 HDR 亮度 —— 中心灼白，边缘暖橙
-    // framebuffer 会 clamp 到 [0,1]，但中心的过曝白 → 边缘的暖色
-    // 自然形成「发光」视觉，不依赖任何外部光晕圆盘
+    // 恒星：自身就是光源，HDR 亮度经 ACES 映射，中心灼白、边缘暖橙
     if (IsSun > 0.5) {
-        float limbDot = max(0.0, dot(nrm, ViewDir));
-        // 边缘衰减：edges dim，center blazing
-        float limb = 0.3 + 0.7 * pow(limbDot, 0.8);
-        // HDR 亮度：中心输出 ~3.5x，被 clamp 后灼白
-        float brightness = 1.0 + 2.5 * pow(limbDot, 1.5);
-        fragColor = vec4(alb * limb * brightness, 1.0);
+        // 恒星 = unlit 自发光表面：什么颜色就发射什么光，不施加任何外部光照。
+        // 辉光由大气层 rim 和外圈 glow billboard 负责（类似 Mindustry 的 bloom 层）。
+        // 直接输出底图颜色：ACES/乘法会把橙金色推向白色（纯度下降）。
+        // 恒星表面是 unlit 自发光，辉光交给大气层 rim 和外圈 glow billboard。
+        fragColor = vec4(alb, 1.0);
         return;
     }
 
     /************ 标准光照 ************/
     float ndotl = dot(nrm, SunDir);
     float shadow = computeShadow(vPos);
+
+    // 环影：行星环在表面投下的阴影（环平面 y=0，沿太阳方向射线求交）
+    if (RingShadowStrength > 0.0 && abs(SunDir.y) > 1e-4) {
+        float t = -vPos.y / SunDir.y;
+        if (t > 0.0) {
+            vec3 q = vPos + SunDir * t;
+            float r = length(q.xz);
+            if (r > RingInner && r < RingOuter) {
+                shadow = max(shadow, RingShadowStrength);
+            }
+        }
+    }
 
     float direct = max(0.0, ndotl) * Intensity * (1.0 - shadow);
     float bounce = direct * 0.16;
@@ -94,6 +107,14 @@ void main() {
     if (ReflStrength > 0.0 && length(ParentRel) > 1e-5) {
         vec3 rdir = normalize(ParentRel - vPos);
         refl = max(0.0, dot(nrm, rdir)) * ReflStrength;
+    }
+
+    // 镜面高光（海洋/冰面）
+    float spec = 0.0;
+    if (SpecularStrength > 0.0) {
+        vec3 V = normalize(ViewDir);
+        vec3 H = normalize(SunDir + V);
+        spec = pow(max(dot(nrm, H), 0.0), SpecularPower) * SpecularStrength * vSpec * Intensity * (1.0 - shadow);
     }
 
     float lit = clamp(direct + bounce + ambient + refl * 0.6, 0.0, 1.4);
@@ -109,6 +130,7 @@ void main() {
     float ll = (lightC.r + lightC.g + lightC.b) / 3.0;
     vec3 neutral = alb * ll;
     vec3 col = neutral + (tinted - neutral) * tint;
+    col += spec * lightC;
 
-    fragColor = vec4(min(col, vec3(1.0)), 1.0);
+    fragColor = vec4(aces(col * 1.25), 1.0);
 }

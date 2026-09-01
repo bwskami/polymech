@@ -140,7 +140,7 @@ final class RockInstancedRenderer {
         ShaderInstance sh = PlanetShaders.rockShader();
         if (sh == null) return;
         float fX = v.camera.focalX(), fZ = v.camera.focalZ();
-        v.buildTransformMatrix(-fX, -fZ, 1, 0, 0, v.mvTmp);
+        v.buildTransformMatrix(-fX, 0f, -fZ, 1, 0, 0, v.mvTmp);
 
         int highCount = fillInstanceBuffer(particles, false);
         if (highCount > 0) drawBatch(sh, highCount, 0, highVertexCount);
