@@ -7,3 +7,4 @@
 /.gradle/
 /src/generated/resources/.cache/
 /.qoder/
+/decompiled-space/
