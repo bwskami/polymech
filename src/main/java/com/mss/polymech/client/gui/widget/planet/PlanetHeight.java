@@ -17,10 +17,20 @@ final class PlanetHeight {
     boolean clampToSea = false;
 
     PlanetHeight(int pi, Polyhedron baseMesh, float heightScale) {
+        this(pi, baseMesh, heightScale, 0f);
+    }
+
+    /** @param freqOverride 大于 0 时覆盖默认噪声频率；太空场景用更高频率 + 更小起伏。 */
+    PlanetHeight(int pi, Polyhedron baseMesh, float heightScale, float freqOverride) {
         this.heightScale = heightScale;
-        this.freq = heightScale <= 0f ? 1f
-                : baseMesh.faces.length >= 2000 ? 2.5f
-                : baseMesh.faces.length >= 500 ? 1.8f : 1.2f;
+        if (heightScale <= 0f) {
+            this.freq = 1f;
+        } else if (freqOverride > 0f) {
+            this.freq = freqOverride;
+        } else {
+            this.freq = baseMesh.faces.length >= 2000 ? 2.5f
+                    : baseMesh.faces.length >= 500 ? 1.8f : 1.2f;
+        }
         this.noise = new Noise3(0x5EED1234L + pi * 0x1234567L + 0x9E3779B9L);
     }
 

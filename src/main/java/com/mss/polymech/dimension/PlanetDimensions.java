@@ -29,6 +29,9 @@ public final class PlanetDimensions {
 
     public static final ResourceKey<Level> OVERWORLD = Level.OVERWORLD;
 
+    /** 宇宙空间维度（无缝切换测试用）。 */
+    public static final ResourceKey<Level> SPACE = key("space");
+
     /** 太阳系（{@code SolarSystem.createDefault()}）天体索引 → 维度。 */
     private static final Map<Integer, ResourceKey<Level>> PLANET_DIMENSIONS = createMap();
 
@@ -101,11 +104,35 @@ public final class PlanetDimensions {
 
     /** 把玩家传送到指定星球维度；不可传送的索引会被忽略。传送目标为该维度的世界出生点表面。 */
     public static void teleport(ServerPlayer player, int planetIndex) {
-        if (!isTeleportable(planetIndex)) return;
+        ServerLevel target = targetLevel(player, planetIndex);
+        if (target == null) return;
+        BlockPos spawn = target.getSharedSpawnPos();
+        teleportToPlanetSurface(player, planetIndex, spawn.getX(), spawn.getZ());
+    }
+
+    /** 计算星球维度指定 XZ 的地表 Y（会同步生成区块）。 */
+    public static int surfaceY(ServerPlayer player, int planetIndex, int x, int z) {
+        ServerLevel target = targetLevel(player, planetIndex);
+        if (target == null) return 64;
+        target.getChunk(x >> 4, z >> 4);
+        return target.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) + 1;
+    }
+
+    /** 把玩家传送到指定星球维度的指定 XZ 地表。 */
+    public static void teleportToPlanetSurface(ServerPlayer player, int planetIndex, int x, int z) {
+        int y = surfaceY(player, planetIndex, x, z);
+        Vec3 pos = new Vec3(x + 0.5, y, z + 0.5);
+        DimensionTransition transition = new DimensionTransition(
+                targetLevel(player, planetIndex), pos, player.getDeltaMovement(), player.getYRot(), player.getXRot(),
+                DimensionTransition.DO_NOTHING);
+        player.changeDimension(transition);
+    }
+
+    private static ServerLevel targetLevel(ServerPlayer player, int planetIndex) {
+        if (!isTeleportable(planetIndex)) return null;
         ServerLevel current = (ServerLevel) player.level();
         ServerLevel target = current.getServer().getLevel(dimension(planetIndex));
         if (target == null) {
-            // 某些情况下 levels map 的键可能尚未建立？从 getAllLevels 里按维度兜底查找一次。
             for (ServerLevel level : current.getServer().getAllLevels()) {
                 if (level.dimension().equals(dimension(planetIndex))) {
                     target = level;
@@ -115,20 +142,8 @@ public final class PlanetDimensions {
         }
         if (target == null) {
             Polymech.LOGGER.warn("Teleporter: destination level {} is not loaded", dimension(planetIndex).location());
-            return;
         }
-        BlockPos spawn = target.getSharedSpawnPos();
-        int x = spawn.getX();
-        int z = spawn.getZ();
-        // 必须先加载/生成出生点所在区块，否则 Level#getHeight 对未加载区块会直接返回 minBuildHeight，
-        // 玩家就会被传到地底。ServerLevel#getChunk 会同步生成该区块。
-        target.getChunk(x >> 4, z >> 4);
-        int y = target.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) + 1;
-        Vec3 pos = new Vec3(x + 0.5, y, z + 0.5);
-        DimensionTransition transition = new DimensionTransition(
-                target, pos, player.getDeltaMovement(), player.getYRot(), player.getXRot(),
-                DimensionTransition.DO_NOTHING);
-        player.changeDimension(transition);
+        return target;
     }
 
     /** 天体表面重力（以地球为 1.0）；未知维度/主世界返回 1.0。 */
@@ -136,8 +151,15 @@ public final class PlanetDimensions {
         return PLANET_GRAVITY.getOrDefault(planetIndex, 1.0f);
     }
 
-    /** 按维度返回表面重力（以地球为 1.0）；未知维度返回 1.0。 */
+    /** 维度 → 天体索引；非星球维度返回 -1。 */
+    public static int planetIndex(ResourceKey<Level> level) {
+        Integer idx = DIMENSION_TO_PLANET.get(level);
+        return idx == null ? -1 : idx;
+    }
+
+    /** 按维度返回表面重力（以地球为 1.0）；宇宙空间返回 0，未知维度返回 1.0。 */
     public static float gravity(ResourceKey<Level> level) {
+        if (SPACE.equals(level)) return 0.0f;
         Integer idx = DIMENSION_TO_PLANET.get(level);
         return idx == null ? 1.0f : gravity(idx);
     }

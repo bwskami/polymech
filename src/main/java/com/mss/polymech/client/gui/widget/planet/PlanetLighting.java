@@ -53,6 +53,22 @@ public final class PlanetLighting {
         intensity = clamp(2.0f / (1f + len * 0.012f), 0.35f, 1.1f);
     }
 
+    /** 全局光照：直接设置平行光方向（世界系，指向太阳）与强度。太空维度的整个恒星系共用同一组值。 */
+    public void updateGlobal(float dirX, float dirY, float dirZ, float intensity) {
+        float len = (float) Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+        if (len < 1e-5f) {
+            this.dirX = 0;
+            this.dirY = 1;
+            this.dirZ = 0;
+            this.intensity = intensity;
+            return;
+        }
+        this.dirX = dirX / len;
+        this.dirY = dirY / len;
+        this.dirZ = dirZ / len;
+        this.intensity = intensity;
+    }
+
     // ---- Lambert 直射 ----
 
     /** Lambert 直射光：max(0, ndotl) × intensity × (1 - shadow)。 */

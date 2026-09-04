@@ -36,6 +36,8 @@ import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
 import com.mss.polymech.network.SetCellCapacityPacket;
+import com.mss.polymech.network.SpaceTransitionSyncPacket;
+import com.mss.polymech.space.SpaceTransitionHandler;
 import com.mss.polymech.network.TeleportToPlanetPacket;
 import com.mss.polymech.network.WireSyncPacket;
 import com.mss.polymech.network.ClampMeterMeasurementPacket;
@@ -140,6 +142,9 @@ public class Polymech {
         // 注意：只有当此类包含@SubscribeEvent注解的方法时才需要此行
         NeoForge.EVENT_BUS.register(this);
 
+        // 地球 ↔ 太空无缝切换
+        NeoForge.EVENT_BUS.register(SpaceTransitionHandler.class);
+
         // 勘探命令套件（/polymech rock|veins|scan|find|expose，世界生成测试工具）
         NeoForge.EVENT_BUS.addListener(ModCommands::register);
 
@@ -237,6 +242,12 @@ public class Polymech {
                 ClampMeterMeasurementPacket.TYPE,
                 ClampMeterMeasurementPacket.STREAM_CODEC,
                 ClampMeterMeasurementPacket::handle
+        );
+        // 无缝切换位置同步（服务端 → 客户端）
+        registrar.playToClient(
+                SpaceTransitionSyncPacket.TYPE,
+                SpaceTransitionSyncPacket.STREAM_CODEC,
+                SpaceTransitionSyncPacket::handle
         );
     }
 

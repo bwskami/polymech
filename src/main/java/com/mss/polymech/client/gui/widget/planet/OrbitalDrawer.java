@@ -158,44 +158,13 @@ class OrbitalDrawer {
     /** 3D 辉光日冕：单层多段径向渐变，内缘最亮，按 (1-t)^2 平滑衰减到外缘透明。 */
     void drawGlowHalo(Matrix4f mat, float cx3d, float cy3d, float cz3d,
                       float innerR, float outerR, float alpha, float cr, float cg, float cb) {
-        int radialSteps = 24, segs = 72;
-        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR);
-        for (int i = 0; i < radialSteps; i++) {
-            float t0 = (float) i / radialSteps, t1 = (float) (i + 1) / radialSteps;
-            float r0 = innerR + (outerR - innerR) * t0;
-            float r1 = innerR + (outerR - innerR) * t1;
-            float a0 = alpha * (1f - t0) * (1f - t0);
-            float a1 = alpha * (1f - t1) * (1f - t1);
-            for (int j = 0; j < segs; j++) {
-                float ang0 = (float) (Math.PI * 2 * j / segs);
-                float ang1 = (float) (Math.PI * 2 * (j + 1) / segs);
-                float c00 = (float) Math.cos(ang0), s00 = (float) Math.sin(ang0);
-                float c01 = (float) Math.cos(ang1), s01 = (float) Math.sin(ang1);
-                // 两个三角形组成一个径向格子
-                bb.addVertex(mat, cx3d + c00 * r0, cy3d + s00 * r0, cz3d).setColor(cr, cg, cb, a0);
-                bb.addVertex(mat, cx3d + c00 * r1, cy3d + s00 * r1, cz3d).setColor(cr, cg, cb, a1);
-                bb.addVertex(mat, cx3d + c01 * r1, cy3d + s01 * r1, cz3d).setColor(cr, cg, cb, a1);
-                bb.addVertex(mat, cx3d + c00 * r0, cy3d + s00 * r0, cz3d).setColor(cr, cg, cb, a0);
-                bb.addVertex(mat, cx3d + c01 * r1, cy3d + s01 * r1, cz3d).setColor(cr, cg, cb, a1);
-                bb.addVertex(mat, cx3d + c01 * r0, cy3d + s01 * r0, cz3d).setColor(cr, cg, cb, a0);
-            }
-        }
-        BufferUploader.drawWithShader(bb.buildOrThrow());
+        StarGlowRenderer.drawGlowHalo(mat, cx3d, cy3d, cz3d, innerR, outerR, alpha, cr, cg, cb);
     }
 
     /** 3D Billboard 发光圆盘：以恒星世界位置为中心，朝向摄像机的平面圆盘，从中心到边缘渐变透明。 */
     void drawGlowBillboard(Matrix4f mat, float cx3d, float cy3d, float cz3d,
                             float worldR, float alpha, float cr, float cg, float cb) {
-        BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
-        bb.addVertex(mat, cx3d, cy3d, cz3d).setColor(cr, cg, cb, alpha);
-        int seg = 56;
-        for (int j = 0; j <= seg; j++) {
-            float a = (float) (Math.PI * 2 * j / seg);
-            bb.addVertex(mat, cx3d + (float) Math.cos(a) * worldR,
-                              cy3d + (float) Math.sin(a) * worldR, cz3d)
-               .setColor(cr, cg, cb, 0f);
-        }
-        BufferUploader.drawWithShader(bb.buildOrThrow());
+        StarGlowRenderer.drawGlowBillboard(mat, cx3d, cy3d, cz3d, worldR, alpha, cr, cg, cb);
     }
 
     void drawOrbitalRings(Matrix4f mat, float cosY, float sinY, float cosX, float sinX, float focal, float cx, float cy) {

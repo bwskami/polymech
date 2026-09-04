@@ -1,0 +1,1096 @@
+INFO:  Loaded 3 plugins
+INFO:  JVM info: Oracle Corporation - 25.0.3 - 25.0.3+9-LTS-195
+INFO:  Scanning classes from Java runtime current
+INFO:  Scanning classes from module java.base@25.0.3
+INFO:  Scanning classes from module java.compiler@25.0.3
+INFO:  Scanning classes from module java.datatransfer@25.0.3
+INFO:  Scanning classes from module java.desktop@25.0.3
+INFO:  Scanning classes from module java.instrument@25.0.3
+INFO:  Scanning classes from module java.logging@25.0.3
+INFO:  Scanning classes from module java.management@25.0.3
+INFO:  Scanning classes from module java.management.rmi@25.0.3
+INFO:  Scanning classes from module java.naming@25.0.3
+INFO:  Scanning classes from module java.net.http@25.0.3
+INFO:  Scanning classes from module java.prefs@25.0.3
+INFO:  Scanning classes from module java.rmi@25.0.3
+INFO:  Scanning classes from module java.scripting@25.0.3
+INFO:  Scanning classes from module java.se@25.0.3
+INFO:  Scanning classes from module java.security.jgss@25.0.3
+INFO:  Scanning classes from module java.security.sasl@25.0.3
+INFO:  Scanning classes from module java.smartcardio@25.0.3
+INFO:  Scanning classes from module java.sql@25.0.3
+INFO:  Scanning classes from module java.sql.rowset@25.0.3
+INFO:  Scanning classes from module java.transaction.xa@25.0.3
+INFO:  Scanning classes from module java.xml@25.0.3
+INFO:  Scanning classes from module java.xml.crypto@25.0.3
+INFO:  Scanning classes from module jdk.accessibility@25.0.3
+INFO:  Scanning classes from module jdk.attach@25.0.3
+INFO:  Scanning classes from module jdk.charsets@25.0.3
+INFO:  Scanning classes from module jdk.compiler@25.0.3
+INFO:  Scanning classes from module jdk.crypto.cryptoki@25.0.3
+INFO:  Scanning classes from module jdk.crypto.ec@25.0.3
+INFO:  Scanning classes from module jdk.crypto.mscapi@25.0.3
+INFO:  Scanning classes from module jdk.dynalink@25.0.3
+INFO:  Scanning classes from module jdk.editpad@25.0.3
+INFO:  Scanning classes from module jdk.graal.compiler@25.0.3
+INFO:  Scanning classes from module jdk.graal.compiler.management@25.0.3
+INFO:  Scanning classes from module jdk.hotspot.agent@25.0.3
+INFO:  Scanning classes from module jdk.httpserver@25.0.3
+INFO:  Scanning classes from module jdk.incubator.vector@25.0.3
+INFO:  Scanning classes from module jdk.internal.ed@25.0.3
+INFO:  Scanning classes from module jdk.internal.jvmstat@25.0.3
+INFO:  Scanning classes from module jdk.internal.le@25.0.3
+INFO:  Scanning classes from module jdk.internal.md@25.0.3
+INFO:  Scanning classes from module jdk.internal.opt@25.0.3
+INFO:  Scanning classes from module jdk.internal.vm.ci@25.0.3
+INFO:  Scanning classes from module jdk.jartool@25.0.3
+INFO:  Scanning classes from module jdk.javadoc@25.0.3
+INFO:  Scanning classes from module jdk.jcmd@25.0.3
+INFO:  Scanning classes from module jdk.jconsole@25.0.3
+INFO:  Scanning classes from module jdk.jdeps@25.0.3
+INFO:  Scanning classes from module jdk.jdi@25.0.3
+INFO:  Scanning classes from module jdk.jdwp.agent@25.0.3
+INFO:  Scanning classes from module jdk.jfr@25.0.3
+INFO:  Scanning classes from module jdk.jlink@25.0.3
+INFO:  Scanning classes from module jdk.jpackage@25.0.3
+INFO:  Scanning classes from module jdk.jshell@25.0.3
+INFO:  Scanning classes from module jdk.jsobject@25.0.3
+INFO:  Scanning classes from module jdk.jstatd@25.0.3
+INFO:  Scanning classes from module jdk.localedata@25.0.3
+INFO:  Scanning classes from module jdk.management@25.0.3
+INFO:  Scanning classes from module jdk.management.agent@25.0.3
+INFO:  Scanning classes from module jdk.management.jfr@25.0.3
+INFO:  Scanning classes from module jdk.naming.dns@25.0.3
+INFO:  Scanning classes from module jdk.naming.rmi@25.0.3
+INFO:  Scanning classes from module jdk.net@25.0.3
+INFO:  Scanning classes from module jdk.nio.mapmode@25.0.3
+INFO:  Scanning classes from module jdk.sctp@25.0.3
+INFO:  Scanning classes from module jdk.security.auth@25.0.3
+INFO:  Scanning classes from module jdk.security.jgss@25.0.3
+INFO:  Scanning classes from module jdk.unsupported@25.0.3
+INFO:  Scanning classes from module jdk.unsupported.desktop@25.0.3
+INFO:  Scanning classes from module jdk.xml.dom@25.0.3
+INFO:  Scanning classes from module jdk.zipfs@25.0.3
+INFO:  Scanning classes from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/SpaceMod from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/SpaceModBlockEntities from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/SpaceModBlockEntitiesRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/SpaceModBlocks from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/SpaceModBlocksRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/CableBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/HeatConductionGeneratorBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/MainComputerBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/ModularBlockBlockEntity$FaceMode from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/ModularBlockBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/OpticalTelescopeBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/ScreenBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities/machine/SolarPanelBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities_renderer/machine/ModularBlockBlockEntityRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities_renderer/machine/OpticalTelescopeBlockEntityRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities_renderer/machine/ScreenBlockEntityRenderer$TextDisplayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_entities_renderer/machine/ScreenBlockEntityRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_render/machine/CableBlockBakedModel from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_render/machine/ScreenBlockBakedModel$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/block_render/machine/ScreenBlockBakedModel from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/CableBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/HeatConductionGeneratorBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/ModularBlockBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/OpticalTelescopeBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/ScreenBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/ShaftBlock$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/ShaftBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/machine/SolarPanelBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/nature/BasalticSandBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/nature/MartianDustBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/block/blocks/nature/SulfatePowderBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/AutoExposure from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/ClientEvents from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/ModKeyBindings from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/gui/BackGroundScreenRender from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/gui/ModListScreenRender from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/gui/SpaceSettingScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/key/DoubleClickKeyMapping from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/overlay/OpticalTelescopeOverlay from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/overlay/StarMapOverlay from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/SpaceRenderMainline from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/armor/SpaceModArmorRender from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/armor/SpacesuitRender from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/dynamic_structure/DynamicStructureRender from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/CelestialBodyDataUBO from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/MeteoroidDataUBO from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/SpaceRenderTarget from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/SpaceShader$RegisterEffects from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/SpaceShader$RegisterShaders from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/SpaceShader from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/client/render/helper/UniformBuffer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/command/SpaceModCommand from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/CompatMods from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/ShipAPI$ShipLandingAttachment from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/ShipAPI from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/ShipManger from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/VSModCompat from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/force_applier/ForceInducedShips from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilder$ChunkBufferBuilder from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilder from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilderBuffer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilderPool from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/config/SpaceModClientConfig from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/config/SpaceModClientConfigInit from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/config/SpaceModCommonConfig from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/config/SpaceModCommonConfigInit from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/datagen/SpaceDatagen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/datagen/tags/SpaceBlockTagsProvider from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/datagen/tags/SpaceItemTagsProvider from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/entity/player/MultiPartPlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/event/NetworkDataServerAction$NetworkDataWorldAction from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/event/NetworkDataServerAction from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/event/OrbitPhysicalServerAction$OrbitSimulationWorldAction from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/event/OrbitPhysicalServerAction from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/event/PlayerTeleportManger from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/SpaceModCreativeTab from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/SpaceModCreativeTabRender from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/SpaceModItemTags from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/SpaceModItems from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/items/LaserHeadItem from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/items/RotorItem from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/item/items/ScrewdriverItem from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/SpaceModMixin from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/MixinAbstractClientPlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/MixinBiomeAmbientSoundsHandler from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/MixinClientLevel from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/free_rotation/MixinCamera from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/free_rotation/MixinClientPacketListener from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/free_rotation/MixinLivingEntityRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/free_rotation/MixinLocalPlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/free_rotation/MixinMultiPlayerGameMode from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/game/free_rotation/MixinRemotePlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinAbstractSelectionList from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinEditGameRulesScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinExperimentsScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinLanguageSelectScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinModListScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinSelectWorldScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/gui/MixinTitleScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/network/MixinClientPacketListener from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinDebugScreenOverlay from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinFogRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinFrustum from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinGameRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinItemInHandRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinLevelRenderer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinMinecraft from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinModListScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinPostChain from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinPostPass from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinRebuildTask from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/client/renderer/MixinReceivingLevelScreen from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/datapack/MixinRegistryDataLoader from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/datapack/MixinWorldLoader from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/block/MixinFallingBlock from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/block/MixinFlowingFluid from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/chunk/MixinChunkMap from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/MixinEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/MixinFallingBlockEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/MixinItemEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/MixinLivingEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/MixinServerPlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEmptyForgeEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityDragger from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets_initRead from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets_write from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityShipCollisionUtils from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinLivingEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinPlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinServerEntity from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinServerPlayer from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/item/MixinElytraItem from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/item/MixinItemStack from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/game/level/MixinServerLevel from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/network/free_rotation/MixinClientboundMoveEntityPacket_PosRot from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/network/free_rotation/MixinClientboundMoveEntityPacket_Rot from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerGamePacketListenerImpl from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerboundMovePlayerPacket_PosRot from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerboundMovePlayerPacket_Rot from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/SpaceNetworkHandler from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/data/SyncCelestialBodyMove from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/data/SyncDataPack from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/event/SyncSmoothTeleportNewPosPacket from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/event/SyncSmoothTeleportShipPacket from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/other/SyncDynamicStructure from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/network/other/SyncSpaceEntitySpeed from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/CollisionUtil$AxisSet from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/CollisionUtil$TransformData from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/CollisionUtil from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/MathUtil$OBB from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/MathUtil from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/DynamicStructureLevelAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/EntityRotationPacketAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/FakeChunkAccess from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/LivingEntityAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/NetworkLevelAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/SelfAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/SpaceEntityAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/SpacePlayerAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/accessor/TCEAccessor from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/CelestialBody from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/CelestialBodyForce from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/CelestialWorld$posShadowData from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/CelestialWorld from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/SpaceWorld from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/celestial_body/Aircraft from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/celestial_body/BlackHole from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/celestial_body/Meteoroid from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/celestial_body/Planet from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/classes/celestial_body/Star from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$Builder from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$IGuiTexture from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry$2 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry$ConditionalItem from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry$DuplicateItem from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry$Item from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry$Subheading from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ITabEntry from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$ScreenElement from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab$SpaceGuiTexture from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/CustomCreativeModeTab from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/DataNetwork$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/DataNetwork from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/DataStorage$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/DataStorage from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/DynamicStructure from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/EnergyNetwork$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/EnergyNetwork from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/EnergyStorage from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/OrbitPhysicalThread$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/OrbitPhysicalThread from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/RadioNetwork from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/RadioSource from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/helper/RadioStorage from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/CelestialBodyMoveSyncEvent from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/DataPackSyncEvent from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/DynamicStructureSyncEvent from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/SpaceModDataPackManger$1 from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/SpaceModDataPackManger from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/SpaceModModelManger from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/util/manger/SpaceModSoundManager from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/worldgen/carver/CraterCarver from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/worldgen/carver/SpaceModCarvers from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: org/cn_grass_block/space/worldgen/carver/config/CraterCarverConfig from archive C:\Users\34573\Downloads\space-0.0.6+31bb63ec1d.jar
+INFO:  Loading Class: java/util/AbstractMap$SimpleEntry from module java.base@25.0.3
+INFO:  Loading Class: java/util/AbstractMap from module java.base@25.0.3
+INFO:  Loading Class: java/lang/invoke/MethodHandles$Lookup from module java.base@25.0.3
+INFO:  Loading Class: java/lang/invoke/MethodHandles from module java.base@25.0.3
+INFO:  Loading Class: java/util/Map$Entry from module java.base@25.0.3
+INFO:  Loading Class: java/util/Map from module java.base@25.0.3
+INFO:  Preprocessing class org/cn_grass_block/space/block/SpaceModBlocksRenderer
+INFO:  Preprocessing class org/cn_grass_block/space/block/SpaceModBlocks
+INFO:  Preprocessing class org/cn_grass_block/space/block/SpaceModBlockEntitiesRenderer
+INFO:  Preprocessing class org/cn_grass_block/space/block/SpaceModBlockEntities
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/CableBlockEntity
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/ModularBlockBlockEntity
+INFO:  Preprocessing class org/cn_grass_block/space/SpaceMod
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/MainComputerBlockEntity
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/ScreenBlockEntity
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/HeatConductionGeneratorBlockEntity
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/OpticalTelescopeBlockEntity
+INFO:     Loading Class: java/lang/Object from module java.base@25.0.3
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities/machine/SolarPanelBlockEntity
+INFO:     Loading Class: java/lang/Enum from module java.base@25.0.3
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities_renderer/machine/ModularBlockBlockEntityRenderer
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities_renderer/machine/OpticalTelescopeBlockEntityRenderer
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_entities_renderer/machine/ScreenBlockEntityRenderer
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_render/machine/CableBlockBakedModel
+INFO:     Loading Class: java/lang/constant/Constable from module java.base@25.0.3
+INFO:     Loading Class: java/lang/Comparable from module java.base@25.0.3
+INFO:     Loading Class: java/io/Serializable from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/block_render/machine/ScreenBlockBakedModel
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/CableBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/HeatConductionGeneratorBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/ModularBlockBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/OpticalTelescopeBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/ScreenBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/ShaftBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/machine/SolarPanelBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/nature/BasalticSandBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/nature/MartianDustBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/block/blocks/nature/SulfatePowderBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/AutoExposure
+INFO:  ... done
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/ClientEvents
+INFO:  Preprocessing class org/cn_grass_block/space/client/ModKeyBindings
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/gui/BackGroundScreenRender
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/gui/ModListScreenRender
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/gui/SpaceSettingScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/key/DoubleClickKeyMapping
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/overlay/OpticalTelescopeOverlay
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/overlay/StarMapOverlay
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/SpaceRenderMainline
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/armor/SpaceModArmorRender
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/armor/SpacesuitRender
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/dynamic_structure/DynamicStructureRender
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/helper/CelestialBodyDataUBO
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/helper/MeteoroidDataUBO
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/helper/SpaceRenderTarget
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/helper/SpaceShader
+WARN:     org/cn_grass_block/space/client/render/helper/SpaceRenderTarget.{org/cn_grass_block/space/client/render/helper/SpaceRenderTarget: lambda$new$0} processed twice
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/client/render/helper/UniformBuffer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/command/SpaceModCommand
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/CompatMods
+INFO:           Loading Class: java/util/Comparator from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/ShipAPI
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/ShipManger
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/VSModCompat
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/force_applier/ForceInducedShips
+INFO:           Loading Class: java/util/function/ToDoubleFunction from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilder
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilderBuffer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilderPool
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipRenderer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/config/SpaceModClientConfig
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/config/SpaceModClientConfigInit
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/config/SpaceModCommonConfig
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/config/SpaceModCommonConfigInit
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/datagen/SpaceDatagen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/datagen/tags/SpaceBlockTagsProvider
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/datagen/tags/SpaceItemTagsProvider
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/entity/player/MultiPartPlayer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/event/NetworkDataServerAction
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/event/OrbitPhysicalServerAction
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/event/PlayerTeleportManger
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/SpaceModCreativeTab
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/SpaceModCreativeTabRender
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/SpaceModItemTags
+INFO:     Loading Class: java/util/function/Supplier from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/SpaceModItems
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/items/LaserHeadItem
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/items/RotorItem
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/item/items/ScrewdriverItem
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/SpaceModMixin
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/MixinAbstractClientPlayer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/MixinBiomeAmbientSoundsHandler
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/MixinClientLevel
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinCamera
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinClientPacketListener
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinLivingEntityRenderer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinLocalPlayer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinMultiPlayerGameMode
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinRemotePlayer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinAbstractSelectionList
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinEditGameRulesScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinExperimentsScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinLanguageSelectScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinModListScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinSelectWorldScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/gui/MixinTitleScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/network/MixinClientPacketListener
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinDebugScreenOverlay
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinFogRenderer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinFrustum
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinGameRenderer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinItemInHandRenderer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinLevelRenderer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinMinecraft
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinModListScreen
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinPostChain
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinPostPass
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinRebuildTask
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/client/renderer/MixinReceivingLevelScreen
+INFO:  ... done
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/datapack/MixinRegistryDataLoader
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/block/MixinFlowingFluid
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/MixinFallingBlockEntity
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/MixinItemEntity
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/MixinLivingEntity
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/MixinServerPlayer
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/datapack/MixinWorldLoader
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEmptyForgeEntity
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntity
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityDragger
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets_initRead
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets_write
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/block/MixinFallingBlock
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityShipCollisionUtils
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinLivingEntity
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinPlayer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinServerEntity
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/chunk/MixinChunkMap
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/MixinEntity
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinServerPlayer
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/item/MixinElytraItem
+INFO:  ... done
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/item/MixinItemStack
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/game/level/MixinServerLevel
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinClientboundMoveEntityPacket_PosRot
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinClientboundMoveEntityPacket_Rot
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerGamePacketListenerImpl
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerboundMovePlayerPacket_PosRot
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerboundMovePlayerPacket_Rot
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/SpaceNetworkHandler
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/data/SyncCelestialBodyMove
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/data/SyncDataPack
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/event/SyncSmoothTeleportNewPosPacket
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/event/SyncSmoothTeleportShipPacket
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/other/SyncDynamicStructure
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/network/other/SyncSpaceEntitySpeed
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/CollisionUtil
+INFO:     Loading Class: java/lang/Record from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/MathUtil
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/DynamicStructureLevelAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/EntityRotationPacketAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/FakeChunkAccess
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/LivingEntityAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/NetworkLevelAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/SelfAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/SpaceEntityAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/SpacePlayerAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/accessor/TCEAccessor
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/CelestialBody
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/CelestialBodyForce
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/CelestialWorld
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/SpaceWorld
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/celestial_body/Aircraft
+INFO:           Loading Class: java/io/ByteArrayOutputStream from module java.base@25.0.3
+INFO:           Loading Class: java/io/OutputStream from module java.base@25.0.3
+INFO:           Loading Class: java/io/Closeable from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/celestial_body/BlackHole
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/celestial_body/Meteoroid
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/celestial_body/Planet
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/classes/celestial_body/Star
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/CustomCreativeModeTab
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/DataNetwork
+INFO:     Loading Class: java/util/function/Function from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/DataStorage
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/DynamicStructure
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/EnergyNetwork
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/EnergyStorage
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/OrbitPhysicalThread
+INFO:     Loading Class: java/util/TimerTask from module java.base@25.0.3
+INFO:     Loading Class: java/lang/Runnable from module java.base@25.0.3
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/RadioNetwork
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/RadioSource
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/helper/RadioStorage
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/manger/CelestialBodyMoveSyncEvent
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/manger/DataPackSyncEvent
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/manger/DynamicStructureSyncEvent
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/manger/SpaceModDataPackManger
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/manger/SpaceModModelManger
+INFO:  ... done
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/util/manger/SpaceModSoundManager
+INFO:  Preprocessing class org/cn_grass_block/space/worldgen/carver/CraterCarver
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/worldgen/carver/SpaceModCarvers
+INFO:  ... done
+INFO:  Preprocessing class org/cn_grass_block/space/worldgen/carver/config/CraterCarverConfig
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:           Loading Class: java/io/InputStream from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/SpaceModBlockEntitiesRenderer
+INFO:  Decompiling class org/cn_grass_block/space/block/SpaceModBlocksRenderer
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/HeatConductionGeneratorBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/MainComputerBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/SpaceModBlockEntities
+INFO:  Decompiling class org/cn_grass_block/space/SpaceMod
+INFO:  Decompiling class org/cn_grass_block/space/block/SpaceModBlocks
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/OpticalTelescopeBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/CableBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/ModularBlockBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/SolarPanelBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities_renderer/machine/ModularBlockBlockEntityRenderer
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities/machine/ScreenBlockEntity
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities_renderer/machine/OpticalTelescopeBlockEntityRenderer
+INFO:  Decompiling class org/cn_grass_block/space/block/block_entities_renderer/machine/ScreenBlockEntityRenderer
+INFO:  Decompiling class org/cn_grass_block/space/block/block_render/machine/CableBlockBakedModel
+INFO:        Loading Class: java/util/concurrent/ConcurrentLinkedQueue from module java.base@25.0.3
+INFO:        Loading Class: java/util/Collection from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Iterable from module java.base@25.0.3
+INFO:        Loading Class: java/util/Queue from module java.base@25.0.3
+INFO:        Loading Class: java/util/AbstractQueue from module java.base@25.0.3
+INFO:        Loading Class: java/util/AbstractCollection from module java.base@25.0.3
+INFO:        Loading Class: java/util/HashMap from module java.base@25.0.3
+INFO:           Loading Class: java/util/function/ToIntFunction from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Cloneable from module java.base@25.0.3
+INFO:        Loading Class: java/util/function/Consumer from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Thread from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Math from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Integer from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Number from module java.base@25.0.3
+INFO:        Loading Class: java/util/ArrayList from module java.base@25.0.3
+INFO:        Loading Class: java/util/List from module java.base@25.0.3
+INFO:        Loading Class: java/util/SequencedCollection from module java.base@25.0.3
+INFO:        Loading Class: java/util/RandomAccess from module java.base@25.0.3
+INFO:        Loading Class: java/util/AbstractList from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Boolean from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/block_render/machine/ScreenBlockBakedModel
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/CableBlock
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/HeatConductionGeneratorBlock
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/ModularBlockBlock
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/OpticalTelescopeBlock
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/ScreenBlock
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/ShaftBlock
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/machine/SolarPanelBlock
+INFO:  ... done
+INFO:        Loading Class: java/lang/IncompatibleClassChangeError from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/nature/BasalticSandBlock
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/nature/MartianDustBlock
+INFO:  Decompiling class org/cn_grass_block/space/block/blocks/nature/SulfatePowderBlock
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/AutoExposure
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/ClientEvents
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/ModKeyBindings
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/gui/BackGroundScreenRender
+INFO:        Loading Class: java/util/stream/Stream from module java.base@25.0.3
+INFO:        Loading Class: java/util/Set from module java.base@25.0.3
+INFO:        Loading Class: java/util/HashSet from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/client/gui/SpaceSettingScreen
+INFO:        Loading Class: java/util/function/Predicate from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/key/DoubleClickKeyMapping
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/gui/ModListScreenRender
+INFO:        Loading Class: java/util/AbstractSet from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/render/SpaceRenderMainline
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/render/armor/SpaceModArmorRender
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/render/armor/SpacesuitRender
+INFO:        Loading Class: java/lang/System from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/client/render/dynamic_structure/DynamicStructureRender
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/overlay/OpticalTelescopeOverlay
+INFO:  Decompiling class org/cn_grass_block/space/client/render/helper/CelestialBodyDataUBO
+INFO:  ... done
+INFO:        Loading Class: java/lang/Double from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/client/render/helper/MeteoroidDataUBO
+INFO:  Decompiling class org/cn_grass_block/space/client/overlay/StarMapOverlay
+INFO:        Loading Class: java/lang/String from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/render/helper/SpaceShader
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/client/render/helper/UniformBuffer
+INFO:  Decompiling class org/cn_grass_block/space/client/render/helper/SpaceRenderTarget
+INFO:        Loading Class: java/lang/RuntimeException from module java.base@25.0.3
+INFO:  ... done
+INFO:        Loading Class: java/lang/IllegalStateException from module java.base@25.0.3
+INFO:        Loading Class: java/lang/IllegalArgumentException from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/command/SpaceModCommand
+INFO:        Loading Class: java/nio/ByteBuffer from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/CompatMods
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/ShipAPI
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/ShipManger
+INFO:        Loading Class: java/nio/FloatBuffer from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Float from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/VSModCompat
+INFO:        Loading Class: java/util/function/IntSupplier from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/force_applier/ForceInducedShips
+INFO:        Loading Class: java/util/Arrays from module java.base@25.0.3
+INFO:        Loading Class: java/util/LinkedList from module java.base@25.0.3
+INFO:        Loading Class: java/util/Deque from module java.base@25.0.3
+INFO:        Loading Class: java/util/AbstractSequentialList from module java.base@25.0.3
+INFO:        Loading Class: java/nio/Buffer from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Long from module java.base@25.0.3
+INFO:        Loading Class: java/util/function/IntFunction from module java.base@25.0.3
+INFO:  ... done
+INFO:        Loading Class: java/util/Iterator from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilder
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilderBuffer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipChunkBuilderPool
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/compat/valkyrienskies/smooth_teleportation/ShipRenderer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/config/SpaceModClientConfig
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/config/SpaceModClientConfigInit
+INFO:        Loading Class: java/util/Objects from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/config/SpaceModCommonConfig
+INFO:        Loading Class: java/util/OptionalInt from module java.base@25.0.3
+INFO:        Loading Class: java/util/stream/IntStream from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/config/SpaceModCommonConfigInit
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/datagen/SpaceDatagen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/datagen/tags/SpaceBlockTagsProvider
+INFO:        Loading Class: java/util/concurrent/CompletableFuture from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/datagen/tags/SpaceItemTagsProvider
+INFO:        Loading Class: java/util/Stack from module java.base@25.0.3
+INFO:        Loading Class: java/util/Vector from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/entity/player/MultiPartPlayer
+INFO:  ... done
+INFO:        Loading Class: java/util/concurrent/atomic/AtomicReference from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/event/NetworkDataServerAction
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/event/OrbitPhysicalServerAction
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/event/PlayerTeleportManger
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/item/SpaceModCreativeTab
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/item/SpaceModCreativeTabRender
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/item/SpaceModItemTags
+INFO:        Loading Class: java/util/Locale from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/item/SpaceModItems
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/item/items/LaserHeadItem
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/item/items/RotorItem
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/item/items/ScrewdriverItem
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/SpaceModMixin
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/MixinAbstractClientPlayer
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/MixinBiomeAmbientSoundsHandler
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/MixinClientLevel
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinClientPacketListener
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinLivingEntityRenderer
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinLocalPlayer
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinMultiPlayerGameMode
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinRemotePlayer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinAbstractSelectionList
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinEditGameRulesScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinExperimentsScreen
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinLanguageSelectScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinModListScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinSelectWorldScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/gui/MixinTitleScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/network/MixinClientPacketListener
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinDebugScreenOverlay
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinFogRenderer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinFrustum
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinGameRenderer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinItemInHandRenderer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinLevelRenderer
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinMinecraft
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinModListScreen
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinPostChain
+INFO:        Loading Class: java/util/Collections from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinPostPass
+INFO:        Loading Class: java/lang/StringBuilder from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/game/free_rotation/MixinCamera
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinRebuildTask
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/datapack/MixinWorldLoader
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/block/MixinFallingBlock
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/block/MixinFlowingFluid
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/chunk/MixinChunkMap
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/MixinEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/MixinFallingBlockEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/MixinItemEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/MixinLivingEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/MixinServerPlayer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEmptyForgeEntity
+INFO:  Decompiling class org/cn_grass_block/space/mixin/client/renderer/MixinReceivingLevelScreen
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/datapack/MixinRegistryDataLoader
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityDragger
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets_initRead
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityRotationPackets_write
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntityShipCollisionUtils
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinLivingEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinPlayer
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinServerEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinServerPlayer
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/entity/free_rotation/MixinEntity
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/item/MixinElytraItem
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/item/MixinItemStack
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/game/level/MixinServerLevel
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinClientboundMoveEntityPacket_PosRot
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinClientboundMoveEntityPacket_Rot
+INFO:        Loading Class: java/util/Optional from module java.base@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerGamePacketListenerImpl
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerboundMovePlayerPacket_PosRot
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/mixin/common/network/free_rotation/MixinServerboundMovePlayerPacket_Rot
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/network/SpaceNetworkHandler
+INFO:           Loading Class: java/util/UUID from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/network/data/SyncCelestialBodyMove
+INFO:        Loading Class: java/util/function/BiConsumer from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/network/data/SyncDataPack
+INFO:  Decompiling class org/cn_grass_block/space/network/event/SyncSmoothTeleportNewPosPacket
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/network/event/SyncSmoothTeleportShipPacket
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/network/other/SyncDynamicStructure
+INFO:  Decompiling class org/cn_grass_block/space/network/other/SyncSpaceEntitySpeed
+INFO:  Decompiling class org/cn_grass_block/space/util/CollisionUtil
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/MathUtil
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/DynamicStructureLevelAccessor
+INFO:        Loading Class: java/nio/charset/StandardCharsets from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/FakeChunkAccess
+INFO:        Loading Class: java/util/stream/LongStream from module java.base@25.0.3
+INFO:        Loading Class: java/util/function/ToLongFunction from module java.base@25.0.3
+INFO:        Loading Class: java/util/stream/Collectors from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/LivingEntityAccessor
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/NetworkLevelAccessor
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/SelfAccessor
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/SpaceEntityAccessor
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/SpacePlayerAccessor
+INFO:        Loading Class: java/util/stream/Collector from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/TCEAccessor
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/CelestialBodyForce
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/CelestialBody
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/CelestialWorld
+INFO:           Loading Class: java/lang/constant/ConstantDesc from module java.base@25.0.3
+INFO:        Loading Class: java/util/zip/Deflater from module java.base@25.0.3
+INFO:        Loading Class: java/util/zip/Inflater from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/SpaceWorld
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/celestial_body/Aircraft
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/celestial_body/BlackHole
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/celestial_body/Meteoroid
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/celestial_body/Planet
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/accessor/EntityRotationPacketAccessor
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/classes/celestial_body/Star
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/CustomCreativeModeTab
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/DataNetwork
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/DataStorage
+INFO:        Loading Class: java/util/function/IntConsumer from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/DynamicStructure
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/EnergyNetwork
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/EnergyStorage
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/OrbitPhysicalThread
+INFO:        Loading Class: java/lang/management/ManagementFactory from module java.management@25.0.3
+INFO:        Loading Class: java/lang/management/ThreadMXBean from module java.management@25.0.3
+INFO:  ... done
+INFO:        Loading Class: java/lang/management/ThreadInfo from module java.management@25.0.3
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/RadioNetwork
+INFO:        Loading Class: java/util/EnumMap from module java.base@25.0.3
+INFO:        Loading Class: java/lang/Class from module java.base@25.0.3
+INFO:        Loading Class: java/util/Timer from module java.base@25.0.3
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/RadioSource
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/helper/RadioStorage
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/manger/CelestialBodyMoveSyncEvent
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/manger/DataPackSyncEvent
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/manger/DynamicStructureSyncEvent
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/manger/SpaceModDataPackManger
+INFO:  ... done
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/util/manger/SpaceModModelManger
+INFO:  Decompiling class org/cn_grass_block/space/util/manger/SpaceModSoundManager
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/worldgen/carver/CraterCarver
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/worldgen/carver/SpaceModCarvers
+INFO:  ... done
+INFO:  Decompiling class org/cn_grass_block/space/worldgen/carver/config/CraterCarverConfig
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done
+INFO:        Loading Class: java/io/InputStreamReader from module java.base@25.0.3
+INFO:  ... done
+INFO:           Loading Class: java/io/ByteArrayInputStream from module java.base@25.0.3
+INFO:  ... done
+INFO:  ... done
+INFO:  ... done

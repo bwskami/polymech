@@ -1,6 +1,8 @@
 package com.mss.polymech;
 
 import com.mss.polymech.block.entity.ModBlockEntities;
+import com.mss.polymech.client.space.ClientSpaceTransition;
+import com.mss.polymech.client.space.SpaceRenderer;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
@@ -46,6 +48,9 @@ public class PolymechClient {
         });
         // GatherComponents是游戏总线事件：@EventBusSubscriber默认挂在MOD总线收不到，需手动注册
         NeoForge.EVENT_BUS.addListener(ModTooltipCenter::onGatherTooltipComponents);
+        NeoForge.EVENT_BUS.addListener(ClientSpaceTransition::onClientTick);
+        NeoForge.EVENT_BUS.addListener(SpaceRenderer::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(SpaceRenderer::onRenderGui);
     }
 
     @SubscribeEvent

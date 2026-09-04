@@ -1,0 +1,254 @@
+Reusing configuration cache.
+> Task :writeClientLegacyClasspath UP-TO-DATE
+> Task :generateModMetadata UP-TO-DATE
+> Task :downloadAssets UP-TO-DATE
+> Task :createMinecraftArtifacts UP-TO-DATE
+> Task :prepareClientRun UP-TO-DATE
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+
+> Task :runClient
+WARN StatusConsoleListener Advanced terminal features are not available in this environment
+[17:55:53] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: ModLauncher running: args [--launchTarget, forgeclientdev, --version, 21.1.228, --assetIndex, 17, --assetsDir, C:\\Users\\34573\\.gradle\\caches\\neoformruntime\\assets, --gameDir, ., --fml.fmlVersion, 4.0.42, --fml.mcVersion, 1.21.1, --fml.neoForgeVersion, 21.1.228, --fml.neoFormVersion, 20240808.144430]
+[17:55:53] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: JVM identified as Eclipse Adoptium OpenJDK 64-Bit Server VM 21.0.11+10-LTS
+[17:55:53] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: ModLauncher 11.0.5+main.901c6ea8 starting: java version 21.0.11 by Eclipse Adoptium; OS Windows 11 arch amd64 version 10.0
+[17:55:53] [main/INFO] [ne.ne.fm.lo.ImmediateWindowHandler/]: Loading ImmediateWindowProvider fmlearlywindow
+[17:55:53] [main/INFO] [EARLYDISPLAY/]: Trying GL version 4.6
+[17:55:54] [main/INFO] [EARLYDISPLAY/]: Requested GL version 4.6 got version 4.6
+[17:55:54] [main/INFO] [mixin/]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=union:/C:/Users/34573/.gradle/caches/modules-2/files-2.1/net.fabricmc/sponge-mixin/0.15.2+mixin.0.8.7/2af2f021d8e02a0220dc27a7a72b4666d66d44ca/sponge-mixin-0.15.2+mixin.0.8.7.jar%23138!/ Service=ModLauncher Env=CLIENT
+[17:55:54] [pool-2-thread-1/INFO] [EARLYDISPLAY/]: GL info: AMD Radeon RX 9070 XT GL version 4.6.0 Core Profile Context 25.20.42.14.260309, ATI Technologies Inc.
+[17:55:54] [main/INFO] [ne.ne.fm.lo.mo.lo.JarInJarDependencyLocator/]: Found 5 dependencies adding them to mods collection
+[17:55:54] [main/INFO] [ne.ne.fm.lo.mo.ModDiscoverer/]: 
+     Mod List:
+		Name Version (Mod Id)
+
+		GeckoLib 4 4.8.3 (geckolib)
+		Just Enough Items 19.25.0.322 (jei)
+		LowDragLib2 2.2.26 (ldlib2)
+		Minecraft 1.21.1 (minecraft)
+		NeoForge 21.1.228 (neoforge)
+		Poly mech 1.0.0-1.21.1 (poly_mech)
+[17:55:55] [main/INFO] [mixin/]: Compatibility level set to JAVA_17
+[17:55:55] [main/INFO] [mixin/]: Compatibility level set to JAVA_21
+[17:55:55] [main/INFO] [cp.mo.mo.LaunchServiceHandler/MODLAUNCHER]: Launching target 'forgeclientdev' with arguments [--version, 21.1.228, --gameDir, ., --assetsDir, C:\Users\34573\.gradle\caches\neoformruntime\assets, --assetIndex, 17]
+[17:55:55] [main/WARN] [mixin/]: Reference map 'geckolib.refmap.json' for geckolib.mixins.json could not be read. If this is a development environment you can ignore this message
+[17:55:55] [main/INFO] [MixinExtras|Service/]: Initializing MixinExtras via com.llamalad7.mixinextras.service.MixinExtrasServiceImpl(version=0.5.3).
+[17:55:57] [Datafixer Bootstrap/INFO] [mojang/DataFixerBuilder]: 229 Datafixer optimizations took 214 milliseconds
+[17:55:57] [main/WARN] [os.dr.wi.pe.PerfmonDisabled/]: Invalid registry value type detected for PerfOS counters. Should be REG_DWORD. Ignoring: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\PerfOS\Performance\Disable Performance Counters.
+[17:56:01] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, location] and [teleport, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[17:56:01] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, location] and [teleport, targets] with inputs: [0.1 -0.5 .9, 0 0 0]
+[17:56:01] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, destination] and [teleport, targets] with inputs: [Player, 0123, @e, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[17:56:01] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, targets] and [teleport, destination] with inputs: [Player, 0123, dd12be42-52a9-4a91-a8a1-11c01849e498]
+[17:56:01] [main/WARN] [minecraft/Commands]: Ambiguity between arguments [teleport, targets, location] and [teleport, targets, destination] with inputs: [0.1 -0.5 .9, 0 0 0]
+[17:56:01] [Render thread/WARN] [minecraft/VanillaPackResourcesBuilder]: Assets URL 'union:/C:/modIDEA/polymech/polymech-template-1.21.1/build/moddev/artifacts/neoforge-21.1.228.jar%23189!/assets/.mcassetsroot' uses unexpected schema
+[17:56:01] [Render thread/WARN] [minecraft/VanillaPackResourcesBuilder]: Assets URL 'union:/C:/modIDEA/polymech/polymech-template-1.21.1/build/moddev/artifacts/neoforge-21.1.228.jar%23189!/data/.mcassetsroot' uses unexpected schema
+[17:56:01] [Render thread/INFO] [mojang/YggdrasilAuthenticationService]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, name=PROD]
+[17:56:01] [Render thread/INFO] [minecraft/Minecraft]: Setting user: Dev
+[17:56:01] [Render thread/INFO] [minecraft/Minecraft]: Backend library: LWJGL version 3.3.3+5
+[17:56:01] [modloading-worker-0/INFO] [LowDragLib2/]: LowDragLib2 is initializing on platform: NeoForge
+[17:56:01] [modloading-worker-0/INFO] [ne.ne.ne.co.NeoForgeMod/NEOFORGE-MOD]: NeoForge mod loading, version 21.1.228, for MC 1.21.1
+[17:56:02] [modloading-worker-0/INFO] [me.je.li.lo.PluginCaller/]: Sending ConfigManager...
+[17:56:02] [modloading-worker-0/INFO] [me.je.li.lo.PluginCaller/]: Sending ConfigManager took 1.289 milliseconds
+[17:56:02] [modloading-worker-0/INFO] [co.ms.po.Polymech/]: Loaded 229 material base colors from colors.json
+[17:56:02] [modloading-worker-0/INFO] [co.ms.po.Polymech/]: Polymech LDLib2 plugin loaded
+[17:56:05] [Render thread/WARN] [co.ms.po.Polymech/]: Color config file not found: poly_mech:config/colors.json
+[17:56:05] [Render thread/INFO] [ne.ne.ne.ga.GameTestHooks/]: Enabled Gametest Namespaces: [poly_mech]
+[17:56:06] [Render thread/INFO] [minecraft/ReloadableResourceManager]: Reloading ResourceManager: poly_mech:dynamic_ore_assets, vanilla, mod_resources, mod/geckolib, mod/ldlib2, mod/poly_mech, mod/neoforge, mod/jei, ldlib2
+[17:56:06] [Worker-Main-3/WARN] [co.ms.po.Polymech/]: Item test_ingot not found, skipping material mapping
+[17:56:06] [Worker-Main-3/WARN] [co.ms.po.Polymech/]: Item brass_ingot not found, skipping material mapping
+[17:56:06] [Worker-Main-3/WARN] [co.ms.po.Polymech/]: Item bronze_ingot not found, skipping material mapping
+[17:56:06] [Worker-Main-3/WARN] [co.ms.po.Polymech/]: Item invar_ingot not found, skipping material mapping
+[17:56:06] [Worker-Main-3/WARN] [co.ms.po.Polymech/]: Item cupronickel_ingot not found, skipping material mapping
+[17:56:06] [Worker-Main-3/WARN] [co.ms.po.Polymech/]: Item stainless_steel_ingot not found, skipping material mapping
+[17:56:06] [Worker-Main-10/INFO] [minecraft/UnihexProvider]: Found unifont_all_no_pua-15.1.05.hex, loading
+[17:56:06] [Worker-Main-3/INFO] [co.ms.po.Polymech/]: Pipe render layers configured to TRANSLUCENT!
+[17:56:06] [Worker-Main-7/INFO] [minecraft/UnihexProvider]: Found unifont_jp_patch-15.1.05.hex, loading
+[17:56:06] [Worker-Main-8/WARN] [minecraft/SpriteLoader]: Texture poly_mech:block/powergrid/wire_template with size 8x4 limits mip level from 4 to 2
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/small_steam_boiler.json' missing model for variant: 'poly_mech:small_steam_boiler#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/small_steam_boiler.json' missing model for variant: 'poly_mech:small_steam_boiler#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/small_steam_boiler.json' missing model for variant: 'poly_mech:small_steam_boiler#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/small_steam_boiler.json' missing model for variant: 'poly_mech:small_steam_boiler#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/battery.json' missing model for variant: 'poly_mech:battery#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/battery.json' missing model for variant: 'poly_mech:battery#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/battery.json' missing model for variant: 'poly_mech:battery#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/battery.json' missing model for variant: 'poly_mech:battery#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/creative_battery.json' missing model for variant: 'poly_mech:creative_battery#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/creative_battery.json' missing model for variant: 'poly_mech:creative_battery#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/creative_battery.json' missing model for variant: 'poly_mech:creative_battery#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/creative_battery.json' missing model for variant: 'poly_mech:creative_battery#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit.json' missing model for variant: 'poly_mech:filling_unit#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit.json' missing model for variant: 'poly_mech:filling_unit#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit.json' missing model for variant: 'poly_mech:filling_unit#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit.json' missing model for variant: 'poly_mech:filling_unit#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler.json' missing model for variant: 'poly_mech:horizontal_steam_boiler#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler.json' missing model for variant: 'poly_mech:horizontal_steam_boiler#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler.json' missing model for variant: 'poly_mech:horizontal_steam_boiler#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler.json' missing model for variant: 'poly_mech:horizontal_steam_boiler#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven.json' missing model for variant: 'poly_mech:beehive_coke_oven#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven.json' missing model for variant: 'poly_mech:beehive_coke_oven#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven.json' missing model for variant: 'poly_mech:beehive_coke_oven#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven.json' missing model for variant: 'poly_mech:beehive_coke_oven#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace.json' missing model for variant: 'poly_mech:primitive_blast_furnace#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace.json' missing model for variant: 'poly_mech:primitive_blast_furnace#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace.json' missing model for variant: 'poly_mech:primitive_blast_furnace#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace.json' missing model for variant: 'poly_mech:primitive_blast_furnace#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher.json' missing model for variant: 'poly_mech:steam_roller_crusher#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher.json' missing model for variant: 'poly_mech:steam_roller_crusher#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher.json' missing model for variant: 'poly_mech:steam_roller_crusher#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher.json' missing model for variant: 'poly_mech:steam_roller_crusher#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator.json' missing model for variant: 'poly_mech:steam_turbine_generator#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator.json' missing model for variant: 'poly_mech:steam_turbine_generator#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator.json' missing model for variant: 'poly_mech:steam_turbine_generator#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator.json' missing model for variant: 'poly_mech:steam_turbine_generator#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator.json' missing model for variant: 'poly_mech:gas_turbine_generator#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator.json' missing model for variant: 'poly_mech:gas_turbine_generator#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator.json' missing model for variant: 'poly_mech:gas_turbine_generator#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator.json' missing model for variant: 'poly_mech:gas_turbine_generator#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig#facing=south'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer.json' missing model for variant: 'poly_mech:steam_hammer#facing=east'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer.json' missing model for variant: 'poly_mech:steam_hammer#facing=west'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer.json' missing model for variant: 'poly_mech:steam_hammer#facing=north'
+[17:56:06] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer.json' missing model for variant: 'poly_mech:steam_hammer#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit_side.json' missing model for variant: 'poly_mech:filling_unit_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit_side.json' missing model for variant: 'poly_mech:filling_unit_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit_side.json' missing model for variant: 'poly_mech:filling_unit_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/filling_unit_side.json' missing model for variant: 'poly_mech:filling_unit_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler_side.json' missing model for variant: 'poly_mech:horizontal_steam_boiler_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler_side.json' missing model for variant: 'poly_mech:horizontal_steam_boiler_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler_side.json' missing model for variant: 'poly_mech:horizontal_steam_boiler_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/horizontal_steam_boiler_side.json' missing model for variant: 'poly_mech:horizontal_steam_boiler_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven_side.json' missing model for variant: 'poly_mech:beehive_coke_oven_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven_side.json' missing model for variant: 'poly_mech:beehive_coke_oven_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven_side.json' missing model for variant: 'poly_mech:beehive_coke_oven_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/beehive_coke_oven_side.json' missing model for variant: 'poly_mech:beehive_coke_oven_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace_side.json' missing model for variant: 'poly_mech:primitive_blast_furnace_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace_side.json' missing model for variant: 'poly_mech:primitive_blast_furnace_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace_side.json' missing model for variant: 'poly_mech:primitive_blast_furnace_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/primitive_blast_furnace_side.json' missing model for variant: 'poly_mech:primitive_blast_furnace_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher_side.json' missing model for variant: 'poly_mech:steam_roller_crusher_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher_side.json' missing model for variant: 'poly_mech:steam_roller_crusher_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher_side.json' missing model for variant: 'poly_mech:steam_roller_crusher_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_roller_crusher_side.json' missing model for variant: 'poly_mech:steam_roller_crusher_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator_side.json' missing model for variant: 'poly_mech:steam_turbine_generator_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator_side.json' missing model for variant: 'poly_mech:steam_turbine_generator_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator_side.json' missing model for variant: 'poly_mech:steam_turbine_generator_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_turbine_generator_side.json' missing model for variant: 'poly_mech:steam_turbine_generator_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace_side.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace_side.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace_side.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/flame_reverberatory_furnace_side.json' missing model for variant: 'poly_mech:flame_reverberatory_furnace_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator_side.json' missing model for variant: 'poly_mech:gas_turbine_generator_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator_side.json' missing model for variant: 'poly_mech:gas_turbine_generator_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator_side.json' missing model for variant: 'poly_mech:gas_turbine_generator_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/gas_turbine_generator_side.json' missing model for variant: 'poly_mech:gas_turbine_generator_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig_side.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig_side.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig_side.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_duplex_mineral_jig_side.json' missing model for variant: 'poly_mech:steam_duplex_mineral_jig_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer_side.json' missing model for variant: 'poly_mech:steam_hammer_side#facing=north'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer_side.json' missing model for variant: 'poly_mech:steam_hammer_side#facing=east'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer_side.json' missing model for variant: 'poly_mech:steam_hammer_side#facing=west'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/BlockStateModelLoader]: Exception loading blockstate definition: 'poly_mech:blockstates/steam_hammer_side.json' missing model for variant: 'poly_mech:steam_hammer_side#facing=south'
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/steam_roller_crusher' referenced from: poly_mech:item/steam_roller_crusher: java.io.FileNotFoundException: poly_mech:models/item/steam_roller_crusher.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/steam_duplex_mineral_jig' referenced from: poly_mech:item/steam_duplex_mineral_jig: java.io.FileNotFoundException: poly_mech:models/item/steam_duplex_mineral_jig.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/beehive_coke_oven' referenced from: poly_mech:item/beehive_coke_oven: java.io.FileNotFoundException: poly_mech:models/item/beehive_coke_oven.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/sulfur' referenced from: poly_mech:item/sulfur: java.io.FileNotFoundException: poly_mech:models/item/sulfur.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/red_garnet' referenced from: poly_mech:item/red_garnet: java.io.FileNotFoundException: poly_mech:models/item/red_garnet.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/flame_reverberatory_furnace' referenced from: poly_mech:item/flame_reverberatory_furnace: java.io.FileNotFoundException: poly_mech:models/item/flame_reverberatory_furnace.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/cinnabar' referenced from: poly_mech:item/cinnabar: java.io.FileNotFoundException: poly_mech:models/item/cinnabar.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/borax' referenced from: poly_mech:item/borax: java.io.FileNotFoundException: poly_mech:models/item/borax.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/pyrite' referenced from: poly_mech:item/pyrite: java.io.FileNotFoundException: poly_mech:models/item/pyrite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/graphite' referenced from: poly_mech:item/graphite: java.io.FileNotFoundException: poly_mech:models/item/graphite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/tetrahedrite' referenced from: poly_mech:item/tetrahedrite: java.io.FileNotFoundException: poly_mech:models/item/tetrahedrite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/bituminous_coal' referenced from: poly_mech:item/bituminous_coal: java.io.FileNotFoundException: poly_mech:models/item/bituminous_coal.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/lapis_lazuli' referenced from: poly_mech:item/lapis_lazuli: java.io.FileNotFoundException: poly_mech:models/item/lapis_lazuli.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/chalcopyrite' referenced from: poly_mech:item/chalcopyrite: java.io.FileNotFoundException: poly_mech:models/item/chalcopyrite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/realgar' referenced from: poly_mech:item/realgar: java.io.FileNotFoundException: poly_mech:models/item/realgar.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/creative_battery' referenced from: poly_mech:item/creative_battery: java.io.FileNotFoundException: poly_mech:models/item/creative_battery.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/opal' referenced from: poly_mech:item/opal: java.io.FileNotFoundException: poly_mech:models/item/opal.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/topaz' referenced from: poly_mech:item/topaz: java.io.FileNotFoundException: poly_mech:models/item/topaz.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/olivine' referenced from: poly_mech:item/olivine: java.io.FileNotFoundException: poly_mech:models/item/olivine.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/thorium' referenced from: poly_mech:item/thorium: java.io.FileNotFoundException: poly_mech:models/item/thorium.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/rock_salt' referenced from: poly_mech:item/rock_salt: java.io.FileNotFoundException: poly_mech:models/item/rock_salt.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/sapphire' referenced from: poly_mech:item/sapphire: java.io.FileNotFoundException: poly_mech:models/item/sapphire.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/apatite' referenced from: poly_mech:item/apatite: java.io.FileNotFoundException: poly_mech:models/item/apatite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/grossular' referenced from: poly_mech:item/grossular: java.io.FileNotFoundException: poly_mech:models/item/grossular.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/cryolite' referenced from: poly_mech:item/cryolite: java.io.FileNotFoundException: poly_mech:models/item/cryolite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/cassiterite_sand' referenced from: poly_mech:item/cassiterite_sand: java.io.FileNotFoundException: poly_mech:models/item/cassiterite_sand.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/primitive_blast_furnace' referenced from: poly_mech:item/primitive_blast_furnace: java.io.FileNotFoundException: poly_mech:models/item/primitive_blast_furnace.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/magnetite' referenced from: poly_mech:item/magnetite: java.io.FileNotFoundException: poly_mech:models/item/magnetite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/amethyst' referenced from: poly_mech:item/amethyst: java.io.FileNotFoundException: poly_mech:models/item/amethyst.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/cassiterite' referenced from: poly_mech:item/cassiterite: java.io.FileNotFoundException: poly_mech:models/item/cassiterite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/bastnasite' referenced from: poly_mech:item/bastnasite: java.io.FileNotFoundException: poly_mech:models/item/bastnasite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/gas_turbine_generator' referenced from: poly_mech:item/gas_turbine_generator: java.io.FileNotFoundException: poly_mech:models/item/gas_turbine_generator.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/goethite' referenced from: poly_mech:item/goethite: java.io.FileNotFoundException: poly_mech:models/item/goethite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/wolframite' referenced from: poly_mech:item/wolframite: java.io.FileNotFoundException: poly_mech:models/item/wolframite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/chromite' referenced from: poly_mech:item/chromite: java.io.FileNotFoundException: poly_mech:models/item/chromite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/saltpeter' referenced from: poly_mech:item/saltpeter: java.io.FileNotFoundException: poly_mech:models/item/saltpeter.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/emerald' referenced from: poly_mech:item/emerald: java.io.FileNotFoundException: poly_mech:models/item/emerald.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/barite' referenced from: poly_mech:item/barite: java.io.FileNotFoundException: poly_mech:models/item/barite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/kyanite' referenced from: poly_mech:item/kyanite: java.io.FileNotFoundException: poly_mech:models/item/kyanite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/stibnite' referenced from: poly_mech:item/stibnite: java.io.FileNotFoundException: poly_mech:models/item/stibnite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/native_silver' referenced from: poly_mech:item/native_silver: java.io.FileNotFoundException: poly_mech:models/item/native_silver.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/bauxite' referenced from: poly_mech:item/bauxite: java.io.FileNotFoundException: poly_mech:models/item/bauxite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/molybdenite' referenced from: poly_mech:item/molybdenite: java.io.FileNotFoundException: poly_mech:models/item/molybdenite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/oilsands' referenced from: poly_mech:item/oilsands: java.io.FileNotFoundException: poly_mech:models/item/oilsands.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/native_gold' referenced from: poly_mech:item/native_gold: java.io.FileNotFoundException: poly_mech:models/item/native_gold.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/talc' referenced from: poly_mech:item/talc: java.io.FileNotFoundException: poly_mech:models/item/talc.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/lignite' referenced from: poly_mech:item/lignite: java.io.FileNotFoundException: poly_mech:models/item/lignite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/limonite' referenced from: poly_mech:item/limonite: java.io.FileNotFoundException: poly_mech:models/item/limonite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/malachite' referenced from: poly_mech:item/malachite: java.io.FileNotFoundException: poly_mech:models/item/malachite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/galena' referenced from: poly_mech:item/galena: java.io.FileNotFoundException: poly_mech:models/item/galena.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/ruby' referenced from: poly_mech:item/ruby: java.io.FileNotFoundException: poly_mech:models/item/ruby.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/gypsum' referenced from: poly_mech:item/gypsum: java.io.FileNotFoundException: poly_mech:models/item/gypsum.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/beryllium' referenced from: poly_mech:item/beryllium: java.io.FileNotFoundException: poly_mech:models/item/beryllium.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/diamond' referenced from: poly_mech:item/diamond: java.io.FileNotFoundException: poly_mech:models/item/diamond.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/basaltic_mineral_sand' referenced from: poly_mech:item/basaltic_mineral_sand: java.io.FileNotFoundException: poly_mech:models/item/basaltic_mineral_sand.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/redstone' referenced from: poly_mech:item/redstone: java.io.FileNotFoundException: poly_mech:models/item/redstone.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/garnierite' referenced from: poly_mech:item/garnierite: java.io.FileNotFoundException: poly_mech:models/item/garnierite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/hematite' referenced from: poly_mech:item/hematite: java.io.FileNotFoundException: poly_mech:models/item/hematite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/sylvite' referenced from: poly_mech:item/sylvite: java.io.FileNotFoundException: poly_mech:models/item/sylvite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/filling_unit' referenced from: poly_mech:item/filling_unit: java.io.FileNotFoundException: poly_mech:models/item/filling_unit.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/pitchblende' referenced from: poly_mech:item/pitchblende: java.io.FileNotFoundException: poly_mech:models/item/pitchblende.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/battery' referenced from: poly_mech:item/battery: java.io.FileNotFoundException: poly_mech:models/item/battery.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/native_copper' referenced from: poly_mech:item/native_copper: java.io.FileNotFoundException: poly_mech:models/item/native_copper.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/bismuthinite' referenced from: poly_mech:item/bismuthinite: java.io.FileNotFoundException: poly_mech:models/item/bismuthinite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/alunite' referenced from: poly_mech:item/alunite: java.io.FileNotFoundException: poly_mech:models/item/alunite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/zeolite' referenced from: poly_mech:item/zeolite: java.io.FileNotFoundException: poly_mech:models/item/zeolite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/cooperite' referenced from: poly_mech:item/cooperite: java.io.FileNotFoundException: poly_mech:models/item/cooperite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/sphalerite' referenced from: poly_mech:item/sphalerite: java.io.FileNotFoundException: poly_mech:models/item/sphalerite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/vanadium_magnetite' referenced from: poly_mech:item/vanadium_magnetite: java.io.FileNotFoundException: poly_mech:models/item/vanadium_magnetite.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/steam_hammer' referenced from: poly_mech:item/steam_hammer: java.io.FileNotFoundException: poly_mech:models/item/steam_hammer.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/steam_turbine_generator' referenced from: poly_mech:item/steam_turbine_generator: java.io.FileNotFoundException: poly_mech:models/item/steam_turbine_generator.json
+[17:56:07] [Worker-Main-1/WARN] [minecraft/ModelBakery]: Unable to load model: 'poly_mech:item/small_steam_boiler' referenced from: poly_mech:item/small_steam_boiler: java.io.FileNotFoundException: poly_mech:models/item/small_steam_boiler.json
+[17:56:08] [Render thread/WARN] [minecraft/SoundEngine]: Missing sound for event: minecraft:item.goat_horn.play
+[17:56:08] [Render thread/WARN] [minecraft/SoundEngine]: Missing sound for event: minecraft:entity.goat.screaming.horn_break
+[17:56:08] [Render thread/INFO] [mojang/Library]: OpenAL initialized on device OpenAL Soft on 耳机 (UGREEN HiTune H5 Pro)
+[17:56:08] [Render thread/INFO] [minecraft/SoundEngine]: Sound engine started
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 2048x2048x4 minecraft:textures/atlas/blocks.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 256x256x4 minecraft:textures/atlas/signs.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 512x512x4 minecraft:textures/atlas/shield_patterns.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 512x512x4 minecraft:textures/atlas/banner_patterns.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 1024x1024x4 minecraft:textures/atlas/armor_trims.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 256x256x4 minecraft:textures/atlas/chest.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 128x64x4 minecraft:textures/atlas/decorated_pot.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 512x256x4 minecraft:textures/atlas/beds.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 512x256x4 minecraft:textures/atlas/shulker_boxes.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 512x256x0 minecraft:textures/atlas/particles.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 512x256x0 minecraft:textures/atlas/paintings.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 256x128x0 minecraft:textures/atlas/mob_effects.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 64x64x0 minecraft:textures/atlas/map_decorations.png-atlas
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 1024x512x0 minecraft:textures/atlas/gui.png-atlas
+[17:56:08] [Render thread/WARN] [minecraft/ShaderInstance]: Shader rendertype_entity_translucent_emissive could not find sampler named Sampler2 in the specified shader program.
+[17:56:08] [Render thread/WARN] [minecraft/ShaderInstance]: Shader ldlib2:graph_wire could not find uniform named iTime in the specified shader program.
+[17:56:08] [Render thread/WARN] [minecraft/ShaderInstance]: Shader poly_mech:rock could not find uniform named ColorModulator in the specified shader program.
+[17:56:08] [Render thread/INFO] [ne.ne.ne.cl.en.an.js.AnimationLoader/]: Loaded 0 entity animations
+[17:56:08] [Render thread/INFO] [minecraft/TextureAtlas]: Created: 256x256x0 jei:textures/atlas/gui.png-atlas
