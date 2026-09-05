@@ -79,32 +79,130 @@ public interface PlanetColorProvider {
         return a + (b - a) * t;
     }
 
-    /** 地球：海洋 + 大陆 + 极冰（材质明确区分，供地形压平和高光掩码使用）。 */
-    PlanetColorProvider EARTH = earth();
+    /** smoothstep：x 从 e0 到 e1 平滑过渡 0->1。 */
+    static float smoothstep(float e0, float e1, float x) {
+        float t = clamp((x - e0) / (e1 - e0), 0f, 1f);
+        return t * t * (3f - 2f * t);
+    }
 
-    static PlanetColorProvider earth() {
+    /**
+     * 类地星球表色引擎：气候带（纬度）x 湿度场 x 海拔分段 的组合表色。全程程序化，零贴图。
+     *
+     * <p>同一套逻辑，不同参数长出不同性格的类地星球：</p>
+     * <ul>
+     *   <li>纬度带 —— 热带/亚热带/温带/寒带/极地，每带一组「旱/润」色板；</li>
+     *   <li>湿度场 —— 独立噪声，同纬度内分出沙漠与雨林（撒哈拉 vs 东南亚）；</li>
+     *   <li>海拔分段 —— 海滩 / 低地 / 丘陵褐化 / 山地裸岩 / 雪线（随纬度和干旱度变化）；</li>
+     *   <li>河谷绿带 —— 湿润区山地里沿脊线噪声分布的绿色谷地；</li>
+     *   <li>浅海 —— 热带近岸青绿浅滩，衬托大陆轮廓。</li>
+     * </ul>
+     *
+     * @param seed    生物群系布局种子：扰动湿度/斑块/河谷三个噪声场的采样偏移，
+     *                每颗星球的大陆性格都不同；<b>0 = 地球经典布局</b>（不施加偏移，向后兼容）。
+     * @param dryness 干旱度 0..1：0.5 = 地球；&gt;0.5 全球偏旱（沙漠世界），&lt;0.5 全球偏润（丛林/水世界）。
+     * @param ice     冰量 0..1：0.5 = 地球（冰盖 |lat|&gt;0.85）；&gt;0.5 冰盖扩张、雪线压低（冰封世界），
+     *                趋近 0 时无冰盖、只有最高峰有雪（炎热世界）。
+     */
+    static PlanetColorProvider terrestrial(long seed, float dryness, float ice) {
+        // 种子 → 9 个噪声场采样偏移（LCG 展开；seed=0 时全 0，保证地球布局不变）
+        float[] off = new float[9];
+        if (seed != 0) {
+            long z = seed;
+            for (int i = 0; i < 9; i++) {
+                z = z * 6364136223846793005L + 1442695040888963407L;
+                off[i] = ((z >>> 33) & 0x3FFFL) * 0.0125f; // 0 .. ~51.2
+            }
+        }
+        final float o0 = off[0], o1 = off[1], o2 = off[2], o3 = off[3], o4 = off[4],
+                o5 = off[5], o6 = off[6], o7 = off[7], o8 = off[8];
+        final float dryF = clamp(dryness, 0f, 1f);
+        final float iceF = clamp(ice, 0f, 1f);
+        // 冰盖起始纬度：ice=0.5 -> 0.85（地球）；ice=1 -> 0.60；ice=0 -> 1.10（>1 永不触发）
+        final float capStart = 1.10f - iceF * 0.50f;
+        final float capMat = capStart + 0.03f; // 材质 ICE 边界略宽于颜色边界（地球 = 0.88）
         return new PlanetColorProvider() {
             @Override
             public float[] compute(int fi, float cx, float cy, float cz, float lat, float height, Noise3 noise) {
                 float r, g, b;
                 if (height <= 0f) {
-                    // 海面以下：海洋蓝，深度越深越暗
+                    // ===== 海洋：深度渐变 + 热带浅滩 + 寒海偏绿 =====
                     float depth = clamp(-height * 4f, 0f, 1f);
                     r = 0.04f + 0.03f * depth;
                     g = 0.14f + 0.22f * depth;
                     b = 0.38f + 0.32f * depth;
+                    // 热带近岸浅滩：青绿色（珊瑚浅滩），衬托大陆轮廓
+                    float shallow = 1f - smoothstep(0.004f, 0.030f, -height);
+                    float tropicSea = 1f - smoothstep(0.25f, 0.42f, lat);
+                    float lagoon = shallow * tropicSea;
+                    r = lerp(r, 0.14f, lagoon * 0.6f);
+                    g = lerp(g, 0.50f, lagoon * 0.6f);
+                    b = lerp(b, 0.50f, lagoon * 0.5f);
+                    // 高纬寒海：略偏蓝绿
+                    g += smoothstep(0.55f, 0.80f, lat) * 0.05f;
                 } else {
-                    // 陆地：由海拔和噪声共同决定绿/棕
-                    float n = noise.fbm(cx * 2.2f + 11.3f, cy * 2.2f + 27.1f, cz * 2.2f + 5.7f);
-                    n = clamp(n / 0.94f, 0f, 1f);
-                    float t = clamp(height * 5f, 0f, 1f);
-                    r = 0.22f + 0.35f * t + 0.10f * n;
-                    g = 0.45f - 0.12f * t + 0.08f * n;
-                    b = 0.18f - 0.08f * t + 0.04f * n;
+                    // ===== 陆地 =====
+                    // 三个互不相关的噪声场（各类偏移由种子决定）：
+                    float moisture = clamp(noise.fbm(cx * 2.6f + 50.3f + o0, cy * 2.6f + 71.7f + o1, cz * 2.6f + 33.1f + o2) / 0.94f, 0f, 1f); // 湿度
+                    float patch    = clamp(noise.fbm(cx * 5.5f + 99.7f + o3, cy * 5.5f + 83.3f + o4, cz * 5.5f + 41.9f + o5) / 0.94f, 0f, 1f); // 小斑块
+                    float ridge    = 1f - Math.abs(clamp(noise.fbm(cx * 4.0f + 55.1f + o6, cy * 4.0f + 61.7f + o7, cz * 4.0f + 49.3f + o8) / 0.94f, 0f, 1f) * 2f - 1f); // 脊线（河谷用）
+
+                    // 湿度：混入小斑块打散连续性，拉陡 S 曲线增强旱/润对比；dryness 整体偏移（0.5 = 地球基准）
+                    float m = clamp(moisture + (patch - 0.5f) * 0.35f, 0f, 1f);
+                    m = smoothstep(0.18f, 0.82f, m);
+                    m = clamp(m + (0.5f - dryF) * 0.6f, 0f, 1f);
+
+                    // --- 纬度气候带（smoothstep 过渡，权重和为 1，无硬边界） ---
+                    float wTrop = 1f - smoothstep(0.24f, 0.34f, lat);
+                    float wSub  = smoothstep(0.24f, 0.34f, lat) * (1f - smoothstep(0.40f, 0.50f, lat));
+                    float wTemp = smoothstep(0.40f, 0.50f, lat) * (1f - smoothstep(0.60f, 0.70f, lat));
+                    float wBor  = smoothstep(0.60f, 0.70f, lat) * (1f - smoothstep(0.76f, 0.84f, lat));
+                    float wPol  = smoothstep(0.76f, 0.84f, lat);
+
+                    // 每带一组「旱 -> 润」色板，按湿度插值、按带权重累加
+                    float[] col = {0f, 0f, 0f};
+                    accZone(col, wTrop, 0.72f, 0.62f, 0.38f,  0.09f, 0.30f, 0.09f, m); // 热带：沙黄 <-> 雨林深绿
+                    accZone(col, wSub,  0.80f, 0.68f, 0.44f,  0.16f, 0.40f, 0.13f, m); // 亚热带：荒漠 <-> 常绿林
+                    accZone(col, wTemp, 0.58f, 0.52f, 0.30f,  0.18f, 0.42f, 0.16f, m); // 温带：干草原 <-> 落叶林
+                    accZone(col, wBor,  0.40f, 0.38f, 0.30f,  0.14f, 0.28f, 0.18f, m); // 寒带：苔原 <-> 针叶林
+                    accZone(col, wPol,  0.56f, 0.57f, 0.56f,  0.50f, 0.53f, 0.51f, m); // 极地：灰白冻原
+
+                    // --- 海拔分段 ---
+                    // 海滩：浅色沙带，湿润区偏暗湿地色
+                    float beach = 1f - smoothstep(0.005f, 0.015f, height);
+                    col[0] = lerp(col[0], lerp(0.76f, 0.55f, m), beach * 0.7f);
+                    col[1] = lerp(col[1], lerp(0.72f, 0.52f, m), beach * 0.7f);
+                    col[2] = lerp(col[2], lerp(0.55f, 0.42f, m), beach * 0.7f);
+                    // 丘陵：轻度褐化脱饱和
+                    float hills = smoothstep(0.04f, 0.09f, height) * (1f - smoothstep(0.10f, 0.16f, height));
+                    col[0] = lerp(col[0], 0.55f, hills * 0.35f);
+                    col[1] = lerp(col[1], 0.48f, hills * 0.35f);
+                    col[2] = lerp(col[2], 0.34f, hills * 0.35f);
+                    // 山地裸岩：旱山偏红棕、湿山偏绿灰
+                    float mtn = smoothstep(0.10f, 0.17f, height);
+                    col[0] = lerp(col[0], lerp(0.50f, 0.38f, m), mtn * 0.85f);
+                    col[1] = lerp(col[1], lerp(0.42f, 0.42f, m), mtn * 0.85f);
+                    col[2] = lerp(col[2], lerp(0.36f, 0.36f, m), mtn * 0.85f);
+                    // 雪线：低纬只有最高峰有雪；高纬压低雪线（pow 曲线中纬度保持高位）；冰量整体缩放
+                    float latF = (float) Math.pow(clamp(lat / 0.85f, 0f, 1f), 2.6);
+                    float snowline = (lerp(0.30f, 0.10f, latF) + (1f - m) * 0.05f) * (1.5f - iceF);
+                    float snow = smoothstep(snowline, snowline + 0.04f, height);
+                    // 河谷绿带：湿润区丘陵/山地里沿脊线分布的绿色谷地（雪线以上不出现）
+                    float valley = smoothstep(0.80f, 0.95f, ridge) * m * (hills + mtn) * (1f - snow);
+                    col[0] = lerp(col[0], 0.16f, valley * 0.7f);
+                    col[1] = lerp(col[1], 0.38f, valley * 0.7f);
+                    col[2] = lerp(col[2], 0.14f, valley * 0.7f);
+                    // 雪盖
+                    col[0] = lerp(col[0], 0.93f, snow);
+                    col[1] = lerp(col[1], 0.95f, snow);
+                    col[2] = lerp(col[2], 0.98f, snow);
+
+                    r = col[0];
+                    g = col[1];
+                    b = col[2];
                 }
-                // 极地冰盖：纬度 0.85 以上才出现，平滑过渡
-                if (lat > 0.85f) {
-                    float t2 = (lat - 0.85f) / 0.15f;
+                // 极地冰盖：capStart 以上出现（冰量决定范围），平滑过渡
+                if (lat > capStart) {
+                    float t2 = clamp((lat - capStart) / Math.max(1e-4f, 1f - capStart), 0f, 1f);
                     r += (0.94f - r) * t2;
                     g += (0.96f - g) * t2;
                     b += (0.99f - b) * t2;
@@ -112,13 +210,27 @@ public interface PlanetColorProvider {
                 return new float[]{clamp(r, 0f, 1f), clamp(g, 0f, 1f), clamp(b, 0f, 1f)};
             }
 
+            /** 把一个气候带的「旱 -> 润」色板按湿度 m 插值后，按带权重 w 累加进 col。 */
+            private void accZone(float[] col, float w,
+                                 float dr, float dg, float db,
+                                 float wr, float wg, float wb, float m) {
+                if (w <= 0f) return;
+                col[0] += w * lerp(dr, wr, m);
+                col[1] += w * lerp(dg, wg, m);
+                col[2] += w * lerp(db, wb, m);
+            }
+
             @Override
             public SurfaceMaterial material(int fi, float cx, float cy, float cz, float lat, float height, Noise3 noise) {
-                if (lat > 0.88f) return SurfaceMaterial.ICE;
+                if (lat > capMat) return SurfaceMaterial.ICE;
                 return height <= 0f ? SurfaceMaterial.OCEAN : SurfaceMaterial.LAND;
             }
         };
     }
+
+    /** 地球：类地引擎的标准实例（种子 0、干旱 0.5、冰量 0.5），材质区分供地形压平和高光掩码使用。 */
+    PlanetColorProvider EARTH = terrestrial(0L, 0.5f, 0.5f);
+
 
     /** 木星：色带 + 大红斑（GAS 材质）。 */
     PlanetColorProvider JUPITER = new PlanetColorProvider() {

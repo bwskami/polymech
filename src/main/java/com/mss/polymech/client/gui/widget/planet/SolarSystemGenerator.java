@@ -122,17 +122,45 @@ public final class SolarSystemGenerator {
                     list.add(moon);
                 }
             } else {
-                float rr = 0.45f + rnd.nextFloat() * 0.50f;
-                float gg = 0.38f + rnd.nextFloat() * 0.42f;
-                float bb = 0.28f + rnd.nextFloat() * 0.36f;
-                pb = Planet.of(pname, base, rot,
-                                PlanetLayer.of(PlanetLayerType.BASE, baseR),
-                                PlanetLayer.of(PlanetLayerType.ATMOSPHERE, baseR * 1.05f, atmoSphere))
-                        .orbital(orb, 0.05f / (float) Math.sqrt(Math.max(0.2, orb)))
-                        .tilt(tilt)
-                        .visual(PlanetVisual.withAtmosphere(rr, gg, bb, rr * 0.8f, gg * 0.85f, bb * 0.9f))
-                        .colorProvider(PlanetColorProvider.tintedRock(rr, gg, bb))
-                        .heightScale(0.04f + rnd.nextFloat() * 0.05f);
+                // 非气态行星：大颗的走「类地引擎」（海洋/气候带/沙漠/冰盖全套程序化细节），
+                // 小颗的（行星胚胎/卫星级）保持荒凉岩石球 —— 类地细节在太小的球体上看不出来。
+                boolean barren = baseR < EARTH_RADIUS * 0.38f || rnd.nextFloat() < 0.15f;
+                if (barren) {
+                    float rr = 0.45f + rnd.nextFloat() * 0.50f;
+                    float gg = 0.38f + rnd.nextFloat() * 0.42f;
+                    float bb = 0.28f + rnd.nextFloat() * 0.36f;
+                    pb = Planet.of(pname, base, rot,
+                                    PlanetLayer.of(PlanetLayerType.BASE, baseR),
+                                    PlanetLayer.of(PlanetLayerType.ATMOSPHERE, baseR * 1.05f, atmoSphere))
+                            .orbital(orb, 0.05f / (float) Math.sqrt(Math.max(0.2, orb)))
+                            .tilt(tilt)
+                            .visual(PlanetVisual.withAtmosphere(rr, gg, bb, rr * 0.8f, gg * 0.85f, bb * 0.9f))
+                            .colorProvider(PlanetColorProvider.tintedRock(rr, gg, bb))
+                            .heightScale(0.04f + rnd.nextFloat() * 0.05f);
+                } else {
+                    // 类地行星：按轨道位置（相对地球轨道）推导性格 ——
+                    // 内侧炎热干旱无冰，宜居带近似地球，外侧寒冷冰封。
+                    float hz = orb / innerOrbit; // 1.0 ≈ 地球轨道
+                    float dryness, ice;
+                    if (hz < 0.80f) {          // 炎热世界：沙漠/旱地为主，几乎无冰
+                        dryness = 0.75f + rnd.nextFloat() * 0.25f;
+                        ice = rnd.nextFloat() * 0.15f;
+                    } else if (hz < 1.45f) {   // 宜居带：地球型，参数范围内随机
+                        dryness = 0.35f + rnd.nextFloat() * 0.35f;
+                        ice = 0.30f + rnd.nextFloat() * 0.40f;
+                    } else {                    // 冰封世界：冰盖大幅扩张
+                        dryness = 0.30f + rnd.nextFloat() * 0.40f;
+                        ice = 0.75f + rnd.nextFloat() * 0.25f;
+                    }
+                    pb = Planet.of(pname, base, rot,
+                                    PlanetLayer.of(PlanetLayerType.BASE, baseR),
+                                    PlanetLayer.of(PlanetLayerType.ATMOSPHERE, baseR * 1.05f, atmoSphere))
+                            .orbital(orb, 0.05f / (float) Math.sqrt(Math.max(0.2, orb)))
+                            .tilt(tilt)
+                            .visual(PlanetVisual.terrestrial(dryness, ice))
+                            .colorProvider(PlanetColorProvider.terrestrial(rnd.nextLong(), dryness, ice))
+                            .heightScale(0.08f + rnd.nextFloat() * 0.06f);
+                }
                 list.add(pb.build());
             }
             prevOrb = orb;

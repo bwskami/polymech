@@ -99,6 +99,31 @@ public final class PlanetVisual {
     public static final PlanetVisual DEIMOS = new PlanetVisual(
             new float[]{0.40f, 0.38f, 0.35f}, null, null, 0);
 
+    /**
+     * 类地星球外观工厂：与 {@code PlanetColorProvider.terrestrial} 配套。
+     * 海洋/冰盖镜面高光与 EARTH 一致（0.35 / 48）；大气色随干旱度与冰量微调：
+     * 干旱世界偏黄褐，冰封世界偏白蓝。
+     */
+    public static PlanetVisual terrestrial(float dryness, float ice) {
+        float dry = Math.max(0f, Math.min(1f, dryness));
+        float ic = Math.max(0f, Math.min(1f, ice));
+        // 基色（远看星点的颜色）：蓝 -> 旱黄 / 冰白
+        float br = lerp3(0.30f, 0.65f, 0.75f, dry, ic);
+        float bg = lerp3(0.55f, 0.55f, 0.80f, dry, ic);
+        float bb = lerp3(0.90f, 0.45f, 0.90f, dry, ic);
+        // 大气色
+        float ar = lerp3(0.25f, 0.60f, 0.70f, dry, ic);
+        float ag = lerp3(0.55f, 0.52f, 0.78f, dry, ic);
+        float ab = lerp3(1.00f, 0.42f, 0.92f, dry, ic);
+        return new PlanetVisual(new float[]{br, bg, bb}, new float[]{ar, ag, ab}, null, 0, 0.35f, 48f);
+    }
+
+    private static float lerp3(float earth, float dry, float icy, float dryF, float iceF) {
+        float v = earth + (dry - earth) * Math.max(0f, (dryF - 0.5f) * 2f);
+        float if_ = Math.max(0f, (iceF - 0.5f) * 2f);
+        return v + (icy - v) * if_;
+    }
+
     /** 默认灰色外观 */
     public static final PlanetVisual DEFAULT = new PlanetVisual(
             new float[]{0.50f, 0.50f, 0.50f}, null, null, 0);
