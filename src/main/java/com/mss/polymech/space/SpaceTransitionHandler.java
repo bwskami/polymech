@@ -120,6 +120,9 @@ public final class SpaceTransitionHandler {
                     space, pending.pos(), player.getDeltaMovement(), player.getYRot(), player.getXRot(),
                     DimensionTransition.DO_NOTHING);
             player.changeDimension(transition);
+            // 服务端 6DOF 姿态与传送后角度同步（与 teleportToSpaceAbove 一致；
+            // 客户端由 SpaceTravelMixin 的传送检测自行重建）
+            SpacePlayerData.get(player).initFromVanilla(player.getYRot(), player.getXRot());
         }
         return true;
     }

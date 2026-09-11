@@ -4,20 +4,22 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import com.mss.polymech.client.gui.widget.planet.PlanetLighting;
-import com.mss.polymech.client.gui.widget.planet.SkyboxRenderer;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderObject;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderObjectFactory;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderParams;
 import com.mss.polymech.client.gui.widget.planet.StarGlowRenderer;
-import com.mss.polymech.client.gui.widget.planet.StarSystemCatalog;
 import net.minecraft.client.renderer.GameRenderer;
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
@@ -32,9 +34,15 @@ public final class SpaceRenderer {
 
     private static final float SPACE_FAR_PLANE = 1.0e13f;
     private static final float SPACE_NEAR_PLANE = 1000.0f;
-    private static final float SKY_FAR_PLANE = 2000.0f;
-    private static final float SKY_NEAR_PLANE = 0.05f;
     private static final float FOV_DEG = 70.0f;
+
+    /** 实验开关：true = 天空盒和星球用完全相同的 view/坐标系渲染（在 SpaceRenderer 里统一画）。 */
+    private static final boolean UNIFIED_SKYBOX_WITH_PLANETS = false;
+
+    /** 调试：六面纯色天空盒（与 SpaceDimensionEffects 的颜色约定一致）。 */
+    private static final int[] DEBUG_SKY_FACE_COLORS = new int[] {
+            0xFF00FF00, 0xFFFFFF00, 0xFFFF00FF, 0xFF00FFFF, 0xFFFF0000, 0xFF0000FF
+    };
     private static final Matrix4f IDENTITY = new Matrix4f();
     private static final Vector3f TMP_REL = new Vector3f();
     private static final Vector3f TMP_CAM = new Vector3f();
@@ -88,6 +96,10 @@ public final class SpaceRenderer {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
         if (!mc.level.dimension().equals(PlanetDimensions.SPACE)) return;
+        // 窗口最小化：跳过自定义太空渲染。此时窗口宽高可能为 0（宽高比 NaN、
+        // 投影矩阵全 NaN），且后台的 shader pass / 深度 blit 是历史卡死高发区
+        // （配套修复见 WindowUpdateDisplayMixin：最小化时保留 GLFW 事件泵）。
+        if (isWindowIconified(mc)) return;
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY) {
             renderSpaceBodies(event);
         } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
@@ -100,11 +112,16 @@ public final class SpaceRenderer {
         Minecraft mc = Minecraft.getInstance();
         Camera camera = event.getCamera();
         var camPos = camera.getPosition();
+        // 星球 view：跟随完整相机旋转（含 roll），与 MC 主世界渲染一致
+        // （GameRenderer.renderLevel 用 camera.rotation().conjugate() 构建 view）。
+        // 天空背景由 SpaceDimensionEffects 走 MC 原生天空盒管线绘制。
         var cameraRot = new org.joml.Quaternionf(camera.rotation()).conjugate();
         Matrix4f view = new Matrix4f().rotation(cameraRot);
         float aspect = (float) mc.getWindow().getWidth() / (float) mc.getWindow().getHeight();
-        Matrix4f skyProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect, SKY_NEAR_PLANE, SKY_FAR_PLANE);
+        if (!(aspect > 0.0f) || !Float.isFinite(aspect)) return; // 宽高为 0 时兜底（不应发生）
         Matrix4f spaceProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect, SPACE_NEAR_PLANE, SPACE_FAR_PLANE);
+        // 天空盒投影：同 FOV，near/far 覆盖 r=1000 立方体即可（不影响屏幕方向，只影响深度）。
+        Matrix4f skyProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect, 0.05f, 2000.0f);
 
         Matrix4f oldProj = new Matrix4f(RenderSystem.getProjectionMatrix());
         Matrix4fStack mvs = RenderSystem.getModelViewStack();
@@ -113,16 +130,19 @@ public final class SpaceRenderer {
         RenderSystem.applyModelViewMatrix();
 
         try {
-            RenderSystem.setProjectionMatrix(skyProj, VertexSorting.DISTANCE_TO_ORIGIN);
-            drawSkybox();
-
+            // 直接用 MC 原生天空盒（维度 effects），不再手画 cubemap。
             RenderSystem.setProjectionMatrix(spaceProj, VertexSorting.DISTANCE_TO_ORIGIN);
             // 星球 BASE 层不透明：确认深度测试/写入开启（天空盒绘制后依赖它恢复，这里显式兜底）。
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
             RenderSystem.clearDepth(1.0f);
             RenderSystem.clear(0x100, false);
-            double seconds = SpaceWorld.j2000Seconds();
+            // 自转相位用存档世界时间（gameTime），不用真实时间：
+            // 真实 J2000 秒(~8e8) × 自转速度 的相位在每次启动时近乎随机，
+            // 星球每次进游戏都换一面（会被误认为"贴图种子变了"）。
+            // 世界时间保证同一存档相位连续、可复现。
+            double seconds = Minecraft.getInstance().level.getGameTime() / 20.0
+                    + event.getPartialTick().getGameTimeDeltaTicks() / 20.0;
             double camRealX = SpaceWorld.toReal(camPos.x);
             double camRealY = SpaceWorld.toReal(camPos.y);
             double camRealZ = SpaceWorld.toReal(camPos.z);
@@ -310,6 +330,14 @@ public final class SpaceRenderer {
                 partialTick, simTime, lighting, null);
     }
 
+    /** 窗口是否已最小化（iconified）：GLFW 属性只在事件循环中更新。 */
+    private static boolean isWindowIconified(Minecraft mc) {
+        long handle = mc.getWindow().getWindow();
+        return handle != 0L
+                && org.lwjgl.glfw.GLFW.glfwGetWindowAttrib(handle, org.lwjgl.glfw.GLFW.GLFW_ICONIFIED)
+                == org.lwjgl.glfw.GLFW.GLFW_TRUE;
+    }
+
     private static double bodyDistanceSq(PlanetRenderObject body,
                                          double camX, double camY, double camZ) {
         double dx = body.posX() - camX;
@@ -359,16 +387,5 @@ public final class SpaceRenderer {
             RenderSystem.depthMask(true);
             RenderSystem.disableBlend();
         }
-    }
-
-    private static ResourceLocation currentSkyboxTexture() {
-        long seed = StarSystemCatalog.get(0).seed;
-        int idx = 1 + (int) ((seed >>> 16) % 11L);
-        return ResourceLocation.fromNamespaceAndPath("poly_mech",
-                "textures/gui/skybox/cubemap/cubemap_space" + idx + ".png");
-    }
-
-    private static void drawSkybox() {
-        SkyboxRenderer.drawCubemap(RenderSystem.getModelViewMatrix(), currentSkyboxTexture());
     }
 }

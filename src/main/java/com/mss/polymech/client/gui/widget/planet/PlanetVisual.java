@@ -40,6 +40,16 @@ public final class PlanetVisual {
     public float specularStrength() { return specularStrength; }
     public float specularPower() { return specularPower; }
 
+    /**
+     * 太空维度内部使用的完整外观工厂。
+     * <p>星系 UI 继续使用下面的 {@code PlanetVisual} 常量；太空维度可以在
+     * {@link SpaceVisuals} 中定义自己的一套亮度/颜色，避免两边互相牵动。</p>
+     */
+    static PlanetVisual ofFull(float[] baseColor, float[] atmosphereColor, float[] ringColor,
+                               float glowStrength, float specularStrength, float specularPower) {
+        return new PlanetVisual(baseColor, atmosphereColor, ringColor, glowStrength, specularStrength, specularPower);
+    }
+
     // ============ 预定义星球外观 ============
 
     /** 恒星专用视觉：表面有米粒组织+黑子纹理，大气层做发光描边 */
@@ -48,50 +58,50 @@ public final class PlanetVisual {
             new float[]{1.0f, 0.75f, 0.30f}, null, 1.0f);
     public static final PlanetVisual SUN = STAR;
     public static final PlanetVisual MERCURY = new PlanetVisual(
-            new float[]{0.65f, 0.60f, 0.55f}, null, null, 0);
+            new float[]{0.42f, 0.39f, 0.36f}, null, null, 0);
     public static final PlanetVisual VENUS = new PlanetVisual(
-            new float[]{0.90f, 0.80f, 0.55f},
-            new float[]{0.90f, 0.80f, 0.50f}, null, 0);
+            new float[]{0.72f, 0.64f, 0.44f},
+            new float[]{0.72f, 0.64f, 0.40f}, null, 0);
     public static final PlanetVisual EARTH = new PlanetVisual(
             new float[]{0.30f, 0.55f, 0.90f},
             new float[]{0.25f, 0.55f, 1.00f}, null, 0, 0.35f, 48f);
     public static final PlanetVisual MOON = new PlanetVisual(
             new float[]{0.55f, 0.53f, 0.50f}, null, null, 0);
     public static final PlanetVisual MARS = new PlanetVisual(
-            new float[]{0.85f, 0.45f, 0.25f},
-            new float[]{0.80f, 0.50f, 0.35f}, null, 0);
+            new float[]{0.60f, 0.32f, 0.18f},
+            new float[]{0.55f, 0.32f, 0.20f}, null, 0);
     public static final PlanetVisual JUPITER = new PlanetVisual(
-            new float[]{0.80f, 0.65f, 0.45f},
-            new float[]{0.80f, 0.65f, 0.45f}, null, 0);
+            new float[]{0.55f, 0.45f, 0.31f},
+            new float[]{0.50f, 0.41f, 0.28f}, null, 0);
     public static final PlanetVisual SATURN = new PlanetVisual(
-            new float[]{0.85f, 0.75f, 0.55f},
-            new float[]{0.85f, 0.75f, 0.55f},
-            new float[]{0.80f, 0.70f, 0.50f}, 0);
+            new float[]{0.60f, 0.53f, 0.39f},
+            new float[]{0.55f, 0.48f, 0.35f},
+            new float[]{0.68f, 0.60f, 0.43f}, 0);
     public static final PlanetVisual TITAN = new PlanetVisual(
-            new float[]{0.85f, 0.55f, 0.25f},
-            new float[]{0.85f, 0.55f, 0.25f}, null, 0);
+            new float[]{0.60f, 0.39f, 0.18f},
+            new float[]{0.58f, 0.38f, 0.17f}, null, 0);
     public static final PlanetVisual URANUS = new PlanetVisual(
-            new float[]{0.55f, 0.75f, 0.85f},
-            new float[]{0.55f, 0.75f, 0.85f},
-            new float[]{0.50f, 0.65f, 0.75f}, 0);
+            new float[]{0.42f, 0.57f, 0.65f},
+            new float[]{0.38f, 0.52f, 0.60f},
+            new float[]{0.42f, 0.55f, 0.63f}, 0);
     public static final PlanetVisual NEPTUNE = new PlanetVisual(
-            new float[]{0.35f, 0.55f, 0.90f},
-            new float[]{0.35f, 0.55f, 0.90f},
-            new float[]{0.30f, 0.50f, 0.85f}, 0);
+            new float[]{0.28f, 0.44f, 0.72f},
+            new float[]{0.26f, 0.40f, 0.66f},
+            new float[]{0.25f, 0.42f, 0.70f}, 0);
     public static final PlanetVisual PLUTO = new PlanetVisual(
-            new float[]{0.65f, 0.60f, 0.55f}, null, null, 0);
+            new float[]{0.52f, 0.48f, 0.44f}, null, null, 0);
     public static final PlanetVisual CHARON = new PlanetVisual(
-            new float[]{0.50f, 0.48f, 0.45f}, null, null, 0);
+            new float[]{0.42f, 0.40f, 0.38f}, null, null, 0);
 
     // 卫星的通用外观
     public static final PlanetVisual IO = new PlanetVisual(
-            new float[]{0.90f, 0.75f, 0.20f}, null, null, 0);
+            new float[]{0.70f, 0.58f, 0.16f}, null, null, 0);
     public static final PlanetVisual EUROPA = new PlanetVisual(
-            new float[]{0.85f, 0.82f, 0.75f}, null, null, 0, 0.55f, 96f);
+            new float[]{0.66f, 0.64f, 0.58f}, null, null, 0, 0.55f, 96f);
     public static final PlanetVisual GANYMEDE = new PlanetVisual(
-            new float[]{0.60f, 0.55f, 0.50f}, null, null, 0, 0.15f, 32f);
+            new float[]{0.48f, 0.44f, 0.40f}, null, null, 0, 0.15f, 32f);
     public static final PlanetVisual CALLISTO = new PlanetVisual(
-            new float[]{0.40f, 0.38f, 0.35f}, null, null, 0, 0.12f, 24f);
+            new float[]{0.33f, 0.31f, 0.29f}, null, null, 0, 0.12f, 24f);
     public static final PlanetVisual ENCELADUS = new PlanetVisual(
             new float[]{0.92f, 0.95f, 0.98f}, null, null, 0, 0.60f, 128f);
     public static final PlanetVisual PHOBOS = new PlanetVisual(

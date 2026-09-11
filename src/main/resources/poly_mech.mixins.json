@@ -6,7 +6,11 @@
     "ReceivingLevelScreenMixin",
     "ClientPacketListenerSpaceMixin",
     "WindowUpdateDisplayMixin",
-    "PanoramaSkipWhenIconifiedMixin"
+    "PanoramaSkipWhenIconifiedMixin",
+    "SpaceTurnMixin",
+    "SpaceTravelMixin",
+    "SpaceBodyTiltMixin",
+    "SpaceCameraMixin"
   ],
   "mixins": [
     "LivingEntityGravityMixin",
@@ -16,7 +20,8 @@
     "FishingHookGravityMixin",
     "ThrowableProjectileGravityMixin",
     "ThrownPotionGravityMixin",
-    "ThrownExperienceBottleGravityMixin"
+    "ThrownExperienceBottleGravityMixin",
+    "ChunkMapUnloadSafetyMixin"
   ],
   "injectors": {
     "defaultRequire": 1

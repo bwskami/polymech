@@ -262,6 +262,7 @@ public class ModCreativeModeTabs {
                         output.accept(ModItems.CLAMP_METER.get());
                         output.accept(ModItems.PROSPECTOR.get());
                         output.accept(ModItems.TELEPORTER.get());
+                        output.accept(ModItems.SPACE_HELMET.get());
                         
                         // 如果有目标为TOOL的材料物品，也添加到这里
                         for (ItemTagPrefix prefix : ModItemTypes.getAllPrefixes()) {

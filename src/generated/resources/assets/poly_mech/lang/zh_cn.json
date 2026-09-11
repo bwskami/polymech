@@ -5168,5 +5168,7 @@
   "voltage_tier.poly_mech.uhv": "UHV",
   "voltage_tier.poly_mech.ulv": "ULV",
   "voltage_tier.poly_mech.uv": "UV",
-  "voltage_tier.poly_mech.zpm": "ZPM"
+  "voltage_tier.poly_mech.zpm": "ZPM",
+  "item.poly_mech.space_helmet": "太空头盔",
+  "key.poly_mech.space_nav": "宇宙导航星图（太空）"
 }

@@ -6,6 +6,7 @@ import com.mss.polymech.api.item.ItemTagPrefix;
 import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.powergrid.GridWireType;
 import com.mss.polymech.worldgen.ModMinerals;
+import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -113,6 +114,11 @@ public class ModItems {
      */
     public static final DeferredItem<TeleporterItem> TELEPORTER =
             ITEMS.register("teleporter", () -> new TeleporterItem(new Item.Properties()));
+
+    public static final DeferredItem<SpaceHelmetItem> SPACE_HELMET =
+            ITEMS.register("space_helmet", () -> new SpaceHelmetItem(
+                    ModArmorMaterials.SPACE_SUIT,
+                    new Item.Properties().durability(ArmorItem.Type.HELMET.getDurability(15))));
 
     /*
      * 焦煤，蜂窝焦炉的产物，用于原始高炉炼钢与高级燃料。
@@ -381,5 +387,6 @@ public class ModItems {
      */
     public static void register(IEventBus eventBus) {
         ITEMS.register(eventBus);
+        ModArmorMaterials.ARMOR_MATERIALS.register(eventBus);
     }
 }

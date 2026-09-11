@@ -7,6 +7,8 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mss.polymech.block.ModBlocks;
+import com.mss.polymech.dimension.PlanetDimensions;
+import com.mss.polymech.space.RealAstroData;
 import com.mss.polymech.worldgen.ModMinerals;
 import com.mss.polymech.worldgen.ModRocks;
 import com.mss.polymech.worldgen.ModVeins;
@@ -23,6 +25,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.portal.DimensionTransition;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 import java.util.HashMap;
@@ -97,7 +101,52 @@ public class ModCommands {
                         .executes(ctx -> expose(ctx.getSource(), 48))
                         .then(Commands.argument("radius", IntegerArgumentType.integer(8, EXPOSE_MAX_RADIUS))
                                 .executes(ctx -> expose(ctx.getSource(),
-                                        IntegerArgumentType.getInteger(ctx, "radius"))))));
+                                        IntegerArgumentType.getInteger(ctx, "radius")))))
+                .then(Commands.literal("space")
+                        .executes(ctx -> spaceSpawn(ctx.getSource()))
+                        .then(Commands.argument("body", StringArgumentType.word())
+                                .suggests(ModCommands::suggestBodies)
+                                .executes(ctx -> spaceAbove(ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "body"))))));
+    }
+
+    // ==================== /polymech space ====================
+
+    /** /polymech space：进入太空维度（默认地球昼面观测点；原点 0,0,0 是太阳本体，半径 7 万格，不能作出生点）。 */
+    private static int spaceSpawn(CommandSourceStack source) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        if (player.server.getLevel(PlanetDimensions.SPACE) == null) {
+            source.sendFailure(Component.literal("太空维度不存在"));
+            return 0;
+        }
+        if (!PlanetDimensions.teleportToSpaceAbove(player, 3)) { // 3 = 地球
+            source.sendFailure(Component.literal("传送失败"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("已进入太空维度（地球观测点）"), false);
+        return 1;
+    }
+
+    /** /polymech space <body>：传送到太空维度中该天体上方的宇宙空间。 */
+    private static int spaceAbove(CommandSourceStack source, String bodyId) throws CommandSyntaxException {
+        ServerPlayer player = source.getPlayerOrException();
+        int idx = RealAstroData.indexOf(bodyId);
+        if (idx < 0) {
+            source.sendFailure(Component.literal("未知天体: " + bodyId + "（用 Tab 补全查看可用名称）"));
+            return 0;
+        }
+        if (!PlanetDimensions.teleportToSpaceAbove(player, idx)) {
+            source.sendFailure(Component.literal("传送失败（太空维度不存在或索引无效）"));
+            return 0;
+        }
+        RealAstroData body = RealAstroData.BODIES.get(idx);
+        source.sendSuccess(() -> Component.literal("已传送到 " + body.name() + " 上方宇宙空间"), false);
+        return 1;
+    }
+
+    /** 天体 id 补全（sun/mercury/...）。 */
+    private static CompletableFuture<Suggestions> suggestBodies(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(RealAstroData.bodyIds(), builder);
     }
 
     // ==================== /polymech rock ====================

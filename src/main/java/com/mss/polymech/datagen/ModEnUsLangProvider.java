@@ -27,6 +27,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
     protected void addTranslations() {
         // Tech Tree
         add("key.poly_mech.tech_tree", "Tech Tree");
+        add("key.poly_mech.space_nav", "Space Nav Map (space)");
 
         add("techtree.poly_mech.tech_steam", "Steam Power");
         add("techtree.poly_mech.tech_steam.desc", "Light coal to drive your first steam machines.");
@@ -239,6 +240,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
         add(ModItems.TELEPORTER.get(), "Teleporter");
+        add(ModItems.SPACE_HELMET.get(), "Space Helmet");
         add(ModBlocks.MERCURY_STONE.get(), "Mercury Stone");
         add(ModBlocks.VENUS_STONE.get(), "Venus Stone");
         add(ModBlocks.MOON_STONE.get(), "Moon Stone");

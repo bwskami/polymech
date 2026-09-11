@@ -83,6 +83,14 @@
             ]
         },
         {
+            "name": "ViewFillStrength",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
+            ]
+        },
+        {
             "name": "IsSun",
             "type": "float",
             "count": 1,

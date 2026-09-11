@@ -2,7 +2,9 @@ package com.mss.polymech;
 
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.space.ClientSpaceTransition;
+import com.mss.polymech.client.space.SpaceDimensionEffects;
 import com.mss.polymech.client.space.SpaceRenderer;
+import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.client.model.conveyor.ConveyorModelLoader;
 import com.mss.polymech.client.model.pipe.PipeModelLoader;
 import com.mss.polymech.client.renderer.ConveyorBlockEntityRenderer;
@@ -28,6 +30,7 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.RegisterDimensionSpecialEffectsEvent;
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
@@ -51,6 +54,10 @@ public class PolymechClient {
         NeoForge.EVENT_BUS.addListener(ClientSpaceTransition::onClientTick);
         NeoForge.EVENT_BUS.addListener(SpaceRenderer::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(SpaceRenderer::onRenderGui);
+        // 注册太空维度特效（维度天空盒走 MC 原生管线）
+        container.getEventBus().addListener(RegisterDimensionSpecialEffectsEvent.class, event -> {
+            event.register(PlanetDimensions.SPACE.location(), new SpaceDimensionEffects());
+        });
     }
 
     @SubscribeEvent

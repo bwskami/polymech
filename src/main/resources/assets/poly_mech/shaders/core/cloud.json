@@ -65,11 +65,29 @@
             ]
         },
         {
+            "name": "ViewDir",
+            "type": "float",
+            "count": 3,
+            "values": [
+                0,
+                0,
+                1
+            ]
+        },
+        {
             "name": "Intensity",
             "type": "float",
             "count": 1,
             "values": [
                 1
+            ]
+        },
+        {
+            "name": "ViewFillStrength",
+            "type": "float",
+            "count": 1,
+            "values": [
+                0.0
             ]
         },
         {

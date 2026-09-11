@@ -65,6 +65,8 @@ public final class PlanetRenderObject {
 
     /** 自转速度（rad/s），用于太空维度里让行星/云层动起来。 */
     private final float rotationSpeed;
+    /** 自转轴倾角（弧度），0 = 垂直黄道面。 */
+    private final float axialTilt;
 
     /** 复用的临时数据，避免每帧分配。 */
     private final Matrix4f modelView = new Matrix4f();
@@ -115,6 +117,7 @@ public final class PlanetRenderObject {
         this.surfaceSeed = 0;
         this.atmosphereRadius = 0;
         this.rotationSpeed = 0f;
+        this.axialTilt = 0f;
         this.casterBodies = List.of();
     }
 
@@ -146,6 +149,7 @@ public final class PlanetRenderObject {
         this.faceMaterials = new SurfaceMaterial[mesh.faces.length];
         this.atmosphereRadius = (atmosphereRadius > radius && visual.hasAtmosphere()) ? atmosphereRadius : 0;
         this.rotationSpeed = planet.defaultRotationSpeed();
+        this.axialTilt = planet.axialTilt();
         this.casterBodies = List.copyOf(casterBodies);
         for (PlanetLayer layer : planet.layers()) {
             if (layer.type() == PlanetLayerType.CLOUD && layer.radius() > radius) {
@@ -803,11 +807,11 @@ public final class PlanetRenderObject {
         for (int i = 0; i < 4; i++) {
             if (i < nC) {
                 RealAstroData caster = casterBodies.get(i);
-                double[] cwp = caster.realPositionAt(params.simTime());
-                rotateY((float) (cwp[0] - posX),
+                double[] cwp = com.mss.polymech.space.SpaceWorld.gamePos(caster);
+                worldToLocalDirection((float) (cwp[0] - posX),
                         (float) (cwp[1] - posY),
                         (float) (cwp[2] - posZ),
-                        -angle, tmpCaster);
+                        angle, axialTilt, tmpCaster);
                 sh.getUniform("CasterRel" + i).set(tmpCaster[0], tmpCaster[1], tmpCaster[2]);
                 sh.getUniform("CasterRad" + i).set((float) caster.radiusMeters());
             } else {
@@ -828,7 +832,7 @@ public final class PlanetRenderObject {
         float sunX = params.lighting().dirX(), sunY = params.lighting().dirY(), sunZ = params.lighting().dirZ();
         float maxShadow = 0f;
         for (RealAstroData caster : casterBodies) {
-            double[] cwp = caster.realPositionAt(params.simTime());
+            double[] cwp = com.mss.polymech.space.SpaceWorld.gamePos(caster);
             float casterRelX = (float) (cwp[0] - posX);
             float casterRelY = (float) (cwp[1] - posY);
             float casterRelZ = (float) (cwp[2] - posZ);
@@ -859,18 +863,21 @@ public final class PlanetRenderObject {
                 (float) (posX - params.cameraX()),
                 (float) (posY - params.cameraY()),
                 (float) (posZ - params.cameraZ()));
+        modelView.rotateZ(axialTilt);
         modelView.rotateY(angle);
 
         computeViewDir(params);
-        // 光照/视线方向转到旋转后的局部系，保证晨昏线和镜面高光不随自转漂移。
-        rotateY(params.lighting().dirX(), params.lighting().dirY(), params.lighting().dirZ(), -angle, localSun);
-        rotateY(viewDir[0], viewDir[1], viewDir[2], -angle, localView);
+        // 光照/视线方向转到轴倾 + 自转后的局部系，保证晨昏线和镜面高光不随自转/轴倾漂移。
+        worldToLocalDirection(params.lighting().dirX(), params.lighting().dirY(), params.lighting().dirZ(),
+                angle, axialTilt, localSun);
+        worldToLocalDirection(viewDir[0], viewDir[1], viewDir[2], angle, axialTilt, localView);
 
         ShaderInstance sh = PlanetShaders.planetShader();
         sh.getUniform("SunDir").set(localSun[0], localSun[1], localSun[2]);
         float intensity = params.lighting().intensity();
         sh.getUniform("ViewDir").set(localView[0], localView[1], localView[2]);
         sh.getUniform("Intensity").set(intensity);
+        sh.getUniform("ViewFillStrength").set(0.50f); // 太空专用相机补光，UI 路径显式设为 0
         sh.getUniform("IsSun").set(visual.isGlowing() ? 1f : 0f);
         sh.getUniform("SunVisibility").set(computeSunVisibility(params));
         applyCasterUniforms(sh, params, angle);
@@ -880,11 +887,11 @@ public final class PlanetRenderObject {
         float prx = 0f, pry = 0f, prz = 0f;
         for (RealAstroData caster : casterBodies) {
             if (caster.radiusMeters() > radius) {
-                double[] cwp = caster.realPositionAt(params.simTime());
+                double[] cwp = com.mss.polymech.space.SpaceWorld.gamePos(caster);
                 float cwx = (float) (cwp[0] - posX);
                 float cwy = (float) (cwp[1] - posY);
                 float cwz = (float) (cwp[2] - posZ);
-                rotateY(cwx, cwy, cwz, -angle, tmpCaster);
+                worldToLocalDirection(cwx, cwy, cwz, angle, axialTilt, tmpCaster);
                 float dist = (float) Math.sqrt(cwx * cwx + cwy * cwy + cwz * cwz);
                 reflStrength = Math.max(0f, Math.min(0.5f, (float) caster.radiusMeters() / Math.max(dist, 1f) * 0.8f));
                 prx = tmpCaster[0]; pry = tmpCaster[1]; prz = tmpCaster[2];
@@ -928,13 +935,19 @@ public final class PlanetRenderObject {
                 (float) (posX - params.cameraX()),
                 (float) (posY - params.cameraY()),
                 (float) (posZ - params.cameraZ()));
+        modelView.rotateZ(axialTilt);
         modelView.rotateY(angle);
 
-        rotateY(params.lighting().dirX(), params.lighting().dirY(), params.lighting().dirZ(), -angle, localSun);
+        worldToLocalDirection(params.lighting().dirX(), params.lighting().dirY(), params.lighting().dirZ(),
+                angle, axialTilt, localSun);
+        computeViewDir(params);
+        worldToLocalDirection(viewDir[0], viewDir[1], viewDir[2], angle, axialTilt, localView);
 
         ShaderInstance sh = PlanetShaders.cloudShader();
         sh.getUniform("SunDir").set(localSun[0], localSun[1], localSun[2]);
+        sh.getUniform("ViewDir").set(localView[0], localView[1], localView[2]);
         sh.getUniform("Intensity").set(params.lighting().intensity());
+        sh.getUniform("ViewFillStrength").set(0.50f); // 云层也使用同一套太空补光
         applyCasterUniforms(sh, params, angle);
 
         RenderSystem.setShader(() -> sh);
@@ -998,12 +1011,18 @@ public final class PlanetRenderObject {
                 (float) (posX - params.cameraX()),
                 (float) (posY - params.cameraY()),
                 (float) (posZ - params.cameraZ()));
+        // 光环和赤道面共面：跟着行星轴倾一起倾斜。
+        modelView.rotateZ(axialTilt);
 
         float baseR = (float) radius;
         float innerR = Math.max(baseR * 1.15f, ringLayer.radius() * 0.65f);
         float outerR = ringLayer.radius();
         int bands = 24, segs = 96;
-        float sunX = params.lighting().dirX(), sunY = params.lighting().dirY(), sunZ = params.lighting().dirZ();
+        // 环阴影判定在环的局部系算：世界太阳方向先逆轴倾。
+        float ct = (float) Math.cos(axialTilt), st = (float) Math.sin(axialTilt);
+        float sunX = ct * params.lighting().dirX() + st * params.lighting().dirY();
+        float sunY = -st * params.lighting().dirX() + ct * params.lighting().dirY();
+        float sunZ = params.lighting().dirZ();
 
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         RenderSystem.enableBlend();
@@ -1091,6 +1110,20 @@ public final class PlanetRenderObject {
         out[0] = c * x + s * z;
         out[1] = y;
         out[2] = -s * x + c * z;
+    }
+
+    /**
+     * 世界方向/相对位置 -> 星球局部系。
+     * 与 BASE/CLOUD 的 modelView 顺序对应：先绕 Z 轴轴倾，再绕 Y 轴自转。
+     * 逆变换顺序为 R_y(-angle) * R_z(-tilt)。
+     */
+    private static void worldToLocalDirection(float x, float y, float z,
+                                              float angle, float tilt, float[] out) {
+        float ct = (float) Math.cos(tilt);
+        float st = (float) Math.sin(tilt);
+        float x1 = ct * x + st * y;
+        float y1 = -st * x + ct * y;
+        rotateY(x1, y1, z, -angle, out);
     }
 
     private static void normalize(double x, double y, double z, float[] out) {

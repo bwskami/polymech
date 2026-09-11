@@ -270,6 +270,7 @@ class PlanetLayerDrawer {
         sh.getUniform("SunDir").set(v.lightLocal[0], v.lightLocal[1], v.lightLocal[2]);
         sh.getUniform("ViewDir").set(v.viewLocal[0], v.viewLocal[1], v.viewLocal[2]);
         sh.getUniform("Intensity").set(v.lighting.intensity());
+        SolarSystemView.setUniform(sh, "ViewFillStrength", 0f); // 星球 UI 保持原来的暗面光照
         sh.getUniform("IsSun").set(isSun ? 1f : 0f);
         float globalSun = 1f;
         if (!isSun && v.solarSystem.get(t.pi).parentId() >= 0) {
@@ -524,6 +525,7 @@ class PlanetLayerDrawer {
         ShaderInstance sh = PlanetShaders.cloudShader();
         SolarSystemView.setUniform(sh, "SunDir", v.lightLocal[0], v.lightLocal[1], v.lightLocal[2]);
         SolarSystemView.setUniform(sh, "Intensity", v.lighting.intensity());
+        SolarSystemView.setUniform(sh, "ViewFillStrength", 0f); // 星球 UI 云层不加太空补光
 
         float[] planetWP = v.solarSystem.worldPosTo(v._tmpWp1, t.pi, v.simTime);
         int[] cast = v.shadowModel.casters(t.pi);

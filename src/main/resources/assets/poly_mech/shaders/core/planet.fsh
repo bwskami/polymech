@@ -10,6 +10,7 @@ in float vSpec;
 uniform vec3 ViewDir;
 uniform vec3 SunDir;
 uniform float Intensity;
+uniform float ViewFillStrength;
 uniform float IsSun;
 uniform float SunVisibility;
 uniform float CasterCount;
@@ -100,7 +101,15 @@ void main() {
     }
 
     float direct = max(0.0, ndotl) * Intensity * (1.0 - shadow);
-    float bounce = direct * 0.16;
+
+    // 所有星球共用同一套相机补光：视线正对的那块表面获得补光，
+    // 且只在直射不足时补，避免把已经受光的昼面继续推亮导致过曝。
+    // 这样背光/晨昏线附近的可见面也不会死黑，月球这类没有大气的卫星同样适用。
+    vec3 viewDir = normalize(ViewDir);
+    float viewDot = max(0.0, dot(nrm, viewDir));
+    float viewFill = viewDot * ViewFillStrength * Intensity * (1.0 - clamp(direct, 0.0, 1.0));
+
+    float bounce = (direct + viewFill) * 0.16;
     float ambient = 0.06 * Intensity * SunVisibility;
 
     float refl = 0.0;
@@ -112,12 +121,12 @@ void main() {
     // 镜面高光（海洋/冰面）
     float spec = 0.0;
     if (SpecularStrength > 0.0) {
-        vec3 V = normalize(ViewDir);
+        vec3 V = viewDir;
         vec3 H = normalize(SunDir + V);
         spec = pow(max(dot(nrm, H), 0.0), SpecularPower) * SpecularStrength * vSpec * Intensity * (1.0 - shadow);
     }
 
-    float lit = clamp(direct + bounce + ambient + refl * 0.6, 0.0, 1.4);
+    float lit = clamp(direct + viewFill + bounce + ambient + refl * 0.6, 0.0, 1.4);
     float t = clamp(lit, 0.0, 1.0);
     vec3 lightC = mix(vec3(0.12, 0.14, 0.18), vec3(1.00, 0.52, 0.20), t);
 

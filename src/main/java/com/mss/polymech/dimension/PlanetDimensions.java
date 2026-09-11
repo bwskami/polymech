@@ -1,6 +1,8 @@
 package com.mss.polymech.dimension;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.space.RealAstroData;
+import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
@@ -126,6 +128,64 @@ public final class PlanetDimensions {
                 targetLevel(player, planetIndex), pos, player.getDeltaMovement(), player.getYRot(), player.getXRot(),
                 DimensionTransition.DO_NOTHING);
         player.changeDimension(transition);
+    }
+
+    /**
+     * 把玩家传送到太空维度中指定天体旁的"昼面观测点"。
+     * <p>
+     * 位置 = 天体游戏坐标（{@link SpaceWorld#gamePos}，保向压缩）+ 朝太阳方向 × 2.2×半径，
+     * 落点看到的是被照亮的一面，太阳在身后；天体本体在视野中占约 54°（壮观且不穿模）。
+     * 太阳本身取 +X 方向。所有天体（含气态巨行星与恒星）都可传送。
+     * </p>
+     */
+    public static boolean teleportToSpaceAbove(ServerPlayer player, int planetIndex) {
+        if (planetIndex < 0 || planetIndex >= RealAstroData.BODIES.size()) return false;
+        return teleportToSpaceAbove(player, RealAstroData.BODIES.get(planetIndex));
+    }
+
+    /** 按天体数据传送（数据驱动；索引空间由调用方负责换算）。 */
+    public static boolean teleportToSpaceAbove(ServerPlayer player, RealAstroData body) {
+        ServerLevel space = player.server.getLevel(SPACE);
+        if (space == null) return false;
+        if (body == null) return false;
+
+        double[] gp = SpaceWorld.gamePosMc(body);
+        double cx = gp[0], cy = gp[1], cz = gp[2];
+        double radiusMc = SpaceWorld.toMc(body.radiusMeters());
+
+        // 观测方向：指向太阳（看昼面）；太阳本身用 +X
+        double dirX, dirY, dirZ;
+        if (body == RealAstroData.SUN) {
+            dirX = 1; dirY = 0; dirZ = 0;
+        } else {
+            double[] sp = SpaceWorld.gamePosMc(RealAstroData.SUN); // (0,0,0)
+            double dx = sp[0] - cx, dy = sp[1] - cy, dz = sp[2] - cz;
+            double len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (len < 1e-6) { dirX = 1; dirY = 0; dirZ = 0; }
+            else { dirX = dx / len; dirY = dy / len; dirZ = dz / len; }
+        }
+        double dist = Math.max(radiusMc * 2.2, radiusMc + 150.0);
+        double px = cx + dirX * dist;
+        double py = cy + dirY * dist;
+        double pz = cz + dirZ * dist;
+
+        // 安全夹取（正常情况不会触发）
+        py = net.minecraft.util.Mth.clamp(py,
+                space.getMinBuildHeight() + 16.0, space.getMaxBuildHeight() - 16.0);
+
+        // 面向天体中心
+        double dx = cx - px, dy = cy - py, dz = cz - pz;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        // MC 视线向量: (-sin(yaw)cos(pitch), -sin(pitch), cos(yaw)cos(pitch))
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, horiz));
+
+        DimensionTransition transition = new DimensionTransition(
+                space, new Vec3(px, py, pz), Vec3.ZERO, yaw, pitch, DimensionTransition.DO_NOTHING);
+        player.changeDimension(transition);
+        // 6DOF 姿态与 vanilla 角度同步（否则相机仍看向传送前方向）
+        com.mss.polymech.space.SpacePlayerData.get(player).initFromVanilla(yaw, pitch);
+        return true;
     }
 
     private static ServerLevel targetLevel(ServerPlayer player, int planetIndex) {

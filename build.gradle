@@ -99,6 +99,13 @@ neoForge {
 
         // applies to all the run configs above
         configureEach {
+            // 关闭 IDEA 的 Kotlin 协程调试注入（ijKotlinCoroutineJvmDebugInit*.gradle 会给
+            // JavaExec 任务挂 KotlinCoroutineJvmDebugArgumentsProvider，其脚本内定义的类
+            // 在 Gradle 9.x 类加载器/配置缓存序列化下报 "Unable to load class ... not found"，
+            // 导致从 IDEA 运行/调试/同步直接失败）。该注入脚本检测到本参数即跳过挂载，
+            // 属 JetBrains 官方预留开关；本属性仅协程调试器读取，对游戏与 mod 零影响。
+            jvmArgument '-Dkotlinx.coroutines.debug=off'
+
             // Recommended logging data for a userdev environment
             // The markers can be added/remove as needed separated by commas.
             // "SCAN": For mods scan.
@@ -123,6 +130,11 @@ neoForge {
             sourceSet(sourceSets.main)
         }
     }
+}
+
+// 兜底：所有 JavaExec 类任务都带上协程调试关闭标记（同上，规避 IDEA 注入脚本的类加载 bug）
+tasks.withType(JavaExec).configureEach {
+    jvmArgs '-Dkotlinx.coroutines.debug=off'
 }
 
 // Sets up a dependency configuration called 'localRuntime'.

@@ -5168,5 +5168,7 @@
   "voltage_tier.poly_mech.uhv": "UHV",
   "voltage_tier.poly_mech.ulv": "ULV",
   "voltage_tier.poly_mech.uv": "UV",
-  "voltage_tier.poly_mech.zpm": "ZPM"
+  "voltage_tier.poly_mech.zpm": "ZPM",
+  "item.poly_mech.space_helmet": "Space Helmet",
+  "key.poly_mech.space_nav": "Space Nav Map (space)"
 }

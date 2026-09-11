@@ -54,15 +54,94 @@ public record RealAstroData(
     public static final RealAstroData NEPTUNE = new RealAstroData("neptune", "海王星", BodyType.PLANET,
             24_622_000, 2.0e5, 20_000, -4.4e12, -1.17e11, -7.63e11);
 
+    // ── 矮行星与卫星（与 GUI 星图 SolarSystem.createDefault 的天体一一对应）──
+    // 冥王星：真实 J2000 近似日心位置（黄经 253°、黄纬 15°、39.5 AU）。
+    public static final RealAstroData PLUTO = new RealAstroData("pluto", "冥王星", BodyType.PLANET,
+            1_188_300, 2.0e4, 1.0e5, -1.668e12, 1.5287e12, -5.4559e12);
+
+    // 卫星：母星真实坐标 + 真实轨道半径/相位（数据驱动，不手算绝对坐标）。
+    public static final RealAstroData PHOBOS = ofSatellite("phobos", "火卫一", MARS,
+            9.376e6, Math.toRadians(40), 11_267, 500, 0);
+    public static final RealAstroData DEIMOS = ofSatellite("deimos", "火卫二", MARS,
+            2.3463e7, Math.toRadians(190), 6_200, 300, 0);
+    public static final RealAstroData IO = ofSatellite("io", "木卫一 Io", JUPITER,
+            4.217e8, Math.toRadians(20), 1_821_600, 3.0e4, 0);
+    public static final RealAstroData EUROPA = ofSatellite("europa", "木卫二 Europa", JUPITER,
+            6.711e8, Math.toRadians(75), 1_560_800, 2.0e4, 0);
+    public static final RealAstroData GANYMEDE = ofSatellite("ganymede", "木卫三 Ganymede", JUPITER,
+            1.0704e9, Math.toRadians(140), 2_634_100, 3.0e4, 0);
+    public static final RealAstroData CALLISTO = ofSatellite("callisto", "木卫四 Callisto", JUPITER,
+            1.8827e9, Math.toRadians(210), 2_410_300, 2.0e4, 0);
+    public static final RealAstroData TITAN = ofSatellite("titan", "土卫六 Titan", SATURN,
+            1.22187e9, Math.toRadians(95), 2_574_700, 5.0e4, 6.0e5);
+    public static final RealAstroData ENCELADUS = ofSatellite("enceladus", "土卫二 Enceladus", SATURN,
+            2.3795e8, Math.toRadians(260), 252_100, 1.0e4, 0);
+    public static final RealAstroData CHARON = ofSatellite("charon", "卡戎", PLUTO,
+            1.9591e7, Math.toRadians(70), 606_000, 5.0e3, 0);
+
+    /**
+     * 卫星工厂：位置 = 母星真实坐标 + 轨道半径×(cos 相位, 0, sin 相位)。
+     * 轨道面按黄道面处理（Y 取母星 Y）；相位为确定性常量（数据表无 J2000 卫星相位）。
+     */
+    private static RealAstroData ofSatellite(String id, String name, RealAstroData parent,
+                                             double orbitMeters, double phaseRad,
+                                             double radiusMeters, double carmen, double atmo) {
+        return new RealAstroData(id, name, BodyType.PLANET, radiusMeters, carmen, atmo,
+                parent.posX() + orbitMeters * Math.cos(phaseRad),
+                parent.posY(),
+                parent.posZ() + orbitMeters * Math.sin(phaseRad));
+    }
+
+    /**
+     * 全部天体。顺序与 GUI 星图 SolarSystem.createDefault 完全一致，
+     * 但跨系统引用一律按名字/ id 查找（byName/byId），不得依赖位置序号。
+     */
     public static final List<RealAstroData> BODIES = List.of(
-            SUN, MERCURY, VENUS, EARTH, MOON, MARS, JUPITER, SATURN, URANUS, NEPTUNE);
+            SUN, MERCURY, VENUS, EARTH, MOON, MARS, PHOBOS, DEIMOS,
+            JUPITER, IO, EUROPA, GANYMEDE, CALLISTO,
+            SATURN, TITAN, ENCELADUS, URANUS, NEPTUNE, PLUTO, CHARON);
+
+    /** 卫星 → 母星（绕转对象）。日心天体不在此表中。 */
+    private static final Map<String, String> PARENT_BY_ID = Map.ofEntries(
+            Map.entry("moon", "earth"),
+            Map.entry("phobos", "mars"), Map.entry("deimos", "mars"),
+            Map.entry("io", "jupiter"), Map.entry("europa", "jupiter"),
+            Map.entry("ganymede", "jupiter"), Map.entry("callisto", "jupiter"),
+            Map.entry("titan", "saturn"), Map.entry("enceladus", "saturn"),
+            Map.entry("charon", "pluto"));
 
     private static final Map<String, RealAstroData> BY_ID = new LinkedHashMap<>();
+    private static final Map<String, RealAstroData> BY_NAME = new LinkedHashMap<>();
+
+    /** 按天体 id（英文）查索引，未找到返回 -1。 */
+    public static int indexOf(String id) {
+        for (int i = 0; i < BODIES.size(); i++) {
+            if (BODIES.get(i).id().equals(id)) return i;
+        }
+        return -1;
+    }
+
+    /** 全部天体 id（用于指令补全）。 */
+    public static List<String> bodyIds() {
+        return BODIES.stream().map(RealAstroData::id).toList();
+    }
 
     static {
         for (RealAstroData body : BODIES) {
             BY_ID.put(body.id(), body);
+            BY_NAME.put(body.name(), body);
         }
+    }
+
+    /** 卫星的母星；日心天体返回 null。 */
+    public static RealAstroData parentOf(RealAstroData body) {
+        String pid = PARENT_BY_ID.get(body.id());
+        return pid == null ? null : BY_ID.get(pid);
+    }
+
+    /** 按中文名查找（与 GUI 星图 Planet.name() 精确匹配）。未找到返回 null。 */
+    public static RealAstroData byName(String name) {
+        return BY_NAME.get(name);
     }
 
     public static RealAstroData byId(String id) {

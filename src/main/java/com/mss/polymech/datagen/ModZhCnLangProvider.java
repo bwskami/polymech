@@ -642,6 +642,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
     protected void addTranslations() {
         // 科技树
         add("key.poly_mech.tech_tree", "科技树");
+        add("key.poly_mech.space_nav", "宇宙导航星图（太空）");
 
         add("techtree.poly_mech.tech_steam", "蒸汽动力");
         add("techtree.poly_mech.tech_steam.desc", "点燃煤炭，驱动你的第一台蒸汽机器。");
@@ -784,6 +785,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
         add(ModItems.TELEPORTER.get(), "星际传送器");
+        add(ModItems.SPACE_HELMET.get(), "太空头盔");
         add(ModBlocks.MERCURY_STONE.get(), "水星地表岩");
         add(ModBlocks.VENUS_STONE.get(), "金星地表岩");
         add(ModBlocks.MOON_STONE.get(), "月球地表岩");

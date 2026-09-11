@@ -7,7 +7,9 @@ in vec3 vNrm;
 in float vDensity;
 
 uniform vec3 SunDir;
+uniform vec3 ViewDir;
 uniform float Intensity;
+uniform float ViewFillStrength;
 uniform float CasterCount;
 uniform vec3 CasterRel0, CasterRel1, CasterRel2, CasterRel3;
 uniform float CasterRad0, CasterRad1, CasterRad2, CasterRad3;
@@ -49,16 +51,22 @@ float computeShadow(vec3 rel) {
 void main() {
     vec3 nrm = normalize(vNrm);
 
-    // 光照（与行星同一套方程）
+    // 光照（与行星 BASE 层共用同一套“直射 + 相机补光”方程）
     float ndotl = dot(nrm, SunDir);
     float shadow = computeShadow(vPos);
     float direct = max(0.0, ndotl) * Intensity * (1.0 - shadow);
+
+    vec3 viewDir = normalize(ViewDir);
+    float viewDot = max(0.0, dot(nrm, viewDir));
+    float viewFill = viewDot * ViewFillStrength * Intensity * (1.0 - clamp(direct, 0.0, 1.0));
+    float visibleLight = clamp(direct + viewFill, 0.0, 1.0);
+
     // 夜面云也要可见：ambient 抬高，并给一个冷灰蓝的夜色云色
     float ambient = 0.40;
-    float shade = ambient + (1.0 - ambient) * direct;
+    float shade = ambient + (1.0 - ambient) * visibleLight;
 
     // 云色：受光偏暖金，背光偏冷蓝灰（可见，而不是死黑）
-    vec3 lightC = mix(vec3(0.35, 0.40, 0.55), vec3(1.00, 0.52, 0.20), clamp(direct, 0.0, 1.0));
+    vec3 lightC = mix(vec3(0.35, 0.40, 0.55), vec3(1.00, 0.52, 0.20), visibleLight);
     vec3 cloudColor = vec3(0.96, 0.97, 1.0) * lightC;
     float alpha = 0.55 * shade * vDensity;
 

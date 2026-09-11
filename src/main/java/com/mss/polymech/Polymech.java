@@ -36,7 +36,9 @@ import com.mss.polymech.network.PipePlacementPacket;
 import com.mss.polymech.network.MachinePlacementPacket;
 import com.mss.polymech.network.MachineTogglePacket;
 import com.mss.polymech.network.SetCellCapacityPacket;
+import com.mss.polymech.network.SpaceRotationPayload;
 import com.mss.polymech.network.SpaceTransitionSyncPacket;
+import com.mss.polymech.space.SpacePlayerData;
 import com.mss.polymech.space.SpaceTransitionHandler;
 import com.mss.polymech.network.TeleportToPlanetPacket;
 import com.mss.polymech.network.WireSyncPacket;
@@ -131,6 +133,7 @@ public class Polymech {
         ModMenuTypes.register(modEventBus);
         ModRecipeTypes.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);
+        SpacePlayerData.register(modEventBus);
         
         // 注册网络数据包处理器
         modEventBus.addListener(this::registerPayloads);
@@ -248,6 +251,12 @@ public class Polymech {
                 SpaceTransitionSyncPacket.TYPE,
                 SpaceTransitionSyncPacket.STREAM_CODEC,
                 SpaceTransitionSyncPacket::handle
+        );
+        // 太空自由旋转四元数同步（双向）
+        registrar.playBidirectional(
+                SpaceRotationPayload.TYPE,
+                SpaceRotationPayload.STREAM_CODEC,
+                SpaceRotationPayload::handle
         );
     }
 
