@@ -29,8 +29,7 @@ public final class SpaceRotationSync {
             return;
         }
         tracker.connection.send(SpaceRotationPayload.clientToServer(
-                data.bodyFacing(), data.bodyLeft(),
-                (float) data.headYaw(), (float) data.headPitch())
+                data.bodyFacing(), data.bodyLeft(), data.facing(), data.left())
                 .withEntityId(tracked.getId()));
     }
 }

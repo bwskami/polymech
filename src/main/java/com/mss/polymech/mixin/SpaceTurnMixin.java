@@ -58,6 +58,10 @@ public abstract class SpaceTurnMixin {
         // 画面看起来只有 20Hz 的台阶感（方块/场景移动一卡一卡）。
         data.facingO().set(data.facing());
         data.leftO().set(data.left());
+        // 身体也要逐帧存旧姿态：身体是逐帧跟着视线动的，而 saveOld() 只在 tick 末尾跑，
+        // 于是 partialTick 插值会在每个 tick 边界"抽"一下（身体转动时一抽一抽的来源之一）。
+        data.bodyFacingO().set(data.bodyFacing());
+        data.bodyLeftO().set(data.bodyLeft());
 
         // ── 同步 vanilla yaw/pitch 字段（供移动、渲染等用；不参与相机）──
         double newPitch = -Math.asin(clamp(facing.y, -1, 1)) * TODEG;

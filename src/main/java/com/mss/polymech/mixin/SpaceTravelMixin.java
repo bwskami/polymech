@@ -53,10 +53,30 @@ public abstract class SpaceTravelMixin {
 
         SpacePlayerData data = SpacePlayerData.get(player);
         if (!data.isInitialized()) return;
-        // 滚转作用在"身体"上（space 0.0.6 的 relRotation.rotateZ(roll)），
-        // 头挂在身体坐标系里，重算后视线跟着一起滚。
+        // 滚的是视线（绕视线前方轴），身体随后自动重算 —— 不再需要"由身体反推视线"
         data.rollBody(roll * Math.PI / 180.0);
-        data.rebuildHeadFromBody();
+    }
+
+    /**
+     * "挤过去"：正在用力推、而且被挡住（原版报水平碰撞）时，把颈部领先量收回来 ——
+     * 身体立刻对齐视线，正对洞口。
+     *
+     * <p>为什么需要：身体领先视线时是斜的，而原版 AABB 是"旋转身体盒的外包盒"，
+     * 斜着时横截面会超过一格，于是玩家想钻一格大小的洞怎么推都进不去。
+     * 身体对齐视线后横截面回到 0.6×0.6，就能挤进去。视线本身不动。</p>
+     */
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void polymech$squeezeAssist(CallbackInfo ci) {
+        LocalPlayer player = (LocalPlayer) (Object) this;
+        if (!player.level().dimension().equals(PlanetDimensions.SPACE)) return;
+        if (!player.horizontalCollision && !player.verticalCollision) return;
+        if (Math.abs(player.xxa) < 0.01f && Math.abs(player.zza) < 0.01f
+                && Math.abs(player.yya) < 0.01f) {
+            return; // 没在推就不管，保持颈部自由
+        }
+        SpacePlayerData data = SpacePlayerData.get(player);
+        if (!data.isInitialized()) return;
+        data.relaxLead(0.5); // 每 tick 减半，约 0.25s 内身体完全对齐视线
     }
 
     // ── 传送/切维度检测状态（客户端实体；respawn 后新实例自然归零）──
@@ -113,7 +133,7 @@ public abstract class SpaceTravelMixin {
                 net.neoforged.neoforge.network.PacketDistributor.sendToServer(
                         com.mss.polymech.network.SpaceRotationPayload.clientToServer(
                                 data.bodyFacing(), data.bodyLeft(),
-                                (float) data.headYaw(), (float) data.headPitch()));
+                                data.facing(), data.left()));
             }
         }
 

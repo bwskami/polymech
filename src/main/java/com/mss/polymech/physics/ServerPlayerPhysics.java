@@ -44,9 +44,12 @@ public final class ServerPlayerPhysics {
     /** 等价冲量系数 = 70 × 0.05 = 3.5（N·s per 格位移）→ Δv = 0.07·delta。 */
     private static final double MPS_IMPULSE = MPS_FORCE * MPS_FORCE_SECONDS;
     /** 地形快照刷新间隔（tick）。 */
-    private static final int TERRAIN_INTERVAL = 20;
-    /** 附近有物理体才启用物理的半径（与客户端一致）。 */
+    private static final int TERRAIN_INTERVAL = 20;    /** 附近有物理体才启用物理的半径（与客户端一致）。 */
     private static final double BODY_RANGE = 64.0;
+
+    /** 姿态伺服：每 tick 把角速度朝目标拉的比例 / 姿态误差 → 目标角速度的刚度（1/s）。 */
+    private static final double SERVO_ALPHA = 0.5;
+    private static final double SERVO_STIFFNESS = 8.0;
 
     private static final Map<UUID, Long> BODIES = new HashMap<>();
     private static final Map<UUID, Long> BODY_WORLD = new HashMap<>();
@@ -56,6 +59,52 @@ public final class ServerPlayerPhysics {
     private static final Map<UUID, Integer> LAST_CHUNK = new HashMap<>();
     private static final Map<UUID, double[]> SAFE = new HashMap<>();
     private static final Map<UUID, double[]> HALF = new HashMap<>();
+
+    /**
+     * 姿态伺服：把刚体角速度朝"运动学目标姿态（视线 − 颈部领先量）"按比例拉。
+     *
+     * <p>与客户端 {@code ClientPhysics.drivePlayerRotation} 同一套算法：不硬写姿态，
+     * 所以接触力能把身体顶偏（钻洞口时身体被障碍物推着转向），空闲时又被拉回目标姿态。
+     * 服务端每 tick 跑一次，比例取得更狠一些。</p>
+     */
+    private static void driveBodyRotation(long world, long body, SpacePlayerData data) {
+        double[] cur = new double[4];
+        if (!NativePhysics.bodyReadRotation(world, body, cur)) {
+            return;
+        }
+        org.joml.Quaternionf target = data.orientation(new org.joml.Quaternionf());
+        org.joml.Quaternionf current = new org.joml.Quaternionf(
+                (float) cur[0], (float) cur[1], (float) cur[2], (float) cur[3]);
+        // 世界系里"把当前姿态转到目标姿态"所需的旋转：R = target · current⁻¹
+        org.joml.Quaternionf r = new org.joml.Quaternionf(target).mul(current.conjugate());
+        if (r.w < 0.0f) {
+            r.set(-r.x, -r.y, -r.z, -r.w); // 取短弧
+        }
+        double w = Math.min(1.0, Math.max(-1.0, r.w));
+        double angle = 2.0 * Math.acos(w);
+        double sin = Math.sqrt(Math.max(1.0e-12, 1.0 - w * w));
+        double avx = 0.0;
+        double avy = 0.0;
+        double avz = 0.0;
+        if (angle > 1.0e-4 && sin > 1.0e-6) {
+            double k = SERVO_STIFFNESS * angle / sin;
+            avx = r.x * k;
+            avy = r.y * k;
+            avz = r.z * k;
+        }
+        double[] av = new double[3];
+        if (!NativePhysics.bodyReadAngvel(world, body, av)) {
+            return;
+        }
+        double nx = av[0] + SERVO_ALPHA * (avx - av[0]);
+        double ny = av[1] + SERVO_ALPHA * (avy - av[1]);
+        double nz = av[2] + SERVO_ALPHA * (avz - av[2]);
+        if (angle < 1.0e-3
+                && Math.abs(nx) < 1.0e-4 && Math.abs(ny) < 1.0e-4 && Math.abs(nz) < 1.0e-4) {
+            return; // 已对齐且几乎不转：别每 tick 唤醒刚体，让它能休眠
+        }
+        NativePhysics.bodySetAngvel(world, body, nx, ny, nz);
+    }
 
     private ServerPlayerPhysics() {
     }
@@ -153,11 +202,12 @@ public final class ServerPlayerPhysics {
             return false;
         }
 
-        // 碰撞体姿态跟玩家 6DOF 朝向：人滚转/俯仰时碰撞箱也要跟着转
+        // 碰撞体姿态：角速度伺服（与客户端 drivePlayerRotation 同一套）。
+        // 硬写 bodySetRotation 的话碰撞根本转不动刚体 —— 玩家想钻一格洞口会被挡在外面；
+        // 伺服则让接触力能真的把身体顶偏，空闲时再拉回目标姿态。
         SpacePlayerData data = SpacePlayerData.get(player);
         if (data.isInitialized()) {
-            org.joml.Quaternionf q = data.orientation(new org.joml.Quaternionf());
-            NativePhysics.bodySetRotation(world, body, q.x(), q.y(), q.z(), q.w(), true);
+            driveBodyRotation(world, body, data);
         }
 
         // 创造飞行：位置交回原版，但刚体保留并跟随玩家 —— 飞行中照样与飞船/建筑碰撞。

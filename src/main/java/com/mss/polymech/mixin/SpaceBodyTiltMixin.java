@@ -122,13 +122,8 @@ public abstract class SpaceBodyTiltMixin {
         }
     }
 
-    /** 身体姿态四元数，用上一帧到本帧的 slerp 做插值（近反向时直接用本帧，避免扫过 180°）。 */
+    /** 身体姿态四元数：优先用物理真实姿态（会被障碍物顶得转），没有才退回运动学值。 */
     private static Quaternionf polymech$bodyQuat(SpacePlayerData data, float partialTick) {
-        Quaternionf now = data.orientation(new Quaternionf());
-        Quaternionf old = data.orientationOld(new Quaternionf());
-        if (old.dot(now) < -0.9999f) {
-            return now;
-        }
-        return old.slerp(now, partialTick);
+        return data.bodyQuatForRender(partialTick, new Quaternionf());
     }
 }

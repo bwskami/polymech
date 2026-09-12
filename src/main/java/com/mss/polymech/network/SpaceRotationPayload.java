@@ -11,16 +11,17 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.joml.Vector3d;
 
 /**
- * 太空朝向同步包（双向）：同步<b>身体</b>基底（bodyFacing/bodyLeft）+ 头部相对身体的偏角。
+ * 太空朝向同步包（双向）：<b>身体基底 + 视线基底</b>各两个向量。
  *
- * <p>身体基底是刚体姿态（渲染身体模型、物理碰撞箱都用它）；头部偏角只有本地相机和
- * 头部零件渲染需要，但它很便宜，一起带上后远端玩家也能看到"身体跟着头转"的效果。</p>
+ * <p>为什么两个都要发：身体基底与视线基底各有用处（身体给模型/碰撞箱，视线给移动方向/头部朝向），
+ * 从一方反推另一方在俯仰 ±90° 附近会退化。两个都发，两端状态完全一致。</p>
  */
 public record SpaceRotationPayload(
         int entityId,
-        float fx, float fy, float fz,
-        float lx, float ly, float lz,
-        float headYaw, float headPitch
+        float bodyFx, float bodyFy, float bodyFz,
+        float bodyLx, float bodyLy, float bodyLz,
+        float viewFx, float viewFy, float viewFz,
+        float viewLx, float viewLy, float viewLz
 ) implements CustomPacketPayload {
 
     public static final Type<SpaceRotationPayload> TYPE =
@@ -33,23 +34,26 @@ public record SpaceRotationPayload(
                     return new SpaceRotationPayload(buf.readInt(),
                             buf.readFloat(), buf.readFloat(), buf.readFloat(),
                             buf.readFloat(), buf.readFloat(), buf.readFloat(),
-                            buf.readFloat(), buf.readFloat());
+                            buf.readFloat(), buf.readFloat(), buf.readFloat(),
+                            buf.readFloat(), buf.readFloat(), buf.readFloat());
                 }
                 @Override
                 public void encode(RegistryFriendlyByteBuf buf, SpaceRotationPayload p) {
                     buf.writeInt(p.entityId);
-                    buf.writeFloat(p.fx); buf.writeFloat(p.fy); buf.writeFloat(p.fz);
-                    buf.writeFloat(p.lx); buf.writeFloat(p.ly); buf.writeFloat(p.lz);
-                    buf.writeFloat(p.headYaw); buf.writeFloat(p.headPitch);
+                    buf.writeFloat(p.bodyFx); buf.writeFloat(p.bodyFy); buf.writeFloat(p.bodyFz);
+                    buf.writeFloat(p.bodyLx); buf.writeFloat(p.bodyLy); buf.writeFloat(p.bodyLz);
+                    buf.writeFloat(p.viewFx); buf.writeFloat(p.viewFy); buf.writeFloat(p.viewFz);
+                    buf.writeFloat(p.viewLx); buf.writeFloat(p.viewLy); buf.writeFloat(p.viewLz);
                 }
             };
 
     public static SpaceRotationPayload clientToServer(Vector3d bodyFacing, Vector3d bodyLeft,
-                                                     float headYaw, float headPitch) {
+                                                      Vector3d viewFacing, Vector3d viewLeft) {
         return new SpaceRotationPayload(-1,
                 (float) bodyFacing.x, (float) bodyFacing.y, (float) bodyFacing.z,
                 (float) bodyLeft.x, (float) bodyLeft.y, (float) bodyLeft.z,
-                headYaw, headPitch);
+                (float) viewFacing.x, (float) viewFacing.y, (float) viewFacing.z,
+                (float) viewLeft.x, (float) viewLeft.y, (float) viewLeft.z);
     }
 
     @Override
@@ -57,7 +61,8 @@ public record SpaceRotationPayload(
 
     /** 补发/转播时把 entityId 换成被观察者（clientToServer 造出来的包 entityId = -1）。 */
     public SpaceRotationPayload withEntityId(int id) {
-        return new SpaceRotationPayload(id, fx, fy, fz, lx, ly, lz, headYaw, headPitch);
+        return new SpaceRotationPayload(id, bodyFx, bodyFy, bodyFz, bodyLx, bodyLy, bodyLz,
+                viewFx, viewFy, viewFz, viewLx, viewLy, viewLz);
     }
 
     public static void handle(SpaceRotationPayload payload, IPayloadContext context) {
@@ -67,10 +72,7 @@ public record SpaceRotationPayload(
                 ServerPlayer sender = context.player() instanceof ServerPlayer sp ? sp : null;
                 if (sender == null) return;
                 apply(SpacePlayerData.get(sender), payload);
-                var fwd = new SpaceRotationPayload(sender.getId(),
-                        payload.fx, payload.fy, payload.fz,
-                        payload.lx, payload.ly, payload.lz,
-                        payload.headYaw, payload.headPitch);
+                var fwd = payload.withEntityId(sender.getId());
                 for (ServerPlayer other : sender.server.getPlayerList().getPlayers()) {
                     if (other != sender) other.connection.send(fwd);
                 }
@@ -85,6 +87,7 @@ public record SpaceRotationPayload(
     }
 
     private static void apply(SpacePlayerData data, SpaceRotationPayload p) {
-        data.applyRemote(p.fx, p.fy, p.fz, p.lx, p.ly, p.lz, p.headYaw, p.headPitch);
+        data.applyRemote(p.bodyFx, p.bodyFy, p.bodyFz, p.bodyLx, p.bodyLy, p.bodyLz,
+                p.viewFx, p.viewFy, p.viewFz, p.viewLx, p.viewLy, p.viewLz);
     }
 }
