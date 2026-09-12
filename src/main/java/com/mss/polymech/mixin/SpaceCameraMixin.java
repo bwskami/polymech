@@ -78,8 +78,13 @@ public abstract class SpaceCameraMixin {
             operation.call(self, x, y, z);
             return;
         }
-        Vector3d off = data.eyeOffset(eye, pt, new Vector3d());
-        operation.call(self, px + off.x, py + off.y, pz + off.z);
+        // 模型是绕"身体中心"（实体位置 + halfHeight，世界竖直）旋转的，所以头部位置也按同一约定：
+        //   head = 实体位置 + (0, halfHeight, 0) + Q_body · (0, 眼高 - halfHeight, 0)
+        // 少了前面那半个身高，身体一倾斜锚点就会偏离真正的头（最多差 0.9 格）——
+        // 表现就是"有时候画面中心不在头上"。
+        double half = e.getBbHeight() * 0.5;
+        Vector3d off = data.eyeOffset(eye - half, pt, new Vector3d());
+        operation.call(self, px + off.x, py + half + off.y, pz + off.z);
     }
 
     /**
@@ -132,13 +137,11 @@ public abstract class SpaceCameraMixin {
         roll = polymech$closestAngle(roll, data.getLastRoll());
         data.setLastRoll(roll);
 
-        // ── 覆盖相机旋转 ──
-        float finalRoll = (float) roll;
-        if (thirdPersonReverse) {
-            this.setRotation(yaw + 180.0F, -pitch, -finalRoll);
-        } else {
-            this.setRotation(yaw, pitch, finalRoll);
-        }
+        // ── 覆盖相机旋转：只写"头（视线）真正的朝向" ──
+        // 正面视角的翻转**交给原版**：Camera.setup 末尾会自己 setRotation(yRot+180, -xRot)
+        // 把镜头翻到人物正面。我们如果在这里也翻一次，两次翻转会互相抵消 ——
+        // 表现就是"第二人称和第三人称都是后背视角"。
+        this.setRotation(yaw, pitch, (float) roll);
     }
 
     /**

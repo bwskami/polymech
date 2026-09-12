@@ -81,7 +81,12 @@ public abstract class SpaceTravelMixin {
         LocalPlayer player = (LocalPlayer) (Object) this;
         boolean inSpace = player.level().dimension().equals(PlanetDimensions.SPACE);
         if (inSpace) {
-            SpacePlayerData.get(player).saveOld();
+            SpacePlayerData data = SpacePlayerData.get(player);
+            data.saveOld();
+            // 身体姿态每 tick 都可能变，而原版 AABB 只在 setPos 时重算 ——
+            // 站着不动/悬停飞行时它就会停在旧姿态上（"碰撞箱要动一下才刷新"）。
+            // 这里坐标不变，只是逼它重算一次盒子。
+            player.setPos(player.getX(), player.getY(), player.getZ());
         }
 
         // 传送检测：维度切换，或单 tick 位移 > 1000 格

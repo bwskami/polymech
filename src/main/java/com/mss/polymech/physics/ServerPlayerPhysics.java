@@ -82,6 +82,11 @@ public final class ServerPlayerPhysics {
         double[] pos = new double[3];
         for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
             for (ServerPlayer player : level.players()) {
+                if (player.level().dimension().equals(PlanetDimensions.SPACE)) {
+                    // 身体姿态每 tick 都可能变，而原版 AABB 只在 setPos 时重算 ——
+                    // 站着不动/悬停飞行时它会停在旧姿态上（"碰撞箱要动一下才刷新"）。
+                    player.setPos(player.getX(), player.getY(), player.getZ());
+                }
                 if (!DRIVING.contains(player.getUUID()) || player.isSpectator()
                         || player.getAbilities().flying) {
                     continue;

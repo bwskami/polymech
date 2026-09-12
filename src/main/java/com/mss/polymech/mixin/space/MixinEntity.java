@@ -1,10 +1,13 @@
 package com.mss.polymech.mixin.space;
 
 import com.mss.polymech.dimension.PlanetDimensions;
+import com.mss.polymech.space.SpacePlayerData;
 import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
@@ -96,5 +99,39 @@ public abstract class MixinEntity {
         if (!SpaceWorld.isSpace(((Entity) (Object) this).level())) {
             this.tryCheckInsideBlocks();
         }
+    }
+
+    // ── ⑤ 碰撞箱：撑到刚好包住"旋转后的身体" ──
+
+    /**
+     * 太空里玩家的碰撞箱跟着身体姿态走。
+     *
+     * <p>物理那边（Rapier）的盒子是跟着身体转的 OBB，而原版这个 AABB 是轴对齐的、不转。
+     * 于是身体一倾斜，原版盒子就既盖不住身体（头/身体看着插进方块），又会挡住本不该挡的位置。
+     * 这里把它换成"该 OBB 的最小包围 AABB"：位置与尺寸都按当前姿态算。</p>
+     *
+     * <p>直立时结果与 vanilla 逐位相同（0.6×1.8、底边正好在脚底），所以正常行走完全不受影响；
+     * 只有倾斜/躺倒时才变大变矮。</p>
+     */
+    @Inject(method = "makeBoundingBox", at = @At("HEAD"), cancellable = true)
+    private void polymech$spaceBoundingBox(CallbackInfoReturnable<AABB> cir) {
+        Entity self = (Entity) (Object) this;
+        if (!(self instanceof Player) || self.level() == null || !SpaceWorld.isSpace(self.level())) {
+            return;
+        }
+        SpacePlayerData data = SpacePlayerData.get(self);
+        if (!data.isInitialized()) {
+            return;
+        }
+        double halfW = self.getBbWidth() * 0.5;
+        double halfH = self.getBbHeight() * 0.5;
+        data.computeWorldExtents(halfW, halfH);
+        double hx = data.extHalfHorizontal();
+        double hy = data.extHalfVertical();
+        // 刚体/盒子的中心固定在 实体位置 + (0, halfH, 0)（与物理建体的平移点一致）
+        double x = self.getX(), y = self.getY(), z = self.getZ();
+        cir.setReturnValue(new AABB(
+                x - hx, y + halfH - hy, z - hx,
+                x + hx, y + halfH + hy, z + hx));
     }
 }

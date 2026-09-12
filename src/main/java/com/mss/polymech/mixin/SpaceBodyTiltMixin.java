@@ -69,7 +69,15 @@ public abstract class SpaceBodyTiltMixin {
             return;
         }
 
+        // 绕"身体中心"（脚底 + 身高/2）旋转 —— **必须和物理碰撞箱绕同一点**：
+        // Rapier 刚体的平移点就是脚底 + 身高/2，盒子挂在刚体原点上，所以碰撞箱绕身体中心转。
+        // 模型若绕脚底转，身体一倾斜两者就错开最多半个身高 —— 表现就是"头/身体直接插进方块里"。
+        // pivot 要除以 getScale()：此刻 PoseStack 里已经有 scale(getScale)，
+        // 而 getBbHeight() 本身是缩放后的尺寸，除一次才是这一层坐标系里的长度。
+        float pivot = player.getBbHeight() * 0.5F / Math.max(0.01F, player.getScale());
+        poseStack.translate(0.0F, pivot, 0.0F);
         poseStack.mulPose(polymech$bodyQuat(data, partialTick));
+        poseStack.translate(0.0F, -pivot, 0.0F);
         // yBodyRot = 0：让原版那步 Ry(180 - yBodyRot) 退化成固定的 Ry(180) 镜像补偿。
         operation.call(self, entity, poseStack, bob, 0.0F, partialTick, scale);
     }

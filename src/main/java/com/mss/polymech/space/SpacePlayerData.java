@@ -178,15 +178,25 @@ public final class SpacePlayerData {
     private double headYaw = 0.0;
     private double headPitch = 0.0;
 
-    /**
-     * 颈部活动范围：头在这个范围内自由转，<b>完全不带身体</b>；超出后身体才开始跟上。
-     *
-     * <p>（space 0.0.6 用的是 ±π/18 偏航 / ±π/180 俯仰 —— 俯仰只有 1°，
-     * 等于头刚动身体就跟着动，非常突兀。这里改成接近真实颈椎活动度：
-     * 旋转约 ±60°、屈伸约 ±45°。）</p>
-     */
-    public static final double CONE_YAW = Math.toRadians(60.0);
-    public static final double CONE_PITCH = Math.toRadians(45.0);
+    // ── 颈部活动范围（弧度）──
+    // 低头/抬头、左右转头、左右歪头是三组不同的量，不能用一个数兜住：
+    // 颈椎屈伸（上下）约 45~60°、旋转（左右转头）约 70~80°、侧倾（歪头）约 40°，
+    // 而且仰头通常比低头大一点。这里取"看着自然"的值（比极限略小）。
+    // 这几个数同时决定两件事：① 头领先到多少身体才开始跟（超出部分推给身体）；
+    //                        ② 头部零件渲染时允许的相对偏角上限。
+
+    /** 抬头（仰头）上限。 */
+    public static final double NECK_PITCH_UP = Math.toRadians(30.0);
+    /** 低头（屈颈）上限。 */
+    public static final double NECK_PITCH_DOWN = Math.toRadians(26.0);
+    /** 向右转头上限。 */
+    public static final double NECK_YAW_RIGHT = Math.toRadians(40.0);
+    /** 向左转头上限。 */
+    public static final double NECK_YAW_LEFT = Math.toRadians(42.0);
+    /** 向右歪头（侧倾）上限。 */
+    public static final double NECK_ROLL_RIGHT = Math.toRadians(15.0);
+    /** 向左歪头（侧倾）上限。 */
+    public static final double NECK_ROLL_LEFT = Math.toRadians(16.0);
 
     public Vector3d bodyFacing() {
         return bodyFacing;
@@ -226,6 +236,50 @@ public final class SpacePlayerData {
         org.joml.Quaternionf body = basisToQuat(bodyFacing, bodyLeft, new org.joml.Quaternionf());
         org.joml.Quaternionf head = basisToQuat(facing, left, new org.joml.Quaternionf());
         new org.joml.Quaternionf(body).conjugate().mul(head).getEulerAnglesZYX(out);
+        // 夹进"脖子做得到"的范围。分解出来的值在身体倾斜时会超出锥，尤其是横滚那一项
+        // （领先量是绕世界竖轴的，换算到躺倒的身体局部坐标里几乎全是横滚）。
+        // 符号约定（与模型一致）：e.x > 0 = 低头，e.y < 0 = 向右，e.z < 0 = 向右歪。
+        out.x = (float) clampRange(out.x, NECK_PITCH_UP, NECK_PITCH_DOWN);
+        out.y = (float) clampRange(out.y, NECK_YAW_RIGHT, NECK_YAW_LEFT);
+        out.z = (float) clampRange(out.z, NECK_ROLL_RIGHT, NECK_ROLL_LEFT);
+    }
+
+    // ==================== 碰撞箱（原版 AABB） ====================
+
+    private double extHalfHorizontal = 0.3;
+    private double extHalfVertical = 0.9;
+
+    /**
+     * 算出"旋转后的身体盒子"在世界轴上的半尺寸，写入下面两个 getter。
+     *
+     * <p>身体盒子在身体局部坐标里是 (halfWidth, halfHeight, halfWidth)（+X=真左、+Y=上、+Z=前）。
+     * 把它按当前身体姿态转到世界后，各世界轴的半尺寸就是三个局部轴投影的加权和 ——
+     * 这就是该 OBB 的最小包围 AABB。原版那个轴对齐的 AABB 用它来撑，
+     * 才能"看到的碰撞箱 = 身体"（直立时结果与 vanilla 逐位相同，不影响正常行走）。</p>
+     *
+     * <p>为何需要：Rapier 的碰撞盒是跟着身体转的 OBB，而原版 AABB 不转 ——
+     * 身体一倾斜，原版那个盒子就既盖不住身体（头插进方块），又会挡住本不该挡的地方。</p>
+     */
+    public void computeWorldExtents(double halfWidth, double halfHeight) {
+        // 局部轴在世界里的方向：x = 真左 = -bodyLeft，z = bodyFacing，y = z × x
+        double xx = -bodyLeft.x, xy = -bodyLeft.y, xz = -bodyLeft.z;
+        double zx = bodyFacing.x, zy = bodyFacing.y, zz = bodyFacing.z;
+        double yx = zy * xz - zz * xy;
+        double yy = zz * xx - zx * xz;
+        double yz = zx * xy - zy * xx;
+        double ex = halfWidth * Math.abs(xx) + halfHeight * Math.abs(yx) + halfWidth * Math.abs(zx);
+        double ey = halfWidth * Math.abs(xy) + halfHeight * Math.abs(yy) + halfWidth * Math.abs(zy);
+        double ez = halfWidth * Math.abs(xz) + halfHeight * Math.abs(yz) + halfWidth * Math.abs(zz);
+        extHalfHorizontal = Math.max(ex, ez);
+        extHalfVertical = ey;
+    }
+
+    public double extHalfHorizontal() {
+        return extHalfHorizontal;
+    }
+
+    public double extHalfVertical() {
+        return extHalfVertical;
     }
 
     /**
@@ -280,9 +334,10 @@ public final class SpacePlayerData {
         left.rotateAxis(appliedYaw, 0, -1, 0);
         orthonormalize();
 
-        // ── 2. 头部领先量：累加并夹在颈部锥内（超出的部分就是身体的转动量）──
-        headYaw = clampCone(headYaw + appliedYaw, CONE_YAW);
-        headPitch = clampCone(headPitch + appliedPitch, CONE_PITCH);
+        // ── 2. 头部领先量：累加并夹在颈部活动范围内（超出的部分就是身体的转动量）──
+        // 符号：headYaw > 0 = 向右，headPitch > 0 = 低头
+        headYaw = clampRange(headYaw + appliedYaw, NECK_YAW_RIGHT, NECK_YAW_LEFT);
+        headPitch = clampRange(headPitch + appliedPitch, NECK_PITCH_UP, NECK_PITCH_DOWN);
 
         // ── 3. 身体 = 视线去掉头部领先量 ──
         bodyFacing.set(facing);
@@ -299,11 +354,12 @@ public final class SpacePlayerData {
 
     private static final double TORAD = Math.PI / 180.0;
 
-    private static double clampCone(double value, double limit) {
-        if (value > limit) {
-            return limit;
+    /** 按"负方向上限 / 正方向上限"分别夹取（颈部的三个轴、上下左右各不相同）。 */
+    private static double clampRange(double value, double negativeLimit, double positiveLimit) {
+        if (value > positiveLimit) {
+            return positiveLimit;
         }
-        return value < -limit ? -limit : value;
+        return value < -negativeLimit ? -negativeLimit : value;
     }
 
     /** 主动滚转：绕身体前方轴转（Z/C 键）。 */
