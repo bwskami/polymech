@@ -1,0 +1,16 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:saturn",
+  "atmosphere_height_meters": 600000.0,
+  "carmen_line_height_meters": 50000.0,
+  "dimension": "poly_mech:titan",
+  "gravity": 0.1378607153892517,
+  "landable": true,
+  "name": "土卫六 Titan",
+  "position_meters": [
+    -8.251064929873911E11,
+    -5.17E10,
+    -1.0887827795842427E12
+  ],
+  "radius_meters": 2574700.0
+}

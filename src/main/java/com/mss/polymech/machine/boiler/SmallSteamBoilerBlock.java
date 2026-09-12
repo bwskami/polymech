@@ -100,14 +100,8 @@ public class SmallSteamBoilerBlock extends BaseEntityBlock implements BlockUIMen
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (player.isShiftKeyDown()) {
             if (level.isClientSide()) {
-                var be = level.getBlockEntity(pos);
-                if (be instanceof BaseIOBlockEntity machine) {
-                    var mc = net.minecraft.client.Minecraft.getInstance();
-                    final var screenPos = pos.immutable();
-                    final var config = machine.getSideConfig();
-                    mc.execute(() -> mc.setScreen(
-                            new com.mss.polymech.client.gui.screen.SideConfigScreen(
-                                    screenPos, config)));
+                if (level.getBlockEntity(pos) instanceof BaseIOBlockEntity machine) {
+                    com.mss.polymech.ClientHooks.sideConfigOpener.accept(pos.immutable(), machine);
                 }
             }
             return InteractionResult.SUCCESS;

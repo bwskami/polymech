@@ -4834,6 +4834,7 @@
   "item.poly_mech.sodium_persulfate_bucket": "Sodium Persulfate Bucket",
   "item.poly_mech.sodium_plasma_bucket": "Sodium Plasma Bucket",
   "item.poly_mech.soldering_alloy_bucket": "Molten Soldering Alloy Bucket",
+  "item.poly_mech.space_helmet": "Space Helmet",
   "item.poly_mech.spessartine_crushed": "Spessartine Crushed",
   "item.poly_mech.spessartine_purified": "Spessartine Purified",
   "item.poly_mech.sphalerite_crushed": "Sphalerite Crushed",
@@ -5097,6 +5098,7 @@
   "itemGroup.pipe_tab": "Ploy Mech:Pipes and Logistics",
   "itemGroup.tool_tab": "Ploy Mech:Tool",
   "key.poly_mech.open_multiblock_menu": "Open Multiblock Selection Menu",
+  "key.poly_mech.space_nav": "Space Nav Map (space)",
   "key.poly_mech.tech_tree": "Tech Tree",
   "message.poly_mech.empty_spool.disconnected": "Disconnected %d wire(s)",
   "message.poly_mech.empty_spool.no_wire": "No wires connected here",
@@ -5168,7 +5170,5 @@
   "voltage_tier.poly_mech.uhv": "UHV",
   "voltage_tier.poly_mech.ulv": "ULV",
   "voltage_tier.poly_mech.uv": "UV",
-  "voltage_tier.poly_mech.zpm": "ZPM",
-  "item.poly_mech.space_helmet": "Space Helmet",
-  "key.poly_mech.space_nav": "Space Nav Map (space)"
+  "voltage_tier.poly_mech.zpm": "ZPM"
 }

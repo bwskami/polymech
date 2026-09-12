@@ -262,3 +262,57 @@ idea {
         downloadJavadoc = true
     }
 }
+
+// ==================== 原生物理层（Rust + Rapier f64）====================
+// 说明：
+//  - 原生库默认**不参与**普通 build（没装 Rust 工具链也能正常构建，模组会自动降级）；
+//  - 需要更新物理层时执行：./gradlew copyNativePhysics
+//  - 详见 native/README.md（Windows 需要 MinGW-w64，可用 POLYMECH_MINGW 指定）
+def nativeProjectPath = new File(projectDir, 'native/polymech-physics')
+def nativeCargoToml = new File(nativeProjectPath, 'Cargo.toml')
+def nativeTargetKey = 'x86_64-pc-windows-gnu'
+def nativeReleaseDir = new File(nativeProjectPath, "target/${nativeTargetKey}/release")
+def nativeResourceDir = new File(projectDir, 'src/main/resources/natives/windows_amd64')
+
+tasks.register('buildNativePhysics', Exec) {
+    group = 'polymech'
+    description = '编译 Rust 物理原生库（Rust + Rapier f64）'
+    workingDir = nativeProjectPath
+    onlyIf { nativeCargoToml.exists() }
+
+    def mingwRoot = System.getenv('POLYMECH_MINGW') ?: "${System.properties['user.home']}/.polymech-toolchain/mingw64/mingw64"
+    def mingwGcc = new File(mingwRoot, 'bin/x86_64-w64-mingw32-gcc.exe')
+    def jdkHome = System.getenv('JAVA_HOME')
+    // Gradle 解析可执行文件名用的是**守护进程自己的 PATH**，task 里的 environment 只影响子进程，
+    // 所以 cargo 必须解析成绝对路径，否则未把 ~/.cargo/bin 加进系统 PATH 的机器上会直接
+    // "A problem occurred starting process 'command 'cargo''"。
+    def cargoExe = new File(System.properties['user.home'], '.cargo/bin/cargo.exe')
+    def cargoCmd = cargoExe.exists() ? cargoExe.absolutePath : 'cargo'
+
+    if (mingwGcc.exists()) {
+        def jdkLib = jdkHome == null ? null : new File(jdkHome, 'lib')
+        // 关键：cc1.exe 位于 libexec/ 下，而它依赖的 DLL（libgmp/libmpfr/libisl/...）全在 bin/ 里。
+        // Windows 解析 DLL 只搜「exe 自身目录 + PATH」，不把 bin/ 加进 PATH 的话，
+        // cc1 会以 0xC0000135（STATUS_DLL_NOT_FOUND）静默失败 —— gcc 只回一个 exit 1、零输出，
+        // 看起来像"链接器坏了"。cargo 同理（未进 PATH 时 Exec 直接找不到命令）。
+        def mingwBin = new File(mingwRoot, 'bin')
+        def cargoBin = new File(System.properties['user.home'], '.cargo/bin')
+        environment 'PATH', "${mingwBin};${cargoBin};" + System.getenv('PATH')
+        environment 'CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER', mingwGcc.absolutePath
+        if (jdkLib != null && jdkLib.exists()) {
+            environment 'RUSTFLAGS', "-L native=${jdkLib.absolutePath}"
+        }
+        commandLine cargoCmd, '+stable-x86_64-pc-windows-gnu', 'build', '--release', '--target', nativeTargetKey
+    } else {
+        commandLine cargoCmd, 'build', '--release'
+    }
+}
+
+tasks.register('copyNativePhysics', Copy) {
+    group = 'polymech'
+    description = '编译并把物理原生库复制到 src/main/resources/natives/<平台>/'
+    dependsOn 'buildNativePhysics'
+    from nativeReleaseDir
+    include '*.dll'
+    into nativeResourceDir
+}

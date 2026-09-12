@@ -1,0 +1,12 @@
+{
+  "type": "gas_giant",
+  "atmosphere_height_meters": 15000.0,
+  "carmen_line_height_meters": 150000.0,
+  "name": "天王星",
+  "position_meters": [
+    -6.79E11,
+    1.59E9,
+    -2.8E12
+  ],
+  "radius_meters": 2.5362E7
+}

@@ -5,10 +5,18 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
 /**
- * 太空维度 MC 坐标与真实太阳系坐标的缩放换算。
+ * 太空维度 MC 坐标与真实太阳系坐标的换算（大坐标系路线）。
  * <p>
- * 玩家 MC 实体坐标保持在太空维度里，真实太阳系坐标按 ZOOM 缩放，
- * 因此地球轨道大约在 MC 坐标 1500 格左右，既能真实比例渲染，又不会让碰撞检测爆掉。
+ * 参考 space mod 新版的做法：太空维度里拆除原版世界边界、
+ * 深空位置不进入区块系统之后，行星按<b>真实缩放坐标</b>（{@link #ZOOM}，
+ * 1 MC 格 = 10000 米）直接放在同一个 space 维度里，不再做径向压缩 ——
+ * 海王星最远约 4.4×10<sup>8</sup> 格，远小于双精度坐标的实用极限
+ * （2<sup>53</sup> ≈ 9×10<sup>15</sup>）。
+ * </p>
+ * <p>
+ * 唯一保留的妥协：非地球天体的 Y 压平到黄道面（0）。世界高度只有 ±2×10<sup>3</sup> 格，
+ * 而真实 Y 跨度达 ±1.6×10<sup>6</sup> 格；Y 只影响观测位姿，着陆走影子维度传送，
+ * 不影响轨道几何。渲染 / 遮挡 / 传送 / HUD 必须统一使用本映射，保证刚体一致。
  * </p>
  */
 public final class SpaceWorld {
@@ -16,11 +24,30 @@ public final class SpaceWorld {
     /** space mod 的 position_zoom：1 MC 格 = 10000 米。 */
     public static final double ZOOM = 10000.0;
 
+    /**
+     * 深空守卫：|x|/|z| 超过此值的位置不再进入区块系统
+     * （原版 BlockPos.asLong 只有 26 位：±33,554,431）。
+     * 守卫范围以内仍是真实（flat 空生成器）区块，供地球/火星近旁活动。
+     */
+    public static final int DEEP_SPACE_LIMIT = 33_554_431;
+
+    /** 太空维度专用边界已移除：{@code space.MixinWorldBorder} 把边界整套放开。 */
+
     private SpaceWorld() {
     }
 
     public static ResourceKey<Level> dimension() {
         return PlanetDimensions.SPACE;
+    }
+
+    /** 该 Level 是否为太空维度（ResourceKey 是注册表内化的，引用比较即可）。 */
+    public static boolean isSpace(Level level) {
+        return level != null && level.dimension() == PlanetDimensions.SPACE;
+    }
+
+    /** 是否为"深空"：方块访问直接按真空处理，不进入区块系统。 */
+    public static boolean isDeepSpace(double x, double z) {
+        return Math.abs(x) > DEEP_SPACE_LIMIT || Math.abs(z) > DEEP_SPACE_LIMIT;
     }
 
     public static double j2000Seconds() {
@@ -35,41 +62,12 @@ public final class SpaceWorld {
         return mc * ZOOM;
     }
 
-    // ===== 游戏宇宙（保向压缩）=====
-    // 真实太阳系坐标 / ZOOM 后仍远超 MC 世界的物理范围：
-    //   世界高度 -64..1984（共 2048 格），而火星 Y = -63.7 万格、木星 Y = +158 万格；
-    //   世界边界 ±29,999,984 格，而木星 X-Z 半径 8109 万格、海王星 4.47 亿格。
-    // 渲染矩阵不受世界限制（只关心相对方向），但玩家实体到不了这些位置。
-    // 因此引入统一映射 gamePos()：内太阳系（≤火星轨道）保持真实，四颗巨行星
-    // 沿各自"太阳方向"线性压缩进世界边界，非地球天体的 Y 压到黄道面（0）。
-    // 渲染 / 阴影遮挡 / 传送 / HUD 必须全部使用本映射，保证刚体一致。
-
-    /** 保持真实坐标的 X-Z 半径上限（= 火星轨道半径，格）。 */
-    public static final double KEEP_RADIUS_MC;
-    /** 压缩后允许的最大 X-Z 半径（格），小于世界边界并留出生成余量。 */
-    public static final double MAX_RADIUS_MC = 28_500_000.0;
-    /** 巨行星轨道的压缩系数。 */
-    private static final double OUTER_K;
-
-    static {
-        RealAstroData m = RealAstroData.MARS;
-        KEEP_RADIUS_MC = Math.sqrt(m.posX() * m.posX() + m.posZ() * m.posZ()) / ZOOM;
-        // 压缩系数由最远的"日心"天体推导（当前为冥王星），数据驱动；
-        // 卫星跟随母星（见 gamePos），不参与标定。
-        double rMax = 0;
-        for (RealAstroData b : RealAstroData.BODIES) {
-            if (RealAstroData.parentOf(b) != null) continue;
-            double r = Math.sqrt(b.posX() * b.posX() + b.posZ() * b.posZ()) / ZOOM;
-            if (r > rMax) rMax = r;
-        }
-        OUTER_K = (MAX_RADIUS_MC - KEEP_RADIUS_MC) / (rMax - KEEP_RADIUS_MC);
-    }
-
     /**
-     * 天体的"游戏宇宙"坐标（米，天文坐标系）。
+     * 天体的"游戏宇宙"坐标（米，天文坐标系）——大坐标系版本。
      * <p>
-     * 地球完全保持真实（玩家基准点）；其余天体 X-Z 沿原方向压缩（≤火星轨道保持真实，
-     * 巨行星线性压缩至 {@link #MAX_RADIUS_MC}），Y 压到黄道面（0，处于世界高度范围内）。
+     * 地球完全保持真实（玩家基准点）；其余天体 X-Z 不再压缩（木星/土星/天王星/海王星
+     * 位于 MC ±3×10<sup>7</sup>~4.4×10<sup>8</sup> 格，由太空维度的
+     * 边界/深空守卫 mixin 保证可达），Y 压平到黄道面（0）。
      * 所有消费方（渲染、阴影、传送、HUD、导航标记）统一使用本方法。
      * </p>
      */
@@ -79,22 +77,12 @@ public final class SpaceWorld {
         }
         RealAstroData parent = RealAstroData.parentOf(b);
         if (parent != null) {
-            // 卫星 = 母星游戏坐标 + 未压缩的真实 X-Z 偏移（轨道几何保持真实比例，
-            // 不参与径向压缩，否则卫星轨道会被压进母星内部）。
-            // Y 取母星高度（轨道面按黄道面处理，保证传送观测点可到达）。
+            // 卫星 = 母星游戏坐标 + 真实 X-Z 偏移（轨道几何保持真实比例），Y 取母星高度（0）。
             double[] pg = gamePos(parent);
             return new double[]{pg[0] + (b.posX() - parent.posX()), pg[1],
                     pg[2] + (b.posZ() - parent.posZ())};
         }
-        double x = b.posX() / ZOOM;
-        double z = b.posZ() / ZOOM;
-        double r = Math.sqrt(x * x + z * z);
-        double s = 0.0;
-        if (r > 1e-9) {
-            double r2 = r <= KEEP_RADIUS_MC ? r : KEEP_RADIUS_MC + (r - KEEP_RADIUS_MC) * OUTER_K;
-            s = r2 / r;
-        }
-        return new double[]{x * s * ZOOM, 0.0, z * s * ZOOM};
+        return new double[]{b.posX(), 0.0, b.posZ()};
     }
 
     /** {@link #gamePos} 的 MC 格版本。 */

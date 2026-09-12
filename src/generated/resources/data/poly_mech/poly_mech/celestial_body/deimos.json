@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:mars",
+  "carmen_line_height_meters": 300.0,
+  "dimension": "poly_mech:deimos",
+  "gravity": 3.05903929984197E-4,
+  "landable": true,
+  "name": "火卫二",
+  "position_meters": [
+    -1.8702310654430893E11,
+    -6.37E9,
+    8.36959256928074E10
+  ],
+  "radius_meters": 6200.0
+}

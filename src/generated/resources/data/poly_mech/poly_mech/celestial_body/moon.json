@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:earth",
+  "carmen_line_height_meters": 20000.0,
+  "dimension": "poly_mech:moon",
+  "gravity": 0.16539205610752106,
+  "landable": true,
+  "name": "月球",
+  "position_meters": [
+    1.56E10,
+    -2.361521E7,
+    -1.47E11
+  ],
+  "radius_meters": 1737500.0
+}

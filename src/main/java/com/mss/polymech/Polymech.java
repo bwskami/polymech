@@ -134,6 +134,8 @@ public class Polymech {
         ModRecipeTypes.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);
         SpacePlayerData.register(modEventBus);
+        // P2 基础框架：天体数据驱动注册表（poly_mech:celestial_body）
+        modEventBus.addListener(com.mss.polymech.space.data.ModCelestialBodies::register);
         
         // 注册网络数据包处理器
         modEventBus.addListener(this::registerPayloads);
@@ -147,6 +149,12 @@ public class Polymech {
 
         // 地球 ↔ 太空无缝切换
         NeoForge.EVENT_BUS.register(SpaceTransitionHandler.class);
+        // 太空自由旋转的朝向在客户端本地拥有（SpacePlayerData），服务端只做转播：
+        // 不注册这行的话，别的玩家看到的你永远是 vanilla 朝向。
+        NeoForge.EVENT_BUS.register(com.mss.polymech.space.SpaceRotationSync.class);
+        // 物理世界 tick 驱动与生命周期
+        NeoForge.EVENT_BUS.register(com.mss.polymech.physics.PhysicsServerTick.class);
+        NeoForge.EVENT_BUS.register(com.mss.polymech.physics.PhysicsBodyEvents.class);
 
         // 勘探命令套件（/polymech rock|veins|scan|find|expose，世界生成测试工具）
         NeoForge.EVENT_BUS.addListener(ModCommands::register);
@@ -247,10 +255,34 @@ public class Polymech {
                 ClampMeterMeasurementPacket::handle
         );
         // 无缝切换位置同步（服务端 → 客户端）
+        // 物理体方块编辑（客户端 -> 服务端）：破坏/放置物理体上的方块
+        registrar.playToServer(
+                com.mss.polymech.network.PhysicsBodyEditPacket.TYPE,
+                com.mss.polymech.network.PhysicsBodyEditPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysicsBodyEditPacket::handle
+        );
+        // 玩家推动物理体（客户端 -> 服务端）
+        registrar.playToServer(
+                com.mss.polymech.network.PhysicsBodyPushPacket.TYPE,
+                com.mss.polymech.network.PhysicsBodyPushPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysicsBodyPushPacket::handle
+        );
+        // 物理体同步（服务端 -> 客户端）：让"抠出来的建筑/飞船"在客户端可见
+        registrar.playToClient(
+                com.mss.polymech.network.PhysicsBodySyncPacket.TYPE,
+                com.mss.polymech.network.PhysicsBodySyncPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysicsBodySyncPacket::handle
+        );
         registrar.playToClient(
                 SpaceTransitionSyncPacket.TYPE,
                 SpaceTransitionSyncPacket.STREAM_CODEC,
                 SpaceTransitionSyncPacket::handle
+        );
+        // 平滑传送落点（服务端 → 客户端）：换维度重建 LocalPlayer 时对齐位置与插值状态
+        registrar.playToClient(
+                com.mss.polymech.network.SmoothTeleportPosPacket.TYPE,
+                com.mss.polymech.network.SmoothTeleportPosPacket.STREAM_CODEC,
+                com.mss.polymech.network.SmoothTeleportPosPacket::handle
         );
         // 太空自由旋转四元数同步（双向）
         registrar.playBidirectional(

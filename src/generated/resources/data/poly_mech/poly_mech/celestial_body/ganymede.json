@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:jupiter",
+  "carmen_line_height_meters": 30000.0,
+  "dimension": "poly_mech:ganymede",
+  "gravity": 0.1456102728843689,
+  "landable": true,
+  "name": "木卫三 Ganymede",
+  "position_meters": [
+    6.031800260280854E11,
+    1.58E10,
+    5.4168803985740845E11
+  ],
+  "radius_meters": 2634100.0
+}

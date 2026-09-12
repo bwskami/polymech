@@ -1,0 +1,15 @@
+{
+  "type": "planet",
+  "atmosphere_height_meters": 25000.0,
+  "carmen_line_height_meters": 250000.0,
+  "dimension": "poly_mech:venus",
+  "gravity": 0.9044559597969055,
+  "landable": true,
+  "name": "金星",
+  "position_meters": [
+    4.39E9,
+    1.69E9,
+    -1.08E11
+  ],
+  "radius_meters": 6051802.0
+}

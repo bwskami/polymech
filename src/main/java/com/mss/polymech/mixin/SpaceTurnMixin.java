@@ -11,11 +11,15 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 太空自由旋转：facing/left 双向量方案，无任何欧拉角奇点。
+ * 太空自由旋转：<b>颈部模型</b>（照 space 0.0.6 的 {@code Entity#turn} 实现）。
  *
- * <p>俯仰绕局部 left 轴；偏航绕世界竖轴，并按“屏幕 up 是否倒置”翻转偏航符号。
- * 这样保留之前世界竖轴方案“打圈不累积 roll”的优点，同时修掉倒挂 180° 后左右反向。
- * roll 仍由 Z/C 滚转键主动改变。</p>
+ * <p>鼠标输入只加在"头"上，头在自己的小锥内可以自由转；超出颈部锥（±π/18 偏航、
+ * ±π/180 俯仰）的部分被推到"身体"上 —— 现实里脖子转不动了人就转躯干。
+ * 视线 = 身体 ∘ 头部偏角（见 {@link SpacePlayerData#rebuildHeadFromBody()}）。</p>
+ *
+ * <p>这样就没有欧拉角奇点：俯仰到 ±90° 附近航向不再退化（修掉"只有朝上/朝下两个状态"），
+ * 一路翻到倒挂也连续。身体姿态由 {@code SpaceBodyTiltMixin} 用四元数直接渲染，
+ * 物理碰撞箱也跟着身体转。</p>
  */
 @Mixin(Entity.class)
 public abstract class SpaceTurnMixin {
@@ -39,24 +43,15 @@ public abstract class SpaceTurnMixin {
         double pitchInput = xRotDelta;
         double yawInput = yRotDelta;
 
+        // ── 转向（SpacePlayerData#turn）──
+        // 俯仰绕屏幕左轴、**偏航绕世界竖轴** —— 这是早就定下的硬要求：
+        // 打转绝不能让视角歪头（绕"头的 up"转的话，低头/抬头后再打转地平线就会歪）。
+        // 颈部锥在 turn() 里处理：超出 ±π/18 / ±π/180 的偏角推给身体，
+        // 于是"头先转、转不动了身体跟上"，修掉俯仰到 ±90° 附近航向退化
+        // （看起来"只有朝上/朝下两个状态"）。
+        data.turn(yawInput, pitchInput);
+
         Vector3d facing = data.facing();
-        Vector3d left = data.left();
-
-        // ── 旋转（鼠标永不产生 roll）──
-        // 俯仰：绕局部 left 轴（鼠标下 → pitchInput>0 → 负角度 → facing.y 减 → 朝下）
-        facing.rotateAxis(-0.15 * pitchInput * TORAD, left.x, left.y, left.z);
-
-        // 偏航：绕世界竖轴 (0,-1,0)，保留世界竖轴方案“打圈不累积 roll”。
-        // 倒挂后屏幕 up 反向，因此用 up = facing×left 的 y 分量翻偏航符号：
-        // roll=0 时 u.y<0 -> +1；roll=180 时 u.y>0 -> -1。
-        Vector3d up = facing.cross(left, new Vector3d());
-        double yawSign = up.y > 0 ? -1.0 : 1.0;
-        if (Math.abs(up.y) < 1.0e-6) yawSign = 1.0; // roll≈90° 的瞬时退化，保持原方向
-        facing.rotateAxis(0.15 * yawInput * yawSign * TORAD, 0, -1, 0);
-        left.rotateAxis(0.15 * yawInput * yawSign * TORAD, 0, -1, 0);
-
-        // 数值稳定：保持正交归一
-        data.orthonormalize();
 
         // 鼠标输入每帧都会走一次 turn；和 vanilla Entity.turn 一样，
         // 同步更新 old 向量。否则 Camera/Body 会用 partialTick 从旧朝向插值到新朝向，

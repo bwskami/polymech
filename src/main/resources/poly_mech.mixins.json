@@ -10,18 +10,29 @@
     "SpaceTurnMixin",
     "SpaceTravelMixin",
     "SpaceBodyTiltMixin",
-    "SpaceCameraMixin"
+    "SpaceCameraMixin",
+    "SpaceInputRotationMixin",
+    "space.MixinClientPacketListener",
+    "LevelLoadStatusManagerMixin"
   ],
   "mixins": [
-    "LivingEntityGravityMixin",
-    "GravityEntityMixin",
-    "AbstractArrowGravityMixin",
-    "BoatGravityMixin",
-    "FishingHookGravityMixin",
-    "ThrowableProjectileGravityMixin",
-    "ThrownPotionGravityMixin",
-    "ThrownExperienceBottleGravityMixin",
-    "ChunkMapUnloadSafetyMixin"
+    "space.MixinEntity",
+    "space.MixinItemEntity",
+    "space.MixinWorldBorder",
+    "space.MixinServerPlayer",
+    "ChunkMapUnloadSafetyMixin",
+    "LevelSpaceAccessMixin",
+    "LivingEntityBelowWorldMixin",
+    "PlayerTickClampMixin",
+    "ServerPacketClampMixin",
+    "ServerMoveTrustMixin",
+    "LevelBoundsMixin",
+    "LevelChunkPhysicsDirtyMixin",
+    "EntityPhysicsMoveMixin",
+    "EntityPhysicsDriveMixin",
+    "SpaceElytraMixin",
+    "SpaceFlowingFluidMixin",
+    "SpaceFallingBlockMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -31,6 +31,9 @@ public class ModDataGenerator {
         // 矿石世界生成（配置特征/放置特征/生物群系修饰器）
         generator.addProvider(event.includeServer(), new ModWorldGenProvider(packOutput, lookupProvider));
 
+        // 天体数据驱动注册表（poly_mech:celestial_body）：把 RealAstroData 导出为 JSON
+        generator.addProvider(event.includeServer(), new com.mss.polymech.datagen.ModCelestialBodyProvider(packOutput, lookupProvider));
+
         BlockTagsProvider blockTagsProvider = new ModBlockTagsProvider(packOutput, lookupProvider, existingFileHelper);
         generator.addProvider(event.includeServer(), blockTagsProvider);
         generator.addProvider(event.includeServer(), new ModItemTagsProvider(packOutput, lookupProvider, blockTagsProvider.contentsGetter(), existingFileHelper));

@@ -1,0 +1,40 @@
+package com.mss.polymech.physics;
+
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+
+/**
+ * 物理世界的 tick 驱动与生命周期。
+ * <p>挂在 NeoForge 游戏总线（由 Polymech 主类注册）。</p>
+ */
+public final class PhysicsServerTick {
+
+    private PhysicsServerTick() {
+    }
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        // 单机暂停时 IntegratedServer.tickServer 走 tickPaused()，不调 super.tickServer()，
+        // 所以这条事件本来就不会发；这里再做一道防御，语义上也更明确：
+        // 游戏暂停 = 物理世界不推进。（DedicatedServer / 已发布局域网 isPaused() 恒为 false。）
+        if (event.getServer().isPaused()) {
+            return;
+        }
+        PhysicsWorldManager.tick();
+        // 物理接管中的玩家位置每 tick 无条件回写（不能只靠 Entity.move 里的重定向）
+        ServerPlayerPhysics.writeBackAll();
+    }
+
+    @SubscribeEvent
+    public static void onServerStarted(ServerStartedEvent event) {
+        // 进存档：把上次保存的物理体重建出来（方块早已从世界移除，存档记录是唯一副本）
+        PhysicsBodyTracker.restore(event.getServer());
+    }
+
+    @SubscribeEvent
+    public static void onServerStopped(ServerStoppedEvent event) {
+        PhysicsWorldManager.shutdown();
+    }
+}

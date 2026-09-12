@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:jupiter",
+  "carmen_line_height_meters": 30000.0,
+  "dimension": "poly_mech:io",
+  "gravity": 0.18313449621200562,
+  "landable": true,
+  "name": "木卫一 Io",
+  "position_meters": [
+    6.043962683781854E11,
+    1.58E10,
+    5.411442298944404E11
+  ],
+  "radius_meters": 1821600.0
+}

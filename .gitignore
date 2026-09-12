@@ -8,3 +8,8 @@
 /src/generated/resources/.cache/
 /.qoder/
 /decompiled-space/
+# 工作备份目录：里面有 space(ARR) 的 jar 与其反编译源码、以及 Minecraft 反编译源码，
+# 都不能进版本库（只作本地参考）。
+/.wipbak/
+# 原生物理层构建产物
+native/**/target/

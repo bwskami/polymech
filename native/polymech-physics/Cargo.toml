@@ -1,0 +1,24 @@
+# Poly Mech 物理原生层（Rust）
+#
+# 依赖 Rapier（Apache-2.0，Dimforge）——仅使用其开源 crate，不包含任何第三方闭源代码。
+# 本 crate 由 Poly Mech 自行编写，通过 JNI 暴露给 Java 侧。
+[package]
+name = "polymech_physics"
+version = "0.1.0"
+edition = "2021"
+license = "All Rights Reserved"
+
+[lib]
+name = "polymech_physics"
+crate-type = ["cdylib"]
+
+[dependencies]
+# f64 精度：太空维度坐标可达 1e9 格，f32 完全不可用
+rapier3d-f64 = "0.34"
+jni = "0.21"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

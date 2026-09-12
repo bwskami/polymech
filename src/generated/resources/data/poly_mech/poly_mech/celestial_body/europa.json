@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:jupiter",
+  "carmen_line_height_meters": 20000.0,
+  "dimension": "poly_mech:europa",
+  "gravity": 0.13408790528774261,
+  "landable": true,
+  "name": "木卫二 Europa",
+  "position_meters": [
+    6.041736934611683E11,
+    1.58E10,
+    5.416482328220226E11
+  ],
+  "radius_meters": 1560800.0
+}

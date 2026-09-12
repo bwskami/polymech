@@ -1,0 +1,15 @@
+{
+  "type": "planet",
+  "atmosphere_height_meters": 8000.0,
+  "carmen_line_height_meters": 80000.0,
+  "dimension": "poly_mech:mars",
+  "gravity": 0.3793984055519104,
+  "landable": true,
+  "name": "火星",
+  "position_meters": [
+    -1.87E11,
+    -6.37E9,
+    8.37E10
+  ],
+  "radius_meters": 3389500.0
+}

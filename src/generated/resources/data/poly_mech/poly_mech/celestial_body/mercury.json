@@ -1,0 +1,14 @@
+{
+  "type": "planet",
+  "carmen_line_height_meters": 27000.0,
+  "dimension": "poly_mech:mercury",
+  "gravity": 0.3772815465927124,
+  "landable": true,
+  "name": "水星",
+  "position_meters": [
+    -5.83E9,
+    3.09E9,
+    -4.63E10
+  ],
+  "radius_meters": 2439700.0
+}

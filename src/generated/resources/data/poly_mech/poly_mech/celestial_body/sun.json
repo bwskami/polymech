@@ -1,0 +1,11 @@
+{
+  "type": "star",
+  "carmen_line_height_meters": 500000.0,
+  "name": "太阳",
+  "position_meters": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "radius_meters": 6.96E8
+}

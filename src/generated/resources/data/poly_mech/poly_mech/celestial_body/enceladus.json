@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:saturn",
+  "carmen_line_height_meters": 10000.0,
+  "dimension": "poly_mech:enceladus",
+  "gravity": 0.011522381566464901,
+  "landable": true,
+  "name": "土卫二 Enceladus",
+  "position_meters": [
+    -8.250413195838759E11,
+    -5.17E10,
+    -1.0902343350048292E12
+  ],
+  "radius_meters": 252100.0
+}

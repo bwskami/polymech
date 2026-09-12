@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:mars",
+  "carmen_line_height_meters": 500.0,
+  "dimension": "poly_mech:phobos",
+  "gravity": 5.812175222672522E-4,
+  "landable": true,
+  "name": "火卫一",
+  "position_meters": [
+    -1.8699281756730133E11,
+    -6.37E9,
+    8.370602677662842E10
+  ],
+  "radius_meters": 11267.0
+}

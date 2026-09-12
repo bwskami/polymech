@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:pluto",
+  "carmen_line_height_meters": 5000.0,
+  "dimension": "poly_mech:charon",
+  "gravity": 0.02936677634716034,
+  "landable": true,
+  "name": "卡戎",
+  "position_meters": [
+    -1.667993299483372E12,
+    1.5287E12,
+    -5.455881590481866E12
+  ],
+  "radius_meters": 606000.0
+}

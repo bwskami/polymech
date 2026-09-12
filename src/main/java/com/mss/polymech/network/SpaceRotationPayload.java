@@ -11,13 +11,16 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.joml.Vector3d;
 
 /**
- * 太空朝向同步包（双向）：同步 facing/left 双向量。
- * yaw/pitch 由 vanilla 实体同步处理，这里同步完整 6DOF 朝向所需的向量。
+ * 太空朝向同步包（双向）：同步<b>身体</b>基底（bodyFacing/bodyLeft）+ 头部相对身体的偏角。
+ *
+ * <p>身体基底是刚体姿态（渲染身体模型、物理碰撞箱都用它）；头部偏角只有本地相机和
+ * 头部零件渲染需要，但它很便宜，一起带上后远端玩家也能看到"身体跟着头转"的效果。</p>
  */
 public record SpaceRotationPayload(
         int entityId,
         float fx, float fy, float fz,
-        float lx, float ly, float lz
+        float lx, float ly, float lz,
+        float headYaw, float headPitch
 ) implements CustomPacketPayload {
 
     public static final Type<SpaceRotationPayload> TYPE =
@@ -29,24 +32,33 @@ public record SpaceRotationPayload(
                 public SpaceRotationPayload decode(RegistryFriendlyByteBuf buf) {
                     return new SpaceRotationPayload(buf.readInt(),
                             buf.readFloat(), buf.readFloat(), buf.readFloat(),
-                            buf.readFloat(), buf.readFloat(), buf.readFloat());
+                            buf.readFloat(), buf.readFloat(), buf.readFloat(),
+                            buf.readFloat(), buf.readFloat());
                 }
                 @Override
                 public void encode(RegistryFriendlyByteBuf buf, SpaceRotationPayload p) {
                     buf.writeInt(p.entityId);
                     buf.writeFloat(p.fx); buf.writeFloat(p.fy); buf.writeFloat(p.fz);
                     buf.writeFloat(p.lx); buf.writeFloat(p.ly); buf.writeFloat(p.lz);
+                    buf.writeFloat(p.headYaw); buf.writeFloat(p.headPitch);
                 }
             };
 
-    public static SpaceRotationPayload clientToServer(Vector3d facing, Vector3d left) {
+    public static SpaceRotationPayload clientToServer(Vector3d bodyFacing, Vector3d bodyLeft,
+                                                     float headYaw, float headPitch) {
         return new SpaceRotationPayload(-1,
-                (float) facing.x, (float) facing.y, (float) facing.z,
-                (float) left.x, (float) left.y, (float) left.z);
+                (float) bodyFacing.x, (float) bodyFacing.y, (float) bodyFacing.z,
+                (float) bodyLeft.x, (float) bodyLeft.y, (float) bodyLeft.z,
+                headYaw, headPitch);
     }
 
     @Override
     public Type<? extends CustomPacketPayload> type() { return TYPE; }
+
+    /** 补发/转播时把 entityId 换成被观察者（clientToServer 造出来的包 entityId = -1）。 */
+    public SpaceRotationPayload withEntityId(int id) {
+        return new SpaceRotationPayload(id, fx, fy, fz, lx, ly, lz, headYaw, headPitch);
+    }
 
     public static void handle(SpaceRotationPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
@@ -56,7 +68,9 @@ public record SpaceRotationPayload(
                 if (sender == null) return;
                 apply(SpacePlayerData.get(sender), payload);
                 var fwd = new SpaceRotationPayload(sender.getId(),
-                        payload.fx, payload.fy, payload.fz, payload.lx, payload.ly, payload.lz);
+                        payload.fx, payload.fy, payload.fz,
+                        payload.lx, payload.ly, payload.lz,
+                        payload.headYaw, payload.headPitch);
                 for (ServerPlayer other : sender.server.getPlayerList().getPlayers()) {
                     if (other != sender) other.connection.send(fwd);
                 }
@@ -71,8 +85,6 @@ public record SpaceRotationPayload(
     }
 
     private static void apply(SpacePlayerData data, SpaceRotationPayload p) {
-        data.facing().set(p.fx, p.fy, p.fz);
-        data.left().set(p.lx, p.ly, p.lz);
-        data.orthonormalize();
+        data.applyRemote(p.fx, p.fy, p.fz, p.lx, p.ly, p.lz, p.headYaw, p.headPitch);
     }
 }

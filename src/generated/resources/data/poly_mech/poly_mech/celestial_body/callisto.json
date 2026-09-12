@@ -1,0 +1,15 @@
+{
+  "type": "moon",
+  "parent": "poly_mech:jupiter",
+  "carmen_line_height_meters": 20000.0,
+  "dimension": "poly_mech:callisto",
+  "gravity": 0.12593045830726624,
+  "landable": true,
+  "name": "木卫四 Callisto",
+  "position_meters": [
+    6.02369533972295E11,
+    1.58E10,
+    5.4005865E11
+  ],
+  "radius_meters": 2410300.0
+}

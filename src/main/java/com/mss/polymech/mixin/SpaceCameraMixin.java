@@ -1,5 +1,7 @@
 package com.mss.polymech.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpacePlayerData;
 import net.minecraft.client.Camera;
@@ -16,7 +18,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * 太空自由旋转：相机直接从 facing/left 向量构建，覆盖 setRotation。
+ * 太空自由旋转：相机直接从 facing/left 向量构建，覆盖 setRotation；
+ * 第三人称/正面视角的锚点挪到"身体坐标系里的头部"。
  *
  * <p>yaw/pitch 从 facing 提取（无歧义），roll 从 left 相对"无 roll 参考系"
  * 的偏离提取，并用与上一帧的连续性约束消除 ±180° 符号跳变。
@@ -33,6 +36,51 @@ public abstract class SpaceCameraMixin {
 
     @Shadow
     protected abstract void setRotation(float yRot, float xRot, float roll);
+
+    @Shadow
+    public abstract boolean isDetached();
+
+    @Shadow
+    public abstract float getPartialTickTime();
+
+    /**
+     * 第三人称/正面：把镜头锚点从"脚底正上方 eyeHeight（世界竖直）"换成
+     * <b>身体坐标系里的眼睛位置</b>（{@code 实体位置 + Q_body·(0, eyeHeight, 0)}）。
+     *
+     * <p>相机转的是<b>头</b>的朝向，第三人称/正面本来就该站在"头的前后方"：
+     * 锚点放在头上，原版随后沿视线方向后退，镜头就正对头部 —— 人物永远在画面中心。
+     * 这样"身体绕脚底转导致人偏出画面"的问题从根上消失，模型一行都不用动。
+     * 第一人称（!detached）保持原版锚点不变。</p>
+     */
+    @WrapOperation(
+            method = "setup",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;setPosition(DDD)V")
+    )
+    private void polymech$headAnchor(Camera self, double x, double y, double z, Operation<Void> operation) {
+        Entity e = this.entity;
+        if (!this.isDetached() || !(e instanceof Player)
+                || !e.level().dimension().equals(PlanetDimensions.SPACE)) {
+            operation.call(self, x, y, z);
+            return;
+        }
+        SpacePlayerData data = SpacePlayerData.get(e);
+        if (!data.isInitialized()) {
+            operation.call(self, x, y, z);
+            return;
+        }
+        float pt = this.getPartialTickTime();
+        double px = Mth.lerp(pt, e.xo, e.getX());
+        double py = Mth.lerp(pt, e.yo, e.getY());
+        double pz = Mth.lerp(pt, e.zo, e.getZ());
+        // 原版传进来的 y = 插值后的脚底 y + 眼高，所以眼高直接减出来（不必去碰它的私有字段）
+        double eye = y - py;
+        if (eye <= 0.0) {
+            operation.call(self, x, y, z);
+            return;
+        }
+        Vector3d off = data.eyeOffset(eye, pt, new Vector3d());
+        operation.call(self, px + off.x, py + off.y, pz + off.z);
+    }
 
     /**
      * 在 vanilla 第一次 setRotation 之后，用向量计算的正确值再调一次 setRotation 覆盖。

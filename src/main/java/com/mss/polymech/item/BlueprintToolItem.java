@@ -3,7 +3,6 @@ package com.mss.polymech.item;
 import com.mss.polymech.client.BlueprintPreviewState;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.client.gui.screen.MultiblockSelectionScreen;
-import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -95,7 +94,6 @@ public class BlueprintToolItem extends Item {
     }
 
     private void openMultiblockSelectionMenu() {
-        Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> mc.setScreen(new MultiblockSelectionScreen()));
+        com.mss.polymech.ClientHooks.multiblockSelectionOpener.run();
     }
 }

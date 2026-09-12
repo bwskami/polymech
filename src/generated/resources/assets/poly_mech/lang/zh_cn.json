@@ -4834,6 +4834,7 @@
   "item.poly_mech.sodium_persulfate_bucket": "过硫酸钠桶",
   "item.poly_mech.sodium_plasma_bucket": "钠等离子体桶",
   "item.poly_mech.soldering_alloy_bucket": "熔融焊锡桶",
+  "item.poly_mech.space_helmet": "太空头盔",
   "item.poly_mech.spessartine_crushed": "粉碎锰铝榴石",
   "item.poly_mech.spessartine_purified": "洗净锰铝榴石",
   "item.poly_mech.sphalerite_crushed": "粉碎闪锌矿",
@@ -5097,6 +5098,7 @@
   "itemGroup.pipe_tab": "Ploy Mech:管道与物流相关",
   "itemGroup.tool_tab": "Ploy Mech:工具",
   "key.poly_mech.open_multiblock_menu": "打开多方块选择菜单",
+  "key.poly_mech.space_nav": "宇宙导航星图（太空）",
   "key.poly_mech.tech_tree": "科技树",
   "message.poly_mech.empty_spool.disconnected": "已断开 %d 根电线",
   "message.poly_mech.empty_spool.no_wire": "该节点没有连接电线",
@@ -5168,7 +5170,5 @@
   "voltage_tier.poly_mech.uhv": "UHV",
   "voltage_tier.poly_mech.ulv": "ULV",
   "voltage_tier.poly_mech.uv": "UV",
-  "voltage_tier.poly_mech.zpm": "ZPM",
-  "item.poly_mech.space_helmet": "太空头盔",
-  "key.poly_mech.space_nav": "宇宙导航星图（太空）"
+  "voltage_tier.poly_mech.zpm": "ZPM"
 }

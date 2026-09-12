@@ -111,14 +111,8 @@ public class BatteryBlock extends BaseEntityBlock implements GridNodeBlock, Bloc
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (player.isShiftKeyDown()) {
             if (level.isClientSide()) {
-                var be = level.getBlockEntity(pos);
-                if (be instanceof BatteryBlockEntity battery) {
-                    var mc = net.minecraft.client.Minecraft.getInstance();
-                    final var screenPos = pos.immutable();
-                    final var config = battery.getSideConfig();
-                    mc.execute(() -> mc.setScreen(
-                            new com.mss.polymech.client.gui.screen.SideConfigScreen(
-                                    screenPos, config)));
+                if (level.getBlockEntity(pos) instanceof BatteryBlockEntity battery) {
+                    com.mss.polymech.ClientHooks.sideConfigOpener.accept(pos.immutable(), battery);
                 }
             }
             return InteractionResult.SUCCESS;
