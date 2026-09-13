@@ -293,6 +293,13 @@ public class Polymech {
                 com.mss.polymech.network.SyncPhysicsBodyAckPacket.STREAM_CODEC,
                 com.mss.polymech.network.SyncPhysicsBodyAckPacket::handle
         );
+        // 物理体上的挖掘进度（服务端 -> 客户端）：生存模式按硬度挖，进度由服务端算，
+        // 客户端拿它画裂纹（照 space 0.1.3 的 SyncPhysicalBlockBreakProgress）
+        registrar.playToClient(
+                com.mss.polymech.network.PhysicsBodyBreakProgressPacket.TYPE,
+                com.mss.polymech.network.PhysicsBodyBreakProgressPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysicsBodyBreakProgressPacket::handle
+        );
         registrar.playToClient(
                 SpaceTransitionSyncPacket.TYPE,
                 SpaceTransitionSyncPacket.STREAM_CODEC,

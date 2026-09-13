@@ -160,6 +160,40 @@ public final class NativePhysics {
                                                    long[] cells,
                                                    double friction, double restitution);
 
+    // ==================== 碰撞组（ABI 4 起） ====================
+
+    /**
+     * 挂盒碰撞体并指定<b>碰撞组</b>（membership / filter 位掩码）。
+     *
+     * <p><b>Rapier 的交互判定是双向的</b>：A 与 B 交互 ⟺
+     * {@code (A.membership & B.filter) != 0} 且 {@code (B.membership & A.filter) != 0}。
+     * 所以"让两边互相忽略"必须<b>两边都设</b>，只改一边不生效。</p>
+     *
+     * <p><b>space 0.1.3 的分组方案</b>（照 {@code docs/space-decompile.md}）：</p>
+     * <ul>
+     *   <li>地形 / 一类物理体：{@code (1, -1)} —— filter 全 1，与谁都交互；</li>
+     *   <li>另一类物理体：{@code (4, -1)}；</li>
+     *   <li>玩家主碰撞体：{@code (2, 5)}；玩家的"兄弟"碰撞体：{@code (5, 5)} ——
+     *       两者同位置同尺寸，靠分组<b>互不作用</b>（否则求解器会把它们弹开）。</li>
+     * </ul>
+     *
+     * <p>本项目的默认（不带 Grouped 的版本）等价于 {@code membership = 1, filter = -1}，
+     * 也就是"与所有组交互" —— <b>保持旧行为</b>。</p>
+     *
+     * @return 碰撞体 id；失败返回 -1
+     */
+    public static native long colliderAttachCuboidGrouped(long world, long body,
+                                                          double hx, double hy, double hz,
+                                                          double friction, double restitution,
+                                                          int membership, int filter);
+
+    /** 挂体素碰撞体并指定碰撞组（语义同 {@link #colliderAttachCuboidGrouped}）。 */
+    public static native long colliderAttachVoxelsGrouped(long world, long body,
+                                                          double cellSizeX, double cellSizeY, double cellSizeZ,
+                                                          long[] cells,
+                                                          double friction, double restitution,
+                                                          int membership, int filter);
+
     /**
      * 把网格坐标打包进一个 long（各占 21 位有符号，范围 ±1,048,575）。
      * 与 Rust 侧 {@code sign21} 解包逻辑对应。

@@ -1,6 +1,8 @@
 package com.mss.polymech.client.physics;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.SheetedDecalTextureGenerator;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mss.polymech.Polymech;
 import com.mss.polymech.physics.PhysicsClientHooks;
 import net.minecraft.client.Minecraft;
@@ -9,6 +11,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
@@ -63,6 +66,7 @@ public final class PhysicsBodyRenderer {
             if (!CACHE.isEmpty()) {
                 CACHE.clear();
             }
+            clearBreakProgress();
             return;
         }
         Minecraft mc = Minecraft.getInstance();
@@ -111,12 +115,25 @@ public final class PhysicsBodyRenderer {
             // 方块实体（箱子/熔炉/告示牌…）：它们的方块模型是空的（builtin/entity），
             // 只烘方块模型就会整个透明 —— 必须就着同一份 pose 调原版 BE 渲染器。
             renderBlockEntities(pose, buffers, body, level, partialTick);
+            // ⚠ 顺序要紧：先把这一体的方块顶点刷出去，再画裂纹。
+            // 裂纹是盖在**那一格表面**上的贴花，与方块面几何完全重合 ——
+            // 如果方块还留在 buffer 里（等到循环结束才 endBatch），后画的方块面会把
+            // 先画的裂纹整片盖掉，表现就是"进度在涨、裂纹死活看不见"。
+            // 原版的顺序也是先刷方块层（endLastBatch）再画破坏层。
+            buffers.endBatch();
+            // 挖掘裂纹：正在被挖的那一格盖一层 destroy_stage_N（照 space 的
+            // SheetedDecalTextureGenerator + ModelBakery.DESTROY_TYPES）
+            renderBreakingOverlays(pose, mc, body, level);
             pose.popPose();
         }
         buffers.endBatch();
 
         if (CACHE.size() > live.size()) {
             CACHE.keySet().removeIf(id -> !live.contains(id));
+        }
+        // 裂纹进度也要跟着体清理：体没了却留着进度，下次同 id 复用会立刻显示一段假裂纹
+        if (!BREAK_PROGRESS.isEmpty()) {
+            BREAK_PROGRESS.keySet().removeIf(cell -> !live.contains(cell.bodyId()));
         }
         // 方块实体实例缓存按体清理：刚体没了就没人再引用那些 BE 了
         if (!BE_CACHE.isEmpty()) {
@@ -178,6 +195,80 @@ public final class PhysicsBodyRenderer {
             pose.translate(entry.dx(), entry.dy(), entry.dz());
             renderer.render(be, partialTick, pose, buffers, 15728880, OverlayTexture.NO_OVERLAY);
             pose.popPose();
+        }
+    }
+
+    /**
+     * 正在被挖的格子 → 进度（0..1）。
+     *
+     * <p>按<b>格子</b>存而不是"我自己当前的目标"：原版的破坏进度是广播给周围玩家的，
+     * 所以别人挖哪一格、挖到几分，我们也要看得见。数据来自服务端的
+     * {@code PhysicsBodyBreakProgressPacket}（进度由服务端算，客户端不做权威判断）。</p>
+     */
+    private static final Map<BreakCell, Float> BREAK_PROGRESS = new HashMap<>();
+
+    /** 一格方块的身份（刚体 id + 局部坐标）。 */
+    public record BreakCell(long bodyId, int dx, int dy, int dz) {
+    }
+
+    /** 服务端进度包入口：progress < 0 表示"这格不用画裂纹了"。 */
+    public static void acceptBreakProgress(long bodyId, int dx, int dy, int dz, float progress) {
+        BreakCell cell = new BreakCell(bodyId, dx, dy, dz);
+        if (progress < 0.0F) {
+            BREAK_PROGRESS.remove(cell);
+        } else {
+            BREAK_PROGRESS.put(cell, progress);
+        }
+    }
+
+    private static void clearBreakProgress() {
+        BREAK_PROGRESS.clear();
+    }
+
+    /**
+     * 正在挖的那一格盖一层裂纹（{@code destroy_stage_0..9}）。
+     *
+     * <p><b>为什么不能用原版的破坏进度渲染</b>：那是
+     * {@code ClientLevel.destroyBlockProgress(...)} + {@code LevelRenderer} 按<b>世界坐标</b>画的，
+     * 而且会去读那一格的真实方块状态 —— 物理体的方块不在世界里（那里是空气），
+     * 所以原版通道既找不到方块也拿不到状态。</p>
+     *
+     * <p>做法照 space 0.1.3 的 {@code PhysicalBodyInteractionClient#renderBreakingProgress}：
+     * 在<b>刚体的 pose 里</b>把那格平移到位，用 {@link SheetedDecalTextureGenerator}
+     * 把裂纹贴花生成器套在 {@code DESTROY_TYPES.get(stage)} 的顶点流上，
+     * 再让原版 {@code BlockRenderer} 按真实方块模型吐顶点 —— 贴花生成器会把顶点投影到方块表面，
+     * 所以随刚体旋转也正确。</p>
+     */
+    private static void renderBreakingOverlays(PoseStack pose, Minecraft mc,
+                                               ClientPhysicsWorld.ClientBody body, Level level) {
+        if (BREAK_PROGRESS.isEmpty()) {
+            return;
+        }
+        java.util.Iterator<Map.Entry<BreakCell, Float>> it = BREAK_PROGRESS.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<BreakCell, Float> entry = it.next();
+            BreakCell cell = entry.getKey();
+            float progress = entry.getValue();
+            if (cell.bodyId() != body.id() || progress <= 0.0F) {
+                continue;
+            }
+            BlockState state = stateAt(body, cell.dx(), cell.dy(), cell.dz());
+            if (state == null || state.isAir()) {
+                // 那一格已经没了（被谁挖掉了，而"清除"的包没到/丢包）：直接把进度丢掉，
+                // 否则会一直挂着一张画不出来的裂纹（也不会刷日志刷屏）。
+                it.remove();
+                continue;
+            }
+            int stage = Math.min(9, (int) (progress * 10.0F));
+            var crumbling = mc.renderBuffers().crumblingBufferSource();
+            pose.pushPose();
+            pose.translate(cell.dx(), cell.dy(), cell.dz());
+            VertexConsumer breaking = new SheetedDecalTextureGenerator(
+                    crumbling.getBuffer(ModelBakery.DESTROY_TYPES.get(stage)), pose.last(), 1.0F);
+            mc.getBlockRenderer().renderBreakingTexture(state, BlockPos.ZERO, level, pose, breaking,
+                    net.neoforged.neoforge.client.model.data.ModelData.EMPTY);
+            pose.popPose();
+            crumbling.endBatch();
         }
     }
 
@@ -289,6 +380,7 @@ public final class PhysicsBodyRenderer {
             ClientPhysicsWorld.clear();
             CACHE.clear();
             BE_CACHE.clear();
+            clearBreakProgress();
         }
     }
 
@@ -304,6 +396,8 @@ public final class PhysicsBodyRenderer {
             PhysicsClientHooks.bodySyncConsumer = ClientPhysicsWorld::accept;
             PhysicsClientHooks.bodyBlockEntityConsumer = ClientPhysicsWorld::acceptBlockEntities;
             PhysicsClientHooks.bodyMoveBatchConsumer = ClientPhysicsWorld::acceptMoveBatch;
+            PhysicsClientHooks.breakProgressConsumer = packet ->
+                    acceptBreakProgress(packet.bodyId(), packet.dx(), packet.dy(), packet.dz(), packet.progress());
             // space 式"物理替代移动"：由客户端物理世界接管本地玩家的位移
             PhysicsClientHooks.movementDriver = (entity, delta) ->
                     entity instanceof net.minecraft.client.player.LocalPlayer player

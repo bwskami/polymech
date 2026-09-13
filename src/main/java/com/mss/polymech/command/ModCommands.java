@@ -255,6 +255,8 @@ public class ModCommands {
                                         IntegerArgumentType.getInteger(ctx, "steps")))))
                 .then(Commands.literal("voxeltest")
                         .executes(ctx -> physicsVoxelTest(ctx.getSource())))
+                .then(Commands.literal("grouptest")
+                        .executes(ctx -> physicsGroupTest(ctx.getSource())))
                 .then(Commands.literal("terrain")
                         .executes(ctx -> physicsTerrainStatus(ctx.getSource()))
                         .then(Commands.literal("stop")
@@ -336,6 +338,16 @@ public class ModCommands {
                                         .executes(ctx -> physicsLockRot(ctx.getSource(),
                                                 LongArgumentType.getLong(ctx, "id"),
                                                 com.mojang.brigadier.arguments.BoolArgumentType.getBool(ctx, "locked"))))))
+                .then(Commands.literal("collisiongroups")
+                        .then(Commands.argument("id", LongArgumentType.longArg(1))
+                                .executes(ctx -> physicsCollisionGroupsQuery(ctx.getSource(),
+                                        LongArgumentType.getLong(ctx, "id")))
+                                .then(Commands.argument("membership", IntegerArgumentType.integer())
+                                        .then(Commands.argument("filter", IntegerArgumentType.integer())
+                                                .executes(ctx -> physicsCollisionGroups(ctx.getSource(),
+                                                        LongArgumentType.getLong(ctx, "id"),
+                                                        IntegerArgumentType.getInteger(ctx, "membership"),
+                                                        IntegerArgumentType.getInteger(ctx, "filter")))))))
                 .then(Commands.literal("bodies")
                         .executes(ctx -> physicsBodyList(ctx.getSource())))
                 .then(Commands.literal("entities")
@@ -439,6 +451,7 @@ public class ModCommands {
                             + "（投影里被改过、还没搬到刚体的区块）"), false);
             source.sendSuccess(() -> Component.literal(
                     "  掉落物搬运：成功 " + com.mss.polymech.physics.ProjectionManager.relocatedDropCount()
+                            + " / 经验球 " + com.mss.polymech.physics.ProjectionManager.relocatedOrbCount()
                             + " / 销毁垃圾 " + com.mss.polymech.physics.ProjectionManager.discardedDropCount()
                             + "（销毁=归属不到任何物理体，留在隐藏维度也没人要）"), false);
             source.sendSuccess(() -> Component.literal(String.format(
@@ -608,6 +621,51 @@ public class ModCommands {
             source.sendSuccess(() -> Component.literal("  " + line), false);
         }
         return described.size();
+    }
+
+    /**
+     * /polymech physics collisiongroups &lt;id&gt; &lt;membership&gt; &lt;filter&gt;：
+     * 设置物理体的碰撞组并立刻重建它的碰撞体。
+     *
+     * <p>Rapier 的判定是<b>双向</b>的：A 与 B 交互 ⟺ {@code (A.mem & B.filter) != 0 且 (B.mem & A.filter) != 0}，
+     * 两边都得放行才碰得上。拿两个极端值验证最直观：</p>
+     * <ul>
+     *   <li>{@code 1 -1} —— 默认：membership=1、filter=全 1，与所有组交互（等价于没设过）；</li>
+     *   <li>{@code 1 0}  —— 幽灵：filter 空集，跟谁都碰不上，人可以直接穿过去。</li>
+     * </ul>
+     *
+     * <p>只对物理体（方块构成的刚体）生效，玩家/实体的碰撞体不走这里。
+     * 设置只活在本次运行内，不会写进存档 —— 重启服务器后全部回到默认（调试用足够了）。</p>
+     */
+    private static int physicsCollisionGroups(CommandSourceStack source, long id, int membership, int filter) {
+        if (!com.mss.polymech.physics.PhysicsNatives.hasCollisionGroups()) {
+            source.sendFailure(Component.literal("原生库不支持碰撞组（需要 ABI ≥ "
+                    + com.mss.polymech.physics.PhysicsNatives.MIN_ABI_COLLISION_GROUPS + "）："
+                    + com.mss.polymech.physics.PhysicsNatives.status()));
+            return 0;
+        }
+        if (!com.mss.polymech.physics.PhysicsBodyTracker.setCollisionGroups(id, membership, filter)) {
+            source.sendFailure(Component.literal("设置失败：没有 id=" + id + " 的物理体（用 /polymech physics bodies 看看现有哪些）"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("物理体 " + id + " 碰撞组已设为 membership=" + membership
+                + " filter=" + filter + "（碰撞体已重建，立即生效）"), true);
+        return 1;
+    }
+
+    /** /polymech physics collisiongroups &lt;id&gt;：查该物理体当前登记的碰撞组。 */
+    private static int physicsCollisionGroupsQuery(CommandSourceStack source, long id) {
+        if (com.mss.polymech.physics.PhysicsBodyTracker.levelOf(id) == null) {
+            source.sendFailure(Component.literal("没有 id=" + id + " 的物理体（用 /polymech physics bodies 看看现有哪些）"));
+            return 0;
+        }
+        int[] groups = com.mss.polymech.physics.PhysicsBodyTracker.collisionGroupsOf(id);
+        String text = groups == null
+                ? "物理体 " + id + " 未登记碰撞组 → 默认（与所有组交互）"
+                : "物理体 " + id + " 碰撞组 membership=" + groups[0] + " filter=" + groups[1];
+        source.sendSuccess(() -> Component.literal(text + "；原生支持="
+                + com.mss.polymech.physics.PhysicsNatives.hasCollisionGroups()), false);
+        return 1;
     }
 
     /** /polymech physics attach <目标>：把实体交给物理层驱动。 */
@@ -916,6 +974,76 @@ public class ModCommands {
                     pass ? "§a✔ 体素碰撞体工作正常（方块区域 → Rapier Voxels → 正确落点）"
                          : "§e⚠ 落点偏离预期（体素坐标约定或形状参数需校正）"), false);
             return pass ? 1 : 0;
+        } finally {
+            com.mss.polymech.physics.NativePhysics.worldDestroy(world);
+        }
+    }
+
+    /**
+     * /polymech physics grouptest —— 用一对 A/B 世界验证碰撞组<b>真的生效</b>
+     * （而不是"符号存在、参数被忽略"）。
+     *
+     * <p>A：平台 filter=0（空集，与谁都交互不了）→ 落体应当<b>穿过去</b>；<br>
+     * B：平台 filter=-1（全放行，默认）→ 落体应当<b>停在平台上</b>。</p>
+     *
+     * <p>注意这里只改了<b>平台一侧</b>的 filter 就让交互失效 —— 这正是 Rapier 的双向语义
+     * （{@code (A.mem & B.filter) != 0 && (B.mem & A.filter) != 0}）在起作用。</p>
+     */
+    private static int physicsGroupTest(CommandSourceStack source) {
+        if (!com.mss.polymech.physics.PhysicsNatives.hasCollisionGroups()) {
+            source.sendFailure(Component.literal("原生层没有碰撞组能力（需要 ABI ≥ "
+                    + com.mss.polymech.physics.PhysicsNatives.MIN_ABI_COLLISION_GROUPS + "）："
+                    + com.mss.polymech.physics.PhysicsNatives.status()));
+            return 0;
+        }
+        // 落体组固定 (2, -1)：它愿意碰平台（1 & -1 != 0），成不成全看平台那一侧
+        double ghostY = groupProbe(1, 0, 2, -1);
+        double normalY = groupProbe(1, -1, 2, -1);
+
+        boolean passedThrough = ghostY < -10.0;               // 穿过去了（5 秒自由落体 ≈ -116）
+        boolean restedOnTop = Math.abs(normalY - 0.5) < 0.08; // 停在平台顶面（顶面 y=0，半边长 0.5）
+        boolean pass = passedThrough && restedOnTop;
+
+        source.sendSuccess(() -> Component.literal(String.format(
+                "碰撞组: 幽灵平台(filter=0) 落体 y=%.2f（期望 < -10，穿过）| 默认平台(filter=-1) 落体 y=%.4f（期望 0.5，停住）",
+                ghostY, normalY)), false);
+        source.sendSuccess(() -> Component.literal(pass
+                ? "§a✔ 碰撞组生效（filter=0 确实「谁都碰不到」）"
+                : "§e⚠ 碰撞组没生效或语义不符（查 InteractionGroups 的 membership/filter 顺序与 InteractionTestMode）"), false);
+        return pass ? 1 : 0;
+    }
+
+    /**
+     * 建一个"平台 + 落体"世界跑 300 步（5 秒），返回落体的最终 y。
+     *
+     * @param platformMem    平台 membership
+     * @param platformFilter 平台 filter（0 = 谁都不碰）
+     * @param cubeMem        落体 membership
+     * @param cubeFilter     落体 filter
+     */
+    private static double groupProbe(int platformMem, int platformFilter, int cubeMem, int cubeFilter) {
+        long world = com.mss.polymech.physics.NativePhysics.worldCreate(0.0, -9.8, 0.0);
+        if (world <= 0) {
+            return Double.NaN;
+        }
+        try {
+            com.mss.polymech.physics.NativePhysics.worldSetTimestep(world, 1.0 / 60.0);
+            // 平台：半长 10×0.5×10，中心 y=-0.5 → 顶面正好在 y=0
+            long ground = com.mss.polymech.physics.NativePhysics.bodyCreate(world,
+                    com.mss.polymech.physics.NativePhysics.BODY_FIXED, 0, -0.5, 0, 0, 0, 0, 1, 0);
+            com.mss.polymech.physics.NativePhysics.colliderAttachCuboidGrouped(world, ground,
+                    10, 0.5, 10, 0.8, 0.0, platformMem, platformFilter);
+            // 落体：半边长 0.5，从 y=6 自由落体
+            long cube = com.mss.polymech.physics.NativePhysics.bodyCreate(world,
+                    com.mss.polymech.physics.NativePhysics.BODY_DYNAMIC, 0, 6, 0, 0, 0, 0, 1, 0);
+            com.mss.polymech.physics.NativePhysics.colliderAttachCuboidGrouped(world, cube,
+                    0.5, 0.5, 0.5, 0.6, 0.0, cubeMem, cubeFilter);
+            for (int i = 0; i < 300; i++) {
+                com.mss.polymech.physics.NativePhysics.worldStep(world);
+            }
+            double[] pos = new double[3];
+            com.mss.polymech.physics.NativePhysics.bodyReadTranslation(world, cube, pos);
+            return pos[1];
         } finally {
             com.mss.polymech.physics.NativePhysics.worldDestroy(world);
         }

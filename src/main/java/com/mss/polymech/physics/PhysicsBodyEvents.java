@@ -42,6 +42,7 @@ public final class PhysicsBodyEvents {
     public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerPlayerPhysics.forget(player);
+            PhysicsBodyInteraction.forget(player); // 挖掘进度也要丢，否则换维度回来裂纹还在
             RESEND_AT.put(player.getUUID(), player.tickCount + 40);
             PhysicsBodyTracker.sendAllTo(player);
         }
@@ -65,6 +66,7 @@ public final class PhysicsBodyEvents {
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerPlayerPhysics.forget(player);
+            PhysicsBodyInteraction.forget(player);
             PhysicsBodyTracker.forgetAcks(player); // 可靠握手的待确认表一并清掉
             RESEND_AT.remove(player.getUUID());
         }

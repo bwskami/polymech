@@ -27,8 +27,33 @@ import java.util.Locale;
  */
 public final class PhysicsNatives {
 
-    /** Java 侧期望的 ABI 版本，必须与 Rust 侧 ABI_VERSION 一致。 */
+    /**
+     * Java 侧要求的<b>最低</b>原生 ABI 版本（不是"必须相等"）。
+     *
+     * <p>为什么用"最低"而不是"严格相等"：原生层新增函数时，Java 与 dll 的更新是分开的
+     * （dll 要装 Rust + MinGW 重编）。严格相等会让"Java 已更新、dll 还没重编"这段窗口里
+     * <b>整个物理层被停用</b>，代价太大。改成最低版本后：</p>
+     * <ul>
+     *   <li>dll 低于最低要求 → 拒绝（真的不兼容，必须重编）；</li>
+     *   <li>dll 高于最低要求 → 放行（按约定原生层只做加法，向后兼容）；</li>
+     *   <li>新增函数用独立的 {@code MIN_ABI_*} 常量逐个把关，例如
+     *       {@link #hasCollisionGroups()}。</li>
+     * </ul>
+     *
+     * <p>这个数同时决定原生库的解压目录（见下方 {@code abi<版本>} 路径）。</p>
+     */
     public static final int EXPECTED_ABI = 3;
+
+    /** 碰撞组函数（{@code colliderAttachCuboidGrouped} 等）需要的最低 ABI。 */
+    public static final int MIN_ABI_COLLISION_GROUPS = 4;
+
+    /** 实际加载到的原生 ABI；未加载为 -1。 */
+    private static volatile int loadedAbi = -1;
+
+    /** 原生层是否提供碰撞组函数（需要 ABI ≥ {@link #MIN_ABI_COLLISION_GROUPS}）。 */
+    public static boolean hasCollisionGroups() {
+        return available && loadedAbi >= MIN_ABI_COLLISION_GROUPS;
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger("PolyMech/Physics");
     private static final String LIB_BASE_NAME = "polymech_physics";
@@ -81,12 +106,16 @@ public final class PhysicsNatives {
             }
         }
 
-        // ABI 校验
+        // ABI 校验：判"低于最低要求"而不是"严格相等"——
+        // 这样"Java 先加了新函数、dll 还没重编"时物理层仍能照常跑，
+        // 新函数由 MIN_ABI_* 单独把关（见 hasCollisionGroups）。
+        // 反之 dll 比 Java 新则天然兼容（按约定只做加法）。
         try {
             int abi = NativePhysics.abiVersion();
-            if (abi != EXPECTED_ABI) {
+            loadedAbi = abi;
+            if (abi < EXPECTED_ABI) {
                 available = false;
-                status = "ABI 不匹配：原生=" + abi + "，Java 期望=" + EXPECTED_ABI;
+                status = "ABI 过低：原生=" + abi + "，Java 最低要求=" + EXPECTED_ABI;
                 LOGGER.error("[PolyMech] {}", status);
                 return false;
             }

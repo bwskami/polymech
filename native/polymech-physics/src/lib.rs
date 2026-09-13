@@ -12,12 +12,16 @@
 use jni::objects::{JClass, JDoubleArray, JLongArray};
 use jni::sys::{jboolean, jdouble, jint, jlong, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
+use rapier3d_f64::prelude::{Group, InteractionGroups, InteractionTestMode};
 use rapier3d_f64::prelude::*;
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
 /// ABI 版本：任何导出函数签名/语义变更都必须 +1。
-pub const ABI_VERSION: jint = 3;
+///
+/// 4：新增 `colliderAttachCuboidGrouped` / `colliderAttachVoxelsGrouped`（带碰撞组）。
+/// Java 侧 `PhysicsNatives.EXPECTED_ABI` 必须同步改成 4，否则加载器会拒绝启用物理层。
+pub const ABI_VERSION: jint = 4;
 
 /// 世界内刚体数量上限（防御非法输入）。
 const MAX_BODIES_PER_WORLD: usize = 65_536;
@@ -449,6 +453,73 @@ pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_colliderAttac
     }
 }
 
+/// 给刚体挂盒碰撞体，并指定**碰撞组**（membership / filter 位掩码）。
+///
+/// Rapier 的交互判定是**双向**的：A 与 B 交互 ⟺ `(A.membership & B.filter) != 0`
+/// 且 `(B.membership & A.filter) != 0`。所以只改一边的 filter 不生效，两边都要设。
+///
+/// 参考 space 0.1.3 的分组（见 `docs/space-decompile.md`）：
+/// 地形/一类体 `(1, -1)`、另一类体 `(4, -1)`、玩家主碰撞体 `(2, 5)`、
+/// 玩家"兄弟"碰撞体 `(5, 5)` —— 同位置的两个盒子靠分组**互不作用**，否则求解器会把它们弹开。
+///
+/// 默认（`colliderAttachCuboid`）等价于 `membership = 1, filter = -1`（与所有组交互），
+/// 也就是**保持旧行为**；要改行为的调用方才用这个带组版本。
+#[no_mangle]
+pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_colliderAttachCuboidGrouped(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    body_id: jlong,
+    hx: jdouble,
+    hy: jdouble,
+    hz: jdouble,
+    friction: jdouble,
+    restitution: jdouble,
+    membership: jint,
+    filter: jint,
+) -> jlong {
+    if !finite(hx) || !finite(hy) || !finite(hz) || hx <= 0.0 || hy <= 0.0 || hz <= 0.0 {
+        return -1;
+    }
+    let friction = if finite(friction) {
+        friction.max(0.0)
+    } else {
+        0.5
+    };
+    let restitution = if finite(restitution) {
+        restitution.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    // Rapier 0.34 的第三个参数是交互测试模式：And = 双向都要成立
+    //（(A.mem & B.filter) != 0 且 (B.mem & A.filter) != 0），这是常规语义；
+    // Or 只在两边都声明 Or 时才生效（见 interaction_groups.rs 的文档）。
+    let groups = InteractionGroups::new(
+        Group::from_bits_truncate(membership as u32),
+        Group::from_bits_truncate(filter as u32),
+        InteractionTestMode::And,
+    );
+    match with_world(handle, |w| {
+        let Some(body_handle) = w.body_map.get(&(body_id as i64)).copied() else {
+            return -1;
+        };
+        let collider = ColliderBuilder::cuboid(hx, hy, hz)
+            .friction(friction)
+            .restitution(restitution)
+            .collision_groups(groups)
+            .build();
+        let collider_handle = w
+            .colliders
+            .insert_with_parent(collider, body_handle, &mut w.bodies);
+        let id = w.alloc_id();
+        w.collider_map.insert(id, (body_id as i64, collider_handle));
+        id
+    }) {
+        Some(id) => id as jlong,
+        None => -1,
+    }
+}
+
 /// 给刚体挂球碰撞体。
 #[no_mangle]
 pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_colliderAttachBall(
@@ -630,6 +701,92 @@ pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_colliderAttac
         )
         .friction(friction)
         .restitution(restitution)
+        .build();
+        let collider_handle = w
+            .colliders
+            .insert_with_parent(collider, body_handle, &mut w.bodies);
+        let id = w.alloc_id();
+        w.collider_map.insert(id, (body_id as i64, collider_handle));
+        id
+    }) {
+        Some(id) => id as jlong,
+        None => -1,
+    }
+}
+
+/// 给刚体挂**体素**碰撞体，并指定碰撞组（语义同 `colliderAttachCuboidGrouped`）。
+#[no_mangle]
+pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_colliderAttachVoxelsGrouped(
+    env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    body_id: jlong,
+    cell_size_x: jdouble,
+    cell_size_y: jdouble,
+    cell_size_z: jdouble,
+    cells: JLongArray,
+    friction: jdouble,
+    restitution: jdouble,
+    membership: jint,
+    filter: jint,
+) -> jlong {
+    if !finite(cell_size_x) || !finite(cell_size_y) || !finite(cell_size_z) {
+        return -1;
+    }
+    if cell_size_x <= 0.0 || cell_size_y <= 0.0 || cell_size_z <= 0.0 {
+        return -1;
+    }
+    let len = match env.get_array_length(&cells) {
+        Ok(n) if n > 0 => n as usize,
+        _ => return -1,
+    };
+    if len > MAX_VOXELS_PER_COLLIDER {
+        return -1;
+    }
+    let mut raw = vec![0i64; len];
+    if env.get_long_array_region(&cells, 0, &mut raw).is_err() {
+        return -1;
+    }
+
+    let mut coords: Vec<IVector> = Vec::with_capacity(len);
+    for v in raw {
+        coords.push(IVector::new(
+            sign21(v >> 42),
+            sign21(v >> 21),
+            sign21(v),
+        ));
+    }
+
+    let friction = if finite(friction) {
+        friction.max(0.0)
+    } else {
+        0.5
+    };
+    let restitution = if finite(restitution) {
+        restitution.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    // Rapier 0.34 的第三个参数是交互测试模式：And = 双向都要成立
+    //（(A.mem & B.filter) != 0 且 (B.mem & A.filter) != 0），这是常规语义；
+    // Or 只在两边都声明 Or 时才生效（见 interaction_groups.rs 的文档）。
+    let groups = InteractionGroups::new(
+        Group::from_bits_truncate(membership as u32),
+        Group::from_bits_truncate(filter as u32),
+        InteractionTestMode::And,
+    );
+
+    match with_world(handle, |w| {
+        let Some(body_handle) = w.body_map.get(&(body_id as i64)).copied() else {
+            return -1;
+        };
+        let collider = ColliderBuilder::voxels(
+            Vector::new(cell_size_x, cell_size_y, cell_size_z),
+            &coords,
+        )
+        .friction(friction)
+        .restitution(restitution)
+        .collision_groups(groups)
         .build();
         let collider_handle = w
             .colliders

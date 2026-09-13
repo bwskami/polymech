@@ -33,6 +33,9 @@ public final class PhysicsRaycast {
         double best = maxDist;
         Hit hit = null;
         int count = blocks.length / 3;
+        // slab 的中间结果放循环外：这个方法是"每 tick 调一次"的热路径
+        // （客户端按住左键的持续挖掘），逐方块 new 一个数组就是每 tick 几千次分配。
+        double[] tmp = new double[4];
         for (int i = 0; i < count; i++) {
             double bx = blocks[i * 3];
             double by = blocks[i * 3 + 1];
@@ -43,7 +46,6 @@ public final class PhysicsRaycast {
             int nx = 0, ny = 0, nz = 0;
 
             // X 轴
-            double[] tmp = new double[4];
             if (!slab(origin[0], dir[0], bx, bx + 1.0, tmp)) {
                 continue;
             }

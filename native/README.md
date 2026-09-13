@@ -52,9 +52,40 @@ cd native/polymech-physics && cargo build --release
 
 ## ABI 约定
 
-Rust 侧 `ABI_VERSION` 与 Java 侧 `PhysicsNatives.EXPECTED_ABI` 必须一致，否则加载器拒绝启用物理层。
+**判"低于最低要求"，不判"严格相等"**：`PhysicsNatives.EXPECTED_ABI` 是 Java 侧要求的**最低**
+Rust `ABI_VERSION`。
+
+- dll 低于最低要求 → 拒绝启用物理层（日志明确写出，不崩游戏）；
+- dll 高于最低要求 → 放行（原生层按约定**只做加法**，向后兼容）。
+
+这样"Java 先加了新函数、dll 还没重编"这段窗口里，物理层仍能照常工作。
+新增函数用独立的 **`MIN_ABI_*`** 常量逐个把关，调用前先查，例如：
+
+```java
+if (PhysicsNatives.hasCollisionGroups()) {   // 需要 ABI >= MIN_ABI_COLLISION_GROUPS(4)
+    NativePhysics.colliderAttachCuboidGrouped(...);
+}
+```
 
 导出符号命名规则：`Java_com_mss_polymech_physics_NativePhysics_<方法名>`。
+
+## 碰撞组（ABI 4，已可用）
+
+Rust 侧与 Java 侧都已就位，且 `src/main/resources/natives/` 下的预编译 dll 已更新为 **ABI 4**
+（`./gradlew copyNativePhysics` 产出）。用 `PhysicsNatives.hasCollisionGroups()` 判断是否可用。
+
+> 改动 Rust 后**必须**重跑 `./gradlew copyNativePhysics`，否则运行时仍是旧 dll。
+> 不用担心缓存：加载器每次启动都会把 dll 重新解压覆盖到临时目录（`REPLACE_EXISTING`）。
+
+新增的两个导出：
+
+| 函数 | 说明 |
+|---|---|
+| `colliderAttachCuboidGrouped(world, body, hx, hy, hz, friction, restitution, membership, filter)` | 挂盒碰撞体并指定碰撞组 |
+| `colliderAttachVoxelsGrouped(world, body, csx, csy, csz, cells, friction, restitution, membership, filter)` | 挂体素碰撞体并指定碰撞组 |
+
+**Rapier 的交互判定是双向的**：A 与 B 交互 ⟺ `(A.membership & B.filter) != 0`
+且 `(B.membership & A.filter) != 0` —— 只改一边不生效，两边都要设。
 
 ## 加载与降级
 

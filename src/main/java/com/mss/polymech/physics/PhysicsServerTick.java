@@ -27,6 +27,8 @@ public final class PhysicsServerTick {
         ProjectionManager.tick();
         // 物理接管中的玩家位置每 tick 无条件回写（不能只靠 Entity.move 里的重定向）
         ServerPlayerPhysics.writeBackAll();
+        // 挖掘进度超时清理：松手时没有包，只能靠服务端自己发现"停手了"并广播清裂纹
+        PhysicsBodyInteraction.tick(event.getServer());
     }
 
     @SubscribeEvent

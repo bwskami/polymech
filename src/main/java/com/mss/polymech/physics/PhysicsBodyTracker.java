@@ -43,6 +43,7 @@ public final class PhysicsBodyTracker {
 
     /** 单次 grab 的方块数上限（渲染目前逐方块发出，先保守限制）。 */
     public static final int MAX_BLOCKS = 4096;
+
     /** 区域边长上限。 */
     public static final int MAX_REGION = 32;
 
@@ -248,7 +249,7 @@ public final class PhysicsBodyTracker {
         TrackedBody updated = new TrackedBody(tracked.level, tracked.body, tracked.origin, blocks,
                 tracked.x, tracked.y, tracked.z, tracked.qx, tracked.qy, tracked.qz, tracked.qw, tracked.frozen);
         BODIES.put(id, updated);
-        rebuildCollider(updated);
+        rebuildCollider(id, updated);
         persist(updated, id);
         refresh(id, updated);
         return true;
@@ -277,7 +278,7 @@ public final class PhysicsBodyTracker {
         TrackedBody updated = new TrackedBody(tracked.level, tracked.body, tracked.origin, blocks,
                 tracked.x, tracked.y, tracked.z, tracked.qx, tracked.qy, tracked.qz, tracked.qw, tracked.frozen);
         BODIES.put(id, updated);
-        rebuildCollider(updated);
+        rebuildCollider(id, updated);
         persist(updated, id);
         refresh(id, updated);
         // 同步到投影地皮：否则"方块缓存里有、隐藏维度里没有"，机器那边看不到这块方块
@@ -374,8 +375,37 @@ public final class PhysicsBodyTracker {
         return id;
     }
 
+    /**
+     * 物理体的碰撞组（bodyId → {membership, filter}）。
+     *
+     * <p>没登记 = 默认（与所有组交互，即旧的 {@code colliderAttachVoxels} 行为）。
+     * 登记过之后，每次重建碰撞体都会带上它 —— 否则"破坏/放置方块触发重建"会把组冲掉。</p>
+     */
+    private static final Map<Long, int[]> COLLISION_GROUPS = new HashMap<>();
+
+    /**
+     * 设置某物理体的碰撞组，并立即重建它的碰撞体（改完立刻生效）。
+     *
+     * <p>需要的原生能力：ABI ≥ {@link PhysicsNatives#MIN_ABI_COLLISION_GROUPS}；
+     * 否则返回 false（调用方给提示）。</p>
+     */
+    public static boolean setCollisionGroups(long id, int membership, int filter) {
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null || !PhysicsNatives.hasCollisionGroups()) {
+            return false;
+        }
+        COLLISION_GROUPS.put(id, new int[]{membership, filter});
+        rebuildCollider(id, tracked);
+        return true;
+    }
+
+    /** 读当前登记的碰撞组（诊断用）；未登记返回 null。 */
+    public static int[] collisionGroupsOf(long id) {
+        return COLLISION_GROUPS.get(id);
+    }
+
     /** 用当前方块列表重建体素碰撞体（先清掉旧的，避免旧形状残留）。 */
-    private static void rebuildCollider(TrackedBody tracked) {
+    private static void rebuildCollider(long id, TrackedBody tracked) {
         long world = PhysicsWorldManager.world(tracked.level);
         if (world <= 0) {
             return;
@@ -386,7 +416,13 @@ public final class PhysicsBodyTracker {
             PhysicsBodySyncPacket.BlockEntry e = tracked.blocks.get(i);
             cells[i] = NativePhysics.packCell(e.dx(), e.dy(), e.dz());
         }
-        NativePhysics.colliderAttachVoxels(world, tracked.body, 1.0, 1.0, 1.0, cells, 0.6, 0.0);
+        int[] groups = COLLISION_GROUPS.get(id);
+        if (groups != null && PhysicsNatives.hasCollisionGroups()) {
+            NativePhysics.colliderAttachVoxelsGrouped(world, tracked.body, 1.0, 1.0, 1.0, cells, 0.6, 0.0,
+                    groups[0], groups[1]);
+        } else {
+            NativePhysics.colliderAttachVoxels(world, tracked.body, 1.0, 1.0, 1.0, cells, 0.6, 0.0);
+        }
     }
 
     private static void persist(TrackedBody tracked, long id) {
@@ -438,6 +474,8 @@ public final class PhysicsBodyTracker {
         if (tracked == null) {
             return;
         }
+        // id 会被回收（取最小空闲号），碰撞组必须跟着一起清 —— 否则会串到下一个复用该 id 的体上
+        COLLISION_GROUPS.remove(id);
         long world = PhysicsWorldManager.world(tracked.level);
         if (world > 0 && tracked.body > 0) {
             NativePhysics.bodyDestroy(world, tracked.body);
@@ -468,6 +506,8 @@ public final class PhysicsBodyTracker {
         if (tracked == null) {
             return false;
         }
+        // 同上：id 可回收，碰撞组不能留在表里
+        COLLISION_GROUPS.remove(id);
         ServerLevel level = tracked.level;
         long world = PhysicsWorldManager.world(level);
         int slot = ProjectionManager.slotOf(id);
@@ -669,16 +709,26 @@ public final class PhysicsBodyTracker {
                 ProjectionManager.restoreSlot(entry.id(), slot);
             }
             if (slot >= 0) {
-                PhysicsBodySyncPacket.BlockEntry first = blocks.get(0);
-                if (!ProjectionManager.hasBlockAt(slot, first.dx(), first.dy(), first.dz())) {
+                // 校验**整块**地皮，不能只看第一块。
+                // 只看第一块的话，"地皮里缺了一部分方块"会被放过 —— 而那些方块在方块缓存
+                // （以及客户端快照）里还在：玩家对着它们挖，服务端每次都在
+                // "投影里是空气"处早退，客户端的射线永远停在那一格 →
+                // 表现就是"第一格破了之后手一直在挥，后面的格子再也挖不动"。
+                int missing = 0;
+                for (PhysicsBodySyncPacket.BlockEntry e : blocks) {
+                    if (!ProjectionManager.hasBlockAt(slot, e.dx(), e.dy(), e.dz())) {
+                        missing++;
+                    }
+                }
+                if (missing > 0) {
                     List<ProjectionManager.BlockToWrite> writes = new ArrayList<>(blocks.size());
                     for (PhysicsBodySyncPacket.BlockEntry e : blocks) {
                         writes.add(new ProjectionManager.BlockToWrite(e.dx(), e.dy(), e.dz(),
                                 PhysicsBodySyncPacket.stateFrom(e.stateId()), null));
                     }
                     ProjectionManager.writeBlocks(slot, writes);
-                    LOGGER.warn("[PolyMech] 物理体 {} 的地皮 {} 为空，已按方块缓存重建（方块实体状态不可恢复）",
-                            entry.id(), slot);
+                    LOGGER.warn("[PolyMech] 物理体 {} 的地皮 {} 与存档不一致（{} / {} 块不在投影里），已按方块缓存整块重建（方块实体状态不可恢复）",
+                            entry.id(), slot, missing, blocks.size());
                 }
                 if (newlyAssigned) {
                     saved.put(new PhysicsBodySavedData.Entry(entry.id(), entry.dimension(),
@@ -903,7 +953,7 @@ public final class PhysicsBodyTracker {
         TrackedBody updated = new TrackedBody(tracked.level, tracked.body, tracked.origin, blocks,
                 tracked.x, tracked.y, tracked.z, tracked.qx, tracked.qy, tracked.qz, tracked.qw, tracked.frozen);
         BODIES.put(id, updated);
-        rebuildCollider(updated);
+        rebuildCollider(id, updated);
         persist(updated, id);
         refresh(id, updated);
         return true;
@@ -1012,7 +1062,7 @@ public final class PhysicsBodyTracker {
         TrackedBody updated = new TrackedBody(tracked.level, tracked.body, tracked.origin, blocks,
                 tracked.x, tracked.y, tracked.z, tracked.qx, tracked.qy, tracked.qz, tracked.qw, tracked.frozen);
         BODIES.put(bodyId, updated);
-        rebuildCollider(updated);
+        rebuildCollider(bodyId, updated);
         persist(updated, bodyId);
         refresh(bodyId, updated);
     }
@@ -1114,9 +1164,9 @@ public final class PhysicsBodyTracker {
         BODIES.clear();
     }
 
-    /** 把任意物理体相关包发给该维度全部玩家（方块快照、方块实体快照共用）。 */
-    private static void broadcast(net.minecraft.network.protocol.common.custom.CustomPacketPayload packet,
-                                  ServerLevel level) {
+    /** 把任意物理体相关包发给该维度全部玩家（方块快照、方块实体快照、挖掘进度共用）。 */
+    public static void broadcast(net.minecraft.network.protocol.common.custom.CustomPacketPayload packet,
+                                 ServerLevel level) {
         PacketDistributor.sendToPlayersInDimension(level, packet);
     }
 }

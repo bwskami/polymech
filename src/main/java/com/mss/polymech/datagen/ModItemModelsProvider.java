@@ -6,6 +6,7 @@ import com.mss.polymech.api.item.ModItemTypes;
 import com.mss.polymech.api.material.ConveyorMaterial;
 import com.mss.polymech.api.material.MaterialRegistry;
 import com.mss.polymech.api.material.PipeMaterial;
+import com.mss.polymech.block.ModBlocks;
 import com.mss.polymech.block.PipeBlock;
 import com.mss.polymech.powergrid.GridWireType;
 import com.mss.polymech.fluid.ChemicalFluid;
@@ -182,7 +183,19 @@ public class ModItemModelsProvider extends ItemModelProvider {
                 continue;
             }
 
-            // 情况3: 方块物品或其他 → 跳过（由 BlockStateProvider 处理）
+            // 情况3: 地表碎石（BlockItem）→ item 模型直接继承对应的方块模型。
+            //        它们的方块模型是逐个手工做的 Blockbench 小石堆（models/block/surface_rock/<矿物>.json），
+            //        但从来没有哪个 provider 生成过 item 模型（BlockStateProvider 只写 blockstates）——
+            //        结果是这 59 个物品在物品栏/JEI 里显示成"缺失模型"的紫黑方块，
+            //        日志里刷一堆 Unable to load model: 'poly_mech:item/<矿物>'。
+            if (ModBlocks.SURFACE_ROCKS.containsKey(path)) {
+                withExistingParent(path, modLoc("block/surface_rock/" + path));
+                continue;
+            }
+
+            // 情况4: 方块物品或其他 → 跳过（由 BlockStateProvider 处理）。
+            //        注意机器类物品走的是自定义物品渲染器（MachineGeoItemRenderer），
+            //        没有 json 模型也不会画错，所以这里不用管它们。
             Polymech.LOGGER.debug("Skipped model generation for block item: {}", path);
         }
 

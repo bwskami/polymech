@@ -519,12 +519,18 @@ public final class ProjectionManager {
         return DIRTY_CHUNKS.size();
     }
 
-    /** 诊断：累计从投影维度搬到世界的掉落物数 / 归属不到任何物理体、被直接销毁的垃圾数。 */
+    /** 诊断：累计从投影维度搬到世界的掉落物数 / 经验球数 / 归属不到任何物理体、被直接销毁的垃圾数。 */
     private static int relocatedDrops;
+    private static int relocatedOrbs;
     private static int discardedDrops;
 
     public static int relocatedDropCount() {
         return relocatedDrops;
+    }
+
+    /** 从投影维度搬到世界的经验球数（挖矿/烧炼给的经验会先落在投影里）。 */
+    public static int relocatedOrbCount() {
+        return relocatedOrbs;
     }
 
     public static int discardedDropCount() {
@@ -570,14 +576,14 @@ public final class ProjectionManager {
      * 这是 space/MPS 没做的一件事（它的 {@code MixinItemEntity} 只管重力）。</p>
      *
      * <p><b>覆盖范围</b>：走 {@code Block#popResource} 的掉落（绝大多数，含
-     * {@code Block#dropResources}、{@code Containers#dropContents}）。
-     * 直接 {@code level.addFreshEntity(new ItemEntity(...))} 的、以及经验球
-     * （{@code ExperienceOrb#award}）目前不在覆盖内。</p>
+     * {@code Block#dropResources}、{@code Containers#dropContents}）、直接
+     * {@code level.addFreshEntity(new ItemEntity(...))} 的、以及<b>经验球</b>
+     * （{@code ExperienceOrb#award}，见 {@link #relocateOrb}）。</p>
      *
      * @return true 表示已经搬到世界侧，调用方应取消投影里的生成
      */
     /**
-     * 每 tick 扫一遍投影维度，把<b>所有</b>掉落物实体搬到世界侧。
+     * 每 tick 扫一遍投影维度，把<b>所有</b>掉落物/经验球实体搬到世界侧。
      *
      * <p><b>为什么是"扫实体"而不是"拦生成调用"</b>：掉落的生成路径有好几条互不相干 ——
      * {@code Block#popResource}（导线脱落、{@code dropResources}、{@code Containers#dropContents}）、
@@ -595,9 +601,17 @@ public final class ProjectionManager {
         for (net.minecraft.world.entity.Entity e : level.getEntities().getAll()) {
             if (e instanceof net.minecraft.world.entity.item.ItemEntity item && item.isAlive()) {
                 found.add(item);
+            } else if (e instanceof net.minecraft.world.entity.ExperienceOrb orb && orb.isAlive()) {
+                // 经验球走的不是 popResource（Block#popExperience → ExperienceOrb#award 直接加实体），
+                // 所以必须单独收一遍 —— 否则挖矿的经验就永远留在隐藏维度里。
+                found.add(orb);
             }
         }
         for (net.minecraft.world.entity.Entity e : found) {
+            if (e instanceof net.minecraft.world.entity.ExperienceOrb orb) {
+                relocateOrb(orb);
+                continue;
+            }
             net.minecraft.world.entity.item.ItemEntity item = (net.minecraft.world.entity.item.ItemEntity) e;
             ItemStack stack = item.getItem().copy();
             if (stack.isEmpty()) {
@@ -619,6 +633,50 @@ public final class ProjectionManager {
 
     public static boolean relocateDrop(Level projection, BlockPos pos, ItemStack stack) {
         return relocateDrop(projection, pos, stack, null);
+    }
+
+    /**
+     * 把一个落在投影维度里的经验球搬到物理体所在的世界。
+     *
+     * <p>用 {@link net.minecraft.world.entity.Entity#teleportTo(net.minecraft.server.level.ServerLevel, double, double, double, java.util.Set, float, float)}
+     * <b>整球搬走</b>，而不是"读值 → 销毁 → 用 {@code ExperienceOrb#award} 重发一份"：
+     * 跨维度时 {@code teleportTo} 会走一遍 NBT 往返（{@code restoreFrom} → {@code load}），
+     * 于是 {@code Value} 和 {@code Count} 都原样带走。重发的写法会踩到合并过的球 ——
+     * 多个同值球合并后 {@code getValue()} 只返回单份值、{@code count} 才是份数，
+     * 按 value 重发等于把多出来的经验直接抹掉。</p>
+     *
+     * <p>顺序很重要：<b>先确认目标区块已加载再搬</b>。反过来的话，区块没加载时球会凭空消失。</p>
+     */
+    private static void relocateOrb(net.minecraft.world.entity.ExperienceOrb orb) {
+        long bodyId = nearestBodyFor(orb.blockPosition());
+        if (bodyId < 0) {
+            // 永久无归属：隐藏维度里的垃圾（玩家永远看不到、拿不到），直接销毁 ——
+            // 否则它会每 tick 被扫到一次，计数无限涨。
+            orb.discard();
+            discardedDrops++;
+            return;
+        }
+        int slot = slotOf(bodyId);
+        ServerLevel target = PhysicsBodyTracker.levelOf(bodyId);
+        if (slot < 0 || target == null) {
+            return; // 体正在销毁/换维度：下一 tick 再试
+        }
+        BlockPos start = startOf(slot);
+        double[] world = PhysicsBodyTracker.localToWorld(bodyId,
+                orb.getBlockX() - start.getX(), orb.getBlockY() - start.getY(), orb.getBlockZ() - start.getZ());
+        if (world == null) {
+            return;
+        }
+        BlockPos at = BlockPos.containing(world[0], world[1], world[2]);
+        if (!target.isLoaded(at)) {
+            return; // 目标区块没加载：留着，下一 tick 再试
+        }
+        int value = orb.getValue();
+        orb.teleportTo(target, world[0], world[1], world[2],
+                java.util.Set.of(), orb.getYRot(), orb.getXRot());
+        relocatedOrbs++;
+        Polymech.LOGGER.debug("[PolyMech] 经验球搬运：投影 {} → 世界 {} 值 {}（体 {}，槽位 {}）",
+                orb.blockPosition().toShortString(), at.toShortString(), value, bodyId, slot);
     }
 
     /**

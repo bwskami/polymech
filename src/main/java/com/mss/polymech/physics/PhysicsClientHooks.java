@@ -29,6 +29,11 @@ public final class PhysicsClientHooks {
             bodyMoveBatchConsumer = packet -> {
     };
 
+    /** 客户端装载：接收物理体上的挖掘进度（渲染裂纹用）。默认 no-op（服务端）。 */
+    public static volatile Consumer<com.mss.polymech.network.PhysicsBodyBreakProgressPacket>
+            breakProgressConsumer = packet -> {
+    };
+
     /** 物理接管移动（客户端实现）；服务端 no-op。返回 true 表示已接管，本次不再执行原版 setPos。 */
     public static volatile MovementDriver movementDriver = (entity, delta) -> false;
 
@@ -55,5 +60,9 @@ public final class PhysicsClientHooks {
 
     public static void acceptBodyMoveBatch(com.mss.polymech.network.PhysicsBodyMoveBatchPacket packet) {
         bodyMoveBatchConsumer.accept(packet);
+    }
+
+    public static void acceptBreakProgress(com.mss.polymech.network.PhysicsBodyBreakProgressPacket packet) {
+        breakProgressConsumer.accept(packet);
     }
 }
