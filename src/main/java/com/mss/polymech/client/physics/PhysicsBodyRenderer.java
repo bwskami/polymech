@@ -108,6 +108,9 @@ public final class PhysicsBodyRenderer {
                     pose.popPose();
                 }
             }
+            // 方块实体（箱子/熔炉/告示牌…）：它们的方块模型是空的（builtin/entity），
+            // 只烘方块模型就会整个透明 —— 必须就着同一份 pose 调原版 BE 渲染器。
+            renderBlockEntities(pose, buffers, body, level, partialTick);
             pose.popPose();
         }
         buffers.endBatch();
@@ -115,6 +118,80 @@ public final class PhysicsBodyRenderer {
         if (CACHE.size() > live.size()) {
             CACHE.keySet().removeIf(id -> !live.contains(id));
         }
+        // 方块实体实例缓存按体清理：刚体没了就没人再引用那些 BE 了
+        if (!BE_CACHE.isEmpty()) {
+            BE_CACHE.keySet().removeIf(key -> !live.contains(key >>> 30));
+        }
+    }
+
+    // ==================== 方块实体渲染 ====================
+
+    /** bodyId+局部坐标 → (NBT 实例指纹, 渲染用方块实体)。 */
+    private static final Map<Long, CachedBlockEntity> BE_CACHE = new HashMap<>();
+
+    private record CachedBlockEntity(int tagFingerprint, net.minecraft.world.level.block.entity.BlockEntity be) {
+    }
+
+    /**
+     * 就着物理体的 pose 渲染它的方块实体。
+     *
+     * <p>做法照 space/MPS 的 {@code ClientPhysicalBody}：把服务端发来的 NBT 用
+     * {@code BlockEntity.loadStatic} 还原成实例、把 {@code level} 指向客户端世界，
+     * 然后直接调原版 {@code BlockEntityRenderer}（满天光 15728880、无叠加层）。</p>
+     *
+     * <p>实例按 {@code (bodyId, dx, dy, dz)} 缓存，用 NBT 对象身份做失效判据 ——
+     * 服务端重发快照时是新的对象，缓存自动重建；否则每帧 loadStatic 太浪费。</p>
+     */
+    private static void renderBlockEntities(PoseStack pose, net.minecraft.client.renderer.MultiBufferSource buffers,
+                                            ClientPhysicsWorld.ClientBody body, Level level, float partialTick) {
+        var entries = body.blockEntities();
+        if (entries.isEmpty()) {
+            return;
+        }
+        var dispatcher = Minecraft.getInstance().getBlockEntityRenderDispatcher();
+        for (ClientPhysicsWorld.BlockEntityEntry entry : entries) {
+            BlockState state = stateAt(body, entry.dx(), entry.dy(), entry.dz());
+            if (state == null) {
+                continue;
+            }
+            long key = beKey(body.id(), entry.dx(), entry.dy(), entry.dz());
+            int fp = System.identityHashCode(entry.tag());
+            CachedBlockEntity cached = BE_CACHE.get(key);
+            if (cached == null || cached.tagFingerprint() != fp) {
+                BlockPos pos = new BlockPos(entry.dx(), entry.dy(), entry.dz());
+                net.minecraft.world.level.block.entity.BlockEntity be =
+                        net.minecraft.world.level.block.entity.BlockEntity.loadStatic(
+                                pos, state, entry.tag(), level.registryAccess());
+                if (be == null) {
+                    continue;
+                }
+                cached = new CachedBlockEntity(fp, be);
+                BE_CACHE.put(key, cached);
+            }
+            net.minecraft.world.level.block.entity.BlockEntity be = cached.be();
+            be.setLevel(level);
+            var renderer = dispatcher.getRenderer(be);
+            if (renderer == null) {
+                continue;
+            }
+            pose.pushPose();
+            pose.translate(entry.dx(), entry.dy(), entry.dz());
+            renderer.render(be, partialTick, pose, buffers, 15728880, OverlayTexture.NO_OVERLAY);
+            pose.popPose();
+        }
+    }
+
+    private static BlockState stateAt(ClientPhysicsWorld.ClientBody body, int dx, int dy, int dz) {
+        for (ClientPhysicsWorld.BlockEntry e : body.blocks()) {
+            if (e.dx() == dx && e.dy() == dy && e.dz() == dz) {
+                return e.state();
+            }
+        }
+        return null;
+    }
+
+    private static long beKey(long bodyId, int dx, int dy, int dz) {
+        return (bodyId << 30) ^ (((long) dx & 0x3FF) << 20) ^ (((long) dy & 0x3FF) << 10) ^ ((long) dz & 0x3FF);
     }
 
     // ==================== 缓存 ====================
@@ -136,7 +213,9 @@ public final class PhysicsBodyRenderer {
      * <p>服务端改方块会重发 CREATE（客户端换新的 List 实例）；本地预测破坏是原地 removeIf（实例不变、数量变）。</p>
      */
     private static long fingerprint(ClientPhysicsWorld.ClientBody body) {
-        return ((long) System.identityHashCode(body.blocks()) << 21) ^ body.blocks().size();
+        // 用修订号而不是"列表实例 + 方块数"：拉杆/按钮/门这类"方块数不变、只变状态"的改动
+        // 也必须让缓存失效，否则画面永远停在旧状态（看起来像"按了没反应"）。
+        return body.revision();
     }
 
     /** 一次性把所有方块展开成四边形（模型查找 / 邻面剔除 / 染色 / 光照都在这里做完）。 */
@@ -209,6 +288,7 @@ public final class PhysicsBodyRenderer {
         if (event.getLevel().isClientSide()) {
             ClientPhysicsWorld.clear();
             CACHE.clear();
+            BE_CACHE.clear();
         }
     }
 
@@ -222,6 +302,8 @@ public final class PhysicsBodyRenderer {
         @SubscribeEvent
         static void onClientSetup(FMLClientSetupEvent event) {
             PhysicsClientHooks.bodySyncConsumer = ClientPhysicsWorld::accept;
+            PhysicsClientHooks.bodyBlockEntityConsumer = ClientPhysicsWorld::acceptBlockEntities;
+            PhysicsClientHooks.bodyMoveBatchConsumer = ClientPhysicsWorld::acceptMoveBatch;
             // space 式"物理替代移动"：由客户端物理世界接管本地玩家的位移
             PhysicsClientHooks.movementDriver = (entity, delta) ->
                     entity instanceof net.minecraft.client.player.LocalPlayer player

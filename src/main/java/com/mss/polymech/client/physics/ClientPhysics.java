@@ -89,7 +89,14 @@ public final class ClientPhysics {
 
     private static long playerBody = 0;
     private static float playerHalfWidth = 0;
+    /** 碰撞体半高（普通 0.9 / 超人 0.3）：只决定碰撞盒<b>尺寸</b>。 */
     private static float playerHalfHeight = 0;
+    /**
+     * 实体原点 → 刚体中心的竖直偏移（普通 = 半高 0.9 / 超人 = 眼高 0.4）。
+     * <p>建体 {@code +playerCenterOffset}、回写 {@code -playerCenterOffset} 必须成对使用；
+     * 超人姿态下它与半高不同（头盒中心在头部，只包头脸），因此不能再用半高做回写。</p>
+     */
+    private static double playerCenterOffset = 0.9;
     /** 姿态伺服：每帧把角速度朝目标拉的比例 / 姿态误差→目标角速度的刚度（1/s）。 */
     private static final double ROT_SERVO_ALPHA = 0.4;
     private static final double ROT_STIFFNESS = 8.0;
@@ -380,15 +387,15 @@ public final class ClientPhysics {
         // 安全网：物理位置异常（掉到世界底部以下）→ 复位到最近的安全位置并本 tick 交还原版，
         // 避免"物理出问题把人送进虚空"这种灾难性后果。
         double minY = player.level().getMinBuildHeight() - 64.0;
-        if (pos[1] - playerHalfHeight < minY && hasSafe) {
+        if (pos[1] - playerCenterOffset < minY && hasSafe) {
             LOGGER.warn("[PolyMech] 物理位置异常（y={}），已复位到安全位置", pos[1]);
             player.setPos(safeX, safeY, safeZ);
-            NativePhysics.bodySetTranslation(world, playerBody, safeX, safeY + playerHalfHeight, safeZ);
+            NativePhysics.bodySetTranslation(world, playerBody, safeX, safeY + playerCenterOffset, safeZ);
             NativePhysics.bodySetVelocity(world, playerBody, 0.0, 0.0, 0.0);
             return false;
         }
 
-        player.setPos(pos[0], pos[1] - playerHalfHeight, pos[2]);
+        player.setPos(pos[0], pos[1] - playerCenterOffset, pos[2]);
         if (!takeoverLogged) {
             takeoverLogged = true;
             LOGGER.info("[PolyMech] 客户端物理接管已启用（玩家位置由 Rapier 驱动，维度 {}）",
@@ -437,7 +444,7 @@ public final class ClientPhysics {
             return;
         }
         if (player.getAbilities().flying) {
-            double half = playerHalfHeight;
+            double half = playerCenterOffset;
             Vec3 dm = player.getDeltaMovement();
             double vx = net.minecraft.util.Mth.clamp(dm.x * 20.0, -100.0, 100.0);
             double vy = net.minecraft.util.Mth.clamp(dm.y * 20.0, -100.0, 100.0);
@@ -456,7 +463,7 @@ public final class ClientPhysics {
         if (!NativePhysics.bodyReadTranslation(world, playerBody, pos)) {
             return;
         }
-        player.setPos(pos[0], pos[1] - playerHalfHeight, pos[2]);
+        player.setPos(pos[0], pos[1] - playerCenterOffset, pos[2]);
     }
 
     /**
@@ -487,7 +494,7 @@ public final class ClientPhysics {
             return;
         }
         double x = pos[0];
-        double y = pos[1] - playerHalfHeight;
+        double y = pos[1] - playerCenterOffset;
         double z = pos[2];
         player.setPos(x, y, z);
         // O 与 Old 一并对齐：让相机用"当前物理位置"而不是在两个 tick 采样之间插值。
@@ -511,6 +518,7 @@ public final class ClientPhysics {
         playerBody = 0;
         playerHalfWidth = 0.0f;
         playerHalfHeight = 0.0f;
+        playerCenterOffset = 0.9;
         // 物理姿态缓存随刚体一起清掉
     }
 
@@ -537,6 +545,16 @@ public final class ClientPhysics {
             return;
         }
         data.setPhysicalBodyQuat(cur[0], cur[1], cur[2], cur[3]);
+
+        // 超人姿态（钻一格洞）：全程放开旋转伺服（但仍读回物理姿态，供头部局部旋转用）。
+        // 0.6³ 是各向同性的立方体，不需要伺服把身体"对准"任何方向；
+        // 放开后接触力能自由地把这个小盒子顶进物理体内部的一格负空间洞，
+        // 撞到洞口边缘就滑进去，而不是被伺服反向拉回直立、在洞口"顶住→拉回→再顶住"。
+        // 比"检测洞口再松手"更省（零射线/碰撞查询），且各向同性盒子翻不翻视觉上看不出来
+        // （可见的超人模型朝向仍走 SpacePlayerData 的 6DOF 渲染，不受影响）。
+        if (com.mss.polymech.space.SpacePlayerData.isSuperman(player)) {
+            return;
+        }
 
         // 世界系里"把当前姿态转到目标姿态"所需的旋转：R = target · current⁻¹
         org.joml.Quaternionf target = data.orientation(new org.joml.Quaternionf());
@@ -600,25 +618,46 @@ public final class ClientPhysics {
     private static void ensurePlayerBody(LocalPlayer player) {
         float halfWidth = Math.max(0.05f, player.getBbWidth() * 0.5f);
         float halfHeight = Math.max(0.05f, player.getBbHeight() * 0.5f);
+        // 中心偏移：普通 = 半高（盒子坐底在脚底）；超人 = 眼高（0.6³ 头盒只包头脸）。
+        double centerOffset = com.mss.polymech.space.SpacePlayerData.bodyCenterOffset(player);
         if (playerBody > 0 && Math.abs(halfWidth - playerHalfWidth) < 1.0e-3
-                && Math.abs(halfHeight - playerHalfHeight) < 1.0e-3) {
+                && Math.abs(halfHeight - playerHalfHeight) < 1.0e-3
+                && Math.abs(centerOffset - playerCenterOffset) < 1.0e-3) {
             return;
         }
+        // 切换姿态（普通 ↔ 超人）会重建刚体：先存下速度，建好后恢复。
+        //
+        // 位置**不沿用旧刚体中心**，而是让 bodyCreate 按"当前实体位置 + 新偏移"重放：
+        // 普通眼高 1.62 / 超人 1.6 几乎相同，保持实体位置不动 ⇒ 第一人称视角几乎不跳；
+        // 若沿用旧中心，回写偏移从 0.9 变 1.6 会把实体位置拽低 0.7，视角要沉一下。
+        // 速度照旧恢复，避免"高速飞行中按一下疾跑"被急刹清零。
+        double[] oldVel = new double[3];
+        boolean hadOld = playerBody > 0
+                && NativePhysics.bodyReadVelocity(world, playerBody, oldVel);
         if (playerBody > 0) {
             NativePhysics.bodyDestroy(world, playerBody);
             playerBody = 0;
         }
         playerHalfWidth = halfWidth;
         playerHalfHeight = halfHeight;
+        playerCenterOffset = centerOffset;
         playerBody = NativePhysics.bodyCreate(world, NativePhysics.BODY_DYNAMIC,
-                player.getX(), player.getY() + halfHeight, player.getZ(),
+                player.getX(), player.getY() + centerOffset, player.getZ(),
                 0.0, 0.0, 0.0, 1.0, PLAYER_MASS);
         if (playerBody <= 0) {
             return;
         }
+        // 碰撞体：单个长方体，尺寸直接取自实体的碰撞箱 ——
+        // 普通姿态 = 原版 0.6×1.8×0.6（与 vanilla AABB 逐位一致）；
+        // 超人姿态 = 0.6³（getDimensions 已被 SupermanDimensionsMixin 改小），
+        // 于是那一个立方体本身就是头盒，不需要再挂第二个碰撞体。
         NativePhysics.colliderAttachCuboid(world, playerBody, halfWidth, halfHeight, halfWidth, 0.6, 0.0);
         // 玩家不该翻滚
         // 姿态由 drivePlayerRotation 的角速度伺服跟随（可被碰撞顶偏），这里不锁旋转
+        if (hadOld) {
+            NativePhysics.bodySetMotion(world, playerBody,
+                    oldVel[0], oldVel[1], oldVel[2], 0.0, 0.0, 0.0, true);
+        }
     }
 
     private static void updateTerrain(ClientLevel level, LocalPlayer player) {

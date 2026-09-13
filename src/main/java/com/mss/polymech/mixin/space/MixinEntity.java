@@ -104,14 +104,11 @@ public abstract class MixinEntity {
     // ── ⑤ 碰撞箱：撑到刚好包住"旋转后的身体" ──
 
     /**
-     * 太空里玩家的碰撞箱跟着身体姿态走。
+     * 太空里玩家的碰撞箱：<b>普通姿态一律走原版</b>（0.6×1.8，由 vanilla 位姿系统算），
+     * 这里不再做任何自定义 —— 动态外包盒、宽度减半、头盒 + 下半身双盒等方案都已废弃。
      *
-     * <p>物理那边（Rapier）的盒子是跟着身体转的 OBB，而原版这个 AABB 是轴对齐的、不转。
-     * 于是身体一倾斜，原版盒子就既盖不住身体（头/身体看着插进方块），又会挡住本不该挡的位置。
-     * 这里把它换成"该 OBB 的最小包围 AABB"：位置与尺寸都按当前姿态算。</p>
-     *
-     * <p>直立时结果与 vanilla 逐位相同（0.6×1.8、底边正好在脚底），所以正常行走完全不受影响；
-     * 只有倾斜/躺倒时才变大变矮。</p>
+     * <p>只有<b>超人姿态</b>（太空疾跑）才改写：改成中心 1.6 的 0.6³ 头盒。
+     * 那是"钻一格洞"能力本身（0.6³ 各向同性小盒 + 放开旋转伺服），去掉就没有了。</p>
      */
     @Inject(method = "makeBoundingBox", at = @At("HEAD"), cancellable = true)
     private void polymech$spaceBoundingBox(CallbackInfoReturnable<AABB> cir) {
@@ -123,15 +120,16 @@ public abstract class MixinEntity {
         if (!data.isInitialized()) {
             return;
         }
-        double halfW = self.getBbWidth() * 0.5;
-        double halfH = self.getBbHeight() * 0.5;
-        data.computeWorldExtents(halfW, halfH);
-        double hx = data.extHalfHorizontal();
-        double hy = data.extHalfVertical();
-        // 刚体/盒子的中心固定在 实体位置 + (0, halfH, 0)（与物理建体的平移点一致）
+        // 普通姿态：直接返回，交回原版 makeBoundingBox()。
+        if (!SpacePlayerData.isSuperman(self)) {
+            return;
+        }
+        // 超人姿态：0.6³ 头盒（身体有意悬在盒外）。
         double x = self.getX(), y = self.getY(), z = self.getZ();
+        double half = SpacePlayerData.HEAD_BOX_HALF;
+        double c = SpacePlayerData.HEAD_BOX_CENTER;
         cir.setReturnValue(new AABB(
-                x - hx, y + halfH - hy, z - hx,
-                x + hx, y + halfH + hy, z + hx));
+                x - half, y + c - half, z - half,
+                x + half, y + c + half, z + half));
     }
 }

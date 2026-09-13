@@ -67,7 +67,14 @@ public final class ServerPlayerPhysics {
      * 所以接触力能把身体顶偏（钻洞口时身体被障碍物推着转向），空闲时又被拉回目标姿态。
      * 服务端每 tick 跑一次，比例取得更狠一些。</p>
      */
-    private static void driveBodyRotation(long world, long body, SpacePlayerData data) {
+    private static void driveBodyRotation(long world, long body, SpacePlayerData data,
+            net.minecraft.world.entity.player.Player player) {
+        // 超人姿态：全程放开旋转伺服（与客户端 ClientPhysics.drivePlayerRotation 一致）。
+        // 两端必须同样松手，否则客户端在洞里翻滚、服务端却把身体拉回直立，
+        // 姿态漂移会触发 vanilla 位置校验 → 玩家被拉回。
+        if (SpacePlayerData.isSuperman(player)) {
+            return;
+        }
         double[] cur = new double[4];
         if (!NativePhysics.bodyReadRotation(world, body, cur)) {
             return;
@@ -147,7 +154,8 @@ public final class ServerPlayerPhysics {
                     continue;
                 }
                 if (NativePhysics.bodyReadTranslation(world, body, pos)) {
-                    player.setPos(pos[0], pos[1] - half[1], pos[2]);
+                    // 回写用"中心偏移"(half[2]) 而非半高：超人姿态头盒中心在眼高，两者不等
+                    player.setPos(pos[0], pos[1] - half[2], pos[2]);
                 }
             }
         }
@@ -175,7 +183,7 @@ public final class ServerPlayerPhysics {
             return;
         }
         NativePhysics.bodySetTranslation(world, body,
-                player.getX(), player.getY() + half[1], player.getZ());
+                player.getX(), player.getY() + half[2], player.getZ());
         NativePhysics.bodySetVelocity(world, body, 0.0, 0.0, 0.0);
     }
 
@@ -207,16 +215,16 @@ public final class ServerPlayerPhysics {
         // 伺服则让接触力能真的把身体顶偏，空闲时再拉回目标姿态。
         SpacePlayerData data = SpacePlayerData.get(player);
         if (data.isInitialized()) {
-            driveBodyRotation(world, body, data);
+            driveBodyRotation(world, body, data, player);
         }
 
         // 创造飞行：位置交回原版，但刚体保留并跟随玩家 —— 飞行中照样与飞船/建筑碰撞。
         // （旁观者在上面的 shouldSimulate 里已经排除，这里到不了。）
         if (player.getAbilities().flying && !player.isSpectator()) {
             double[] half = HALF.get(player.getUUID());
-            double halfHeight = half == null ? 0.9 : half[1];
+            double centerOffset = half == null ? 0.9 : half[2];
             NativePhysics.bodySetTranslation(world, body,
-                    player.getX() + delta.x, player.getY() + delta.y + halfHeight, player.getZ() + delta.z);
+                    player.getX() + delta.x, player.getY() + delta.y + centerOffset, player.getZ() + delta.z);
             NativePhysics.bodySetMotion(world, body,
                     delta.x * 20.0, delta.y * 20.0, delta.z * 20.0, 0.0, 0.0, 0.0, true);
             return false;
@@ -235,18 +243,19 @@ public final class ServerPlayerPhysics {
             return false;
         }
         double[] half = HALF.get(player.getUUID());
-        double halfHeight = half == null ? 0.9 : half[1];
+        // 中心偏移(half[2]) 而非半高(half[1])：超人姿态头盒中心在眼高，两者不等
+        double centerOffset = half == null ? 0.9 : half[2];
 
         double minY = level.getMinBuildHeight() - 64.0;
         double[] safe = SAFE.get(player.getUUID());
-        if (pos[1] - halfHeight < minY && safe != null) {
+        if (pos[1] - centerOffset < minY && safe != null) {
             LOGGER.warn("[PolyMech] 服务端物理位置异常（y={}），复位", pos[1]);
             player.teleportTo(safe[0], safe[1], safe[2]);
-            NativePhysics.bodySetTranslation(world, body, safe[0], safe[1] + halfHeight, safe[2]);
+            NativePhysics.bodySetTranslation(world, body, safe[0], safe[1] + centerOffset, safe[2]);
             NativePhysics.bodySetVelocity(world, body, 0.0, 0.0, 0.0);
             return false;
         }
-        player.setPos(pos[0], pos[1] - halfHeight, pos[2]);
+        player.setPos(pos[0], pos[1] - centerOffset, pos[2]);
 
         if (player.getY() > minY + 32) {
             SAFE.put(player.getUUID(), new double[]{player.getX(), player.getY(), player.getZ()});
@@ -302,26 +311,48 @@ public final class ServerPlayerPhysics {
     private static long ensureBody(ServerPlayer player, ServerLevel level, long world) {
         float halfWidth = Math.max(0.05f, player.getBbWidth() * 0.5f);
         float halfHeight = Math.max(0.05f, player.getBbHeight() * 0.5f);
+        // 中心偏移：普通 = 半高 0.9（盒坐底在脚底）；超人 = 眼高 1.62（0.6³ 头盒只包头脸）。
+        double centerOffset = SpacePlayerData.bodyCenterOffset(player);
         Long existing = BODIES.get(player.getUUID());
         Long existingWorld = BODY_WORLD.get(player.getUUID());
-        if (existing != null && existing > 0 && existingWorld != null && existingWorld == world) {
-            return existing;
+        boolean sameWorld = existing != null && existing > 0
+                && existingWorld != null && existingWorld == world;
+        if (sameWorld) {
+            // 尺寸/偏移变化检测：超人姿态切换会让半高 0.9 ↔ 0.3、中心偏移 0.9 ↔ 1.62 跳变，
+            // 必须重建碰撞体（0.6×1.8 柱 ↔ 0.6³ 头盒），否则服务端盒子停在旧尺寸/旧位置。
+            double[] half = HALF.get(player.getUUID());
+            if (half != null && Math.abs(half[0] - halfWidth) < 1.0e-3
+                    && Math.abs(half[1] - halfHeight) < 1.0e-3
+                    && Math.abs(half[2] - centerOffset) < 1.0e-3) {
+                return existing;
+            }
         }
+        // 重建前只存速度：位置按"当前实体位置 + 新偏移"重放（与客户端一致），
+        // 使切换姿态时实体位置（= 第一人称视角）不动。
+        double[] oldVel = new double[3];
+        boolean hadOld = sameWorld
+                && NativePhysics.bodyReadVelocity(existingWorld, existing, oldVel);
         if (existing != null && existing > 0 && existingWorld != null) {
             NativePhysics.bodyDestroy(existingWorld, existing);
             BODIES.remove(player.getUUID());
         }
         long body = NativePhysics.bodyCreate(world, NativePhysics.BODY_DYNAMIC,
-                player.getX(), player.getY() + halfHeight, player.getZ(),
+                player.getX(), player.getY() + centerOffset, player.getZ(),
                 0.0, 0.0, 0.0, 1.0, PLAYER_MASS);
         if (body <= 0) {
             return 0;
         }
+        // 碰撞体：单个长方体，尺寸取自实体碰撞箱（与客户端 ClientPhysics#ensurePlayerBody 严格一致）——
+        // 普通姿态 = 原版 0.6×1.8×0.6；超人姿态 = 0.6³（getDimensions 已改小）。
         NativePhysics.colliderAttachCuboid(world, body, halfWidth, halfHeight, halfWidth, 0.6, 0.0);
         // 姿态每 tick 按玩家 6DOF 朝向写入（见 drive()），这里不锁旋转
         BODIES.put(player.getUUID(), body);
         BODY_WORLD.put(player.getUUID(), world);
-        HALF.put(player.getUUID(), new double[]{halfWidth, halfHeight});
+        HALF.put(player.getUUID(), new double[]{halfWidth, halfHeight, centerOffset});
+        if (hadOld) {
+            NativePhysics.bodySetMotion(world, body,
+                    oldVel[0], oldVel[1], oldVel[2], 0.0, 0.0, 0.0, true);
+        }
         LOGGER.info("[PolyMech] 服务端玩家物理体已创建: {} 维度 {}", player.getName().getString(),
                 level.dimension().location());
         return body;

@@ -19,7 +19,9 @@ import java.util.List;
  * <p>三种动作：</p>
  * <ul>
  *   <li>{@link Action#CREATE}：携带方块快照（局部坐标 + 方块状态），客户端据此建网格；</li>
- *   <li>{@link Action#UPDATE}：只带位置与旋转（每 tick 发，客户端做插值）；</li>
+ *   <li>{@link Action#UPDATE}：只带位置与旋转。<b>注意：每 tick 的运动同步已改走
+ *       {@link PhysicsBodyMoveBatchPacket}</b>（每维度一个包带上全部刚体，照 space 0.1.3）；
+ *       这里的 UPDATE 现在留给"针对单个刚体的临时修正"（诊断命令等）；</li>
  *   <li>{@link Action#REMOVE}：销毁。</li>
  * </ul>
  *

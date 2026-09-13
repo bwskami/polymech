@@ -23,12 +23,17 @@ public final class PhysicsServerTick {
             return;
         }
         PhysicsWorldManager.tick();
+        // 投影 → 刚体缓存 的脏区块回写：红石灯亮灭、活塞推块、机器自改结构都靠它传到玩家眼前
+        ProjectionManager.tick();
         // 物理接管中的玩家位置每 tick 无条件回写（不能只靠 Entity.move 里的重定向）
         ServerPlayerPhysics.writeBackAll();
     }
 
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
+        // 投影维度必须先就绪：它是"物理体上的方块实体照常工作"的载体，
+        // 而且下面 restore 出来的物理体要能立刻挂上自己的地皮。
+        ProjectionManager.init(event.getServer());
         // 进存档：把上次保存的物理体重建出来（方块早已从世界移除，存档记录是唯一副本）
         PhysicsBodyTracker.restore(event.getServer());
     }
@@ -36,5 +41,6 @@ public final class PhysicsServerTick {
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         PhysicsWorldManager.shutdown();
+        ProjectionManager.reset();
     }
 }

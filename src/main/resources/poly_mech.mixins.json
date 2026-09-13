@@ -17,6 +17,7 @@
   ],
   "mixins": [
     "space.MixinEntity",
+    "space.SupermanDimensionsMixin",
     "space.MixinItemEntity",
     "space.MixinWorldBorder",
     "space.MixinServerPlayer",
@@ -30,6 +31,9 @@
     "LevelChunkPhysicsDirtyMixin",
     "EntityPhysicsMoveMixin",
     "EntityPhysicsDriveMixin",
+    "ProjectionContainerMixin",
+    "ProjectionChunkDirtyMixin",
+    "ProjectionDropRelocationMixin",
     "SpaceElytraMixin",
     "SpaceFlowingFluidMixin",
     "SpaceFallingBlockMixin"

@@ -144,6 +144,81 @@ public final class SpacePlayerData {
         return basisToQuat(bodyFacingO, bodyLeftO, out);
     }
 
+    // ==================== 超人姿态（钻一格洞） ====================
+
+    /**
+     * 该实体此刻是否处于"超人姿态"（太空维度 + 疾跑冲刺中）。
+     *
+     * <p>疾跑状态两端各自可得（客户端按键、服务端经 {@code ServerboundPlayerCommandPacket} 同步），
+     * 因此这里<b>不存字段、不发包</b>，直接从 {@code isSprinting()} 派生 —— 零同步、零状态漂移。
+     * 超人姿态下：碰撞箱收缩为 0.6³ 立方体（即 {@link #HEAD_BOX_HALF} 那个头盒；
+     * 刚体中心与头盒中心重合，所以这一个小盒子本身就是头盒），
+     * 物理旋转伺服放开，让这个各向同性小盒子被接触力自由顶进一格洞。
+     * <b>普通姿态不受影响，碰撞箱就是原版 0.6×1.8。</b></p>
+     */
+    public static boolean isSuperman(net.minecraft.world.entity.Entity entity) {
+        if (!(entity instanceof net.minecraft.world.entity.player.Player player)
+                || !player.isSprinting()) {
+            return false;
+        }
+        net.minecraft.world.level.Level level = entity.level();
+        return level != null
+                && com.mss.polymech.dimension.PlanetDimensions.SPACE.equals(level.dimension());
+    }
+
+    // ==================== 超人姿态的头盒 ====================
+    //
+    // 注意：普通姿态<b>没有任何自定义碰撞箱</b>（走原版 0.6×1.8）；
+    // 曾经的"旋转身体盒外包盒 / 宽度减半 / 头盒+下半身双盒"等方案都已废弃。
+
+    /** 超人姿态头盒半尺寸：0.6³ → 半 0.3。 */
+    public static final double HEAD_BOX_HALF = 0.3;
+    /**
+     * 超人姿态头盒中心相对实体原点（脚底基准）的竖直高度 = <b>1.6</b>。
+     *
+     * <p>与 {@link #SUPERMAN_CENTER_HEIGHT} 取同一个值，于是物理刚体中心与头盒中心重合 ——
+     * 那个 0.6³ 碰撞体本身就是头盒，不需要再挂第二个碰撞体。</p>
+     *
+     * <p>取 1.6 而不是 1.62：让"相机高度 = 头盒中心"精确成立（相机在盒正中心，
+     * 撞墙是"脸撞盒壁"，头不会伸进方块）；相对 1.62 只差 0.02 格。</p>
+     */
+    public static final double HEAD_BOX_CENTER = 1.6;
+
+    /**
+     * 超人姿态"身体碰撞盒"中心相对实体原点（脚底基准）的竖直偏移 = 1.6（与头盒中心重合）。
+     *
+     * <p><b>为什么是 1.6、而不是原版滑翔位姿的 0.4</b>：0.4 是"整个身体缩进 0.6 高盒子"时的高度，
+     * 相对 1.8 高的玩家模型正好落在<b>小腿</b>上 —— 看上去就是"盒子还在脚上"。
+     * 这里要的是<b>只包住头、身体悬在盒外</b>：头在 1.6，盒子 0.6 高 → 覆盖 1.3~1.9，正好裹住整个头。</p>
+     *
+     * <p>顺带的两个好处：</p>
+     * <ul>
+     *   <li>第一人称相机 = 实体位置 + {@code getEyeHeight()}，普通 1.62 / 超人 1.6
+     *       → 切换姿态时视角几乎不跳；且相机落在头盒正中心，撞墙是"脸撞盒壁"，头不会伸进方块（穿模）。</li>
+     *   <li>{@code SpaceBodyTiltMixin} 以本偏移为支点做"趴平"旋转 →
+     *       支点在头，趴平后身体<b>从头部向后平铺</b>，正是超人"头在前、身体在后"的形态。</li>
+     * </ul>
+     *
+     * <p>与头盒中心取同一个值，于是超人姿态的那一个 0.6³ 碰撞体<b>本身就是头盒</b>
+     * （物理头盒偏移 = 1.6 − 1.6 = 0）。</p>
+     */
+    public static final double SUPERMAN_CENTER_HEIGHT = HEAD_BOX_CENTER;
+
+    /**
+     * "实体原点 → 物理碰撞体中心"的竖直偏移。
+     *
+     * <p>普通姿态 = 半高（盒子坐底在脚底，与 vanilla 逐位一致）；
+     * 超人姿态 = 眼高（头盒中心在头部，见 {@link #SUPERMAN_CENTER_HEIGHT}）。</p>
+     *
+     * <p>物理建体与位置回写必须<b>同源</b>使用这个值，否则玩家位置会整体漂移。</p>
+     */
+    public static double bodyCenterOffset(net.minecraft.world.entity.Entity entity) {
+        if (isSuperman(entity)) {
+            return SUPERMAN_CENTER_HEIGHT;
+        }
+        return entity.getBbHeight() * 0.5;
+    }
+
     /** 身体姿态四元数，做上一帧→本帧的 slerp（近反向时直接用本帧，避免扫过 180°）。 */
     public org.joml.Quaternionf bodyQuat(float partialTick, org.joml.Quaternionf out) {
         org.joml.Quaternionf now = orientation(new org.joml.Quaternionf());
@@ -312,48 +387,45 @@ public final class SpacePlayerData {
         out.z = (float) clampRange(out.z, NECK_ROLL_RIGHT, NECK_ROLL_LEFT);
     }
 
+    // ==================== 超人姿态的"趴平"模型 ====================
+
+    /**
+     * 超人姿态下"趴平"所需的局部俯仰角（度）。
+     *
+     * <p>本项目 {@code SpaceBodyTiltMixin} <b>整个替换</b>了原版 {@code setupRotations}，
+     * 因此原版鞘翅滑翔那一步"把站姿模型绕 X 轴转到趴平"（{@code Rx(-90)}）也被一并吃掉了 ——
+     * 光靠 6DOF 身体四元数只会得到"站着往前飞"。这里显式补回这一步。</p>
+     *
+     * <p>角度取 +90：本 mixin 的镜像约定是总变换 {@code Q·Ry(180)}，
+     * 而 {@code Ry(180)·Rx(θ) = Rx(-θ)·Ry(180)}，故在栈里写 {@code +90} 等价于最终世界的 {@code Rx(-90)}
+     * （与原版鞘翅一致）。<b>若实测发现身体前后颠倒，把这个值取负即可。</b></p>
+     */
+    public static final float SUPERMAN_PRONE_PITCH_DEG = 90.0F;
+
+    /**
+     * 超人姿态的<b>头部零件</b>局部旋转：相对"趴平后的身体"，让头沿着飞行（视线）方向。
+     *
+     * <p>为什么必须单独算：趴平之后，身体的局部 +Z（胸口法线）朝下，而头要朝飞行方向。
+     * 若不处理，头就跟着身体"一直盯着地面"。这里的做法是把
+     * {@link #headLocalQuat}（身体⁻¹·视线）再左乘一个 {@code Rx(-90)}，
+     * 换算成"趴平身体 ⁻¹·视线" —— 头于是正好看向飞行方向。</p>
+     *
+     * <p><b>不夹颈部锥</b>：这里的偏角天然接近 90°，被
+     * {@link #headLocalEuler} 的颈部上限（±30°）一夹就会歪掉，所以单独走一条不夹取的路径。</p>
+     */
+    public void headLocalEulerSuperman(org.joml.Vector3f out) {
+        org.joml.Quaternionf hl = headLocalQuat(new org.joml.Quaternionf());
+        // hl = 身体⁻¹·视线；左乘 Rx(-90) 得到 (身体·Rx90)⁻¹·视线 = 趴平身体⁻¹·视线
+        hl.premul(new org.joml.Quaternionf()
+                .rotationX((float) Math.toRadians(-SUPERMAN_PRONE_PITCH_DEG)));
+        hl.getEulerAnglesZYX(out);
+    }
+
     // ==================== 碰撞箱（原版 AABB） ====================
-
-    /**
-     * 原版游泳位姿的半高：{@code Pose.SWIMMING}/{@code GLIDING} 时玩家是 0.6×0.6。
-     * 原版就是这样钻一格洞的 —— 不是把盒子转过去，而是<b>换一个矮盒子</b>
-     * （{@code Player.updatePlayerPose()} 会用"小盒子装不装得下"来决定是否切位姿）。
-     */
-    private static final double CRAWL_HALF_HEIGHT = 0.3;
-
-    private double extHalfHorizontal = 0.3;
-    private double extHalfVertical = 0.9;
-
-    /**
-     * 算出"原版 AABB"该用多大 —— 照原版的位姿思路：<b>直立时 0.6×1.8，躺平时收缩到 0.6×0.6</b>。
-     *
-     * <p>为什么不再用"旋转身体盒的外包盒"：那个盒子又长又宽，虽然看着包裹了身体，
-     * 却会把原版那套移动校验一起卡死 —— 想爬一格洞时怎么推都进不去。
-     * 真正的碰撞由 Rapier 的旋转 OBB 负责（它始终贴着身体，不会被卡住）；
-     * 原版 AABB 只需要**不挡路**，所以按原版游泳位姿那样收缩即可（模型视觉上溢出盒子是原版也接受的做法）。</p>
-     *
-     * <p>盒子中心固定在 实体位置 + 身高/2（与刚体平移点、模型旋转支点同一个点），
-     * 所以直立时结果与 vanilla 逐位相同；越躺平，盒子越矮。</p>
-     */
-    public void computeWorldExtents(double halfWidth, double halfHeight) {
-        // 只用**运动学**身体基底，绝不读物理刚体姿态（这点非常重要）：
-        // 物理姿态只有 100Hz 更新、而且在接触解算里高频抖动，一旦拿它算 AABB 尺寸，
-        // 盒子就会每帧在 0.3~0.9 之间被拉来拉去 → 原版 collide() 裁出的位移跟着抖
-        // → 喂给物理的冲量抖 → **玩家位置每帧抖**（看起来就是"人物抽搐/帧数低"）。
-        // 站立时 |up.y|≈1，盒子恒等于 vanilla 的 0.6×1.8，所以那种情况看不出来。
-        double upY = bodyFacing.x * bodyLeft.z - bodyFacing.z * bodyLeft.x;
-        double upright = Math.min(1.0, Math.max(0.0, Math.abs(upY)));
-        extHalfHorizontal = halfWidth;
-        extHalfVertical = CRAWL_HALF_HEIGHT + (halfHeight - CRAWL_HALF_HEIGHT) * upright;
-    }
-
-    public double extHalfHorizontal() {
-        return extHalfHorizontal;
-    }
-
-    public double extHalfVertical() {
-        return extHalfVertical;
-    }
+    //
+    // 曾经的"旋转身体盒最小包围 AABB / 按躺平程度收缩"两套动态算法都已移除：
+    // 碰撞箱现在就是下面的固定 0.6³ 盒子（头盒 + 下半身盒），见
+    // MixinEntity#polymech$spaceBoundingBox。要找回旧实现见 git 历史（提交 2992d52 前后）。
 
     /**
      * 鼠标转向：<b>俯仰绕屏幕左轴、偏航绕世界竖轴</b>。

@@ -19,6 +19,13 @@ public final class ClientPhysicsWorld {
 
     private static final Map<Long, ClientBody> BODIES = new HashMap<>();
 
+    /** 全局单调递增的修订号源（见 {@code ClientBody#revision}）。 */
+    private static int nextRevision;
+
+    static int bumpRevision() {
+        return ++nextRevision;
+    }
+
     private ClientPhysicsWorld() {
     }
 
@@ -26,6 +33,23 @@ public final class ClientPhysicsWorld {
     public static final class ClientBody {
         private final long id;
         private final List<BlockEntry> blocks;
+        /**
+         * 该物理体的方块实体（箱子/熔炉/告示牌…）。
+         *
+         * <p>这些方块的渲染形状是 {@code ENTITYBLOCK_ANIMATED}：方块模型是空的，
+         * 只烘方块模型的话它们会<b>整个透明</b>。渲染时必须走 {@code BlockEntityRenderer}，
+         * 所以要把服务端发来的 NBT 还原成可渲染的方块实体实例。</p>
+         */
+        private List<BlockEntityEntry> blockEntities = List.of();
+
+        /**
+         * 方块集合的修订号：<b>任何</b>改动（含只改方块状态、不改数量的那种）都会递增。
+         *
+         * <p>渲染器的烘焙缓存就是拿它当指纹的。若只用"列表实例 + 方块数"当指纹，
+         * 拉杆/按钮/门这类"方块数不变、只变状态"的改动<b>永远不会重新烘四边形</b> ——
+         * 表现就是"按了没反应"（其实服务端已经改了，只是画面还是旧状态）。</p>
+         */
+        private int revision = ClientPhysicsWorld.bumpRevision();
         private double x, y, z;
         private double prevX, prevY, prevZ;
         private float qx, qy, qz, qw;
@@ -75,6 +99,25 @@ public final class ClientPhysicsWorld {
 
         public List<BlockEntry> blocks() {
             return blocks;
+        }
+
+        public List<BlockEntityEntry> blockEntities() {
+            return blockEntities;
+        }
+
+        public void setBlockEntities(List<BlockEntityEntry> entries) {
+            this.blockEntities = entries;
+            touch();
+        }
+
+        /** 渲染烘焙缓存的指纹。 */
+        public int revision() {
+            return revision;
+        }
+
+        /** 标记方块集合已变（含只改状态的情况）。 */
+        public void touch() {
+            this.revision = ClientPhysicsWorld.bumpRevision();
         }
 
         /** 应用服务端同步来的线速度。 */
@@ -152,16 +195,23 @@ public final class ClientPhysicsWorld {
         /** 本地预测：移除一个方块（服务端很快会回发权威快照覆盖）。 */
         public void predictBreak(int dx, int dy, int dz) {
             blocks.removeIf(e -> e.dx() == dx && e.dy() == dy && e.dz() == dz);
+            touch();
         }
 
         /** 本地预测：放置一个方块。 */
         public void predictPlace(int dx, int dy, int dz, BlockState state) {
             for (BlockEntry e : blocks) {
                 if (e.dx() == dx && e.dy() == dy && e.dz() == dz) {
+                    if (e.state() != state) {
+                        blocks.remove(e);
+                        blocks.add(new BlockEntry((short) dx, (short) dy, (short) dz, state));
+                        touch();
+                    }
                     return;
                 }
             }
             blocks.add(new BlockEntry((short) dx, (short) dy, (short) dz, state));
+            touch();
         }
 
         void applyUpdate(double nx, double ny, double nz,
@@ -316,6 +366,41 @@ public final class ClientPhysicsWorld {
     public record BlockEntry(short dx, short dy, short dz, BlockState state) {
     }
 
+    /** 方块实体条目：局部整数坐标 + 完整 NBT（客户端据此还原渲染实例）。 */
+    public record BlockEntityEntry(short dx, short dy, short dz, net.minecraft.nbt.CompoundTag tag) {
+    }
+
+    /**
+     * 接收<b>批量</b>运动同步（服务端 → 客户端，每 tick 一个包、内含全部刚体）。
+     *
+     * <p>逐个应用与旧的单体 UPDATE 完全一样的语义；只是包数从 N/tick 降到 1/tick/维度。
+     * 找不到的刚体直接跳过 —— 那是 CREATE 还没到（由可靠创建握手负责补发）。</p>
+     */
+    public static void acceptMoveBatch(com.mss.polymech.network.PhysicsBodyMoveBatchPacket packet) {
+        for (com.mss.polymech.network.PhysicsBodyMoveBatchPacket.Entry e : packet.moves()) {
+            ClientBody body = BODIES.get(e.bodyId());
+            if (body == null) {
+                continue;
+            }
+            body.applyUpdate(e.x(), e.y(), e.z(), e.qx(), e.qy(), e.qz(), e.qw());
+            body.applyVelocity(e.vx(), e.vy(), e.vz());
+            body.applyAngularVelocity(e.avx(), e.avy(), e.avz());
+        }
+    }
+
+    /** 接收物理体的方块实体快照（服务端 → 客户端）。 */
+    public static void acceptBlockEntities(com.mss.polymech.network.PhysicsBodyBlockEntityPacket packet) {
+        ClientBody body = BODIES.get(packet.bodyId());
+        if (body == null) {
+            return; // CREATE 还没到（同 tick 内乱序）——CREATE 之后服务端会再补发一次
+        }
+        List<BlockEntityEntry> entries = new ArrayList<>(packet.entries().size());
+        for (com.mss.polymech.network.PhysicsBodyBlockEntityPacket.Entry e : packet.entries()) {
+            entries.add(new BlockEntityEntry(e.dx(), e.dy(), e.dz(), e.tag()));
+        }
+        body.setBlockEntities(entries);
+    }
+
     public static Collection<ClientBody> bodies() {
         return BODIES.values();
     }
@@ -343,6 +428,10 @@ public final class ClientPhysicsWorld {
                 created.applyVelocity(packet.vx(), packet.vy(), packet.vz());
                 created.applyAngularVelocity(packet.avx(), packet.avy(), packet.avz());
                 BODIES.put(packet.bodyId(), created);
+                // 可靠创建握手：真正存下之后才回 ACK（服务端据此撤销"待确认"）。
+                // 这一步不能在收到包之前做 —— 那正是"客户端还没建好关卡、快照被冲掉"的场景。
+                net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                        new com.mss.polymech.network.SyncPhysicsBodyAckPacket(packet.bodyId()));
             }
             case UPDATE -> {
                 ClientBody body = BODIES.get(packet.bodyId());

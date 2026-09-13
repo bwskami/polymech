@@ -5,6 +5,7 @@ import com.mss.polymech.network.PhysicsBodyEditPacket;
 import com.mss.polymech.physics.PhysicsRaycast;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -72,21 +73,18 @@ public final class PhysicsBodyInteractionClient {
                     hit.bodyId, hit.dx, hit.dy, hit.dz));
             event.setCanceled(true);
         } else if (event.isUseItem()) {
-            ItemStack stack = player.getMainHandItem();
-            if (!(stack.getItem() instanceof BlockItem blockItem)) {
-                return;
-            }
-            // 沿命中面法线放到相邻格
-            int px = hit.dx + hit.normalX;
-            int py = hit.dy + hit.normalY;
-            int pz = hit.dz + hit.normalZ;
-            BlockState state = blockItem.getBlock().defaultBlockState();
-            ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(hit.bodyId);
-            if (body != null) {
-                body.predictPlace(px, py, pz, state);
-            }
-            PacketDistributor.sendToServer(PhysicsBodyEditPacket.placeBlock(
-                    hit.bodyId, px, py, pz, net.minecraft.world.level.block.Block.getId(state)));
+            InteractionHand hand = event.getHand();
+            // <b>不做本地放置预测。</b> "这次右键是使用还是放置"只有服务端在投影维度里跑一次
+            // 原版 useOn 才知道（拉杆要切换、按钮要按下、箱子要开、门要开合…）。
+            // 本地一旦预测"放置"，就会先冒出一个假方块，随后被服务端快照顶回去 ——
+            // 表现就是"手里拿着拉杆右键拉杆，那一格瞬间多出一个拉杆，又被旧的顶回来"，
+            // 甚至闪到旁边的方块格上。放置改由服务端确认（约 1 tick），换来的是不再有假方块。
+            // 左键破坏仍然预测：破坏的语义没有歧义。
+            PacketDistributor.sendToServer(PhysicsBodyEditPacket.use(
+                    hit.bodyId, hit.dx, hit.dy, hit.dz,
+                    hit.normalX, hit.normalY, hit.normalZ,
+                    hand == InteractionHand.OFF_HAND ? 1 : 0,
+                    player.isShiftKeyDown()));
             event.setCanceled(true);
         }
     }

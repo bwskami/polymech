@@ -26,6 +26,17 @@ import org.spongepowered.asm.mixin.injection.At;
  *       于是"脖子先转、头先过去"能在模型上看出来。</li>
  * </ol>
  *
+ * <p><b>超人姿态（太空疾跑）额外两步</b>，都因为本类把原版 {@code setupRotations} 整个替换掉了：</p>
+ * <ul>
+ *   <li><b>趴平</b>：身体四元数之后再叠一个局部 {@code Rx(+90)}，把"站着往前飞"变成"趴着飞"
+ *       （等价于原版鞘翅滑翔的 {@code Rx(-90)}，推导见
+ *       {@link SpacePlayerData#SUPERMAN_PRONE_PITCH_DEG}）。</li>
+ *   <li><b>头朝飞行方向</b>：头部偏角改为相对"趴平后的身体"计算且不夹颈部锥
+ *       （见 {@link SpacePlayerData#headLocalEulerSuperman}），否则头会一直盯着地面。</li>
+ * </ul>
+ * <p>旋转支点同时从 {@code getBbHeight()/2} 改为 {@link SpacePlayerData#bodyCenterOffset}
+ * （普通姿态两者逐位相同；超人姿态取眼高，与物理头盒中心对齐）。</p>
+ *
  * <p><b>为什么必须用 WrapOperation 而不是 @Inject 到 setupRotations：</b>
  * 玩家实际执行的是 {@code PlayerRenderer.setupRotations(AbstractClientPlayer, ...)}
  * （外加一个 {@code (LivingEntity,...)} 桥接方法），注入到 {@code LivingEntityRenderer}
@@ -69,14 +80,25 @@ public abstract class SpaceBodyTiltMixin {
             return;
         }
 
-        // 绕"身体中心"（脚底 + 身高/2）旋转 —— **必须和物理碰撞箱绕同一点**：
-        // Rapier 刚体的平移点就是脚底 + 身高/2，盒子挂在刚体原点上，所以碰撞箱绕身体中心转。
-        // 模型若绕脚底转，身体一倾斜两者就错开最多半个身高 —— 表现就是"头/身体直接插进方块里"。
-        // pivot 要除以 getScale()：此刻 PoseStack 里已经有 scale(getScale)，
-        // 而 getBbHeight() 本身是缩放后的尺寸，除一次才是这一层坐标系里的长度。
-        float pivot = player.getBbHeight() * 0.5F / Math.max(0.01F, player.getScale());
+        // 绕"身体中心"旋转 —— **必须和物理碰撞箱绕同一点**：
+        // Rapier 刚体的平移点就是"实体位置 + bodyCenterOffset"，盒子挂在刚体原点上，
+        // 所以碰撞箱绕这个点转。模型若绕别处转，身体一倾斜两者就错开 —— 表现就是"头/身体插进方块里"。
+        // 偏移取 SpacePlayerData.bodyCenterOffset()：普通姿态 = 半高 0.9（与旧代码逐位相同），
+        // 超人姿态 = 头盒中心 1.6。支点落在头上，
+        // 于是"趴平"后身体从头部向后平铺 —— 正是超人"头在前、身体在后"的形态。
+        // pivot 还要除以 getScale()：此刻 PoseStack 里已经有 scale(getScale)，
+        // 而 bodyCenterOffset 是缩放后的尺寸，除一次才是这一层坐标系里的长度。
+        float pivot = (float) (SpacePlayerData.bodyCenterOffset(player)
+                / Math.max(0.01F, player.getScale()));
         poseStack.translate(0.0F, pivot, 0.0F);
         poseStack.mulPose(polymech$bodyQuat(data, partialTick));
+        // 超人姿态：再叠一个局部 +90° 俯仰把身体"趴平"（等价于原版鞘翅滑翔的 Rx(-90)，
+        // 推导见 SpacePlayerData.SUPERMAN_PRONE_PITCH_DEG）。不叠这一步，模型就是"站着往前飞"。
+        // 写在 mulPose(身体) 之后、translate(-pivot) 之前 → 仍是绕同一个支点转。
+        if (SpacePlayerData.isSuperman(player)) {
+            poseStack.mulPose(new Quaternionf().rotationX(
+                    (float) Math.toRadians(SpacePlayerData.SUPERMAN_PRONE_PITCH_DEG)));
+        }
         poseStack.translate(0.0F, -pivot, 0.0F);
         // yBodyRot = 0：让原版那步 Ry(180 - yBodyRot) 退化成固定的 Ry(180) 镜像补偿。
         operation.call(self, entity, poseStack, bob, 0.0F, partialTick, scale);
@@ -114,7 +136,13 @@ public abstract class SpaceBodyTiltMixin {
         //   (xRot, yRot, zRot) = (x, -y, -z)   —— 正立时 x/y 与上面那两行完全等价
         if (data != null && model instanceof net.minecraft.client.model.HumanoidModel<?> humanoid) {
             org.joml.Vector3f e = new org.joml.Vector3f();
-            data.headLocalEuler(e);
+            // 超人姿态：身体已被"趴平"，头部偏角要相对**趴平后的身体**算，
+            // 且不能夹颈部锥（那里天然接近 90°，一夹就变成"一直低头看地面"）。
+            if (SpacePlayerData.isSuperman(entity)) {
+                data.headLocalEulerSuperman(e);
+            } else {
+                data.headLocalEuler(e);
+            }
             humanoid.head.xRot = e.x;
             humanoid.head.yRot = -e.y;
             humanoid.head.zRot = -e.z;

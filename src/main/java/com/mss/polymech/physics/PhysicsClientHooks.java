@@ -19,6 +19,16 @@ public final class PhysicsClientHooks {
     public static volatile Consumer<PhysicsBodySyncPacket> bodySyncConsumer = packet -> {
     };
 
+    /** 客户端装载：接收物理体的方块实体同步包（箱子/熔炉等的渲染数据）。默认 no-op（服务端）。 */
+    public static volatile Consumer<com.mss.polymech.network.PhysicsBodyBlockEntityPacket>
+            bodyBlockEntityConsumer = packet -> {
+    };
+
+    /** 客户端装载：接收物理体批量运动同步（每 tick 一个包，内含全部刚体）。默认 no-op（服务端）。 */
+    public static volatile Consumer<com.mss.polymech.network.PhysicsBodyMoveBatchPacket>
+            bodyMoveBatchConsumer = packet -> {
+    };
+
     /** 物理接管移动（客户端实现）；服务端 no-op。返回 true 表示已接管，本次不再执行原版 setPos。 */
     public static volatile MovementDriver movementDriver = (entity, delta) -> false;
 
@@ -37,5 +47,13 @@ public final class PhysicsClientHooks {
 
     public static void acceptBodySync(PhysicsBodySyncPacket packet) {
         bodySyncConsumer.accept(packet);
+    }
+
+    public static void acceptBodyBlockEntities(com.mss.polymech.network.PhysicsBodyBlockEntityPacket packet) {
+        bodyBlockEntityConsumer.accept(packet);
+    }
+
+    public static void acceptBodyMoveBatch(com.mss.polymech.network.PhysicsBodyMoveBatchPacket packet) {
+        bodyMoveBatchConsumer.accept(packet);
     }
 }

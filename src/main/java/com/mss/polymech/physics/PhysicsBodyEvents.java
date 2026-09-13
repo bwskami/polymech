@@ -65,6 +65,7 @@ public final class PhysicsBodyEvents {
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             ServerPlayerPhysics.forget(player);
+            PhysicsBodyTracker.forgetAcks(player); // 可靠握手的待确认表一并清掉
             RESEND_AT.remove(player.getUUID());
         }
     }

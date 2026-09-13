@@ -273,6 +273,26 @@ public class Polymech {
                 com.mss.polymech.network.PhysicsBodySyncPacket.STREAM_CODEC,
                 com.mss.polymech.network.PhysicsBodySyncPacket::handle
         );
+        // 物理体的方块实体同步（服务端 -> 客户端）：箱子/熔炉这类"模型为空、只能靠 BE 渲染"的方块
+        // 缺少它就会整个透明。对应 space/MPS 的 SyncPhysicalBodyBlockEntity。
+        registrar.playToClient(
+                com.mss.polymech.network.PhysicsBodyBlockEntityPacket.TYPE,
+                com.mss.polymech.network.PhysicsBodyBlockEntityPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysicsBodyBlockEntityPacket::handle
+        );
+        // 物理体批量运动同步（服务端 → 客户端）：每 tick 一个包带上全部刚体的变换与速度，
+        // 取代"每体每 tick 一个包"（照 space 0.1.3 的 SyncPhysicalBodyMoveBatch）
+        registrar.playToClient(
+                com.mss.polymech.network.PhysicsBodyMoveBatchPacket.TYPE,
+                com.mss.polymech.network.PhysicsBodyMoveBatchPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysicsBodyMoveBatchPacket::handle
+        );
+        // 物理体快照确认（客户端 -> 服务端）：可靠创建握手，照 space 0.1.3 的 SyncCreateAck
+        registrar.playToServer(
+                com.mss.polymech.network.SyncPhysicsBodyAckPacket.TYPE,
+                com.mss.polymech.network.SyncPhysicsBodyAckPacket.STREAM_CODEC,
+                com.mss.polymech.network.SyncPhysicsBodyAckPacket::handle
+        );
         registrar.playToClient(
                 SpaceTransitionSyncPacket.TYPE,
                 SpaceTransitionSyncPacket.STREAM_CODEC,

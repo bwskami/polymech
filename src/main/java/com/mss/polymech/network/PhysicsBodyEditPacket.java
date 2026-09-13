@@ -1,6 +1,7 @@
 package com.mss.polymech.network;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.physics.PhysicsBodyInteraction;
 import com.mss.polymech.physics.PhysicsBodyTracker;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -10,12 +11,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * 物理体方块编辑包（客户端 → 服务端）：破坏 / 放置。
+ * 物理体交互包（客户端 → 服务端）：<b>破坏 / 使用·放置</b>。
  *
- * <p>物理体的方块不在世界里，原版交互打不到它们，所以由客户端做自己的射线
- * （{@link com.mss.polymech.physics.PhysicsRaycast}）后发这个包请求修改。
- * 服务端会校验距离与方块是否合法，然后增删快照条目、重建体素碰撞体、写存档，
- * 并把最新的完整快照重发给该维度的客户端。</p>
+ * <p>物理体的方块不在世界里，原版交互打不到它们，所以客户端自己做射线
+ * （{@link com.mss.polymech.physics.PhysicsRaycast}）后发这个包。
+ * 服务端校验距离，然后在<b>投影维度</b>里跑原版逻辑
+ * （见 {@link PhysicsBodyInteraction}）—— 于是箱子能开、破坏有掉落物、放置按原版朝向。</p>
+ *
+ * <p>不再传方块状态：放置用哪个方块由服务端读玩家手上的物品决定，更可信。</p>
  */
 public record PhysicsBodyEditPacket(
         Action action,
@@ -23,12 +26,16 @@ public record PhysicsBodyEditPacket(
         int dx,
         int dy,
         int dz,
-        int stateId
+        int faceX,
+        int faceY,
+        int faceZ,
+        int hand,
+        boolean sneaking
 ) implements CustomPacketPayload {
 
     public enum Action {
         BREAK,
-        PLACE
+        USE
     }
 
     /** 允许的交互距离（格），比原版方块交互距离略宽松，防止绕角作弊。 */
@@ -41,8 +48,13 @@ public record PhysicsBodyEditPacket(
             new StreamCodec<>() {
                 @Override
                 public PhysicsBodyEditPacket decode(RegistryFriendlyByteBuf buf) {
-                    return new PhysicsBodyEditPacket(Action.values()[buf.readByte()], buf.readLong(),
-                            buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
+                    return new PhysicsBodyEditPacket(
+                            Action.values()[buf.readByte()],
+                            buf.readLong(),
+                            buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
+                            buf.readByte(), buf.readByte(), buf.readByte(),
+                            buf.readByte(),
+                            buf.readBoolean());
                 }
 
                 @Override
@@ -52,16 +64,22 @@ public record PhysicsBodyEditPacket(
                     buf.writeVarInt(p.dx);
                     buf.writeVarInt(p.dy);
                     buf.writeVarInt(p.dz);
-                    buf.writeVarInt(p.stateId);
+                    buf.writeByte(p.faceX);
+                    buf.writeByte(p.faceY);
+                    buf.writeByte(p.faceZ);
+                    buf.writeByte(p.hand);
+                    buf.writeBoolean(p.sneaking);
                 }
             };
 
     public static PhysicsBodyEditPacket breakBlock(long bodyId, int dx, int dy, int dz) {
-        return new PhysicsBodyEditPacket(Action.BREAK, bodyId, dx, dy, dz, 0);
+        return new PhysicsBodyEditPacket(Action.BREAK, bodyId, dx, dy, dz, 0, 0, 0, 0, false);
     }
 
-    public static PhysicsBodyEditPacket placeBlock(long bodyId, int dx, int dy, int dz, int stateId) {
-        return new PhysicsBodyEditPacket(Action.PLACE, bodyId, dx, dy, dz, stateId);
+    /** 使用 / 放置：面方向用于原版 {@code useOn} 的落点与朝向计算，hand 0=主手 1=副手。 */
+    public static PhysicsBodyEditPacket use(long bodyId, int dx, int dy, int dz,
+                                            int faceX, int faceY, int faceZ, int hand, boolean sneaking) {
+        return new PhysicsBodyEditPacket(Action.USE, bodyId, dx, dy, dz, faceX, faceY, faceZ, hand, sneaking);
     }
 
     @Override
@@ -79,9 +97,12 @@ public record PhysicsBodyEditPacket(
                 return;
             }
             switch (packet.action()) {
-                case BREAK -> PhysicsBodyTracker.breakBlock(packet.bodyId(), packet.dx(), packet.dy(), packet.dz());
-                case PLACE -> PhysicsBodyTracker.placeBlock(packet.bodyId(), packet.dx(), packet.dy(), packet.dz(),
-                        packet.stateId());
+                case BREAK -> PhysicsBodyInteraction.breakBlock(player, packet.bodyId(),
+                        packet.dx(), packet.dy(), packet.dz());
+                case USE -> PhysicsBodyInteraction.useOrPlace(player, packet.bodyId(),
+                        packet.dx(), packet.dy(), packet.dz(),
+                        packet.faceX(), packet.faceY(), packet.faceZ(),
+                        packet.hand(), packet.sneaking());
             }
         });
     }

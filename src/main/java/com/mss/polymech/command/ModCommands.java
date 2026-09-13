@@ -315,6 +315,21 @@ public class ModCommands {
                                                                         IntegerArgumentType.getInteger(ctx, "dy"),
                                                                         IntegerArgumentType.getInteger(ctx, "dz"),
                                                                         StringArgumentType.getString(ctx, "block")))))))))
+                .then(Commands.literal("projection")
+                        .executes(ctx -> physicsProjection(ctx.getSource(), -1L))
+                        .then(Commands.argument("id", LongArgumentType.longArg(1))
+                                .executes(ctx -> physicsProjection(ctx.getSource(),
+                                        LongArgumentType.getLong(ctx, "id"))))
+                        .then(Commands.literal("wipe")
+                                .then(Commands.argument("slot", IntegerArgumentType.integer(0, 4096))
+                                        .executes(ctx -> physicsProjectionWipe(ctx.getSource(),
+                                                IntegerArgumentType.getInteger(ctx, "slot"))))))
+                .then(Commands.literal("placeat")
+                        .then(Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
+                                .then(Commands.argument("block", StringArgumentType.word())
+                                        .executes(ctx -> physicsPlaceAt(ctx.getSource(),
+                                                net.minecraft.commands.arguments.coordinates.BlockPosArgument.getBlockPos(ctx, "pos"),
+                                                StringArgumentType.getString(ctx, "block"))))))
                 .then(Commands.literal("lockrot")
                         .then(Commands.argument("id", LongArgumentType.longArg(1))
                                 .then(Commands.argument("locked", com.mojang.brigadier.arguments.BoolArgumentType.bool())
@@ -345,6 +360,10 @@ public class ModCommands {
         if (ok) {
             source.sendSuccess(() -> Component.literal("  平台键: "
                     + com.mss.polymech.physics.PhysicsNatives.platformKey()), false);
+            source.sendSuccess(() -> Component.literal(
+                    "  物理体同步：待客户端确认的快照 "
+                            + com.mss.polymech.physics.PhysicsBodyTracker.pendingAckCount()
+                            + " 个（>0 说明握手还没完成，服务端会每 2 秒重发一次、最多 5 次）"), false);
         }
         return ok ? 1 : 0;
     }
@@ -401,6 +420,92 @@ public class ModCommands {
         int after = com.mss.polymech.physics.PhysicsBodyTracker.blocksOf(id).size();
         source.sendSuccess(() -> Component.literal(String.format(
                 "已在物理体 %d 放置方块 (%d,%d,%d) = %s：方块数 %d", id, dx, dy, dz, rl, after)), true);
+        return 1;
+    }
+
+    /**
+     * /polymech physics projection [id]：投影维度自检。
+     * 带 id 时进一步报告该物理体的地皮里<b>实际</b>有多少非空气方块与方块实体 ——
+     * 这是验证"机器连同内部状态一起进了投影"的直接手段。
+     */
+    private static int physicsProjection(CommandSourceStack source, long bodyId) {
+        boolean ready = com.mss.polymech.physics.ProjectionManager.isReady();
+        source.sendSuccess(() -> Component.literal("投影维度 "
+                + com.mss.polymech.physics.ProjectionManager.DIMENSION_ID + ": "
+                + (ready ? "§a就绪" : "§c缺失（检查 datapack 里的 dimension/projection_world.json）")), false);
+        if (ready) {
+            source.sendSuccess(() -> Component.literal(
+                    "  待回写脏区块 " + com.mss.polymech.physics.ProjectionManager.dirtyChunkCount()
+                            + "（投影里被改过、还没搬到刚体的区块）"), false);
+            source.sendSuccess(() -> Component.literal(
+                    "  掉落物搬运：成功 " + com.mss.polymech.physics.ProjectionManager.relocatedDropCount()
+                            + " / 销毁垃圾 " + com.mss.polymech.physics.ProjectionManager.discardedDropCount()
+                            + "（销毁=归属不到任何物理体，留在隐藏维度也没人要）"), false);
+            source.sendSuccess(() -> Component.literal(String.format(
+                    "  地皮 %d³、间距 %d、底部 Y=%d；占用槽位 %d（最高到 %d）；实际维度键 %s",
+                    com.mss.polymech.physics.ProjectionManager.SLOT_SIZE,
+                    com.mss.polymech.physics.ProjectionManager.SLOT_SPACING,
+                    com.mss.polymech.physics.ProjectionManager.SLOT_MIN_Y,
+                    com.mss.polymech.physics.ProjectionManager.allocatedSlots(),
+                    com.mss.polymech.physics.ProjectionManager.slotCeiling(),
+                    com.mss.polymech.physics.ProjectionManager.level().dimension().location())), false);
+        }
+        if (ready && bodyId > 0) {
+            int slot = com.mss.polymech.physics.ProjectionManager.slotOf(bodyId);
+            if (slot < 0) {
+                source.sendFailure(Component.literal("物理体 " + bodyId + " 没有投影地皮（不存在，或建体时投影维度未就绪）"));
+                return 0;
+            }
+            source.sendSuccess(() -> Component.literal("  物理体 " + bodyId + " → "
+                    + com.mss.polymech.physics.ProjectionManager.describeSlot(slot)), false);
+        }
+        return ready ? 1 : 0;
+    }
+
+    /**
+     * /polymech physics projection wipe &lt;slot&gt;：把整块地皮清成空气（清理孤儿方块）。
+     *
+     * <p>分配地皮时已自动清一遍，这里是手动兜底（比如怀疑某块地皮有看不见的导电残留）。</p>
+     */
+    private static int physicsProjectionWipe(CommandSourceStack source, int slot) {
+        if (!com.mss.polymech.physics.ProjectionManager.isReady()) {
+            source.sendFailure(Component.literal("投影维度未就绪"));
+            return 0;
+        }
+        int cleared = com.mss.polymech.physics.ProjectionManager.wipeSlot(slot);
+        if (cleared < 0) {
+            source.sendFailure(Component.literal("清理失败：槽位无效"));
+            return 0;
+        }
+        source.sendSuccess(() -> Component.literal("已清空地皮 " + slot + "：清掉 " + cleared + " 个方块"), true);
+        return 1;
+    }
+
+    /**
+     * /polymech physics placeat &lt;pos&gt; &lt;block&gt;：按"物理体建造"语义在该位置放一块 ——
+     * 有面相邻的物理体就并进去，没有就由这一块新建一个物理体（{@link PhysicsBodyTracker#placeBlockAt}）。
+     * 用于验证"太空里摆出来的方块就是物理体"这条链路。
+     */
+    private static int physicsPlaceAt(CommandSourceStack source, BlockPos pos, String blockId) {
+        var rl = net.minecraft.resources.ResourceLocation.tryParse(blockId.contains(":") ? blockId : "minecraft:" + blockId);
+        if (rl == null) {
+            source.sendFailure(Component.literal("无法解析方块 id: " + blockId));
+            return 0;
+        }
+        var block = net.minecraft.core.registries.BuiltInRegistries.BLOCK.get(rl);
+        if (block == null || block == net.minecraft.world.level.block.Blocks.AIR) {
+            source.sendFailure(Component.literal("未知方块: " + blockId));
+            return 0;
+        }
+        int stateId = net.minecraft.world.level.block.Block.getId(block.defaultBlockState());
+        long id = com.mss.polymech.physics.PhysicsBodyTracker.placeBlockAt(source.getLevel(), pos, stateId);
+        if (id < 0) {
+            source.sendFailure(Component.literal("放置失败：该格已被方块占用、原生层不可用或超限"));
+            return 0;
+        }
+        int count = com.mss.polymech.physics.PhysicsBodyTracker.blocksOf(id).size();
+        source.sendSuccess(() -> Component.literal(String.format(
+                "已放置 %s 到 %s → 物理体 %d（方块数 %d）", rl, pos.toShortString(), id, count)), true);
         return 1;
     }
 

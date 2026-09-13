@@ -33,10 +33,17 @@ public class PhysicsBodySavedData extends SavedData {
     public static final SavedData.Factory<PhysicsBodySavedData> FACTORY =
             new SavedData.Factory<>(PhysicsBodySavedData::new, PhysicsBodySavedData::load);
 
-    /** 单个物理体的持久化记录。 */
+    /**
+     * 单个物理体的持久化记录。
+     *
+     * @param slot 投影维度的地皮槽位；{@code -1} 表示未分配（投影维度当时不可用）。
+     *             <b>必须持久化</b>：槽位决定方块实体活在哪块地皮上，
+     *             重启后重新从 0 分配会串位、把旧地皮连同里面的机器状态一起变成孤儿。
+     */
     public record Entry(long id, ResourceKey<Level> dimension,
                         double x, double y, double z,
                         float qx, float qy, float qz, float qw,
+                        int slot,
                         int[] blocks) {
     }
 
@@ -55,8 +62,21 @@ public class PhysicsBodySavedData extends SavedData {
         return entries.isEmpty();
     }
 
+    /**
+     * 分配一个物理体 id，<b>优先复用已销毁体留下的空号</b>。
+     *
+     * <p>不能只用自增计数器：id 直接决定投影维度里的地皮槽位，而每块地皮要
+     * <b>强制加载 8×8 个区块</b>。号只涨不补 = 地皮只增不减，
+     * 撸掉一个体就永久漏掉一块地皮（以及那 64 个区块的加载开销）。</p>
+     */
     public long allocateId() {
-        long id = nextId++;
+        long id = 1L;
+        while (entries.containsKey(id)) {
+            id++;
+        }
+        if (id >= nextId) {
+            nextId = id + 1;
+        }
         setDirty();
         return id;
     }
@@ -82,7 +102,7 @@ public class PhysicsBodySavedData extends SavedData {
         if (old == null) {
             return;
         }
-        entries.put(id, new Entry(id, old.dimension(), x, y, z, qx, qy, qz, qw, old.blocks()));
+        entries.put(id, new Entry(id, old.dimension(), x, y, z, qx, qy, qz, qw, old.slot(), old.blocks()));
         setDirty();
     }
 
@@ -101,6 +121,7 @@ public class PhysicsBodySavedData extends SavedData {
             t.putFloat("QY", entry.qy());
             t.putFloat("QZ", entry.qz());
             t.putFloat("QW", entry.qw());
+            t.putInt("Slot", entry.slot());
             t.putIntArray("Blocks", entry.blocks());
             list.add(t);
         }
@@ -123,10 +144,12 @@ public class PhysicsBodySavedData extends SavedData {
                 continue;
             }
             long id = t.getLong("Id");
+            // 老存档没有 Slot 字段：给 -1，让 restore 重新分配并回写一份方块
+            int slot = t.contains("Slot") ? t.getInt("Slot") : -1;
             data.entries.put(id, new Entry(id, ResourceKey.create(Registries.DIMENSION, dim),
                     t.getDouble("X"), t.getDouble("Y"), t.getDouble("Z"),
                     t.getFloat("QX"), t.getFloat("QY"), t.getFloat("QZ"), t.getFloat("QW"),
-                    blocks));
+                    slot, blocks));
             if (id >= data.nextId) {
                 data.nextId = id + 1;
             }

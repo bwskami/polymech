@@ -1,0 +1,12 @@
+{
+  "type": "poly_mech:projection_world",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:plains",
+      "lakes": false,
+      "features": false,
+      "layers": []
+    }
+  }
+}
