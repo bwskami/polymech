@@ -89,11 +89,12 @@ public final class PhysicsEntityManager {
             return false;
         }
         long collider = NativePhysics.colliderAttachCuboid(world, body,
-                halfWidth, halfHeight, halfWidth, 0.6, 0.0);
+                halfWidth, halfHeight, halfWidth, PhysicsMaterials.ENTITY_FRICTION, 0.0);
         if (collider <= 0) {
             NativePhysics.bodyDestroy(world, body);
             return false;
         }
+        PhysicsMaterials.apply(world, collider, PhysicsMaterials.ENTITY_FRICTION, 0.0);
         // 锁定旋转：MC 实体视觉上不会翻滚，放任物理翻滚只会让高瘦实体莫名其妙倒下去
         NativePhysics.bodyLockRotations(world, body, true);
         ATTACHED.put(entity.getUUID(), new Attachment(body, halfHeight));

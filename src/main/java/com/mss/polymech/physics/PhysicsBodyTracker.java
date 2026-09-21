@@ -52,6 +52,12 @@ public final class PhysicsBodyTracker {
     private static final int PERSIST_INTERVAL = 40;
     private static int persistTimer;
 
+    /** 碰撞体重建耗时超过它就告警（毫秒）—— 用来定位"每隔几秒顿一下"。 */
+    private static final long REBUILD_WARN_MS = 8L;
+    /** 同类告警的最小间隔（纳秒）：避免一次周期性重建把日志刷爆。 */
+    private static final long REBUILD_WARN_INTERVAL_NANOS = 3_000_000_000L;
+    private static long lastRebuildWarnNanos;
+
     private record TrackedBody(ServerLevel level, long body, BlockPos origin,
                                List<PhysicsBodySyncPacket.BlockEntry> blocks,
                                double x, double y, double z,
@@ -67,7 +73,7 @@ public final class PhysicsBodyTracker {
             return new TrackedBody(level, body, origin, blocks, x, y, z, qx, qy, qz, qw, value);
         }
 
-        /** 转成存档记录（方块打包成 [dx,dy,dz,stateId] 四元组）。 */
+        /** 转成存档记录（方块打包成 [dx,dy,dz,stateId] 四元组；含速度与碰撞组）。 */
         PhysicsBodySavedData.Entry toSaved(long id) {
             int[] packed = new int[blocks.size() * 4];
             for (int i = 0; i < blocks.size(); i++) {
@@ -77,7 +83,19 @@ public final class PhysicsBodyTracker {
                 packed[i * 4 + 2] = e.dz();
                 packed[i * 4 + 3] = e.stateId();
             }
+            // 速度与碰撞组不放在 TrackedBody 里：它们分别由 tick() 与命令写进这两张表，
+            // 记进 record 会让 withTransform/withFrozen 每次都被迫多带 7 个字段。
+            double[] motion = MOTION.get(id);
+            int[] groups = COLLISION_GROUPS.get(id);
             return new PhysicsBodySavedData.Entry(id, level.dimension(), x, y, z, qx, qy, qz, qw,
+                    motion == null ? 0.0 : motion[0],
+                    motion == null ? 0.0 : motion[1],
+                    motion == null ? 0.0 : motion[2],
+                    motion == null ? 0.0 : motion[3],
+                    motion == null ? 0.0 : motion[4],
+                    motion == null ? 0.0 : motion[5],
+                    groups == null ? PhysicsBodySavedData.GROUP_UNSET : groups[0],
+                    groups == null ? PhysicsBodySavedData.GROUP_UNSET : groups[1],
                     ProjectionManager.slotOf(id), packed);
         }
     }
@@ -93,13 +111,19 @@ public final class PhysicsBodyTracker {
         return new ArrayList<>(BODIES.keySet());
     }
 
-    /** 诊断：id → 当前位置与方块数。 */
+    /** 诊断：id → 当前位置、速度与方块数。 */
     public static List<String> describe() {
         List<String> out = new ArrayList<>();
         for (Map.Entry<Long, TrackedBody> entry : BODIES.entrySet()) {
             TrackedBody t = entry.getValue();
-            out.add(String.format("id=%d pos=(%.2f, %.2f, %.2f) 方块=%d",
-                    entry.getKey(), t.x, t.y, t.z, t.blocks.size()));
+            double[] m = MOTION.get(entry.getKey());
+            if (m == null) {
+                m = ZERO_MOTION;
+            }
+            out.add(String.format("id=%d pos=(%.2f, %.2f, %.2f) 速度=(%.2f, %.2f, %.2f) 方块=%d 质量=%.1f kg%s",
+                    entry.getKey(), t.x, t.y, t.z, m[0], m[1], m[2], t.blocks.size(),
+                    massOf(entry.getKey()),
+                    t.frozen() ? " [冻结]" : ""));
         }
         return out;
     }
@@ -184,10 +208,15 @@ public final class PhysicsBodyTracker {
         for (int i = 0; i < packed.length; i++) {
             packed[i] = cells.get(i);
         }
-        if (NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, packed, 0.6, 0.0) <= 0) {
+        long collider = NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, packed,
+                PhysicsMaterials.BODY_FRICTION, 0.0);
+        if (collider <= 0) {
             NativePhysics.bodyDestroy(world, body);
             return -1;
         }
+        PhysicsMaterials.apply(world, collider, PhysicsMaterials.BODY_FRICTION, 0.0);
+        // 质量下限：一格方块在 Rapier 里只有 1 kg，比玩家还轻 50 倍 —— 不补就会被玩家撞飞
+        applyDensityAndFloor(world, body, collider, blocks);
         // 飞船需要自由旋转（实体接管才锁旋转）
         NativePhysics.bodyLockRotations(world, body, false);
 
@@ -345,10 +374,17 @@ public final class PhysicsBodyTracker {
             return -1;
         }
         long[] cells = {NativePhysics.packCell(0, 0, 0)};
-        if (NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cells, 0.6, 0.0) <= 0) {
+        long collider = NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cells,
+                PhysicsMaterials.BODY_FRICTION, 0.0);
+        if (collider <= 0) {
             NativePhysics.bodyDestroy(world, body);
             return -1;
         }
+        PhysicsMaterials.apply(world, collider, PhysicsMaterials.BODY_FRICTION, 0.0);
+        // 单块体同样要补质量下限（否则 1 kg，"人肉推进器"一碰就飞）
+        // 单块体：同样按材质密度 + 质量下限（1 格石头 ≈2500 kg，1 格羊毛 ≈200 kg）
+        applyDensityAndFloor(world, body, collider,
+                List.of(new PhysicsBodySyncPacket.BlockEntry((short) 0, (short) 0, (short) 0, stateId)));
         // 结构需要自由旋转（与 createFromRegion 一致）
         NativePhysics.bodyLockRotations(world, body, false);
 
@@ -384,6 +420,25 @@ public final class PhysicsBodyTracker {
     private static final Map<Long, int[]> COLLISION_GROUPS = new HashMap<>();
 
     /**
+     * 每个物理体的最近一次运动状态 {@code {vx,vy,vz, avx,avy,avz}}。
+     *
+     * <p>由 {@link #tick()} 每 tick 原地更新（不重新分配，避免每体每 tick 一个数组），
+     * 存档与诊断从它取速度。销毁物理体时必须清 —— 否则 id 回收后会串到下一个体上。</p>
+     */
+    private static final Map<Long, double[]> MOTION = new HashMap<>();
+
+    /** 诊断用零运动（避免每次都 new 一个数组）。 */
+    private static final double[] ZERO_MOTION = new double[6];
+
+    /**
+     * 从存档恢复出来、但**还没到时机施加**的速度。
+     *
+     * <p>恢复时物理体先建成固定体（冻结，防止无人时被重力带走），而固定体的速度会被求解器
+     * 清零 —— 所以速度必须等"解冻切回动态"那一刻再写回去，否则"重启后巡航中的船停住"依旧。</p>
+     */
+    private static final Map<Long, double[]> RESTORED_MOTION = new HashMap<>();
+
+    /**
      * 设置某物理体的碰撞组，并立即重建它的碰撞体（改完立刻生效）。
      *
      * <p>需要的原生能力：ABI ≥ {@link PhysicsNatives#MIN_ABI_COLLISION_GROUPS}；
@@ -404,12 +459,77 @@ public final class PhysicsBodyTracker {
         return COLLISION_GROUPS.get(id);
     }
 
+    /**
+     * 方块集合在刚体局部空间的包围盒中心。
+     *
+     * <p>质量下限的附加质量必须挂在这里，不能挂原点：刚体原点是区域的<b>最小角</b>，
+     * 挂在原点会把合成质心拽到角落 —— 表现是"整条船绕着一个角转"。
+     * 方块 (x) 占 [x, x+1]，所以中心是 (min+max+1)/2。</p>
+     */
+    private static double[] localCenter(List<PhysicsBodySyncPacket.BlockEntry> blocks) {
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        for (PhysicsBodySyncPacket.BlockEntry e : blocks) {
+            minX = Math.min(minX, e.dx());
+            maxX = Math.max(maxX, e.dx());
+            minY = Math.min(minY, e.dy());
+            maxY = Math.max(maxY, e.dy());
+            minZ = Math.min(minZ, e.dz());
+            maxZ = Math.max(maxZ, e.dz());
+        }
+        if (maxX < minX) {
+            return new double[]{0.5, 0.5, 0.5};
+        }
+        return new double[]{
+                (minX + maxX + 1) / 2.0,
+                (minY + maxY + 1) / 2.0,
+                (minZ + maxZ + 1) / 2.0};
+    }
+
+    /** 给刚体套质量下限（质心取结构中心；碰撞体质量由密度表算好后传进来）。 */
+    private static void applyMassFloor(long world, long body, double colliderMass,
+                                       List<PhysicsBodySyncPacket.BlockEntry> blocks) {
+        double[] c = localCenter(blocks);
+        PhysicsBodyMass.apply(world, body, colliderMass, blocks.size(), c[0], c[1], c[2]);
+    }
+
+    /** 方块缓存 → BlockState 列表（算密度/质量用）。 */
+    private static List<BlockState> statesOf(List<PhysicsBodySyncPacket.BlockEntry> blocks) {
+        List<BlockState> states = new ArrayList<>(blocks.size());
+        for (PhysicsBodySyncPacket.BlockEntry e : blocks) {
+            states.add(PhysicsBodySyncPacket.stateFrom(e.stateId()));
+        }
+        return states;
+    }
+
+    /**
+     * 给碰撞体套上**方块材质密度**，再补**质量下限**。
+     *
+     * <p>密度是"太容易被推动"的正解：Rapier 默认密度 1.0 = 一格方块 1 kg（比玩家还轻）。
+     * 按材质给密度后，一格石头 ≈2500 kg、一格钢 ≈7800 kg、一格羊毛 ≈200 kg ——
+     * 材质差异直接变成"推不推得动"。</p>
+     *
+     * @return 碰撞体实际质量（kg）
+     */
+    private static double applyDensityAndFloor(long world, long body, long collider,
+                                              List<PhysicsBodySyncPacket.BlockEntry> blocks) {
+        List<BlockState> states = statesOf(blocks);
+        double colliderMass = BlockDensity.apply(world, collider, states);
+        if (colliderMass < 0.0) {
+            // 老 dll（没有密度接口）：仍是 Rapier 默认 1.0 → 一格 1 kg
+            colliderMass = states.size();
+        }
+        applyMassFloor(world, body, colliderMass, blocks);
+        return colliderMass;
+    }
+
     /** 用当前方块列表重建体素碰撞体（先清掉旧的，避免旧形状残留）。 */
     private static void rebuildCollider(long id, TrackedBody tracked) {
         long world = PhysicsWorldManager.world(tracked.level);
         if (world <= 0) {
             return;
         }
+        long t0 = System.nanoTime();
         NativePhysics.bodyClearColliders(world, tracked.body);
         long[] cells = new long[tracked.blocks.size()];
         for (int i = 0; i < cells.length; i++) {
@@ -417,11 +537,29 @@ public final class PhysicsBodyTracker {
             cells[i] = NativePhysics.packCell(e.dx(), e.dy(), e.dz());
         }
         int[] groups = COLLISION_GROUPS.get(id);
+        long collider;
         if (groups != null && PhysicsNatives.hasCollisionGroups()) {
-            NativePhysics.colliderAttachVoxelsGrouped(world, tracked.body, 1.0, 1.0, 1.0, cells, 0.6, 0.0,
-                    groups[0], groups[1]);
+            collider = NativePhysics.colliderAttachVoxelsGrouped(world, tracked.body, 1.0, 1.0, 1.0, cells,
+                    PhysicsMaterials.BODY_FRICTION, 0.0, groups[0], groups[1]);
         } else {
-            NativePhysics.colliderAttachVoxels(world, tracked.body, 1.0, 1.0, 1.0, cells, 0.6, 0.0);
+            collider = NativePhysics.colliderAttachVoxels(world, tracked.body, 1.0, 1.0, 1.0, cells,
+                    PhysicsMaterials.BODY_FRICTION, 0.0);
+        }
+        // 每次重建都要重套材质：colliderSetMaterial 是按碰撞体 id 生效的，旧碰撞体已经没了
+        PhysicsMaterials.apply(world, collider, PhysicsMaterials.BODY_FRICTION, 0.0);
+        // 方块数变了 → 碰撞体质量变了，密度与质量下限都要跟着重算（投影里机器改方块会走到这里）
+        applyDensityAndFloor(world, tracked.body, collider, tracked.blocks);
+        long ms = (System.nanoTime() - t0) / 1_000_000L;
+        if (ms >= REBUILD_WARN_MS) {
+            long now = System.nanoTime();
+            if (now - lastRebuildWarnNanos > REBUILD_WARN_INTERVAL_NANOS) {
+                lastRebuildWarnNanos = now;
+                double[] m = MOTION.get(id);
+                double speed = m == null ? 0.0 : Math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
+                LOGGER.warn("[PolyMech] 物理体 {} 重建碰撞体耗时 {} ms（{} 块，当时速度 {} m/s）"
+                                + " —— 这期间它没有碰撞体，且会唤醒刚体；若周期性出现，就是「每隔几秒顿一下」的来源",
+                        id, ms, tracked.blocks.size(), String.format("%.2f", speed));
+            }
         }
     }
 
@@ -476,6 +614,8 @@ public final class PhysicsBodyTracker {
         }
         // id 会被回收（取最小空闲号），碰撞组必须跟着一起清 —— 否则会串到下一个复用该 id 的体上
         COLLISION_GROUPS.remove(id);
+        MOTION.remove(id);
+        RESTORED_MOTION.remove(id);
         long world = PhysicsWorldManager.world(tracked.level);
         if (world > 0 && tracked.body > 0) {
             NativePhysics.bodyDestroy(world, tracked.body);
@@ -508,6 +648,8 @@ public final class PhysicsBodyTracker {
         }
         // 同上：id 可回收，碰撞组不能留在表里
         COLLISION_GROUPS.remove(id);
+        MOTION.remove(id);
+        RESTORED_MOTION.remove(id);
         ServerLevel level = tracked.level;
         long world = PhysicsWorldManager.world(level);
         int slot = ProjectionManager.slotOf(id);
@@ -584,6 +726,14 @@ public final class PhysicsBodyTracker {
                 PhysicsWorldManager.terrain(tracked.level)
                         .update(BlockPos.containing(tracked.x, tracked.y, tracked.z), 2);
                 NativePhysics.bodySetBodyType(world, tracked.body, NativePhysics.BODY_DYNAMIC);
+                // 存档里带回来的速度必须**在切回动态之后**写：固定体的速度会被求解器清零，
+                // 在 restore 里写等于没写（重启后巡航中的船会原地停住）。
+                double[] restored = RESTORED_MOTION.remove(entry.getKey());
+                if (restored != null) {
+                    NativePhysics.bodySetMotion(world, tracked.body,
+                            restored[0], restored[1], restored[2],
+                            restored[3], restored[4], restored[5], true);
+                }
                 // 注意：必须用解冻后的实例继续本 tick 的后续处理，
                 // 否则下面 withTransform 会带着旧的 frozen=true 把状态写回去 → 每 tick 反复解冻
                 tracked = tracked.withFrozen(false);
@@ -624,9 +774,25 @@ public final class PhysicsBodyTracker {
                             updated.x, updated.y, updated.z,
                             updated.qx, updated.qy, updated.qz, updated.qw,
                             vx, vy, vz, avx, avy, avz));
+            // 运动状态原地记账（存档与诊断读它），用固定数组原地写、每体每 tick 零分配。
+            //
+            // 冻结体例外：它被建成固定体，读回来的速度恒为 0；若照写就会把 restore 从存档
+            // 带回来的"解冻后应有的速度"抹掉 —— 玩家在远处存档退出，重启后船就永远不动了。
+            // 注意下发（上面的 batch）仍然用物理真值 0：客户端那个刚体是 DYNAMIC 镜像，
+            // 给它灌一个"意图速度"会让船在客户端自己飞走。
+            double[] motion = MOTION.computeIfAbsent(entry.getKey(), k -> new double[6]);
+            if (!tracked.frozen()) {
+                motion[0] = vx;
+                motion[1] = vy;
+                motion[2] = vz;
+                motion[3] = avx;
+                motion[4] = avy;
+                motion[5] = avz;
+            }
             if (saved != null) {
                 saved.updateTransform(entry.getKey(), updated.x, updated.y, updated.z,
-                        updated.qx, updated.qy, updated.qz, updated.qw);
+                        updated.qx, updated.qy, updated.qz, updated.qw,
+                        motion[0], motion[1], motion[2], motion[3], motion[4], motion[5]);
             }
         }
         for (Map.Entry<ServerLevel, List<PhysicsBodyMoveBatchPacket.Entry>> batch : batches.entrySet()) {
@@ -733,7 +899,10 @@ public final class PhysicsBodyTracker {
                 if (newlyAssigned) {
                     saved.put(new PhysicsBodySavedData.Entry(entry.id(), entry.dimension(),
                             entry.x(), entry.y(), entry.z(),
-                            entry.qx(), entry.qy(), entry.qz(), entry.qw(), slot, entry.blocks()));
+                            entry.qx(), entry.qy(), entry.qz(), entry.qw(),
+                            entry.vx(), entry.vy(), entry.vz(),
+                            entry.avx(), entry.avy(), entry.avz(),
+                            entry.membership(), entry.filter(), slot, entry.blocks()));
                 }
             }
 
@@ -744,10 +913,40 @@ public final class PhysicsBodyTracker {
             if (body <= 0) {
                 continue;
             }
-            if (NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cellArray, 0.6, 0.0) <= 0) {
+            // 碰撞组一起恢复：此前不存也不还原，"重启后本该互相穿过/互不作用的两个体"会开始互撞。
+            int membership = entry.membership();
+            int filter = entry.filter();
+            boolean hasGroups = membership != PhysicsBodySavedData.GROUP_UNSET
+                    || filter != PhysicsBodySavedData.GROUP_UNSET;
+            long collider;
+            if (hasGroups && PhysicsNatives.hasCollisionGroups()) {
+                collider = NativePhysics.colliderAttachVoxelsGrouped(world, body, 1.0, 1.0, 1.0, cellArray,
+                        PhysicsMaterials.BODY_FRICTION, 0.0, membership, filter);
+                if (collider > 0) {
+                    COLLISION_GROUPS.put(entry.id(), new int[]{membership, filter});
+                }
+            } else {
+                collider = NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cellArray,
+                        PhysicsMaterials.BODY_FRICTION, 0.0);
+            }
+            if (collider <= 0) {
                 NativePhysics.bodyDestroy(world, body);
+                COLLISION_GROUPS.remove(entry.id());
                 continue;
             }
+            PhysicsMaterials.apply(world, collider, PhysicsMaterials.BODY_FRICTION, 0.0);
+            // 质量下限：RESTORED_MOTION 与它无关，但被撞飞的门槛与它有关
+            applyDensityAndFloor(world, body, collider, blocks);
+            // 速度先寄存：固定体的速度会被求解器清零，等解冻切回动态那一刻再写（见 tick）。
+            RESTORED_MOTION.put(entry.id(), new double[]{
+                    entry.vx(), entry.vy(), entry.vz(), entry.avx(), entry.avy(), entry.avz()});
+            double[] motion = MOTION.computeIfAbsent(entry.id(), k -> new double[6]);
+            motion[0] = entry.vx();
+            motion[1] = entry.vy();
+            motion[2] = entry.vz();
+            motion[3] = entry.avx();
+            motion[4] = entry.avy();
+            motion[5] = entry.avz();
             TrackedBody tracked = new TrackedBody(level, body, BlockPos.containing(entry.x(), entry.y(), entry.z()),
                     blocks, entry.x(), entry.y(), entry.z(),
                     entry.qx(), entry.qy(), entry.qz(), entry.qw(), true);
@@ -1081,10 +1280,38 @@ public final class PhysicsBodyTracker {
         }
         long world = PhysicsWorldManager.world(tracked.level);
         boolean ok = world > 0 && NativePhysics.bodyApplyImpulse(world, tracked.body, ix, iy, iz);
-        LOGGER.info("[PolyMech] 推动物理体 {}: 冲量=({}, {}, {}) 冻结={} 结果={}",
+        // DEBUG：推动是持续行为（客户端每 N tick 一个包），INFO 会把日志刷爆
+        LOGGER.debug("[PolyMech] 推动物理体 {}: 冲量=({}, {}, {}) 冻结={} 结果={}",
                 id, String.format("%.2f", ix), String.format("%.2f", iy), String.format("%.2f", iz),
                 tracked.frozen, ok);
         return ok;
+    }
+
+    /**
+     * 取刚体最近一次同步到的运动状态 {@code [vx,vy,vz, avx,avy,avz]}；不存在返回 null。
+     *
+     * <p>调用方<b>不要改这个数组</b>（它是内部记账用的，改了下一次存档就写错了）。</p>
+     */
+    public static double[] motionOf(long id) {
+        return MOTION.get(id);
+    }
+
+    /**
+     * 取刚体当前质量（kg）；刚体不存在或原生层过旧返回 -1。
+     *
+     * <p>推动冲量必须按它缩放 —— 固定冲量打在轻体上就是"打飞"（实测 1 格方块 = 1 kg，
+     * 原本的 24 N·s 固定冲量等于瞬加 24 m/s）。</p>
+     */
+    public static double massOf(long id) {
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null || !PhysicsNatives.hasTier1()) {
+            return -1.0;
+        }
+        long world = PhysicsWorldManager.world(tracked.level);
+        if (world <= 0) {
+            return -1.0;
+        }
+        return NativePhysics.bodyGetMass(world, tracked.body);
     }
 
     /**
@@ -1162,6 +1389,9 @@ public final class PhysicsBodyTracker {
             }
         }
         BODIES.clear();
+        COLLISION_GROUPS.clear();
+        MOTION.clear();
+        RESTORED_MOTION.clear();
     }
 
     /** 把任意物理体相关包发给该维度全部玩家（方块快照、方块实体快照、挖掘进度共用）。 */

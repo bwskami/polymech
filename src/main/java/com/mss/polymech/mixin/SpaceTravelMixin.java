@@ -1,5 +1,6 @@
 package com.mss.polymech.mixin;
 
+import com.mss.polymech.client.space.LevelAssist;
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpacePlayerData;
 import net.minecraft.client.Minecraft;
@@ -19,10 +20,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * 把原版输入旋转到 6DOF 基底；"走多少 / 怎么停"由原版 {@code travel} 负责；
  * "最终位置"由物理刚体积分后回写（{@code EntityPhysicsDriveMixin}）。</p>
  *
- * <p>本类只做三件事：</p>
+ * <p>本类做四件事：</p>
  * <ol>
- *   <li>Z/C 主动滚转（鼠标永不产生 roll）；</li>
- *   <li>tick 尾部保存旧朝向（渲染插值用）；</li>
+ *   <li>Z/C 主动滚转、<b>X 手动回正</b>（鼠标永不产生 roll）、<b>V 切换深空飞行辅助</b>；</li>
+ *   <li>舒适层：调用 {@link LevelAssist} 做<b>滚转回正</b>（自动只在有重力/邻近物理体时生效，
+ *       深空默认开柔和辅助、可 V 关掉；手动按一下 X 才用原版上下回正，且就近侧别）；</li>
+ *   <li>tick 尾部保存旧朝向 + 推进第一人称手的滞后平滑（渲染插值用）；</li>
  *   <li>传送/切维度检测（用服务器下发的 vanilla 角度重建朝向）+ 朝向同步广播。</li>
  * </ol>
  *
@@ -37,24 +40,65 @@ public abstract class SpaceTravelMixin {
     /** 每 tick 滚转角速度（度/tick，60°/s）。 */
     private static final float ROLL_DEG_PER_TICK = 3.0f;
 
-    /** Z/C 滚转：绕 facing 旋转 left（facing 不动），只改 roll。 */
+    /** 本 tick 玩家是否按着 Z/C 主动滚 —— 自动回正（LevelAssist）据此让路，不跟玩家抢。 */
+    @Unique
+    private boolean polymech$rollKeyActive;
+
+    /** 手动回正键（X）上一帧是否按下 —— 用来做"按一下"的边沿检测（不是长按）。 */
+    @Unique
+    private boolean polymech$manualKeyWasDown;
+
+    /** 深空飞行辅助切换键（V）上一帧是否按下 —— 边沿检测用。 */
+    @Unique
+    private boolean polymech$faKeyWasDown;
+
+    /** Z/C 滚转（按住生效）+ X 手动回正（按一下触发一次自动跑完）+ V 切换深空飞行辅助。 */
     @Inject(method = "tick", at = @At("HEAD"))
     private void polymech$handleRollKeys(CallbackInfo ci) {
         LocalPlayer player = (LocalPlayer) (Object) this;
-        if (!player.level().dimension().equals(PlanetDimensions.SPACE)) return;
+        polymech$rollKeyActive = false;
+        if (!player.level().dimension().equals(PlanetDimensions.SPACE)) {
+            polymech$manualKeyWasDown = false;
+            polymech$faKeyWasDown = false;
+            LevelAssist.setPlayerRollInput(0.0);
+            return;
+        }
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen != null) return; // 聊天/GUI 打开时不滚转
+        if (mc.screen != null) {
+            polymech$manualKeyWasDown = false; // GUI 打开时不响应，也不留边沿状态
+            polymech$faKeyWasDown = false;
+            LevelAssist.setPlayerRollInput(0.0);
+            return;
+        }
         long window = mc.getWindow().getWindow();
+
+        // X：**按一下**触发一次手动回正（边沿检测），之后由 LevelAssist 自己每 tick 推进到收敛
+        boolean manualDown = InputConstants.isKeyDown(window, InputConstants.KEY_X);
+        if (manualDown && !polymech$manualKeyWasDown) {
+            LevelAssist.requestManualLevel();
+        }
+        polymech$manualKeyWasDown = manualDown;
+
+        // V：切换深空飞行辅助（边沿检测；默认开，见 LevelAssist#toggleFlightAssist）
+        boolean faDown = InputConstants.isKeyDown(window, InputConstants.KEY_V);
+        if (faDown && !polymech$faKeyWasDown) {
+            LevelAssist.toggleFlightAssist();
+        }
+        polymech$faKeyWasDown = faDown;
+
         float roll = 0;
         if (InputConstants.isKeyDown(window, InputConstants.KEY_Z)) roll -= ROLL_DEG_PER_TICK;
         if (InputConstants.isKeyDown(window, InputConstants.KEY_C)) roll += ROLL_DEG_PER_TICK;
-        if (roll == 0) return;
 
-        SpacePlayerData data = SpacePlayerData.get(player);
-        if (!data.isInitialized()) return;
-        // 滚的是视线（绕视线前方轴），身体随后自动重算 —— 不再需要"由身体反推视线"
-        data.rollBody(roll * Math.PI / 180.0);
+        // Z/C：这里**只记录**本 tick 的滚转输入，不在这里应用。
+        // 应用点在同 tick 的 LevelAssist.tick()（在 saveOld() 之后）—— 与自动回正、手动回正
+        // 共用同一条后处理路径，这样相机的 partialTick 插值才能把这一 tick 的滚转量摊到每一帧上。
+        // 原先在这里直接 rollBody()，发生在 saveOld() 之前：O 存的已经是滚转后的值，插值拿不到
+        // 变化，于是每 tick 硬跳一个 3° 台阶（20Hz）—— 这就是 Z/C 不如 X 回正丝滑的根因。
+        LevelAssist.setPlayerRollInput(roll);
+        if (roll == 0) return;
+        polymech$rollKeyActive = true;
     }
 
     /**
@@ -103,6 +147,17 @@ public abstract class SpaceTravelMixin {
         if (inSpace) {
             SpacePlayerData data = SpacePlayerData.get(player);
             data.saveOld();
+            // 舒适层：滚转回正。
+            //   · 自动：只在"有重力 / 邻近物理体"时生效；深空不回正（太空的"上"由玩家自己定）。
+            //   · 手动：**按一下 X** 触发一次，之后自动跑完（深空以原版上下为准，就近侧别）。
+            // **必须在 saveOld() 之后**：这样 O 是回正前、current 是回正后，
+            // 相机/模型的 partialTick 插值才能把本 tick 的回正量摊到每一帧 ——
+            // 放在之前的话 O 存的就是回正后的值，插值拿不到变化，表现就是 20Hz 一顿一顿。
+            LevelAssist.tick(player, data, polymech$rollKeyActive);
+            // 第一人称手的滞后平滑（等价 vanilla xBob/yBob 的 50%/tick，
+            // 但走 SpacePlayerData 的**连续角**分支，过极点不跳）。
+            // 见 SpaceFirstPersonHandMixin 与 SpacePlayerData#advanceHandAngles。
+            data.advanceHandAngles();
             // 身体姿态每 tick 都可能变，而原版 AABB 只在 setPos 时重算 ——
             // 站着不动/悬停飞行时它就会停在旧姿态上（"碰撞箱要动一下才刷新"）。
             // 这里坐标不变，只是逼它重算一次盒子。

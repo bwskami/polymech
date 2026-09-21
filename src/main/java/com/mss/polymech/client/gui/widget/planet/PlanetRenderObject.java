@@ -33,9 +33,25 @@ public final class PlanetRenderObject {
     private final Planet planet;
     private final PlanetVisual visual;
     private final double radius;
-    private final double posX;
-    private final double posY;
-    private final double posZ;
+    /**
+     * 天体位置（米，游戏宇宙坐标系）。<b>非 final</b>：位置要能从静态
+     * {@code RealAstroData} 切到 kelvin 的积分结果，由
+     * {@link PlanetRenderObjectFactory#refreshPositions()} 每帧刷新。
+     */
+    private double posX;
+    private double posY;
+    private double posZ;
+
+    /**
+     * 迁移用：把本对象的位置刷新为当前权威位置。
+     * 由 {@link PlanetRenderObjectFactory#refreshPositions()} 每帧调用；
+     * 未启用 kelvin 权威时传入的就是静态值（等同赋值，无副作用）。
+     */
+    public void updatePosition(double posX, double posY, double posZ) {
+        this.posX = posX;
+        this.posY = posY;
+        this.posZ = posZ;
+    }
 
     /** BASE 层表面数据（planet == null 时均为 null）。 */
     private final Polyhedron mesh;
@@ -75,8 +91,7 @@ public final class PlanetRenderObject {
     private final float[] localView = new float[3];
     private final float[] tmpCaster = new float[3];
 
-    /** 真实天体与 GUI 星图 SolarSystem 的 pi 索引一致，保证地表/云层噪声和 GUI 星图完全同款。 */
-    private static int surfaceSeedFor(String planetName) {
+    /** 真实天体与 GUI 星图 SolarSystem 的 pi 索引一致，保证地表/云层噪声和 GUI 星图完全同款。 */    private static int surfaceSeedFor(String planetName) {
         return switch (planetName) {
             case "sun" -> 0;
             case "mercury" -> 1;
@@ -856,13 +871,47 @@ public final class PlanetRenderObject {
         return maxShadow;
     }
 
+    /**
+     * 铺好"相机 → 天体"的模型矩阵（方案 B / S3，见 {@code docs/mps-clone-plan.md} §30.7）。
+     *
+     * <p><b>为什么只留这一处</b>：本体 / 云 / 大气 / 光环四条绘制路径原来<b>各写一遍</b>
+     * {@code modelView.set(view)} + {@code translate(pos − camera)}。压缩要求
+     * "相机相对偏移与天体自身尺寸<b>同乘</b> zoom"（这样角直径才不变），四处各改一次
+     * 就是四份实现 —— 本项目吃过这个亏（§29.3）。</p>
+     *
+     * <p>均匀缩放与后续旋转**可交换**，所以 {@code scale} 放在 {@code translate} 之后即可
+     * 让所有图层（含光环/云的局部几何）半径同步缩放。</p>
+     *
+     * <p>压缩未启用时 {@code zoom == 1.0}，本方法与改造前<b>逐位等价</b>
+     * （只多一次浮点乘法 ×1.0）。</p>
+     */
+    private void beginBodyModelView(PlanetRenderParams params) {
+        modelView.set(params.viewMatrix());
+        double zoom = compressionZoom(params);
+        modelView.translate(
+                (float) ((posX - params.cameraX()) * zoom),
+                (float) ((posY - params.cameraY()) * zoom),
+                (float) ((posZ - params.cameraZ()) * zoom));
+        if (zoom != 1.0) {
+            modelView.scale((float) zoom);
+        }
+    }
+
+    /** 本帧该天体应被缩放的比例（压缩未启用 ⇒ 恒为 1.0）。 */
+    private double compressionZoom(PlanetRenderParams params) {
+        if (!com.mss.polymech.client.space.RenderCompression.active) {
+            return 1.0;
+        }
+        double dx = posX - params.cameraX();
+        double dy = posY - params.cameraY();
+        double dz = posZ - params.cameraZ();
+        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return com.mss.polymech.client.space.RenderCompression.zoomFor(dist, radius);
+    }
+
     private void drawBaseLayerGpu(PlanetRenderParams params) {
         float angle = (float) ((rotationSpeed * params.simTime()) % (Math.PI * 2.0));
-        modelView.set(params.viewMatrix());
-        modelView.translate(
-                (float) (posX - params.cameraX()),
-                (float) (posY - params.cameraY()),
-                (float) (posZ - params.cameraZ()));
+        beginBodyModelView(params);
         modelView.rotateZ(axialTilt);
         modelView.rotateY(angle);
 
@@ -930,11 +979,7 @@ public final class PlanetRenderObject {
 
     private void drawCloudGpu(PlanetRenderParams params, PlanetLayer layer, int cloudIdx) {
         float angle = (float) (((layer.hasCustomRotationSpeed() ? layer.rotationSpeed() : rotationSpeed) * params.simTime()) % (Math.PI * 2.0));
-        modelView.set(params.viewMatrix());
-        modelView.translate(
-                (float) (posX - params.cameraX()),
-                (float) (posY - params.cameraY()),
-                (float) (posZ - params.cameraZ()));
+        beginBodyModelView(params);
         modelView.rotateZ(axialTilt);
         modelView.rotateY(angle);
 
@@ -967,11 +1012,7 @@ public final class PlanetRenderObject {
     }
 
     private void drawAtmosphereGpu(PlanetRenderParams params) {
-        modelView.set(params.viewMatrix());
-        modelView.translate(
-                (float) (posX - params.cameraX()),
-                (float) (posY - params.cameraY()),
-                (float) (posZ - params.cameraZ()));
+        beginBodyModelView(params);
 
         computeViewDir(params);
 
@@ -1006,11 +1047,7 @@ public final class PlanetRenderObject {
         mvs.identity();
         RenderSystem.applyModelViewMatrix();
 
-        modelView.set(params.viewMatrix());
-        modelView.translate(
-                (float) (posX - params.cameraX()),
-                (float) (posY - params.cameraY()),
-                (float) (posZ - params.cameraZ()));
+        beginBodyModelView(params);
         // 光环和赤道面共面：跟着行星轴倾一起倾斜。
         modelView.rotateZ(axialTilt);
 

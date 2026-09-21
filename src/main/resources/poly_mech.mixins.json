@@ -11,11 +11,18 @@
     "SpaceTravelMixin",
     "SpaceBodyTiltMixin",
     "SpaceCameraMixin",
+    "SpaceFirstPersonHandMixin",
     "SpaceInputRotationMixin",
     "space.MixinClientPacketListener",
-    "LevelLoadStatusManagerMixin"
+    "space.MixinEntityRenderDispatcher",
+    "LevelLoadStatusManagerMixin",
+    "LevelRendererCelestialSkyMixin",
+    "mps.MixinClientChunkCache"
   ],
   "mixins": [
+    "datapack.WorldLoaderSpaceDataMixin",
+    "datapack.RegistryDataLoaderSpaceDataMixin",
+    "mps.MixinLevelChunk",
     "space.MixinEntity",
     "space.SupermanDimensionsMixin",
     "space.MixinItemEntity",
@@ -26,7 +33,6 @@
     "LivingEntityBelowWorldMixin",
     "PlayerTickClampMixin",
     "ServerPacketClampMixin",
-    "ServerMoveTrustMixin",
     "LevelBoundsMixin",
     "LevelChunkPhysicsDirtyMixin",
     "EntityPhysicsMoveMixin",

@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 20000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:europa"
+  },
+  "mass": 4.8E22,
+  "pos": [
+    6.041736934611683E11,
+    1.58E10,
+    5.416482328220226E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 1560800.0,
+  "speed": [
+    -4692.257546062094,
+    -142.58869603472797,
+    -5565.495268406326
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/europa/surface.png"
+}

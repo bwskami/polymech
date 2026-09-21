@@ -76,7 +76,30 @@ public final class SpaceTransitionHandler {
         double spaceY = SpaceWorld.toMc(spaceReal[1]);
         double spaceZ = SpaceWorld.toMc(spaceReal[2]);
 
-        SpacePreloader.preload(space, new BlockPos((int) spaceX, (int) spaceY, (int) spaceZ));
+        // ★ 落点诊断（方案 B / S5 的验收依据，见 docs/mps-clone-plan.md §30.12）。
+        //   判据：翻 `identityMode` 前后，**"宇宙系(米)"必须逐位不变**（映射本身没动），
+        //   而**"目标"必须恰好 ×ZOOM**（toMc 从 ÷ZOOM 变恒等）。有这两列，
+        //   "落点逐位比对"就不再靠肉眼猜，日志一 diff 即可。
+        com.mss.polymech.Polymech.LOGGER.info(
+                "[坐标落点] {} → 太空 | 玩家地表=({}, {}, {}) | 宇宙系(米)=({}, {}, {}) | 目标=({}, {}, {}) | 约定={}",
+                player.level().dimension().location(),
+                player.getX(), player.getY(), player.getZ(),
+                spaceReal[0], spaceReal[1], spaceReal[2],
+                spaceX, spaceY, spaceZ,
+                SpaceWorld.identityMode() ? "恒等(1格=1米)" : "历史(1格=10000米)");
+
+        // ★ 预加载必须按范围守门（方案 B / S4a 的**前置**）：恒等约定下目标会到 1e11 量级，
+        //   而 `(int)` 强转的上限只有 2.1e9 ⇒ **溢出**，预加载会拿到一个垃圾（别名）坐标。
+        //   ZOOM 模式下 spaceX≈1.87e7 落在 int 内所以一直没暴露；翻开关前必须补上。
+        //   阈值取 3.0e7：略小于深空守卫线（26 位极限 3.355e7），线内是真实区块、线外是纯虚空，
+        //   而纯虚空本来就不需要预加载。
+        if (Math.abs(spaceX) <= 3.0e7 && Math.abs(spaceY) <= 3.0e7 && Math.abs(spaceZ) <= 3.0e7) {
+            SpacePreloader.preload(space, new BlockPos((int) spaceX, (int) spaceY, (int) spaceZ));
+        } else {
+            com.mss.polymech.Polymech.LOGGER.info(
+                    "[坐标落点] 目标在深空，跳过区块预加载（纯虚空无需预加载）: ({}, {}, {})",
+                    spaceX, spaceY, spaceZ);
+        }
         Vec3 pos = new Vec3(spaceX, spaceY, spaceZ);
         sendSync(player, pos);
         PENDING.put(id, new PendingTransition(PlanetDimensions.SPACE, pos, -1,
@@ -113,6 +136,15 @@ public final class SpaceTransitionHandler {
                 int planetX = (int) worldPos[0];
                 int planetZ = (int) worldPos[2];
                 int surfaceY = PlanetDimensions.surfaceY(player, 3, planetX, planetZ);
+
+                // ★ 落点诊断（与"地表→太空"那条配对，见 §30.12）：
+                //   这一条是"太空→地表"的落点，翻 `identityMode` 后**它不该变**
+                //   （因为落点最终是**方块坐标** planetX/Z，由 spaceToWorld 的球面反算给出，
+                //    与 ZOOM 无关）——但玩家在太空里的输入坐标 pxReal 会变，两者要一起看才算证完。
+                com.mss.polymech.Polymech.LOGGER.info(
+                        "[坐标落点] 太空 → {} | 太空输入(米)=({}, {}, {}) | 落点=({}, {}, {}) | 约定={}",
+                        body.id(), pxReal, pyReal, pzReal, planetX, surfaceY, planetZ,
+                        SpaceWorld.identityMode() ? "恒等(1格=1米)" : "历史(1格=10000米)");
 
                 ServerLevel overworld = player.server.overworld();
                 SpacePreloader.preload(overworld, new BlockPos(planetX, surfaceY, planetZ));

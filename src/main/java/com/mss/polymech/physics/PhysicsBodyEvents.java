@@ -37,11 +37,10 @@ public final class PhysicsBodyEvents {
         }
     }
 
-    /** 换维度：清掉旧维度的玩家刚体，并安排一次延迟补发。 */
+    /** 换维度：安排一次延迟补发（旧维度的物理体同步已由客户端随维度切换重建）。 */
     @SubscribeEvent
     public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            ServerPlayerPhysics.forget(player);
             PhysicsBodyInteraction.forget(player); // 挖掘进度也要丢，否则换维度回来裂纹还在
             RESEND_AT.put(player.getUUID(), player.tickCount + 40);
             PhysicsBodyTracker.sendAllTo(player);
@@ -61,11 +60,10 @@ public final class PhysicsBodyEvents {
         }
     }
 
-    /** 下线时清理该玩家的服务端物理体，避免残留。 */
+    /** 下线时清理该玩家的投影/挖掘状态，避免残留。 */
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            ServerPlayerPhysics.forget(player);
             PhysicsBodyInteraction.forget(player);
             PhysicsBodyTracker.forgetAcks(player); // 可靠握手的待确认表一并清掉
             RESEND_AT.remove(player.getUUID());

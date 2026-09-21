@@ -50,7 +50,12 @@ public final class SpaceHelmetHudOverlay {
     public static void onRenderGui(RenderGuiEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || mc.gameRenderer == null) return;
-        if (!mc.level.dimension().equals(PlanetDimensions.SPACE)) return;
+        boolean inSpace = mc.level.dimension().equals(PlanetDimensions.SPACE);
+        // ★ 行星地表也要显示。判据与 SpaceRenderer/原版天空屏蔽用的是同一个：
+        // "这个维度对应一个 ClientCelestialWorld" ⇒ 我站在某颗行星上。
+        com.mss.polymech.mps.kelvin.physical.celestial_world.ClientCelestialWorld celestialWorld =
+                inSpace ? null : com.mss.polymech.mps.kelvin.physical.celestial_world.ClientCelestialWorld.getCelestialWorld();
+        if (!inSpace && celestialWorld == null) return;
         if (mc.options.hideGui || mc.player.isScoping()) return;
         if (!SpaceHelmetItem.isWorn(mc.player)) return;
 
@@ -58,6 +63,24 @@ public final class SpaceHelmetHudOverlay {
         Vec3 camPos = camera.getPosition();
         // 世界方向 → 视图空间：乘 camera.rotation() 的共轭（与 GameRenderer 构建 view 相同）
         Quaternionf viewRot = new Quaternionf(camera.rotation()).conjugate();
+        // ★ 坐标系与朝向：
+        //  - 太空维度：玩家的 MC 坐标**就是**游戏坐标，直接比；
+        //  - 地表维度：玩家的 MC 坐标只是"某颗球面上的局部坐标"，必须先用 CelestialWorld
+        //    换算到宇宙系（与 SpaceRenderer 同一套映射），朝向还要再叠一层
+        //    getRotateFromWorldPos —— 合成顺序与渲染器完全一致
+        //    （rel_view = cameraRot ∘ spaceRotation ∘ rel），否则方位会整体偏。
+        double camX = camPos.x;
+        double camY = camPos.y;
+        double camZ = camPos.z;
+        Quaternionf spaceRot = new Quaternionf();
+        if (celestialWorld != null) {
+            org.joml.Vector3d p = celestialWorld.getSpacePosFromWorldPos(camPos, 1.0f);
+            camX = SpaceWorld.toMc(p.x);
+            camY = SpaceWorld.toMc(p.y);
+            camZ = SpaceWorld.toMc(p.z);
+            org.joml.Quaterniond q = celestialWorld.getRotateFromWorldPos(camPos, 1.0f);
+            spaceRot.set((float) q.x, (float) q.y, (float) q.z, (float) q.w);
+        }
 
         GuiGraphics g = event.getGuiGraphics();
         Font font = mc.font;
@@ -69,15 +92,25 @@ public final class SpaceHelmetHudOverlay {
 
         List<Entry> entries = new ArrayList<>();
         for (RealAstroData body : RealAstroData.BODIES) {
-            double[] gp = SpaceWorld.gamePosMc(body);
+            // ★ 口径统一（§30.5）：用**渲染口径** `renderPos`（真实三维、含真实 Y），
+            //   而不是方块口径 `gamePosMc`（Y 被压平）—— 否则 HUD 会把倾斜轨道上的天体
+            //   标在黄道面里，和屏幕上看到的位置对不上。
+            //   再经 `toMc` 换成"当前约定下的显示单位"（ZOOM 模式=格；恒等模式=米），
+            //   所以这一改在翻 `identityMode` 开关前后都正确（今天零行为变化）。
+            double[] rp = SpaceWorld.renderPos(body);
+            double[] gp = {SpaceWorld.toMc(rp[0]), SpaceWorld.toMc(rp[1]), SpaceWorld.toMc(rp[2])};
             double bx = gp[0], by = gp[1], bz = gp[2];
             // 距离用 double（数值可达数亿格，float 精度不够）
-            double dx = bx - camPos.x;
-            double dy = by - camPos.y;
-            double dz = bz - camPos.z;
+            double dx = bx - camX;
+            double dy = by - camY;
+            double dz = bz - camZ;
             double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
             Vector3f rel = new Vector3f((float) dx, (float) dy, (float) dz);
+            if (celestialWorld != null) {
+                // 先把宇宙系方向转到"相机所在世界的朝向"，再进视图空间（顺序与渲染器一致）
+                rel.rotate(spaceRot);
+            }
             rel.rotate(viewRot);
             // 视图空间：x 右，y 上，z 向后；相机看向 -z
             if (rel.z() > -0.5f) continue;

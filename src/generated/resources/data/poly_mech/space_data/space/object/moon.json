@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 20000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:moon"
+  },
+  "mass": 7.342E22,
+  "pos": [
+    1.56E10,
+    -2.361521E7,
+    -1.47E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 1737500.0,
+  "speed": [
+    -29950.41544900962,
+    0.026502190556484246,
+    -2319.092906414422
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/moon/surface.png"
+}

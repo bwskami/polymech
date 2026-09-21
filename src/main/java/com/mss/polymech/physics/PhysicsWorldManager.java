@@ -45,10 +45,18 @@ public final class PhysicsWorldManager {
         long handle = NativePhysics.worldCreate(0.0, -9.8 * gravityFactor, 0.0);
         if (handle > 0) {
             NativePhysics.worldSetTimestep(handle, PhysicsStepThread.STEP_SECONDS);
+            // A1 维度地面：有重力的维度（非太空）在 minBuildHeight 挂一个无限半空间，
+            // 物理体掉出世界时有东西接住 —— 此前只有玩家有 SAFE 位置复位，船掉下去就永久丢了。
+            // 太空维度（重力 0）不挂：那里本来就该是"无限虚空"，挂了反而会把飞船托在基岩高度。
+            if (gravityFactor > 0.0f && PhysicsNatives.hasTier1()) {
+                NativePhysics.worldSetFloor(handle, level.getMinBuildHeight(), true);
+            }
             WORLDS.put(key, handle);
             LEVELS.put(key, level);
             // 步进交给独立线程（10ms/步），照 space/MPS
             PhysicsStepThread.add(handle);
+            // 玩家双刚体的速度继承链：每个子步之后都要跑（space 的 RapierWorld tickListener）
+            PhysicsStepThread.addPostStep(handle, () -> PlayerPhysicsBody.afterStep(handle));
             LOGGER.info("[PolyMech] 维度 {} 物理世界已创建: 重力 {} m/s², 句柄 {}",
                     key.location(), -9.8 * gravityFactor, handle);
         }
@@ -88,7 +96,8 @@ public final class PhysicsWorldManager {
         TERRAINS.clear();
         PhysicsEntityManager.clear();
         PhysicsBodyTracker.clear();
-        ServerPlayerPhysics.clear();
+        PlayerPhysicsBody.clear();
+        PhysicsDrivenPlayers.clear();
         for (long handle : WORLDS.values()) {
             PhysicsStepThread.remove(handle);
             NativePhysics.worldDestroy(handle);

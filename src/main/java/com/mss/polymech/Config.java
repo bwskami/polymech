@@ -34,6 +34,37 @@ public class Config {
             .comment("A list of items to log on common setup.")
             .defineListAllowEmpty("items", List.of("minecraft:iron_ingot"), () -> "", Config::validateItemName);
 
+    // ==================== kelvin 天体物理线程（space: SpaceModCommonConfig） ====================
+    // 这两个值决定天体物理线程的推进节奏：core_tick_speed 是每秒步数（Hz），
+    // core_tick_time 是每步的 dt（秒）。space 的默认值同为 100 / 0.01。
+    // 注意它们必须与物理线程（OrbitPhysicalThread）读到的值一致：
+    // dt 直接进积分器，改了会同时改变轨道速度与数值稳定性。
+
+    /** 天体物理线程每秒步数（Hz）。 */
+    public static final ModConfigSpec.IntValue CORE_TICK_SPEED = BUILDER
+            .comment("天体物理线程每秒步数（Hz）。\nCelestial physics thread tick speed.")
+            .defineInRange("coreTickSpeed", 100, 1, 1000);
+
+    /** 天体物理线程每步 dt（秒）。 */
+    public static final ModConfigSpec.DoubleValue CORE_TICK_TIME = BUILDER
+            .comment("天体物理线程每步 dt（秒）。\nCelestial physics thread tick time (seconds).")
+            .defineInRange("coreTickTime", 0.01, 1.0E-4, 1.0);
+
+    /**
+     * 是否让 kelvin 的积分结果成为天体位置的权威来源。
+     *
+     * <p>{@code false}（默认）时位置全部来自静态的 {@code RealAstroData}，
+     * 行为与迁移前逐位相同；{@code true} 时渲染 / 光照 / 星图 / HUD / 传送
+     * 一起改读 kelvin 的轨道 —— 于是行星会随时间真的移动（因为服务端在跑 N 体积分）。</p>
+     *
+     * <p>默认关闭是<b>刻意的</b>：这是唯一会改变玩家看得见行为的开关，
+     * 打开后若观感不对，改配置即可立刻回到原状，不必回滚代码。</p>
+     */
+    public static final ModConfigSpec.BooleanValue KELVIN_AUTHORITATIVE = BUILDER
+            .comment("是否让 kelvin 的积分结果成为天体位置的权威来源（行星会随时间真的移动）。\n"
+                    + "Whether kelvin's integrated orbits become the authoritative body positions.")
+            .define("kelvinAuthoritative", false);
+
     static final ModConfigSpec SPEC = BUILDER.build();
 
     private static boolean validateItemName(final Object obj) {

@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 50000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:titan"
+  },
+  "mass": 1.345E23,
+  "pos": [
+    -8.251064929873911E11,
+    -5.17E10,
+    -1.0887827795842427E12
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 2574700.0,
+  "speed": [
+    -13774.243430179811,
+    199.91315472151123,
+    5290.290096128765
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/titan/surface.png"
+}

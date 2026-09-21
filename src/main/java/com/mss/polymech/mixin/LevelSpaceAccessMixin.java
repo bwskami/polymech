@@ -40,4 +40,38 @@ public abstract class LevelSpaceAccessMixin {
             cir.setReturnValue(Fluids.EMPTY.defaultFluidState());
         }
     }
+
+    /**
+     * 深空<b>写入</b>也必须拦 —— 这是 {@code docs/mps-clone-plan.md} §30.10 查出来的缺口。
+     *
+     * <p>原因：守卫原来只拦读取。而 {@code BlockPos.asLong} 的 X/Z 只有 26 位
+     * （{@code i |= ((long)x & PACKED_X_MASK)} …），**1e11 格会别名到原点附近** ⇒
+     * 一次"把方块放在深空"实际会<b>在正常世界里凭空放/拆方块</b>，
+     * 比"读到错方块"危险得多（`getBlockState` 别名最多读到空气，`setBlock` 会改世界）。</p>
+     *
+     * <p><b>为什么用完整描述符而不是方法名</b>：{@code Level} 有两个 {@code setBlock} 重载
+     * （{@code (BlockPos,BlockState,int)} 与 {@code (BlockPos,BlockState,int,int)}），
+     * 只写方法名 Mixin 无法确定目标。两个都拦，是因为内部路径直接走 4 参版，
+     * 3 参版又被外部调用 —— 只拦一个会漏。</p>
+     *
+     * <p>返回 false（"没放成"）是正确语义：深空没有方块空间，放不进去。</p>
+     */
+    @Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z",
+            at = @At("HEAD"), cancellable = true)
+    private void polymech$deepSpaceSetBlock(BlockPos pos, BlockState state, int flags,
+                                            CallbackInfoReturnable<Boolean> cir) {
+        if (SpaceWorld.isSpace((Level) (Object) this) && SpaceWorld.isDeepSpace(pos.getX(), pos.getZ())) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    /** 4 参重载：内部写入路径（`setBlockAndUpdate`、邻居更新等）走这条。 */
+    @Inject(method = "setBlock(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;II)Z",
+            at = @At("HEAD"), cancellable = true)
+    private void polymech$deepSpaceSetBlockRecursive(BlockPos pos, BlockState state, int flags, int recursionLeft,
+                                                     CallbackInfoReturnable<Boolean> cir) {
+        if (SpaceWorld.isSpace((Level) (Object) this) && SpaceWorld.isDeepSpace(pos.getX(), pos.getZ())) {
+            cir.setReturnValue(false);
+        }
+    }
 }

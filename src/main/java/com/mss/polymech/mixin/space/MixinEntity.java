@@ -46,6 +46,11 @@ public abstract class MixinEntity {
      *
      * <p>比 space 更保守的一处：space 是非太空一律给绝对值 {@code G/122.5} 或 {@code 0.08}，
      * 这里改成缩放，保住各实体自身的差异（掉落物 0.04、生物 0.08）。</p>
+     *
+     * <p><b>物理驱动的玩家也走这一条</b>（不再额外清零）：space 0.1.3 里玩家的重力本来
+     * 就是这条原版路径（太空世界 0、天体世界 {@code G/122.5}），而玩家的 Rapier 刚体
+     * {@code gravity_scale = 0}（见 {@link com.mss.polymech.physics.PlayerPhysicsBody}）——
+     * 重力只有一个来源。对物理玩家清零反而会让行星上的人浮起来。</p>
      */
     @Inject(method = "getGravity", at = @At("RETURN"), cancellable = true)
     private void polymech$gravity(CallbackInfoReturnable<Double> cir) {

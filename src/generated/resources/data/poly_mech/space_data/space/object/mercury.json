@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 27000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:mercury"
+  },
+  "mass": 3.301E23,
+  "pos": [
+    -5.83E9,
+    3.09E9,
+    -4.63E10
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 2439700.0,
+  "speed": [
+    -57754.79044924557,
+    6156.740142684473,
+    3335.795134732057
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/mercury/surface.png"
+}

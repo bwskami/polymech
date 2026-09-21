@@ -1,6 +1,7 @@
 package com.mss.polymech.command;
 
 import com.mojang.brigadier.builder.ArgumentBuilder;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
@@ -80,6 +81,116 @@ public class ModCommands {
     private ModCommands() {
     }
 
+    /**
+     * `/polymech kelvin …` —— 为**肉眼验收**天体位置权威开的口子（这件事只有人能判断）。
+     *
+     * <p>背景：位置权威开关（配置 {@code kelvinAuthoritative}，默认关）打开后，行星的 X/Z
+     * 改读 kelvin 的 100Hz N 体积分结果 ⇒ 会随时间**真的移动**。但移动量级不好目视：
+     * 静态 J2000 与圆轨道近似之间的偏差是"每秒数百~数千格"，还可能被星球尺度稀释。
+     * 所以给三个游戏内旋钮：</p>
+     * <ul>
+     *   <li>{@code authority [true|false]} —— 运行时切换权威（不写配置文件，重启即回配置值）；</li>
+     *   <li>{@code speed [<倍率>]} —— 时间倍率，<b>改 dt 而不是改步数</b>（照 space 的
+     *       {@code /space physical orbit speed}）：不给参数=查询，给了就乘基准 dt；</li>
+     *   <li>{@code pause <true|false>} —— 暂停/恢复天体推进（照 space 的 {@code orbit pause}）。</li>
+     * </ul>
+     *
+     * <p>作用范围：积分在**服务端**跑，再由 kelvin 的同步包推给客户端渲染。
+     * 单机里服务端与客户端是同一个 JVM，所以 {@code authority} 这个静态开关
+     * 对渲染侧**立刻生效**；专用服务端上它只影响服务端逻辑（那边本来也没有渲染可看）。</p>
+     */
+    private static int kelvinStatus(CommandSourceStack source) {
+        var spaceWorld = com.mss.polymech.mps.kelvin.physical.space_world.ServerSpaceWorld
+                .getAllSpaceWorld().stream().findFirst().orElse(null);
+        int perSecond = com.mss.polymech.mps.kelvin.OrbitPhysicalThread.tick;
+        double dt = com.mss.polymech.mps.kelvin.OrbitPhysicalThread.core_tick_time;
+        int hz = com.mss.polymech.mps.kelvin.OrbitPhysicalThread.core_tick_speed;
+        source.sendSuccess(() -> Component.literal(String.format(
+                "§b[Kelvin]§r 位置权威=%s §7|§r 时间倍率=§e%s×§r §7|§r dt=§e%s s§r（每周期 1 步）",
+                com.mss.polymech.space.SpaceWorld.kelvinAuthority()
+                        ? "§a开（按积分位置）" : "§7关（静态 J2000）",
+                String.format("%.2f", kelvinMultiplier()), String.format("%.3f", dt))), false);
+        source.sendSuccess(() -> Component.literal(String.format(
+                "  §7心跳§r=%d 步/秒（实测 %d）§7 ⇒ 模拟时间流速 = dt × 心跳 ≈ %s× 实时"
+                        + "（倍率改的是 dt；CPU 开销与倍率无关）",
+                hz, perSecond, String.format("%.1f", dt * perSecond))), false);
+        // 直接打印天体的积分位置与"渲染真正用的那个值"：**再跑一次命令，数字变了就说明在动**
+        if (spaceWorld != null) {
+            var bodies = spaceWorld.getAllCelestialBody();
+            for (int i = 0; i < Math.min(3, bodies.size()); i++) {
+                var body = bodies.get(i);
+                org.joml.Vector3d p = body.getPos();
+                com.mss.polymech.space.RealAstroData data =
+                        com.mss.polymech.space.RealAstroData.byId(body.getName());
+                source.sendSuccess(() -> Component.literal(String.format(
+                        "  §7%s§r kelvin=(%.1f, %.1f, %.1f) 米%s",
+                        body.getName(), p.x, p.y, p.z,
+                        data == null ? "" : String.format("   gamePos(格)=(%.1f, %.1f, %.1f) ← 渲染用的值",
+                                com.mss.polymech.space.SpaceWorld.gamePosMc(data)[0],
+                                com.mss.polymech.space.SpaceWorld.gamePosMc(data)[1],
+                                com.mss.polymech.space.SpaceWorld.gamePosMc(data)[2]))), false);
+            }
+            // 渲染取的是**哪一个来源**：这是"天体不动"时唯一能分开
+            // "积分没跑" 与 "读了一份冻结的显示世界" 的信息（见 SpaceWorld.kelvinPosSource）。
+            source.sendSuccess(() -> Component.literal(
+                    "  §7渲染取值的来源§r=" + com.mss.polymech.space.SpaceWorld.kelvinPosSource()
+                            + "§7（客户端优先；显示世界由渲染路径每帧 syncMoveData 从网络缓冲区搬过来）"), false);
+        }
+        source.sendSuccess(() -> Component.literal(
+                "§7/polymech kelvin authority [true|false]§r  不给参数=切换"), false);
+        source.sendSuccess(() -> Component.literal(
+                "§7/polymech kelvin speed [<倍率>]§r  不给参数=查询；给了就乘基准 dt（照 space 的 orbit speed）"), false);
+        source.sendSuccess(() -> Component.literal(
+                "§7/polymech kelvin pause <true|false>§r  暂停/恢复天体推进"), false);
+        return 1;
+    }
+
+    /** 当前时间倍率 = 当前 dt ÷ 配置基准 dt（照 space 的 {@code orbitSpeed()} 查询分支）。 */
+    private static double kelvinMultiplier() {
+        double base = com.mss.polymech.Config.CORE_TICK_TIME.get();
+        double dt = com.mss.polymech.mps.kelvin.OrbitPhysicalThread.core_tick_time;
+        return base == 0.0 ? 1.0 : dt / base;
+    }
+
+    private static int kelvinAuthority(CommandSourceStack source, boolean value) {
+        com.mss.polymech.space.SpaceWorld.setKelvinAuthority(value);
+        source.sendSuccess(() -> Component.literal(value
+                ? "§a位置权威 = 开§r：行星 X/Z 改读 kelvin 积分结果（会随时间移动；Y 仍用静态规则）"
+                : "§7位置权威 = 关§r：回到静态 J2000（与迁移前逐位相同）"), true);
+        return 1;
+    }
+
+    /**
+     * 时间倍率 —— 照 space 的 {@code /space physical orbit speed <speed_count>}：
+     * <pre>core_tick_time = CORE_TICK_TIME.get() * multiplier;</pre>
+     *
+     * <p><b>为什么照抄"改 dt"而不是"多跑几步"</b>：线程周期是现实心跳（100Hz），
+     * dt 是每心跳推进的模拟秒数，两者相乘就是时间流速。改 dt 时每周期仍只有一步，
+     * CPU 开销与倍率<b>无关</b>；改步数会让 CPU 正比于倍率，几千倍跑不动
+     * （本项目原先的子步实现就是这么失败的：实测被截断，"两百倍速看不出效果"）。
+     * 代价是 dt 越大轨道精度越低 —— 这是 space 也接受的验收/演示取舍。</p>
+     */
+    private static int kelvinSpeed(CommandSourceStack source, double multiplier) {
+        double base = com.mss.polymech.Config.CORE_TICK_TIME.get();
+        com.mss.polymech.mps.kelvin.OrbitPhysicalThread.core_tick_time = base * multiplier;
+        double dt = com.mss.polymech.mps.kelvin.OrbitPhysicalThread.core_tick_time;
+        source.sendSuccess(() -> Component.literal(String.format(
+                "§b[Kelvin]§r 时间倍率已设为 §e%s×§r（dt = %s × %s = §e%s s§r）。"
+                        + "§7 每周期仍只积一步 ⇒ CPU 开销不变；代价是 dt 变大后轨道精度下降"
+                        + "（验收/演示用），看真实轨道请设回 1×",
+                String.format("%.2f", multiplier), String.format("%.3f", base),
+                String.format("%.2f", multiplier), String.format("%.3f", dt))), true);
+        return 1;
+    }
+
+    private static int kelvinPause(CommandSourceStack source, boolean state) {
+        com.mss.polymech.mps.kelvin.OrbitPhysicalThread.pause = state;
+        source.sendSuccess(() -> Component.literal(state
+                ? "§7天体推进已§c暂停§r（dt 与倍率保留，恢复后继续）"
+                : "§a天体推进已恢复§r"), true);
+        return 1;
+    }
+
     /** 注册命令树（挂NeoForge游戏总线的RegisterCommandsEvent） */
     public static void register(RegisterCommandsEvent event) {
         var dispatcher = event.getDispatcher();
@@ -107,6 +218,25 @@ public class ModCommands {
                                 .executes(ctx -> expose(ctx.getSource(),
                                         IntegerArgumentType.getInteger(ctx, "radius")))))
                 .then(physics())
+                .then(Commands.literal("kelvin")
+                        .executes(ctx -> kelvinStatus(ctx.getSource()))
+                        .then(Commands.literal("authority")
+                                .executes(ctx -> kelvinAuthority(ctx.getSource(),
+                                        !com.mss.polymech.space.SpaceWorld.kelvinAuthority()))
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> kelvinAuthority(ctx.getSource(),
+                                                BoolArgumentType.getBool(ctx, "value")))))
+                        .then(Commands.literal("speed")
+                                .executes(ctx -> kelvinStatus(ctx.getSource()))
+                                .then(Commands.argument("speed_count", DoubleArgumentType.doubleArg(0.001))
+                                        .executes(ctx -> kelvinSpeed(ctx.getSource(),
+                                                DoubleArgumentType.getDouble(ctx, "speed_count")))))
+                        .then(Commands.literal("pause")
+                                .executes(ctx -> kelvinPause(ctx.getSource(),
+                                        !com.mss.polymech.mps.kelvin.OrbitPhysicalThread.pause))
+                                .then(Commands.argument("state", BoolArgumentType.bool())
+                                        .executes(ctx -> kelvinPause(ctx.getSource(),
+                                                BoolArgumentType.getBool(ctx, "state"))))))
                 .then(Commands.literal("space")
                         .executes(ctx -> spaceSpawn(ctx.getSource()))
                         .then(Commands.literal("probe")
@@ -231,7 +361,10 @@ public class ModCommands {
             final double dist = Math.sqrt(best);
             source.sendSuccess(() -> Component.literal(String.format(
                     "最近天体: %s (mc=%.0f, %.0f, %.0f) 距离=%.0f 格 = %.3e 米",
-                    nearestBody.name(), nearestMc[0], nearestMc[1], nearestMc[2], dist, dist * SpaceWorld.ZOOM)), false);
+                    nearestBody.name(), nearestMc[0], nearestMc[1], nearestMc[2], dist,
+                    // ★ 约定感知（§30.5/§30.12）：恒等模式下 1 格 = 1 米 ⇒ 再乘 ZOOM 就是错的。
+                    // 现在这样写，"翻 identityMode 开关"这一步不会留下任何"一半按格、一半按米"的显示。
+                    dist * (SpaceWorld.identityMode() ? 1.0 : SpaceWorld.ZOOM))), false);
         }
         return 1;
     }
@@ -257,6 +390,8 @@ public class ModCommands {
                         .executes(ctx -> physicsVoxelTest(ctx.getSource())))
                 .then(Commands.literal("grouptest")
                         .executes(ctx -> physicsGroupTest(ctx.getSource())))
+                .then(Commands.literal("tier1test")
+                        .executes(ctx -> physicsTier1Test(ctx.getSource())))
                 .then(Commands.literal("terrain")
                         .executes(ctx -> physicsTerrainStatus(ctx.getSource()))
                         .then(Commands.literal("stop")
@@ -376,6 +511,14 @@ public class ModCommands {
                     "  物理体同步：待客户端确认的快照 "
                             + com.mss.polymech.physics.PhysicsBodyTracker.pendingAckCount()
                             + " 个（>0 说明握手还没完成，服务端会每 2 秒重发一次、最多 5 次）"), false);
+            long stalls = com.mss.polymech.physics.PhysicsStepThread.stallCount();
+            long worst = com.mss.polymech.physics.PhysicsStepThread.maxStallMs();
+            source.sendSuccess(() -> Component.literal(
+                    "  步进阻塞：" + stalls + " 次，最长 " + worst + " ms"
+                            + (stalls > 0
+                               ? "（>0 = 模拟曾经整段停住，画面上就是「顿一下」；看日志里的"
+                                 + "「物理步进被阻塞」与「重建碰撞体耗时」两条来判断是谁卡的）"
+                               : "（正常）")), false);
         }
         return ok ? 1 : 0;
     }
@@ -909,6 +1052,56 @@ public class ModCommands {
                 pass ? "§a✔ 物理箱体正确停在真实地形上（区块 → 体素碰撞体 → 碰撞）"
                      : "§e⚠ 落点偏离，可能落到了旁边的方块或穿透"), false);
         return pass ? 1 : 0;
+    }
+
+    /**
+     * /polymech physics tier1test —— Tier 1（ABI 5）原生能力自检。
+     *
+     * <p>逐项验证对标 space 0.1.3 补进来的原生能力：地面、力矩、运动学目标位姿、
+     * 复合盒碰撞体、阻尼、材质与组合规则、附加质量属性。检测在原生层的<b>独立临时世界</b>
+     * 里跑，不会碰玩家正在玩的物理世界。</p>
+     */
+    private static int physicsTier1Test(CommandSourceStack source) {
+        if (!com.mss.polymech.physics.PhysicsNatives.isAvailable()) {
+            source.sendFailure(Component.literal("物理原生层不可用: "
+                    + com.mss.polymech.physics.PhysicsNatives.status()));
+            return 0;
+        }
+        if (!com.mss.polymech.physics.PhysicsNatives.hasTier1()) {
+            source.sendFailure(Component.literal("原生层低于 ABI "
+                    + com.mss.polymech.physics.PhysicsNatives.MIN_ABI_TIER1
+                    + "，Tier 1 能力不可用（" + com.mss.polymech.physics.PhysicsNatives.status()
+                    + "）—— 重编 dll：./gradlew copyNativePhysics"));
+            return 0;
+        }
+        String[] names = {
+                "半空间地面（维度兜底）",
+                "角冲量（力矩）",
+                "运动学目标位移",
+                "复合盒碰撞体（台阶/楼梯/栅栏）",
+                "线速度阻尼",
+                "材质与摩擦/弹性组合规则",
+                "运动学目标姿态",
+                "附加质量属性（质心+质量+惯量）",
+        };
+        int bits = com.mss.polymech.physics.NativePhysics.tier1Selftest();
+        int pass = 0;
+        source.sendSuccess(() -> Component.literal("Tier 1 原生自检（ABI 5）："), false);
+        for (int i = 0; i < names.length; i++) {
+            boolean ok = (bits & (1 << i)) != 0;
+            if (ok) {
+                pass++;
+            }
+            int bit = i;
+            source.sendSuccess(() -> Component.literal(
+                    (ok ? "  §a✔ " : "  §c✘ ") + names[bit]), false);
+        }
+        int passed = pass;
+        source.sendSuccess(() -> Component.literal(
+                passed == names.length
+                        ? "§a全部通过（" + passed + "/" + names.length + "）"
+                        : "§e通过 " + passed + "/" + names.length + "，位掩码=" + bits), false);
+        return pass;
     }
 
     /**

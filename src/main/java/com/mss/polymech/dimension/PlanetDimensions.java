@@ -1,6 +1,7 @@
 package com.mss.polymech.dimension;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.mps.kelvin.physical.celestial_world.ServerCelestialWorld;
 import com.mss.polymech.space.RealAstroData;
 import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.core.BlockPos;
@@ -16,6 +17,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 太阳系行星 → 维度映射。
@@ -42,6 +44,15 @@ public final class PlanetDimensions {
 
     /** 维度 → 天体索引 反查表（用于重力等按维度生效的逻辑）。 */
     private static final Map<ResourceKey<Level>, Integer> DIMENSION_TO_PLANET = createDimensionToPlanetMap();
+
+    /** 标准重力加速度（m/s²）—— kelvin 的 {@code G} 是绝对值，本类返回倍数，换算用。 */
+    private static final double STANDARD_GRAVITY = 9.807;
+
+    /**
+     * kelvin 权威重力（倍数）缓存。
+     * <b>只在成功查到 ServerCelestialWorld 时写入</b>，所以数据包未加载完时不会缓存回退值。
+     */
+    private static final Map<ResourceKey<Level>, Float> KELVIN_GRAVITY = new ConcurrentHashMap<>();
 
     private static Map<Integer, Float> createGravityMap() {
         Map<Integer, Float> map = new LinkedHashMap<>();
@@ -217,9 +228,40 @@ public final class PlanetDimensions {
         return idx == null ? -1 : idx;
     }
 
-    /** 按维度返回表面重力（以地球为 1.0）；宇宙空间返回 0，未知维度返回 1.0。 */
+    /**
+     * 按维度返回表面重力（以地球为 1.0）；宇宙空间返回 0，未知维度返回 1.0。
+     *
+     * <p><b>数据源已迁到 kelvin 的数据包驱动值</b>（见
+     * {@code docs/mps-clone-plan.md} §19 的迁移第 1 步）：
+     * 优先取 {@code ServerCelestialWorld.G}（来自
+     * {@code data/poly_mech/space_data/space/world/<维度>.json} 的 {@code gravity}），
+     * 取不到才回退到内置的 {@link #PLANET_GRAVITY} 表。</p>
+     *
+     * <p><b>单位换算（最容易出错的地方）</b>：{@code G} 是<b>绝对重力加速度 m/s²</b>
+     * （地球 9.807、火星 3.72076），而本方法的返回语义是<b>以地球为 1.0 的倍数</b>
+     * （地球 1.0）。两者必须经 {@link #STANDARD_GRAVITY} 相除，
+     * 单位不换算就是"火星重力 = 地球的 3.72 倍"这种静默错误。</p>
+     *
+     * <p><b>为什么可以缓存、且缓存不会过期</b>：
+     * {@code gravity} 在 {@code MixinEntity#getGravity} 里是<b>每实体每 tick</b> 的热路径，
+     * 而 kelvin 的查找要遍历静态池（还会新建 ArrayList），不能每次都做。
+     * 这里的做法是<b>只在查到了才写入缓存</b> —— 数据包还没加载完（世界加载早期、
+     * 或在 kelvin 登记之前）时走回退分支且<b>什么都不缓存</b>，
+     * 因此不存在"把回退值永久钉住"的风险；一旦 kelvin 就绪，此后就是一次 map 查表。</p>
+     */
     public static float gravity(ResourceKey<Level> level) {
         if (SPACE.equals(level)) return 0.0f;
+        Float authoritative = KELVIN_GRAVITY.get(level);
+        if (authoritative != null) {
+            return authoritative;
+        }
+        ServerCelestialWorld celestialWorld =
+                ServerCelestialWorld.getCelestialWorld(level.location().toString());
+        if (celestialWorld != null && celestialWorld.G > 0.0) {
+            float factor = (float) (celestialWorld.G / STANDARD_GRAVITY);
+            KELVIN_GRAVITY.put(level, factor);
+            return factor;
+        }
         Integer idx = DIMENSION_TO_PLANET.get(level);
         return idx == null ? 1.0f : gravity(idx);
     }

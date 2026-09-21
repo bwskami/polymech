@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 100000.0,
+  "compute": true,
+  "dimension": {
+    "id": "minecraft:overworld"
+  },
+  "mass": 5.972E24,
+  "pos": [
+    1.53E10,
+    1.0876018E7,
+    -1.47E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 6371000.0,
+  "speed": [
+    -29950.41544900962,
+    0.026502190556484246,
+    -3467.977433054605
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/earth/surface.png"
+}

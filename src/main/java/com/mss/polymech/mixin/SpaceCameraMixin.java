@@ -2,9 +2,11 @@ package com.mss.polymech.mixin;
 
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mss.polymech.client.space.LevelAssist;
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpacePlayerData;
 import net.minecraft.client.Camera;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -78,11 +80,12 @@ public abstract class SpaceCameraMixin {
             operation.call(self, x, y, z);
             return;
         }
-        // 模型是绕"身体中心"（实体位置 + halfHeight，世界竖直）旋转的，所以头部位置也按同一约定：
-        //   head = 实体位置 + (0, halfHeight, 0) + Q_body · (0, 眼高 - halfHeight, 0)
-        // 少了前面那半个身高，身体一倾斜锚点就会偏离真正的头（最多差 0.9 格）——
-        // 表现就是"有时候画面中心不在头上"。
-        double half = e.getBbHeight() * 0.5;
+        // 模型/物理体的旋转支点是 SpacePlayerData.bodyCenterOffset()：
+        //   head = 实体位置 + (0, 支点, 0) + Q_body · (0, 眼高 − 支点, 0)
+        // 普通姿态支点 = 半高（0.9，与旧代码逐位相同）；超人姿态 = 头盒中心（1.6）。
+        // 相机锚点必须与模型用同一个支点，否则自由滚转 + 超人姿态时锚点会偏离真正的头
+        // （最多差 1.3 格）——表现就是"第三人称里镜头不贴在头上、身体一倾斜就跟着飘"。
+        double half = SpacePlayerData.bodyCenterOffset(e);
         Vector3d off = data.eyeOffset(eye - half, pt, new Vector3d());
         operation.call(self, px + off.x, py + half + off.y, pz + off.z);
     }
@@ -104,6 +107,14 @@ public abstract class SpaceCameraMixin {
 
         SpacePlayerData data = SpacePlayerData.get(entity);
         if (!data.isInitialized()) return;
+
+        // 每帧回正（渲染帧率）：在算出相机朝向**之前**应用。
+        // 自动/手动回正不在这里直接改数据也能工作，但 tick 率（20Hz）的离散台阶在玩家转动
+        // 视角时会以 20Hz 进画面（见 LevelAssist#applyCorrectionPerFrame）——逐帧小步长才丝滑。
+        // 只对本机玩家生效：旁观他人时不去拧被旁观者的姿态。
+        if (entity instanceof LocalPlayer) {
+            LevelAssist.applyCorrectionPerFrame(data);
+        }
 
         // ── 插值 facing/left ──
         Vector3d facing = lerp(data.facingO(), data.facing(), partialTick);

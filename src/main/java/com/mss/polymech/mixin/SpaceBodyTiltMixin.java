@@ -122,16 +122,17 @@ public abstract class SpaceBodyTiltMixin {
             SpacePlayerData d = SpacePlayerData.get(player);
             if (d.isInitialized()) {
                 data = d;
-                // 先按"头相对身体向右/低头"给一遍（正立时与下面完全一致，等价于 vanilla 语义）
+                // 先按 vanilla 语义给一遍（局部角：headYaw>0 = 头向左、headPitch>0 = 低头）
                 headYaw = (float) (d.headYaw() * TODEG);
                 headPitch = (float) (d.headPitch() * TODEG);
             }
         }
         operation.call(model, entity, limbSwing, limbSwingAmount, age, headYaw, headPitch);
 
-        // 头零件：用"身体⁻¹·视线"的**完整局部旋转**（含横滚）覆盖。
-        // 领先量是绕世界竖轴/视线左轴定义的，身体一俯仰/倒挂，它在身体局部坐标里就带横滚
-        // （身体平躺时几乎全是横滚）—— 只喂 yaw/pitch 会把头顶着画歪，这就是"颠倒时不对"的原因。
+        // 头零件：用"身体⁻¹·视线"的**完整局部旋转**覆盖，而不是只喂 yaw/pitch。
+        // 颈部领先量本身是身体局部量（Ry(headYaw)·Rx(headPitch)，横滚项为 0），
+        // 但身体姿态由物理/运动学推导，可能与之有微小差异；直接分解四元数能拿到精确值，
+        // 超人姿态（身体被"趴平"）时更是必须（那时头相对趴平身体的偏角接近 90°）。
         // 模型空间是 Y 朝下、Z 朝后（渲染时才 scale(-1,-1,1)），故 y/z 分量取反：
         //   (xRot, yRot, zRot) = (x, -y, -z)   —— 正立时 x/y 与上面那两行完全等价
         if (data != null && model instanceof net.minecraft.client.model.HumanoidModel<?> humanoid) {

@@ -15,6 +15,8 @@ import com.mss.polymech.client.gui.widget.planet.PlanetRenderObject;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderObjectFactory;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderParams;
 import com.mss.polymech.client.gui.widget.planet.StarGlowRenderer;
+import com.mss.polymech.mps.kelvin.physical.celestial_world.ClientCelestialWorld;
+import com.mss.polymech.mps.kelvin.physical.space_world.ClientSpaceWorld;
 import net.minecraft.client.renderer.GameRenderer;
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpaceWorld;
@@ -24,6 +26,7 @@ import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.util.ArrayList;
@@ -95,31 +98,74 @@ public final class SpaceRenderer {
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-        if (!mc.level.dimension().equals(PlanetDimensions.SPACE)) return;
+        boolean inSpace = mc.level.dimension().equals(PlanetDimensions.SPACE);
+        // ★ 地表维度也要画天体（space 的 SpaceRenderer 在**所有**维度都跑）：
+        // "这个维度对应一个 ClientCelestialWorld" 就等于"我站在某颗行星上"，
+        // 此时应按那颗行星在宇宙里的真实位置与朝向看到别的天体。
+        // 数据层早已就位（CelestialWorld 的 getSpacePosFromWorldPos/getRotateFromWorldPos），
+        // 缺的一直只是这条渲染分支（见 docs/mps-clone-plan.md §27.1）。
+        ClientCelestialWorld celestialWorld = inSpace ? null : ClientCelestialWorld.getCelestialWorld();
+        if (!inSpace && celestialWorld == null) return;
         // 窗口最小化：跳过自定义太空渲染。此时窗口宽高可能为 0（宽高比 NaN、
         // 投影矩阵全 NaN），且后台的 shader pass / 深度 blit 是历史卡死高发区
         // （配套修复见 WindowUpdateDisplayMixin：最小化时保留 GLFW 事件泵）。
         if (isWindowIconified(mc)) return;
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY) {
-            renderSpaceBodies(event);
-        } else if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
+            renderSpaceBodies(event, celestialWorld);
+        } else if (inSpace && event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
+            // 大气/泛光后处理绑定太空维度的深度快照与投影约定，地表先不接
             renderSpacePostEffects();
         }
     }
 
-    /** AFTER_SKY：绘制天空盒 + 星球本体/云层/光环/日冕，并记录本帧数据供大气后处理。 */
-    private static void renderSpaceBodies(RenderLevelStageEvent event) {
+    /**
+     * AFTER_SKY：绘制天体本体/云层/光环/日冕，并记录本帧数据供大气后处理。
+     *
+     * @param celestialWorld 非 null = 当前在<b>地表维度</b>，相机帧要按该行星的宇宙位姿换算；
+     *                       null = 太空维度，保持原来的线性 {@code ZOOM} 换算（已验收路径）
+     */
+    private static void renderSpaceBodies(RenderLevelStageEvent event, ClientCelestialWorld celestialWorld) {
         Minecraft mc = Minecraft.getInstance();
+        // S3 作用域：压缩只在**太空维度**生效（地表天空走宇宙系真实位姿 + 另一套相机帧，先不混）。
+        // enabled=false 时这里恒 false ⇒ 下面接进来的压缩对画面零影响。
+        RenderCompression.active = RenderCompression.enabled && celestialWorld == null;
         Camera camera = event.getCamera();
         var camPos = camera.getPosition();
+        float partialTick = event.getPartialTick().getGameTimeDeltaTicks();
         // 星球 view：跟随完整相机旋转（含 roll），与 MC 主世界渲染一致
         // （GameRenderer.renderLevel 用 camera.rotation().conjugate() 构建 view）。
-        // 天空背景由 SpaceDimensionEffects 走 MC 原生天空盒管线绘制。
+        // 天空背景由 SpaceDimensionEffects 走 MC 原生天空盒管线绘制（地表就是原版天空）。
         var cameraRot = new org.joml.Quaternionf(camera.rotation()).conjugate();
-        Matrix4f view = new Matrix4f().rotation(cameraRot);
+        // ★ 相机在"宇宙坐标系"里的位置与朝向：
+        //   - 太空维度：MC 坐标 × ZOOM（原样，无额外旋转）；
+        //   - 地表维度：CelestialWorld 把"站在球面上的相机"换算成宇宙坐标，
+        //     并再叠一层朝向（地表的上/前与宇宙坐标系的上/前不是同一套轴）。
+        double camRealX;
+        double camRealY;
+        double camRealZ;
+        Quaternionf spaceRotation = new Quaternionf();
+        if (celestialWorld != null) {
+            org.joml.Vector3d p = celestialWorld.getSpacePosFromWorldPos(camPos, partialTick);
+            org.joml.Quaterniond q = celestialWorld.getRotateFromWorldPos(camPos, partialTick);
+            camRealX = p.x;
+            camRealY = p.y;
+            camRealZ = p.z;
+            spaceRotation.set((float) q.x, (float) q.y, (float) q.z, (float) q.w);
+        } else {
+            camRealX = SpaceWorld.toReal(camPos.x);
+            camRealY = SpaceWorld.toReal(camPos.y);
+            camRealZ = SpaceWorld.toReal(camPos.z);
+        }
+        Matrix4f view = new Matrix4f().rotation(cameraRot).mul(new Matrix4f().rotation(spaceRotation));
         float aspect = (float) mc.getWindow().getWidth() / (float) mc.getWindow().getHeight();
         if (!(aspect > 0.0f) || !Float.isFinite(aspect)) return; // 宽高为 0 时兜底（不应发生）
-        Matrix4f spaceProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect, SPACE_NEAR_PLANE, SPACE_FAR_PLANE);
+        Matrix4f spaceProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect,
+                SPACE_NEAR_PLANE,
+                // 压缩启用时 far 收紧到 FAR×2：压缩把所有天体压进 (NEAR, FAR)，
+                // far 若仍是 1e13，near/far 比 1e10 会让深度精度白瞎（压缩就白做了）。
+                // FAR×2 而不是 FAR：`exp(-巨大)` 下溢到 0 ⇒ "无穷远"压缩后**恰好等于 FAR**，
+                // far 若正好 = FAR，最远的天体会正好落在远平面上被裁掉（space 取 FAR×2 就是这个原因）。
+                RenderCompression.active ? (float) (RenderCompression.FAR * 2.0) : SPACE_FAR_PLANE);
         // 天空盒投影：同 FOV，near/far 覆盖 r=1000 立方体即可（不影响屏幕方向，只影响深度）。
         Matrix4f skyProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect, 0.05f, 2000.0f);
 
@@ -142,18 +188,53 @@ public final class SpaceRenderer {
             // 星球每次进游戏都换一面（会被误认为"贴图种子变了"）。
             // 世界时间保证同一存档相位连续、可复现。
             double seconds = Minecraft.getInstance().level.getGameTime() / 20.0
-                    + event.getPartialTick().getGameTimeDeltaTicks() / 20.0;
-            double camRealX = SpaceWorld.toReal(camPos.x);
-            double camRealY = SpaceWorld.toReal(camPos.y);
-            double camRealZ = SpaceWorld.toReal(camPos.z);
+                    + partialTick / 20.0;
+
+            // ★ 照 space 的 SpaceRenderer.init（0.1.3 第 101-106 行）：确认显示世界存在后，
+            // 在**消费任何位置之前**先把网络缓冲区（bufferSpaceWorld）的位姿搬进显示世界。
+            //
+            // 为什么必须是这一步、且必须在这里：天体位姿由 SyncCelestialBodyMoveBatch 每 tick
+            // 写进**缓冲区**（入队 moveTo），显示世界只有这一处同步点。缺了它，下面的
+            // refreshPositions() → SpaceWorld.gamePos() → kelvinPos() 读到的就永远是
+            // SyncCelestialBodyCreate 时的快照。
+            // 症状极具误导性：服务端积分在动、/polymech kelvin 里的数字在变，
+            // 而天上的星球纹丝不动（因为 kelvinPos 优先读显示世界）。
+            //
+            // 空判定与 space 一致（它在 init 里先判 spaceWorld != null 才调用；
+            // syncMoveData 内部不判空 —— 不照抄这个判空会 NPE）。
+            if (ClientSpaceWorld.getSpaceWorld() != null) {
+                ClientSpaceWorld.syncMoveData();
+            }
+
+            // 天体位置刷新必须在排序之前：排序按到相机的距离，用的就是这些位置。
+            // ★ 地表维度用"宇宙系真实三维位置"（与相机**同源**）：gamePos 会把日心天体的 Y
+            // 压成 0，而地表的相机带真实 Y ⇒ 那样所有天体会在天空里连成一条线（实测现象）。
+            // 太空维度保持原样（那里 Y 必须压平，否则天体飞出玩家可飞的维度高度）。
+            if (celestialWorld != null) {
+                PlanetRenderObjectFactory.refreshPositionsFromCelestial(partialTick);
+            } else {
+                // 未启用 kelvin 权威时这是一次等同赋值（见 refreshPositions 的注释）。
+                PlanetRenderObjectFactory.refreshPositions();
+            }
 
             // 按相机距离从远到近排序：不透明 BASE 可减少 overdraw，
             // 半透明 CLOUD/RING/日冕按正确顺序混合。
             List<PlanetRenderObject> bodies = new ArrayList<>(PlanetRenderObjectFactory.bodies());
+            // ★ 地表维度：**绝不能画脚下这颗星自己**。
+            // 相机就贴在它的球面上（甚至落在球内）：画出来要么被它的背面糊满整个天幕
+            //（背face剔除后就是"一片黑"，正是实测火星那张），要么把地表盖住。
+            // space 的可见性过滤同样排除"当前所在天体"。
+            if (celestialWorld != null) {
+                String selfId = celestialWorld.celestialBody.getName();
+                bodies.removeIf(o -> selfId.equalsIgnoreCase(o.planetName()));
+            }
             bodies.sort(Comparator.comparingDouble(
                     (PlanetRenderObject o) -> bodyDistanceSq(o, camRealX, camRealY, camRealZ)).reversed());
-            float partialTick = event.getPartialTick().getGameTimeDeltaTicks();
             double simTime = seconds;
+            // 地表天空的投影探针（1 秒一行）：把最近两颗天体按**本帧真正用的** view/proj
+            // 投影成 NDC 打出来。"黑屏"于是可判：w<=0 = 在相机后面（旋转错），
+            // |ndc|>1 = 在视锥外（朝向/位置错），都在范围内却看不见 = 被别的东西挡住。
+            surfaceSkyDiag(bodies, view, spaceProj, camRealX, camRealY, camRealZ, celestialWorld != null);
 
             // 每颗行星独立计算“该行星指向太阳”的平行光。
             // 太阳位于原点，若仍用相机位置算全局光向，远处行星的晨昏线会明显错误。
@@ -220,6 +301,11 @@ public final class SpaceRenderer {
             RenderSystem.enableDepthTest();
             RenderSystem.enableCull();
             RenderSystem.disableBlend();
+            // ★ 压缩只在本帧的**太空渲染调用内**有效。
+            // 不在这里关掉的话：离开太空维度（或本帧根本没进 renderSpaceBodies）时
+            // `active` 会**留在 true**，于是 GUI 星图 / fallback 行星渲染也会吃到压缩 ——
+            // 它们各有自己的尺度，那是错的画面。（"作用域"必须显式收窄到调用范围内。）
+            RenderCompression.active = false;
         }
     }
 
@@ -229,6 +315,57 @@ public final class SpaceRenderer {
      * <p>顺序与 space mod 的 {@code RenderEffectAfter} 一致：先恒星泛光，再行星大气散射。
      * 天体数据只上传一次，两条链路共用同一个 UBO。</p>
      */
+    private static long surfaceSkyDiagMs = 0L;
+
+    /**
+     * 地表天空投影探针（1 秒一行，只在地表维度打）。
+     *
+     * <p>为什么需要它：地表天空"黑屏"有三种完全不同的原因，
+     * 而它们在人眼里长得一模一样。把最近两颗天体按<b>本帧真正用的</b> view/proj
+     * 投影成 NDC 就能一次分开：</p>
+     * <ul>
+     *   <li>{@code w <= 0} ⇒ 天体在相机<b>后面</b> —— 朝向（spaceRotation）合成错了；</li>
+     *   <li>{@code |ndc| > 1} ⇒ 在视锥<b>外</b> —— 相机位置/朝向偏了；</li>
+     *   <li>都在范围内却看不见 ⇒ 被别的东西挡住（例如脚下那颗星自己的球面）。</li>
+     * </ul>
+     */
+    private static void surfaceSkyDiag(List<PlanetRenderObject> bodies, Matrix4f view, Matrix4f proj,
+                                       double camX, double camY, double camZ, boolean surface) {
+        if (!surface) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - surfaceSkyDiagMs < 1000L) {
+            return;
+        }
+        surfaceSkyDiagMs = now;
+        Matrix4f vp = new Matrix4f(proj).mul(view);
+        StringBuilder sb = new StringBuilder();
+        // ⚠️ 列表按距离**从远到近**排（overdraw 顺序），所以要取**末尾**三个才是最近的。
+        // 第一版取 get(0) 打的是冥王星/冥卫一（最远），根本说明不了问题 —— 记下来别再犯。
+        int n = bodies.size();
+        for (int i = Math.max(0, n - 3); i < n; i++) {
+            PlanetRenderObject o = bodies.get(i);
+            double dx = o.posX() - camX;
+            double dy = o.posY() - camY;
+            double dz = o.posZ() - camZ;
+            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            org.joml.Vector4f p = new org.joml.Vector4f((float) dx, (float) dy, (float) dz, 1.0f);
+            vp.transform(p);
+            float w = p.w;
+            // 角直径（度）+ 在 1083px/70° 屏上的像素：**"看不见"到底是不是亚像素**，一眼可判
+            double angDeg = Math.toDegrees(2.0 * o.radius() / Math.max(1.0, dist));
+            sb.append(String.format(java.util.Locale.ROOT,
+                    "  %s: 距=%.3e 角直径=%.4f° ≈%.2fpx w=%.2e ndc=(%.2f, %.2f)",
+                    o.planetName(), dist, angDeg, angDeg / 70.0 * 1083.0, w,
+                    w != 0.0f ? p.x / w : Float.NaN, w != 0.0f ? p.y / w : Float.NaN));
+        }
+        com.mss.polymech.Polymech.LOGGER.info("[Kelvin] [地表天空] 相机(宇宙系)=({}, {}, {}){}",
+                String.format(java.util.Locale.ROOT, "%.3e", camX),
+                String.format(java.util.Locale.ROOT, "%.3e", camY),
+                String.format(java.util.Locale.ROOT, "%.3e", camZ), sb);
+    }
+
     private static void renderSpacePostEffects() {
         if (!spaceFrameDrawn) return;
         if (spaceBodies == null || spaceView == null || spaceProj == null) return;

@@ -1,0 +1,25 @@
+{
+  "type": "star",
+  "carmen_line_height": 500000.0,
+  "compute": true,
+  "mass": 1.989E30,
+  "pos": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 6.96E8,
+  "speed": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "temperature": 5772.0
+}

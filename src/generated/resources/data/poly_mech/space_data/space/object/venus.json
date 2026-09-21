@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 250000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:venus"
+  },
+  "mass": 4.867E24,
+  "pos": [
+    4.39E9,
+    1.69E9,
+    -1.08E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 6051802.0,
+  "speed": [
+    -34965.39988184666,
+    2003.4945208018985,
+    -1625.1988795996306
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/venus/surface.png"
+}

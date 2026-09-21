@@ -1,0 +1,25 @@
+{
+  "type": "planet",
+  "carmen_line_height": 400000.0,
+  "compute": true,
+  "mass": 5.683E26,
+  "pos": [
+    -8.25E11,
+    -5.17E10,
+    -1.09E12
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 5.8232E7,
+  "speed": [
+    -8223.854518116565,
+    199.91315472151123,
+    5775.886204094448
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/saturn/surface.png"
+}

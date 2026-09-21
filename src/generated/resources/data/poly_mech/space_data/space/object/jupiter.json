@@ -1,0 +1,25 @@
+{
+  "type": "planet",
+  "carmen_line_height": 270000.0,
+  "compute": true,
+  "mass": 1.898E27,
+  "pos": [
+    6.04E11,
+    1.58E10,
+    5.41E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 6.9911E7,
+  "speed": [
+    8578.665308297892,
+    -142.58869603472797,
+    -9121.428330048555
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/jupiter/surface.png"
+}

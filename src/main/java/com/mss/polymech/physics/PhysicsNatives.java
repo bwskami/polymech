@@ -47,12 +47,76 @@ public final class PhysicsNatives {
     /** 碰撞组函数（{@code colliderAttachCuboidGrouped} 等）需要的最低 ABI。 */
     public static final int MIN_ABI_COLLISION_GROUPS = 4;
 
+    /**
+     * Tier 1 能力（维度地面 / 力矩 / 刚体属性 / 材质组合规则 / 运动学目标位姿 / 复合盒碰撞体）
+     * 需要的最低 ABI。低于它就逐项降级，物理层照常跑。
+     */
+    public static final int MIN_ABI_TIER1 = 5;
+
     /** 实际加载到的原生 ABI；未加载为 -1。 */
     private static volatile int loadedAbi = -1;
 
     /** 原生层是否提供碰撞组函数（需要 ABI ≥ {@link #MIN_ABI_COLLISION_GROUPS}）。 */
     public static boolean hasCollisionGroups() {
         return available && loadedAbi >= MIN_ABI_COLLISION_GROUPS;
+    }
+
+    /** 原生层是否提供 Tier 1 能力（需要 ABI ≥ {@link #MIN_ABI_TIER1}）。 */
+    public static boolean hasTier1() {
+        return available && loadedAbi >= MIN_ABI_TIER1;
+    }
+
+    /**
+     * 碰撞体**实时属性**（{@code colliderSetCollisionGroups} / 各材质 setter / 传感器 / 事件阈值）
+     * 需要的最低 ABI。
+     *
+     * <p>低于它就退回"只能在建体时给属性"的旧行为（调用方需自行在挂载前设好）；
+     * 有了它，上层才能照 MPS 的原样"随时改"。</p>
+     */
+    public static final int MIN_ABI_LIVE_COLLIDER = 6;
+
+    /** 原生层是否支持碰撞体实时属性修改（需要 ABI ≥ {@link #MIN_ABI_LIVE_COLLIDER}）。 */
+    public static boolean hasLiveColliderEdits() {
+        return available && loadedAbi >= MIN_ABI_LIVE_COLLIDER;
+    }
+
+    /**
+     * 按句柄移除单个碰撞体 / 刚体（{@code worldRemoveCollider} / {@code worldRemoveRigidBody}）
+     * 需要的最低 ABI。
+     *
+     * <p>低于它时 {@code RapierWorld.removeColliderBody} 只能退化成"Java 侧摘记录"。</p>
+     */
+    public static final int MIN_ABI_WORLD_CURD = 7;
+
+    /** 原生层是否支持按句柄移除碰撞体 / 刚体（需要 ABI ≥ {@link #MIN_ABI_WORLD_CURD}）。 */
+    public static boolean hasWorldRemoval() {
+        return available && loadedAbi >= MIN_ABI_WORLD_CURD;
+    }
+
+    /**
+     * 分离对象（{@code worldCopyRigidBody/Collider} + {@code worldInsert*} + {@code RustMemoryFree}）
+     * 需要的最低 ABI。
+     *
+     * <p>低于它时跨维度搬运只能退化成"读位姿 + 在新世界重建"（会丢速度/质量属性/材质细节）。</p>
+     */
+    public static final int MIN_ABI_DETACHED = 8;
+
+    /** 原生层是否支持分离对象（需要 ABI ≥ {@link #MIN_ABI_DETACHED}）。 */
+    public static boolean hasDetachedObjects() {
+        return available && loadedAbi >= MIN_ABI_DETACHED;
+    }
+
+    /**
+     * cosmos（kelvin 的天体 N 体引力）需要的最低 ABI。
+     *
+     * <p>低于它时天体世界不可用（上层要么不启用天体，要么沿用纯 Java 的
+     * {@code getGravitationForce}）。</p>
+     */
+    public static final int MIN_ABI_COSMOS = 9;
+
+    /** 原生层是否提供 cosmos（天体 N 体引力）。 */
+    public static boolean hasCosmos() {
+        return available && loadedAbi >= MIN_ABI_COSMOS;
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger("PolyMech/Physics");

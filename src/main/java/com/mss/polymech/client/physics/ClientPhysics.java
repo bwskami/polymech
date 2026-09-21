@@ -2,8 +2,13 @@ package com.mss.polymech.client.physics;
 
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.physics.NativePhysics;
+import com.mss.polymech.physics.PhysicsDrivenPlayers;
+import com.mss.polymech.physics.PhysicsGroundProbe;
+import com.mss.polymech.physics.PhysicsMaterials;
 import com.mss.polymech.physics.PhysicsNatives;
+import com.mss.polymech.physics.PhysicsShapes;
 import com.mss.polymech.physics.PhysicsStepThread;
+import com.mss.polymech.physics.PlayerPhysicsBody;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -78,11 +83,12 @@ public final class ClientPhysics {
     private static final int TERRAIN_RADIUS = 1;
 
     /**
-     * 位置修正阈值（格）：客户端刚体与服务器权威位置偏差超过它才硬拉回。
-     * <p>每 tick 无条件 setPos 会让本地 100Hz 积分每帧"贴回"服务端 20Hz 的台阶 → 锯齿。</p>
+     * 物理体碰撞组：与 space 0.1.3 的 {@code PhysicalWorld.addPhysicalBodyCollider} 一致
+     * （{@code setCollisionGroups(4, -1)}）。玩家主碰撞体是 {@code (2,5)}，
+     * 与 4 相与非零 ⇒ 玩家与物理体正常碰撞。
      */
-    private static final double POSITION_CORRECTION = 1.0;
-    private static final double POSITION_CORRECTION_SQ = POSITION_CORRECTION * POSITION_CORRECTION;
+    private static final int BODY_MEMBERSHIP = 4;
+    private static final int BODY_FILTER = -1;
 
     private static long world = 0;
     private static ResourceKey<Level> worldDimension = null;
@@ -170,27 +176,103 @@ public final class ClientPhysics {
     private static final Set<Long> terrainDirty = new HashSet<>();
     private static long lastTerrainChunk = Long.MIN_VALUE;
     private static boolean takeoverLogged = false;
+    /**
+     * 本 tick {@link #drive} 是否真的接管了位置。
+     *
+     * <p>用于给"每 tick / 每帧回写"加一道门：原版在骑乘、睡觉等情况下根本不会走到
+     * {@code Entity.move}，这时若还按刚体位置回写，就会把玩家从载具里硬拽出来。
+     * 没接管过就不回写，位置完全交回原版。</p>
+     */
+    private static boolean droveThisTick = false;
     /** 最近一次看起来正常的位置（防止物理异常时掉出世界）。 */
     private static double safeX, safeY, safeZ;
     private static boolean hasSafe = false;
     private static int terrainCenterY = 64;
+    /**
+     * 上一批体素是按哪个 {@link #terrainCenterY} 裁的。
+     *
+     * <p>区块里的体素只覆盖"玩家当时的 Y ± {@link #VERTICAL_BAND}"这一条带，
+     * 所以玩家竖直方向移动会让旧带留出空洞。原来的代码用<b>水平</b>跨区块
+     * （{@code moved}）当"要不要重裁"的判据，竖直移动完全不判 —— 那是个漏洞；
+     * 修法见 {@link #updateTerrain}。</p>
+     */
+    private static int lastTerrainBandY = Integer.MIN_VALUE;
+    /** 竖直带移动这么多格才值得重裁（带半径 64，余量足够，不必每格重来）。 */
+    private static final int BAND_REBUILD_STEP = 16;
+    /** 单次地形体素化超过它就记 WARN（这是"卡死"的直接取证线）。 */
+    private static final long TERRAIN_SLOW_MS = 50L;
 
-    private static final Map<Long, ShipBody> ships = new HashMap<>();
+    private static final Map<Long, ShipBody> ships = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /** 推船回报节流（按玩家）。 */
-    private static final Map<UUID, Integer> LAST_PUSH = new HashMap<>();
-    private static final int PUSH_INTERVAL = 4;
+    // ── 已删除：reportPushIfBlocked / LAST_PUSH / PUSH_INTERVAL ──
+    //
+    // 原来的做法是"我想走、但实际水平速度不到期望的一半 ⇒ 我一定在推东西 ⇒
+    // 把推力发给最近的物理体"。**这个判据是错的**：
+    // 玩家站在正在移动的船上时，相对速度本来就接近 0，于是它每次按键都把推力
+    // 发给脚下那条船、方向就是按键方向 —— 现象就是"站在船上的玩家把船往前推着走"。
+    //
+    // space 0.1.3 里**完全没有**这套启发式：船由服务端权威，客户端只是镜像，
+    // 玩家的接触通过"兄弟刚体"的接触解算自然传递，没有"猜玩家在推什么"这一步。
+    // 我们照它办：删掉启发式（`PhysicsBodyPushPacket` 保留，供将来做**显式**推拉键用）。
 
     /**
-     * 客户端镜像刚体。
+     * 客户端镜像刚体（逐字照 space 0.1.3 的 {@code ClientPhysicalBody}）。
      *
-     * @param lastMotion 上次写入的 [vx,vy,vz,ax,ay,az]：用于"值没变就不唤醒"，让静置的船能休眠。
+     * <p>它是 <b>{@code KINEMATIC_POSITION}</b> 刚体：无限质量，本地谁也推不动；
+     * 位置只由服务端位姿驱动，姿态直接取同步值。space 的字段对应关系：
+     * {@code syncFrom}/{@code syncTo}/{@code syncProgress} ↔ 这里的同名字段，
+     * 推进逻辑在 {@link #stepShipSync}。</p>
      */
-    private record ShipBody(long body, int blockCount, double[] lastMotion) {
+    private static final class ShipBody {
+        final long body;
+        final int blockCount;
+        /** 插值起点（世界坐标）—— space 的 {@code syncFrom}。 */
+        volatile double[] syncFrom;
+        /** 插值终点 = 服务端最新位姿 —— space 的 {@code syncTo}。 */
+        volatile double[] syncTo;
+        /** 0→1，每物理子步 +{@link #SHIP_SYNC_STEP} —— space 的 {@code syncProgress}。 */
+        volatile double progress = 1.0;
+
+        ShipBody(long body, int blockCount, double x, double y, double z) {
+            this.body = body;
+            this.blockCount = blockCount;
+            this.syncFrom = new double[]{x, y, z};
+            this.syncTo = new double[]{x, y, z};
+        }
     }
 
-    private static double[] motionOf(ClientPhysicsWorld.ClientBody ship) {
-        return new double[]{ship.vx(), ship.vy(), ship.vz(), ship.avx(), ship.avy(), ship.avz()};
+    /**
+     * 运动学插值步长：space 的 {@code ClientPhysicalBody.MOVE_STEP = 0.2}。
+     * <p>配合 100Hz 步进，一个 20Hz 服务端包会在 5 个子步内被平滑走完。</p>
+     */
+    private static final double SHIP_SYNC_STEP = 0.2;
+
+    /**
+     * 每个物理子步推进一次所有镜像体的运动学目标 —— space 的
+     * {@code ClientPhysicalBody.tickMovePos}（注册在 {@code PhysicalWorld} 的 tick listener 上）。
+     *
+     * <p>在<b>步进线程</b>上跑：只碰原生刚体与 volatile 字段，不访问 Minecraft 对象。
+     * 必须用 {@code setNextKinematicTranslation}（而不是 {@code setTranslation}）：
+     * 前者求解器能读出运动速度，站在船上的玩家才会被带走。</p>
+     */
+    private static void stepShipSync(long worldHandle) {
+        if (worldHandle <= 0) {
+            return;
+        }
+        for (ShipBody ship : ships.values()) {
+            double p = ship.progress;
+            if (p >= 1.0) {
+                continue;
+            }
+            p = Math.min(1.0, p + SHIP_SYNC_STEP);
+            double[] a = ship.syncFrom;
+            double[] b = ship.syncTo;
+            NativePhysics.bodySetNextKinematicTranslation(worldHandle, ship.body,
+                    a[0] + (b[0] - a[0]) * p,
+                    a[1] + (b[1] - a[1]) * p,
+                    a[2] + (b[2] - a[2]) * p);
+            ship.progress = p;
+        }
     }
 
     /**
@@ -211,8 +293,8 @@ public final class ClientPhysics {
             return false;
         }
         double[] q = new double[4];
-        if (!NativePhysics.bodyReadTranslation(w, ship.body(), posOut)
-                || !NativePhysics.bodyReadRotation(w, ship.body(), q)) {
+        if (!NativePhysics.bodyReadTranslation(w, ship.body, posOut)
+                || !NativePhysics.bodyReadRotation(w, ship.body, q)) {
             return false;
         }
         rotOut[0] = (float) q[0];
@@ -223,26 +305,14 @@ public final class ClientPhysics {
     }
 
     /**
-     * 速度同步死区：服务器速度与上次写入的值差值小于它就不写、不唤醒。
+     * 已删除：{@code MOTION_DEADBAND} / {@code sameMotion} / {@code motionOf} /
+     * {@code POSITION_CORRECTION}。
      *
-     * <p>为什么需要：服务器与客户端各自积分，速度每 tick 都会有微小差异。
-     * 若按"值不等就写"，就会每 tick 唤醒并重写速度；20Hz 的速度微跳在画面上
-     * 表现为"频率快、幅度小"的抖动 —— 静置时刚体休眠所以干净，一动就抖，正是这个原因。
-     * 有了死区，客户端按自己的速度连续积分，只有真正漂了（差值累积超过死区）才纠正。</p>
+     * <p>那些都是为了"客户端 DYNAMIC 镜像体自己积分、再按死区/阈值纠正"服务的。
+     * 镜像体改成 {@code KINEMATIC_POSITION} 之后（space 的 {@code ClientPhysicalBody}），
+     * 本地不再积分，位置完全由服务端的运动学目标决定 —— 死区、位置修正这一整类补丁
+     * 连同它们引入的"拽回冲量"一起消失。</p>
      */
-    private static final double MOTION_DEADBAND = 0.02;
-
-    private static boolean sameMotion(double[] a, double[] b) {
-        if (a == null || b == null || a.length != b.length) {
-            return false;
-        }
-        for (int i = 0; i < a.length; i++) {
-            if (Math.abs(a[i] - b[i]) > MOTION_DEADBAND) {
-                return false;
-            }
-        }
-        return true;
-    }
 
     private ClientPhysics() {
     }
@@ -250,6 +320,24 @@ public final class ClientPhysics {
     /** 客户端物理是否可用（原生库已加载且世界已创建）。 */
     public static boolean available() {
         return PhysicsNatives.isAvailable() && world > 0;
+    }
+
+    /**
+     * 玩家双刚体（渲染/诊断用；未接管时为 null）。
+     *
+     * <p>供 {@code PlayerColliderRender} 把主/兄弟两个盒子画成线框 —— 在此之前，
+     * "双刚体到底在哪"只能靠日志里的句柄回答，肉眼是看不到的。</p>
+     */
+    public static PlayerPhysicsBody playerRig() {
+        return playerRig;
+    }
+
+    /**
+     * 客户端物理世界句柄（供 {@code LevelAssist} 用原生射线取"脚下地板面"）。
+     * 未就绪返回 0。
+     */
+    public static long worldHandle() {
+        return world;
     }
 
     /** 通知某区块的方块变了（由 LevelChunk 变更 mixin 调用）。 */
@@ -263,7 +351,7 @@ public final class ClientPhysics {
     public static void shutdown() {
         for (ShipBody ship : ships.values()) {
             if (world > 0) {
-                NativePhysics.bodyDestroy(world, ship.body());
+                NativePhysics.bodyDestroy(world, ship.body);
             }
         }
         ships.clear();
@@ -274,8 +362,10 @@ public final class ClientPhysics {
         }
         terrainBodies.clear();
         terrainDirty.clear();
-        if (playerBody > 0 && world > 0) {
-            NativePhysics.bodyDestroy(world, playerBody);
+        if (playerRig != null) {
+            PhysicsDrivenPlayers.unmark(playerRig.owner());
+            playerRig.destroy();
+            playerRig = null;
         }
         playerBody = 0;
         if (world > 0) {
@@ -287,6 +377,7 @@ public final class ClientPhysics {
         lastTerrainChunk = Long.MIN_VALUE;
         takeoverLogged = false;
         hasSafe = false;
+        lastPlayerMode = "";
     }
 
     /**
@@ -294,6 +385,8 @@ public final class ClientPhysics {
      */
     public static void tick() {
         Minecraft mc = Minecraft.getInstance();
+        // 每 tick 先清"本 tick 真接管过"，由 drive() 成功时置位（见 droveThisTick）。
+        droveThisTick = false;
         // 单机暂停：ClientTickEvent 仍然每 tick 照发（Minecraft.tick() → fireClientTickPre()），
         // 但实体已经不 tick 了。此时若继续步进物理世界，刚体会带着暂停前的速度继续积分，
         // 恢复游戏时位置就被改写（表现：暂停一会儿回来，人自己飘走了）。
@@ -317,6 +410,7 @@ public final class ClientPhysics {
             if (world > 0) {
                 shutdown();
             }
+            noteMode("关闭（非太空维度，且 64 格内没有物理体）");
             return;
         }
         ensureWorld(player, level);
@@ -329,12 +423,17 @@ public final class ClientPhysics {
         syncShips();
         // 创造/旁观飞行：只把"玩家自己"交回原版移动（飞行手感照旧），
         // 物理世界与飞船/建筑照常模拟 —— 早先把整世界停掉是错的。
-        // 不再锁旋转：碰撞体姿态由角速度伺服跟随玩家朝向（见 drivePlayerRotation）。
+        // 碰撞箱由 ensurePlayerBody 锁死旋转（照 space 的 PhysicalEntity）：
+        // 姿态不再跟着 6DOF 身体转，那一整类"角扎进地形被弹飞"的问题从根上消失。
         if (player.isSpectator()) {
             releasePlayerBody();
-        } else {
+        } else if (playerRig == null) {
+            // ⚠️ 结构对齐 space：`PhysicalEntity` 只在 `space$physicalEntity == null` 时被构造一次，
+            // 之后**没有任何代码路径会按原版姿态去重建它的碰撞体**。
+            // 我们原来每 tick 都调 ensurePlayerBody(player)，把"原版姿态箱"当成物理体的几何来源，
+            // 于是原版姿态的任何抖动/换姿都会穿透到物理层（尺寸一变就 bodyClearColliders + 重建）。
+            // 现在：刚体的几何归刚体自己所有，建一次，之后只在销毁（切维度/旁观）后才会重建。
             ensurePlayerBody(player);
-            drivePlayerRotation(player);
         }
 
         // 步进交给 PhysicsStepThread 按 10ms 独立推进（照 space/MPS），这里不再自己走子步。
@@ -345,46 +444,128 @@ public final class ClientPhysics {
             safeZ = player.getZ();
             hasSafe = true;
         }
+        logScaleIfDue(level);
     }
 
     /**
-     * 由 mixin 在 {@code Entity.move} 里调用：把原版位移转成力，并从刚体读回位置。
+     * 每 10 秒记一行"物理规模 + 内存"。
      *
-     * @return true 表示已接管（调用方不要再执行原版 setPos）。
+     * <h2>为什么必须有</h2> 2026-09 的一次"在别的星球走动时画面卡死"里，进程工作集
+     * 达 <b>8.9 GB</b>（远高于 Java 堆上限 ⇒ 大头在<b>原生</b>），日志里却<b>一行痕迹都没有</b>
+     * —— 没有异常、没有崩溃报告、jstack 也没赶上（进程已被关掉）。
+     * 于是唯一能回答"是不是原生体/碰撞体在涨"的办法就是把它<b>定期打出来</b>：
+     * 走路/传送过程中 {@code Collider} 数若单调上涨，泄漏当场坐实；若不涨，
+     * 就说明是别的原因（体素化耗时、GC），也有据可查。
+     *
+     * <p>{@code RigidBody}/{@code Collider} 是 Rapier 世界的真实规模，
+     * 不是我们的记账 —— 记账会和真实情况一起错，计数不会。</p>
      */
-    public static boolean drive(LocalPlayer player, Vec3 delta) {
-        if (!available() || playerBody <= 0) {
+    private static void logScaleIfDue(ClientLevel level) {
+        long now = System.currentTimeMillis();
+        if (now - lastScaleLogMs < SCALE_LOG_MS) {
+            return;
+        }
+        lastScaleLogMs = now;
+        Runtime rt = Runtime.getRuntime();
+        long usedMb = (rt.totalMemory() - rt.freeMemory()) / (1024L * 1024L);
+        long maxMb = rt.maxMemory() / (1024L * 1024L);
+        int bodies = world > 0 ? NativePhysics.worldGetRigidBodySetSize(world) : -1;
+        int colliders = world > 0 ? NativePhysics.worldGetColliderSetSize(world) : -1;
+        int nativeBodies = world > 0 ? NativePhysics.worldBodyCount(world) : -1;
+        LOGGER.info("[PolyMech] 物理规模 维={} 堆={}/{}MB 原生 刚体={} 碰撞体={} 体计={} 地形区块={} 船={}",
+                level.dimension().location(), usedMb, maxMb,
+                bodies, colliders, nativeBodies, terrainBodies.size(), ships.size());
+        if (maxMb > 0 && usedMb > maxMb * 85L / 100L) {
+            LOGGER.warn("[PolyMech] Java 堆已用 {}%:{} / {} MB —— 继续增长会触发 GC 抖动"
+                    + "（表现为画面卡顿、窗口未响应）", usedMb * 100L / maxMb, usedMb, maxMb);
+        }
+    }
+
+    /** 物理规模日志间隔（毫秒）。 */
+    private static final long SCALE_LOG_MS = 10_000L;
+    private static long lastScaleLogMs = 0L;
+
+    /**
+     * 由 {@code EntityPhysicsDriveMixin} 在 {@code Entity.move} 的 <b>HEAD</b> 调用 ——
+     * 逐字对应 space 0.1.3 的 {@code MixinEntity.space$moveWithRapier}：
+     *
+     * <pre>
+     * 五点向下 0.1m 探地 → setOnGround / verticalCollisionBelow / resetFallDistance
+     * physicalEntity.move(movement.x, movement.y, movement.z);   // own = 位移 × 20
+     * entity.setPos(physicalEntity.getPos());
+     * if (entity.onGround())
+     *     entity.setDeltaMovement(movement.x, movement.y + getGravity(), movement.z);
+     * ci.cancel();
+     * </pre>
+     *
+     * <p><b>这里的 {@code movement} 是「碰撞前」的位移</b>（vanilla {@code move} 还没跑），
+     * 所以 {@code own} 里带着玩家真实的推进意图。</p>
+     *
+     * <p><b>回灌量是 {@code getGravity()} 而不是 space 字面的 {@code 0.08}</b>：
+     * space 写 {@code +0.08} 的<b>意图</b>是"把 vanilla 随后要减掉的那一份重力补回来"
+     * （{@code LivingEntity.travel} 在我们的 HEAD cancel 之后才做 {@code d2 -= getGravity()}），
+     * 而 {@code 0.08} 只是"主世界重力"这一个特例的数值。太空 {@code getGravity() = 0}、
+     * 行星是 {@code 0.08 × 倍率}，照抄字面值就会每 tick 净增 {@code 0.08 − getGravity()}，
+     * 形成 {@code D ← 0.98(D + 0.08 − g)} 的递推并把 own.y 顶到几十 m/s —— 那正是
+     * "慢速靠近船/方块被弹飞"。详见方法体内注释与
+     * {@code native/jni-smoketest/PlayerWallProbeTest} 的 H/I 两节。</p>
+     *
+     * <p>以前我们是"碰撞后位移 + 垂直夹成 ≤0"，等于把配套的两半句都改坏：
+     * 既丢了输入意图（贴墙时 own 已被原版夹掉），又让回灌变成恒定的向上偏置。
+     * 单看哪一半都不对，必须一起回到 space 的样子。</p>
+     *
+     * @return true 表示已接管（调用方 {@code cancel()} 掉原版 {@code move}）
+     */
+    public static boolean drive(LocalPlayer player, Vec3 movement) {
+        if (!available()) {
+            noteMode("关闭（物理世界未就绪 / 原生库不可用）");
+            return false;
+        }
+        if (player.isSpectator()) {
+            // space：旁观者销毁刚体，位置完全交回原版
+            releasePlayerBody();
+            PhysicsDrivenPlayers.unmark(player.getUUID());
+            noteMode("原版驱动（旁观者）");
             return false;
         }
         if (playerFlies(player)) {
-            // 创造/旁观飞行：位置交回原版。刚体**保留**（继续与飞船/建筑碰撞），
-            // 只是不再由物理解算驱动位置 —— 每 tick 由 afterPlayerTick 同步到玩家位置。
+            // 创造飞行：位置交回原版，刚体保留并跟随（继续与飞船/建筑碰撞，见 afterPlayerTick）。
+            PhysicsDrivenPlayers.unmark(player.getUUID());
+            noteMode("原版驱动（创造飞行，刚体仍跟随）");
+            return false;
+        }
+        if (playerRig == null || playerBody <= 0) {
+            noteMode("原版驱动（玩家双刚体未建成）");
             return false;
         }
         if (!hasTerrainAt(player)) {
-            return false; // 地形还没就绪 → 回退原版，避免掉出世界
+            // 地形还没就绪 → 本 tick 交回原版移动。但**刚体必须跟着玩家走**，
+            // 否则两边位置越差越远，恢复物理接管那一刻玩家会被拽回旧位置（橡皮筋）。
+            PhysicsDrivenPlayers.unmark(player.getUUID());
+            playerRig.teleport(player.getX(), player.getY() + playerCenterOffset, player.getZ(),
+                    0.0, 0.0, 0.0);
+            noteMode("原版驱动（本区块地形碰撞体尚未就绪）");
+            return false;
         }
-        // ── MPS 力模型：原版位移 → 冲量，不做任何速度反馈 ──
-        //   space: applyForce(new Force(delta × 70.0, 0.05))  质量 50kg、无阻尼
-        //   我们的世界每 MC tick 走 5 × 1/100s = 0.05s，正好是该力的作用时长，
-        //   故等价冲量 = delta × 70 × 0.05 = delta × 3.5 (N·s)
-        //   → Δv = 0.07·delta：速度只累加不衰减（按住 W 持续加速，松手继续漂）
-        NativePhysics.bodyApplyImpulse(world, playerBody,
-                delta.x * MPS_IMPULSE, delta.y * MPS_IMPULSE, delta.z * MPS_IMPULSE);
+        PhysicsDrivenPlayers.mark(player.getUUID());
+        noteMode("物理接管：主刚体=" + playerRig.mainHandle() + " 兄弟=" + playerRig.siblingHandle()
+                + " 碰撞箱=" + fmt2(playerHalfWidth * 2.0) + "×" + fmt2(playerHalfHeight * 2.0)
+                + " 中心偏移=" + fmt2(playerCenterOffset)
+                + " 姿态=" + player.getPose()
+                + " 游泳=" + player.isSwimming() + " 滑翔=" + player.isFallFlying()
+                + " 潜行=" + player.isCrouching() + " 贴地=" + player.onGround()
+                + "（碰撞体积由 Rapier 双刚体裁定；原版碰撞箱只作实体本身用）");
 
-        // 被挡住（想走却走不动）且旁边有飞船 → 回报服务端施加冲量（玩家推得动船）。
-        final double[] v = new double[3];
-        if (NativePhysics.bodyReadVelocity(world, playerBody, v)) {
-            reportPushIfBlocked(player, delta, v);
-        }
+        // ── space 的三步，顺序也照抄：先探地（用碰撞箱当前姿态），再把位移交给刚体，最后读回位置 ──
+        probeGround(player);
+        playerRig.move(movement.x, movement.y, movement.z);
 
-        // 位置从刚体读回（空间：刚体中心 → 实体脚底）。
         final double[] pos = new double[3];
         if (!NativePhysics.bodyReadTranslation(world, playerBody, pos)) {
             return false;
         }
 
-        // 安全网：物理位置异常（掉到世界底部以下）→ 复位到最近的安全位置并本 tick 交还原版，
+        // 安全网（本地兜底，不在 space 里）：物理位置异常（掉到世界底部以下）→ 复位并交还原版，
         // 避免"物理出问题把人送进虚空"这种灾难性后果。
         double minY = player.level().getMinBuildHeight() - 64.0;
         if (pos[1] - playerCenterOffset < minY && hasSafe) {
@@ -395,16 +576,109 @@ public final class ClientPhysics {
             return false;
         }
 
+        double oldX = player.getX();
+        double oldY = player.getY();
+        double oldZ = player.getZ();
         player.setPos(pos[0], pos[1] - playerCenterOffset, pos[2]);
+
+        // ── 补 vanilla 的步伐账（HEAD 取消 move 会一并跳过它，见 Entity.move 末尾的
+        //    walkDist / moveDist 累加）──
+        // walkDist → 走路上下颠簸 + 手臂摆动幅度；moveDist → 脚步声/落地声的节拍。
+        // 公式与 vanilla 逐字一致（水平/全向距离 × 0.6），只是位移换成"物理真正应用的位移"。
+        // 不补的话表现是"画面不再起伏、自己听不到脚步"。
+        // （声音本身服务端那边仍会照常发，所以这不是物理量，纯粹是本地表现账。）
+        double mx = pos[0] - oldX;
+        double my = (pos[1] - playerCenterOffset) - oldY;
+        double mz = pos[2] - oldZ;
+        player.walkDist += (float) Math.sqrt(mx * mx + mz * mz) * 0.6F;
+        player.moveDist += (float) Math.sqrt(mx * mx + my * my + mz * mz) * 0.6F;
+
+        // space 原样：贴地时把位移回灌给 vanilla（抵消 vanilla 随后要减掉的那一份重力）。
+        //
+        // ⚠️ 这里**不能**照抄 space 的字面 `0.08`。回灌发生在 travel 减重力**之前**
+        //（1.21.1 `LivingEntity`：我们的 HEAD cancel 位于 `handleRelativeFrictionAndCalculateMovement`
+        // 的 `:2386 this.move(...)` 内，`:2387` 立刻把回灌值读回 vec35，随后 `:2331 d2 -= d0`、
+        // `:2341 d2 * 0.98`），所以每 tick 的垂直递推是
+        //     D' = 0.98 · (D + 注入 − getGravity())
+        // 固定点 D* = 49 · (注入 − getGravity()) 格/tick。于是：
+        //   · 主世界  getGravity() = 0.08    → 0.08 − 0.08 = 0        → 稳定（逐位不变）
+        //   · 太空    getGravity() = 0       → 每 tick 净增 +0.08      → D* = 3.92 格/tick
+        //   · 行星    getGravity() = 0.08·f  → 每 tick 净增 +0.08(1−f) → 同上按 (1−f) 缩放
+        // 这三个重力值由 {@code MixinEntity.polymech$gravity} 按维度给（太空 0 / 行星 G/9.807）。
+        //
+        // 实测证据：9/18 20:16 客户端日志（维度 poly_mech:space，世界重力 -0.0）里
+        // `own.y` 依次 1.57 → 7.53 → 14.34 → 20.50 → 26.06 → 31.09，正是第二条递推的
+        // 第 1/5/10/15/20/25 tick（日志节流 250ms = 5 tick），线性外推到 78 m/s。
+        // 链子随后把 own 原样加进主刚体（`main = sibling + own`），人就被顶上天 ——
+        // 这就是"慢速靠近船/普通方块被弹飞"的根因。
+        //
+        // 因此注入量取实体自己的重力，而不是字面 0.08：与 space 的**意图**（抵消 vanilla 减掉的
+        // 那一份）一致，主世界逐位等价，且在任何重力倍率下都成立。
+        // 离线复现与回归见 native/jni-smoketest/PlayerWallProbeTest.java 的 H、I 两节。
+        if (player.onGround()) {
+            player.setDeltaMovement(movement.x, movement.y + player.getGravity(), movement.z);
+        }
         if (!takeoverLogged) {
             takeoverLogged = true;
             LOGGER.info("[PolyMech] 客户端物理接管已启用（玩家位置由 Rapier 驱动，维度 {}）",
                     player.level().dimension().location());
         }
+        droveThisTick = true;
         return true;
     }
 
     // ==================== 内部 ====================
+
+    /**
+     * 玩家物理模式的**边沿触发**日志：只在模式**变化**时打印一行（不是每 tick 心跳）。
+     *
+     * <p>为什么值得长期留着：玩家到底"由谁裁定碰撞"这件事在这个项目里无法靠肉眼分辨 ——
+     * Rapier 的双刚体碰撞体**尺寸就是从原版碰撞箱取的**
+     *（`ensurePlayerBody`：`halfWidth = getBbWidth()*0.5`、`halfHeight = getBbHeight()*0.5`，
+     *  与 space 的 `PhysicalEntity:69-70` 逐字一致），
+     * 而且两个刚体同位置、靠 `(2,5)/(5,5)` 互不相撞 ⇒ 从外面看永远是**一个**盒子。
+     * 所以"我看到的是原版碰撞箱"这个观察本身区分不出"物理在接管"还是"退回原版了" ——
+     * 只有这一行能。模式串里带主/兄弟句柄与碰撞箱尺寸，也就直接回答了"我的双刚体在哪"。</p>
+     */
+    private static String lastPlayerMode = "";
+    private static long lastPlayerModeMs = 0L;
+
+    /**
+     * 模式变化时记一行（诊断）。
+     *
+     * <h2>为什么不能直接比整串</h2> 同一个状态有<b>多个调用点、理由串不同</b>：
+     * {@code tick()} 说"关闭（非太空维度…）"，{@code drive()} 说
+     * "关闭（物理世界未就绪…）" —— 两者逐 tick 交替出现，
+     * 于是"整串比较"的边沿触发被击穿，变成<b>每 tick 一行</b>。
+     * 2026-09 实测：50 秒的会话里这个 logger 刷了 <b>1344 行（≈27 行/秒）</b>，
+     * 全在客户端线程上做字符串格式化 + 同步日志 I/O —— 玩家感受就是"走走卡卡"。
+     *
+     * <p>所以按<b>粗粒度</b>（括号前那一段：关闭 / 原版驱动 / 物理接管）判变化；
+     * 同一粗粒度下的理由变化最多 2 秒报一次，既保住"为什么"，又不刷屏。</p>
+     */
+    private static void noteMode(String mode) {
+        long now = System.currentTimeMillis();
+        if (coarseMode(mode).equals(coarseMode(lastPlayerMode))
+                && (mode.equals(lastPlayerMode) || now - lastPlayerModeMs < 2000L)) {
+            return;
+        }
+        lastPlayerMode = mode;
+        lastPlayerModeMs = now;
+        LOGGER.info("[PolyMech] 玩家物理模式 → {}", mode);
+    }
+
+    /** 模式串的粗粒度部分（括号前的段）。 */
+    private static String coarseMode(String mode) {
+        if (mode == null) {
+            return "";
+        }
+        int cut = mode.indexOf('（');
+        return cut > 0 ? mode.substring(0, cut) : mode;
+    }
+
+    private static String fmt2(double v) {
+        return String.format(java.util.Locale.ROOT, "%.2f", v);
+    }
 
     private static boolean shouldSimulate(LocalPlayer player) {
         // 太空维度：全程物理。
@@ -449,148 +723,87 @@ public final class ClientPhysics {
             double vx = net.minecraft.util.Mth.clamp(dm.x * 20.0, -100.0, 100.0);
             double vy = net.minecraft.util.Mth.clamp(dm.y * 20.0, -100.0, 100.0);
             double vz = net.minecraft.util.Mth.clamp(dm.z * 20.0, -100.0, 100.0);
-            // 飞行：位置由原版驱动，刚体跟随玩家（继续参与碰撞）。
-            NativePhysics.bodySetTranslation(world, playerBody,
-                    player.getX(), player.getY() + half, player.getZ());
-            NativePhysics.bodySetMotion(world, playerBody, vx, vy, vz, 0.0, 0.0, 0.0, true);
+            // 飞行：位置由原版驱动，**两个**刚体一起跟随玩家（继续参与碰撞）
+            if (playerRig != null) {
+                playerRig.teleport(player.getX(), player.getY() + half, player.getZ(), vx, vy, vz);
+            }
             return;
         }
-        // 非飞行：物理驱动位置，**每 tick 无条件回写**。
-        // 不能只依赖 Entity.move 里 setPos 重定向那次回写 —— 原版在位移≈0 时会走捷径、
-        // 根本不触达那次 setPos，于是"站着一动不动"时物理仍在后台积分、画面却停在原地，
-        // 一按 WASD 才跳到后台算出的位置。
-        double[] pos = new double[3];
-        if (!NativePhysics.bodyReadTranslation(world, playerBody, pos)) {
-            return;
-        }
-        player.setPos(pos[0], pos[1] - playerCenterOffset, pos[2]);
+        // 非飞行：位置由物理驱动 —— **这里不再回写**。
+        //
+        // space 对实体位置只有一处写入（`Entity.move` 内的 `entity.setPos`），而 `Entity.move`
+        // 已经在 `drive()` 里写过了；本方法过去又写一次，等于"每 tick 两个位置权威"。
+        // 而且它只在 `droveThisTick` 为真时才走到（即 drive 刚写过），所以那一份**纯属冗余**。
+        // （`droveThisTick` 现在只剩"本 tick 是否真被物理接管"这个语义，供飞行/旁观判断用。）
     }
 
-    /**
-     * 每**帧**调用（{@code RenderFrameEvent.Pre}）：把刚体位置写进玩家实体。
-     *
-     * <p>为什么不能只在 tick 里回写：物理由独立线程按 10ms 推进（100Hz），
-     * 而 20Hz 的 tick 每次采样到的物理步数是 4/5/6 波动 → 每 tick 位移忽多忽少，
-     * 表现就是"一顿一顿"。逐帧取样后，相机直接跟随 100Hz 的物理状态，
-     * 与飞船渲染同源（space/MPS 就是渲染时直接取刚体状态）。</p>
-     */
-    public static void frameWriteBack() {
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
-        if (player == null || world <= 0 || playerBody <= 0) {
-            return;
-        }
-        // 姿态逐帧同步（物理线程是独立 100Hz 推进的）：姿态若只在 20Hz 的 tick 里写，
-        // 接触点每 tick 才更新一次，位置就会以 tick 频率微抖 —— 逐帧写才平滑。
-        // （飞行时位置由原版驱动，但刚体仍要跟着身体姿态。）
-        if (!player.isSpectator()) {
-            drivePlayerRotation(player);
-        }
-        if (player.isSpectator() || player.getAbilities().flying) {
-            return; // 旁观者无刚体；飞行由原版驱动位置
-        }
-        double[] pos = new double[3];
-        if (!NativePhysics.bodyReadTranslation(world, playerBody, pos)) {
-            return;
-        }
-        double x = pos[0];
-        double y = pos[1] - playerCenterOffset;
-        double z = pos[2];
-        player.setPos(x, y, z);
-        // O 与 Old 一并对齐：让相机用"当前物理位置"而不是在两个 tick 采样之间插值。
-        player.xo = x;
-        player.yo = y;
-        player.zo = z;
-        player.xOld = x;
-        player.yOld = y;
-        player.zOld = z;
-    }
+    // ── 已删除：frameWriteBack()（每帧把刚体位置写进玩家 + 抹平 xo/yo/zo/xOld…）──
+    //
+    // 症状：玩家持续顶住物理体时**抽搐**。根因不在物理，而在"位置怎么交给渲染"。
+    //
+    // space 0.1.3 全仓库对**实体位置**只有一处写入：`MixinEntity.space$moveWithRapier`
+    // 里的 `entity.setPos(pos.x, pos.y, pos.z)`（位于 `Entity.move` 内）——
+    // 也就是**每个 tick 一次（20Hz）**，并且**从不触碰 xo/yo/zo/xOld/yOld/zOld**。
+    // 飞船（物理体）不一样：`ClientPhysicalBody.render(...)` 直接读刚体当前位姿（100Hz），
+    // 因为那是**他们自己渲染的对象**，不经过原版实体管线。
+    //
+    // 我们早先把"物理体逐帧直读"这条**误推到了玩家实体上**：每帧 setPos 并且把
+    // xo/yo/zo/xOld… 全部对齐到当前位置，等于**关掉原版的 tick 插值**。
+    // 而玩家身体在接触里本来就有 ~1 个子步量级（own×dt ≈ 4cm）的 100Hz 微抖
+    // ——两个刚体同位置、兄弟体每子步被瞬移回主刚体位置，接触解算给出的法向速度
+    // 与 own 不会逐位抵消。原版管线本来会把这条 100Hz 抖动插值成平滑轨迹，
+    // 我们把插值拆掉之后，它就直接变成镜头上的抽搐。
+    //
+    // 对齐后：位置只在 `drive()`（= space 的 `Entity.move`）与 `afterPlayerTick()`
+    // 兜底里写，**每个 tick 各一次**，插值字段完全交给原版 —— 与 space 同构。
+    // 这也是 space 这台机械的总体设计意图：**实体是 100Hz 仿真的 20Hz 消费者，
+    // 平滑交给引擎自己的插值；只有自己渲染的对象才直读刚体状态。**
 
     private static boolean playerFlies(LocalPlayer player) {
         return player.getAbilities().flying || player.isSpectator();
     }
 
-    /** 销毁玩家刚体（飞行期间不需要；停飞后会自动重建）。 */
+    /** 销毁玩家双刚体（旁观/停用；需要时自动重建）。 */
     private static void releasePlayerBody() {
-        if (playerBody > 0 && world > 0) {
+        if (playerRig != null) {
+            PhysicsDrivenPlayers.unmark(playerRig.owner());
+            playerRig.destroy();
+            playerRig = null;
+        } else if (playerBody > 0 && world > 0) {
             NativePhysics.bodyDestroy(world, playerBody);
         }
         playerBody = 0;
         playerHalfWidth = 0.0f;
         playerHalfHeight = 0.0f;
         playerCenterOffset = 0.9;
-        // 物理姿态缓存随刚体一起清掉
     }
 
     /**
-     * 玩家碰撞体姿态：<b>不再每帧硬写</b>（硬写的话碰撞根本转不动刚体，钻洞口时身体会一直卡着），
-     * 改成用"角速度伺服"朝运动学目标（视线 − 颈部领先量）转。
+     * 着地判定（照抄 space 0.1.3 的 {@code MixinEntity.space$moveWithRapier}）：
+     * 从碰撞箱底面「中心 + 四角」五点向下打 0.1m，任意一条命中即着地。
      *
-     * <p>这样接触力能真的把身体顶偏：想钻一格洞口时，身体会被障碍物推着转向，
-     * 直到整体足以通过；空闲时又被拉回目标姿态。同时把物理真实姿态写回
-     * {@link com.mss.polymech.space.SpacePlayerData}，供渲染/头部偏移使用。</p>
+     * <p>物理接管之后原版的 {@code onGround} 就没人维护了 —— 不设的话"站在船上/地上"
+     * 在原版眼里是悬空：不能跳、{@code fallDistance} 一直累加（落地摔死）、冲刺被打断。</p>
+     *
+     * <p>射线起点取<b>刚体位置</b>（space 的 {@code probePos = physicalEntity.getPos()}），
+     * 不是实体坐标：space 的刚体原点在脚底，我们的在碰撞箱中心，所以减掉半高才是等价位置。
+     * 这样超人姿态的"头盒"也天然探的是它自己的底面，不需要额外的偏移推导。</p>
      */
-    private static void drivePlayerRotation(LocalPlayer player) {
-        if (playerBody <= 0 || world <= 0
-                || !player.level().dimension().equals(PlanetDimensions.SPACE)) {
+    private static void probeGround(LocalPlayer player) {
+        if (world <= 0 || playerBody <= 0) {
             return;
         }
-        com.mss.polymech.space.SpacePlayerData data =
-                com.mss.polymech.space.SpacePlayerData.get(player);
-        if (!data.isInitialized()) {
+        final double[] pos = new double[3];
+        if (!NativePhysics.bodyReadTranslation(world, playerBody, pos)) {
             return;
         }
-        double[] cur = new double[4];
-        if (!NativePhysics.bodyReadRotation(world, playerBody, cur)) {
-            return;
+        boolean grounded = PhysicsGroundProbe.grounded(world,
+                pos[0], pos[1] - playerHalfHeight, pos[2], playerHalfWidth);
+        player.setOnGround(grounded);
+        player.verticalCollisionBelow = grounded;
+        if (grounded) {
+            player.resetFallDistance();
         }
-        data.setPhysicalBodyQuat(cur[0], cur[1], cur[2], cur[3]);
-
-        // 超人姿态（钻一格洞）：全程放开旋转伺服（但仍读回物理姿态，供头部局部旋转用）。
-        // 0.6³ 是各向同性的立方体，不需要伺服把身体"对准"任何方向；
-        // 放开后接触力能自由地把这个小盒子顶进物理体内部的一格负空间洞，
-        // 撞到洞口边缘就滑进去，而不是被伺服反向拉回直立、在洞口"顶住→拉回→再顶住"。
-        // 比"检测洞口再松手"更省（零射线/碰撞查询），且各向同性盒子翻不翻视觉上看不出来
-        // （可见的超人模型朝向仍走 SpacePlayerData 的 6DOF 渲染，不受影响）。
-        if (com.mss.polymech.space.SpacePlayerData.isSuperman(player)) {
-            return;
-        }
-
-        // 世界系里"把当前姿态转到目标姿态"所需的旋转：R = target · current⁻¹
-        org.joml.Quaternionf target = data.orientation(new org.joml.Quaternionf());
-        org.joml.Quaternionf current = new org.joml.Quaternionf(
-                (float) cur[0], (float) cur[1], (float) cur[2], (float) cur[3]);
-        org.joml.Quaternionf r = new org.joml.Quaternionf(target).mul(current.conjugate());
-        if (r.w < 0.0f) {
-            r.set(-r.x, -r.y, -r.z, -r.w); // 取短弧
-        }
-        double w = Math.min(1.0, Math.max(-1.0, r.w));
-        double angle = 2.0 * Math.acos(w);
-        double sin = Math.sqrt(Math.max(1.0e-12, 1.0 - w * w));
-        double avx = 0.0;
-        double avy = 0.0;
-        double avz = 0.0;
-        if (angle > 1.0e-4 && sin > 1.0e-6) {
-            double k = ROT_STIFFNESS * angle / sin;
-            avx = r.x * k;
-            avy = r.y * k;
-            avz = r.z * k;
-        }
-        double[] av = new double[3];
-        if (!NativePhysics.bodyReadAngvel(world, playerBody, av)) {
-            return;
-        }
-        // ── 临时诊断：每秒一行，量出"渲染姿态到底多久更新一次、每帧变化多少度" ──
-        polymech$diag(target);
-        // 一阶伺服：只把角速度按比例拉过去，碰撞带来的转动不会被一帧抹掉
-        double nx = av[0] + ROT_SERVO_ALPHA * (avx - av[0]);
-        double ny = av[1] + ROT_SERVO_ALPHA * (avy - av[1]);
-        double nz = av[2] + ROT_SERVO_ALPHA * (avz - av[2]);
-        if (angle < 1.0e-3
-                && Math.abs(nx) < 1.0e-4 && Math.abs(ny) < 1.0e-4 && Math.abs(nz) < 1.0e-4) {
-            return; // 已对齐且几乎不转：别每帧唤醒刚体，让它能休眠
-        }
-        NativePhysics.bodySetAngvel(world, playerBody, nx, ny, nz);
     }
 
     private static void ensureWorld(LocalPlayer player, ClientLevel level) {
@@ -607,6 +820,13 @@ public final class ClientPhysics {
         // 而不是"每 tick 一次性走 5 子步"（那样每秒只有 20 次状态更新，渲染必抖）。
         PhysicsStepThread.setClientPausedSupplier(() -> Minecraft.getInstance().isPaused());
         PhysicsStepThread.add(world);
+        // 玩家双刚体的速度继承链必须**每个 100Hz 子步之后**跑（space 的 RapierWorld tickListener）：
+        // 只在 20Hz 的 tick 重设速度的话，一个 tick 里的 5 个子步之间速度会漂。
+        long createdWorld = world;
+        PhysicsStepThread.addPostStep(createdWorld, () -> PlayerPhysicsBody.afterStep(createdWorld));
+        // 客户端镜像体的运动学推进也要**每个子步**跑（space 把它挂在 PhysicalWorld 的 tickListener 上）：
+        // 只在 20Hz 的 tick 里写目标位姿，运动学体每步都会"到点即停"，动的船会一顿一顿。
+        PhysicsStepThread.addPostStep(createdWorld, () -> stepShipSync(createdWorld));
         if (world > 0) {
             NativePhysics.worldSetTimestep(world, DT);
             worldDimension = dim;
@@ -615,61 +835,65 @@ public final class ClientPhysics {
         }
     }
 
+    /**
+     * 玩家双刚体（主 + 兄弟，照 space 0.1.3 的 {@code PhysicalEntity}）。
+     *
+     * <p>{@code playerBody} 保留为"主刚体句柄"，读位置/回写/安全网全部只针对主刚体；
+     * 兄弟刚体完全由 {@link PlayerPhysicsBody} 内部维护（速度继承链）。</p>
+     */
+    private static PlayerPhysicsBody playerRig;
+
     private static void ensurePlayerBody(LocalPlayer player) {
         float halfWidth = Math.max(0.05f, player.getBbWidth() * 0.5f);
         float halfHeight = Math.max(0.05f, player.getBbHeight() * 0.5f);
         // 中心偏移：普通 = 半高（盒子坐底在脚底）；超人 = 眼高（0.6³ 头盒只包头脸）。
         double centerOffset = com.mss.polymech.space.SpacePlayerData.bodyCenterOffset(player);
-        if (playerBody > 0 && Math.abs(halfWidth - playerHalfWidth) < 1.0e-3
-                && Math.abs(halfHeight - playerHalfHeight) < 1.0e-3
-                && Math.abs(centerOffset - playerCenterOffset) < 1.0e-3) {
-            return;
-        }
-        // 切换姿态（普通 ↔ 超人）会重建刚体：先存下速度，建好后恢复。
-        //
-        // 位置**不沿用旧刚体中心**，而是让 bodyCreate 按"当前实体位置 + 新偏移"重放：
-        // 普通眼高 1.62 / 超人 1.6 几乎相同，保持实体位置不动 ⇒ 第一人称视角几乎不跳；
-        // 若沿用旧中心，回写偏移从 0.9 变 1.6 会把实体位置拽低 0.7，视角要沉一下。
-        // 速度照旧恢复，避免"高速飞行中按一下疾跑"被急刹清零。
-        double[] oldVel = new double[3];
-        boolean hadOld = playerBody > 0
-                && NativePhysics.bodyReadVelocity(world, playerBody, oldVel);
-        if (playerBody > 0) {
-            NativePhysics.bodyDestroy(world, playerBody);
-            playerBody = 0;
-        }
+        PlayerPhysicsBody rig = PlayerPhysicsBody.getOrCreate(player.getUUID(), world,
+                player.getX(), player.getY() + centerOffset, player.getZ(),
+                halfWidth, halfHeight, centerOffset);
+        playerRig = rig;
+        playerBody = rig == null ? 0L : rig.mainHandle();
         playerHalfWidth = halfWidth;
         playerHalfHeight = halfHeight;
         playerCenterOffset = centerOffset;
-        playerBody = NativePhysics.bodyCreate(world, NativePhysics.BODY_DYNAMIC,
-                player.getX(), player.getY() + centerOffset, player.getZ(),
-                0.0, 0.0, 0.0, 1.0, PLAYER_MASS);
-        if (playerBody <= 0) {
-            return;
-        }
-        // 碰撞体：单个长方体，尺寸直接取自实体的碰撞箱 ——
-        // 普通姿态 = 原版 0.6×1.8×0.6（与 vanilla AABB 逐位一致）；
-        // 超人姿态 = 0.6³（getDimensions 已被 SupermanDimensionsMixin 改小），
-        // 于是那一个立方体本身就是头盒，不需要再挂第二个碰撞体。
-        NativePhysics.colliderAttachCuboid(world, playerBody, halfWidth, halfHeight, halfWidth, 0.6, 0.0);
-        // 玩家不该翻滚
-        // 姿态由 drivePlayerRotation 的角速度伺服跟随（可被碰撞顶偏），这里不锁旋转
-        if (hadOld) {
-            NativePhysics.bodySetMotion(world, playerBody,
-                    oldVel[0], oldVel[1], oldVel[2], 0.0, 0.0, 0.0, true);
-        }
     }
 
     private static void updateTerrain(ClientLevel level, LocalPlayer player) {
         int cx = player.getBlockX() >> 4;
         int cz = player.getBlockZ() >> 4;
         long centerChunk = (((long) cx) << 32) ^ (cz & 0xFFFFFFFFL);
+        // ★ 深空守卫（docs/mps-clone-plan.md §30.10）：区块坐标在深空会**别名到原点附近**，
+        //   于是 `level.getChunk(...)` 与随后的体素化会在"别的地方"建出地形碰撞体 ——
+        //   这比"没有地形"更糟（玩家会在深空撞到属于原点的地形）。深空没有方块空间，直接不建。
+        //   注意守卫用的是**世界坐标**（player.getX()），不是已经被截断的 BlockPos。
+        if (com.mss.polymech.space.SpaceWorld.isDeepSpace(player.getX(), player.getZ())) {
+            for (Long key : new ArrayList<>(terrainBodies.keySet())) {
+                Long body = terrainBodies.remove(key);
+                if (body != null && body > 0) {
+                    NativePhysics.bodyDestroy(world, body);
+                }
+            }
+            terrainDirty.clear();
+            return;
+        }
+
         boolean moved = centerChunk != lastTerrainChunk;
-        if (!moved && terrainDirty.isEmpty()) {
+        // 竖直带移动 ⇒ 所有区块的体素都要重裁（见 lastTerrainBandY 的注释）。
+        boolean bandMoved = Math.abs(terrainCenterY - lastTerrainBandY) >= BAND_REBUILD_STEP;
+        if (!moved && !bandMoved && terrainDirty.isEmpty()) {
             return;
         }
         lastTerrainChunk = centerChunk;
+        lastTerrainBandY = terrainCenterY;
 
+        // ⚠️ 这里原来写的是 `if (moved || terrainDirty.contains(key) || !terrainBodies.containsKey(key))`。
+        // `moved` 是**水平跨区块**：玩家每走 16 格就把视野内 9 个区块全部重新体素化一遍
+        // （每块最多 16×16×128 格 = 32k 次取方块 + 原生单元插入）。地形<b>没变</b>，
+        // 纯粹白干 —— 而且这一下发生在客户端线程上，就是"走着走着突然一顿/卡死"。
+        // 正确判据只有两个：这个区块<b>变过</b>（terrainDirty）或<b>还没建过</b>；
+        // 外加"竖直径向带整体移动了"才需要全量重裁。
+        long t0 = System.nanoTime();
+        int built = 0;
         Set<Long> desired = new HashSet<>();
         for (int dx = -TERRAIN_RADIUS; dx <= TERRAIN_RADIUS; dx++) {
             for (int dz = -TERRAIN_RADIUS; dz <= TERRAIN_RADIUS; dz++) {
@@ -680,12 +904,20 @@ public final class ClientPhysics {
                     continue;
                 }
                 desired.add(key);
-                if (moved || terrainDirty.contains(key) || !terrainBodies.containsKey(key)) {
+                if (bandMoved || terrainDirty.contains(key) || !terrainBodies.containsKey(key)) {
                     buildTerrainChunk(level, ccx, ccz, key);
+                    built++;
                 }
             }
         }
         terrainDirty.clear();
+        long ms = (System.nanoTime() - t0) / 1_000_000L;
+        if (ms >= TERRAIN_SLOW_MS) {
+            // 这条日志就是"卡死"的取证：真的慢了，就能看到慢在几个区块、多少毫秒。
+            LOGGER.warn("[PolyMech] 地形体素化耗时 {} ms（重建 {} 个区块，带移动={}，中心 chunk={},{}）"
+                            + " —— 客户端线程上的长操作，表现为掉帧/未响应",
+                    ms, built, bandMoved, cx, cz);
+        }
 
         List<Long> stale = new ArrayList<>();
         for (Long key : terrainBodies.keySet()) {
@@ -708,8 +940,13 @@ public final class ClientPhysics {
         }
         LevelChunk chunk = level.getChunk(cx, cz);
         int minY = level.getMinBuildHeight();
+        int minX = chunk.getPos().getMinBlockX();
+        int minZ = chunk.getPos().getMinBlockZ();
         LevelChunkSection[] sections = chunk.getSections();
         List<Long> cells = new ArrayList<>();
+        // B1：非满碰撞形状（台阶/楼梯/栅栏/墙/锁链…）另收复合盒。
+        // 客户端必须与服务端一致，否则"服务端能走上去的台阶，客户端身体被卡住"。
+        PhysicsShapes.Boxes boxes = new PhysicsShapes.Boxes();
         for (int index = 0; index < sections.length; index++) {
             LevelChunkSection section = sections[index];
             if (section == null || section.hasOnlyAir()) {
@@ -728,25 +965,55 @@ public final class ClientPhysics {
                         if (state.isAir() || !state.getFluidState().isEmpty()) {
                             continue;
                         }
-                        cells.add(NativePhysics.packCell(x, baseY - minY + y, z));
+                        int localY = baseY - minY + y;
+                        if (PhysicsShapes.isFullBlock(state)) {
+                            cells.add(NativePhysics.packCell(x, localY, z));
+                        } else if (PhysicsNatives.hasTier1()) {
+                            BlockPos worldPos = new BlockPos(minX + x, baseY + y, minZ + z);
+                            boxes.addShape(
+                                    state.getCollisionShape(level, worldPos, net.minecraft.world.phys.shapes.CollisionContext.empty()),
+                                    x, localY, z,
+                                    PhysicsShapes.MAX_BOXES_PER_CHUNK - boxes.count());
+                        } else {
+                            // 原生层低于 ABI 5：退回旧行为（统统当整格），并与服务端保持同一套判定
+                            cells.add(NativePhysics.packCell(x, localY, z));
+                        }
                     }
                 }
             }
         }
-        if (cells.isEmpty()) {
-            terrainBodies.put(key, 0L);
-            return;
-        }
         long[] packed = new long[cells.size()];
         for (int i = 0; i < packed.length; i++) {
             packed[i] = cells.get(i);
+        }
+        double[] boxArray = boxes.toArray();
+        if (packed.length == 0 && boxArray.length == 0) {
+            terrainBodies.put(key, 0L);
+            return;
         }
         long body = NativePhysics.bodyCreate(world, NativePhysics.BODY_FIXED,
                 cx << 4, minY, cz << 4, 0.0, 0.0, 0.0, 1.0, 0.0);
         if (body <= 0) {
             return;
         }
-        if (NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, packed, 0.7, 0.0) <= 0) {
+        int attached = 0;
+        if (packed.length > 0) {
+            long collider = NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, packed,
+                    PhysicsMaterials.TERRAIN_FRICTION, 0.0);
+            if (collider > 0) {
+                PhysicsMaterials.apply(world, collider, PhysicsMaterials.TERRAIN_FRICTION, 0.0);
+                attached++;
+            }
+        }
+        if (boxArray.length > 0) {
+            long collider = NativePhysics.colliderAttachBoxes(world, body, boxArray,
+                    PhysicsMaterials.TERRAIN_FRICTION, 0.0, 1, -1);
+            if (collider > 0) {
+                PhysicsMaterials.apply(world, collider, PhysicsMaterials.TERRAIN_FRICTION, 0.0);
+                attached++;
+            }
+        }
+        if (attached == 0) {
             NativePhysics.bodyDestroy(world, body);
             return;
         }
@@ -754,54 +1021,6 @@ public final class ClientPhysics {
     }
 
     /** 玩家所在区块是否已有地形碰撞体（安全阀）。 */
-    /**
-     * "想走却走不动" = 正在推东西：把方向回报服务端施加冲量（质量感知）。
-     * 服务端的飞船是动态刚体，客户端这里只是运动学镜像，所以推的效果必须走网络。
-     */
-    private static void reportPushIfBlocked(LocalPlayer player, Vec3 delta, double[] velocity) {
-        double wantX = delta.x;
-        double wantZ = delta.z;
-        double len = Math.sqrt(wantX * wantX + wantZ * wantZ);
-        if (len < 0.02) {
-            return;
-        }
-        // 实际水平速度远低于期望 → 被挡住
-        double actual = Math.sqrt(velocity[0] * velocity[0] + velocity[2] * velocity[2]);
-        double desired = len / TICK_SECONDS;
-        if (actual > desired * 0.5) {
-            return;
-        }
-        int now = player.tickCount;
-        Integer last = LAST_PUSH.get(player.getUUID());
-        if (last != null && now - last < PUSH_INTERVAL) {
-            return;
-        }
-        // 找一个最近的飞船
-        double px = player.getX();
-        double py = player.getY();
-        double pz = player.getZ();
-        ClientPhysicsWorld.ClientBody nearest = null;
-        double best = Double.MAX_VALUE;
-        for (ClientPhysicsWorld.ClientBody body : ClientPhysicsWorld.bodies()) {
-            double dx = body.tickX() - px;
-            double dy = body.tickY() - py;
-            double dz = body.tickZ() - pz;
-            double d = dx * dx + dy * dy + dz * dz;
-            if (d < best) {
-                best = d;
-                nearest = body;
-            }
-        }
-        if (nearest == null || best > 36.0) {
-            return;
-        }
-        LAST_PUSH.put(player.getUUID(), now);
-        float strength = (float) Math.min(1.0, len * 20.0);
-        net.neoforged.neoforge.network.PacketDistributor.sendToServer(
-                new com.mss.polymech.network.PhysicsBodyPushPacket(nearest.id(),
-                        (float) (wantX / len), (float) (wantZ / len), strength));
-    }
-
     /**
      * 玩家所在区块是否已处理过地形（安全阀）。
      *
@@ -836,7 +1055,7 @@ public final class ClientPhysics {
             if (body == null) {
                 continue;
             }
-            long handle = entry.getValue().body();
+            long handle = entry.getValue().body;
             if (!NativePhysics.bodyReadTranslation(world, handle, p)
                     || !NativePhysics.bodyReadRotation(world, handle, q)) {
                 continue;
@@ -851,20 +1070,40 @@ public final class ClientPhysics {
         }
     }
 
-    /** 把服务端同步来的飞船/建筑建成运动学刚体（位置跟随服务端）。 */
+    /**
+     * 已删除：{@code localCenter}。
+     *
+     * <p>它是为"给 DYNAMIC 镜像体补质量下限（附加热质量必须挂包围盒中心）"服务的；
+     * 镜像体改成运动学后没有质量可言，这个方法随之作废。</p>
+     */
+
+    /**
+     * 把服务端同步来的飞船/建筑建成<b>运动学</b>刚体 —— 逐字照 space 0.1.3 的
+     * {@code ClientPhysicalBody}（构造时 {@code super(level, pos, rotation, uuid, kinematic = true)}
+     * → {@code RigidBody.Type.KINEMATIC_POSITION}）。
+     *
+     * <p><b>为什么必须是运动学</b>（我们之前建成 DYNAMIC，注释里还写着"照 MPS"——那是误读）：
+     * 动态镜像体有有限质量，玩家一顶就在本地被推动；随后服务端同步（或"偏差超过 1 格才硬拉"的
+     * 位置修正）再把它拽回去，<b>这个"拽回"就是把玩家弹飞的冲量来源</b>。
+     * 运动学体无限质量、本地推不动，位置只跟服务端走，问题连同位置修正补丁一起消失。</p>
+     *
+     * <p>位姿推进照 space：本方法（主线程，每个客户端 tick）只负责把"当前位姿 → 服务端新位姿"
+     * 写进 {@link ShipBody#syncFrom}/{@link ShipBody#syncTo} 并把 {@code progress} 归零；
+     * 真正的推进在 {@link #stepShipSync}（步进线程，每 100Hz 子步 +0.2）。
+     * 姿态直接取同步值 —— space 的 {@code setRotation} 也不插值。</p>
+     */
     private static void syncShips() {
         Set<Long> alive = new HashSet<>();
         for (ClientPhysicsWorld.ClientBody ship : ClientPhysicsWorld.bodies()) {
             alive.add(ship.id());
             ShipBody existing = ships.get(ship.id());
-            if (existing != null && existing.blockCount() != ship.blocks().size()) {
-                NativePhysics.bodyDestroy(world, existing.body());
+            if (existing != null && existing.blockCount != ship.blocks().size()) {
+                NativePhysics.bodyDestroy(world, existing.body);
                 ships.remove(ship.id());
                 existing = null;
             }
             if (existing == null) {
-                // 照 MPS：客户端物理体是 DYNAMIC（不是"运动学墙"），位置与速度每 tick 由服务端权威覆盖
-                long body = NativePhysics.bodyCreate(world, NativePhysics.BODY_DYNAMIC,
+                long body = NativePhysics.bodyCreate(world, NativePhysics.BODY_KINEMATIC_POSITION,
                         ship.tickX(), ship.tickY(), ship.tickZ(),
                         ship.qx(), ship.qy(), ship.qz(), ship.qw(), 0.0);
                 if (body <= 0) {
@@ -875,35 +1114,26 @@ public final class ClientPhysics {
                     ClientPhysicsWorld.BlockEntry e = ship.blocks().get(i);
                     cells[i] = NativePhysics.packCell(e.dx(), e.dy(), e.dz());
                 }
-                NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cells, 0.6, 0.0);
-                // 不再锁旋转：MPS 的客户端刚体是自由的，靠同步来的角速度自己转，
-                // 碰撞体姿态于是跟着船一起转；锁住的话转动的船碰撞体会永久停在建体姿态。
-                double[] motion = motionOf(ship);
-                NativePhysics.bodySetMotion(world, body,
-                        motion[0], motion[1], motion[2], motion[3], motion[4], motion[5], true);
-                ships.put(ship.id(), new ShipBody(body, ship.blocks().size(), motion));
+                long collider = PhysicsNatives.hasCollisionGroups()
+                        ? NativePhysics.colliderAttachVoxelsGrouped(world, body, 1.0, 1.0, 1.0, cells,
+                                PhysicsMaterials.BODY_FRICTION, 0.0, BODY_MEMBERSHIP, BODY_FILTER)
+                        : NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cells,
+                                PhysicsMaterials.BODY_FRICTION, 0.0);
+                PhysicsMaterials.apply(world, collider, PhysicsMaterials.BODY_FRICTION, 0.0);
+                ships.put(ship.id(), new ShipBody(body, ship.blocks().size(),
+                        ship.tickX(), ship.tickY(), ship.tickZ()));
             } else {
-                double[] motion = motionOf(ship);
-                // 值没变就不唤醒：静止的船才能进入 Rapier 的休眠。
-                // 每 tick 无条件唤醒 + 重写速度，会让求解器每步都在解它，接触噪声被反复喂回，
-                // 变成姿态抖动 / 朝向漂移，而且白烧 CPU（帧数低）。
-                boolean changed = !sameMotion(existing.lastMotion(), motion);
-                NativePhysics.bodySetMotion(world, existing.body(),
-                        motion[0], motion[1], motion[2], motion[3], motion[4], motion[5], changed);
-                // 位置修正**只在偏差明显时才硬拉**：
-                // 每 tick 无条件 setPos，会把客户端本地 100Hz 的积分每帧"贴回"服务端 20Hz 的台阶，
-                // 渲染出来就是锯齿（一抽一抽）。小偏差让本地积分自然收敛，只有真正漂了才纠正。
+                // space 的 onMoveSync：起点 = 当前实际位姿，终点 = 服务端新位姿，进度归零。
                 double[] cur = new double[3];
-                if (NativePhysics.bodyReadTranslation(world, existing.body(), cur)) {
-                    double ex = ship.tickX() - cur[0];
-                    double ey = ship.tickY() - cur[1];
-                    double ez = ship.tickZ() - cur[2];
-                    if (ex * ex + ey * ey + ez * ez > POSITION_CORRECTION_SQ) {
-                        NativePhysics.bodySetTranslation(world, existing.body(),
-                                ship.tickX(), ship.tickY(), ship.tickZ());
-                    }
+                if (!NativePhysics.bodyReadTranslation(world, existing.body, cur)) {
+                    cur = new double[]{ship.tickX(), ship.tickY(), ship.tickZ()};
                 }
-                ships.put(ship.id(), new ShipBody(existing.body(), existing.blockCount(), motion));
+                existing.syncFrom = cur;
+                existing.syncTo = new double[]{ship.tickX(), ship.tickY(), ship.tickZ()};
+                existing.progress = 0.0;
+                // 姿态直接取同步值（space: physicalBody.setRotation(entry.rotate())）。
+                NativePhysics.bodySetRotation(world, existing.body,
+                        ship.qx(), ship.qy(), ship.qz(), ship.qw(), true);
             }
         }
         List<Long> gone = new ArrayList<>();
@@ -915,7 +1145,7 @@ public final class ClientPhysics {
         for (Long id : gone) {
             ShipBody body = ships.remove(id);
             if (body != null) {
-                NativePhysics.bodyDestroy(world, body.body());
+                NativePhysics.bodyDestroy(world, body.body);
             }
         }
     }

@@ -65,17 +65,16 @@ Rust `ABI_VERSION`。
 if (PhysicsNatives.hasCollisionGroups()) {   // 需要 ABI >= MIN_ABI_COLLISION_GROUPS(4)
     NativePhysics.colliderAttachCuboidGrouped(...);
 }
+if (PhysicsNatives.hasTier1()) {             // 需要 ABI >= MIN_ABI_TIER1(5)
+    NativePhysics.worldSetFloor(...);
+}
 ```
 
 导出符号命名规则：`Java_com_mss_polymech_physics_NativePhysics_<方法名>`。
 
 ## 碰撞组（ABI 4，已可用）
 
-Rust 侧与 Java 侧都已就位，且 `src/main/resources/natives/` 下的预编译 dll 已更新为 **ABI 4**
-（`./gradlew copyNativePhysics` 产出）。用 `PhysicsNatives.hasCollisionGroups()` 判断是否可用。
-
-> 改动 Rust 后**必须**重跑 `./gradlew copyNativePhysics`，否则运行时仍是旧 dll。
-> 不用担心缓存：加载器每次启动都会把 dll 重新解压覆盖到临时目录（`REPLACE_EXISTING`）。
+Rust 侧与 Java 侧都已就位。用 `PhysicsNatives.hasCollisionGroups()` 判断是否可用。
 
 新增的两个导出：
 
@@ -87,6 +86,32 @@ Rust 侧与 Java 侧都已就位，且 `src/main/resources/natives/` 下的预�
 **Rapier 的交互判定是双向的**：A 与 B 交互 ⟺ `(A.membership & B.filter) != 0`
 且 `(B.membership & A.filter) != 0` —— 只改一边不生效，两边都要设。
 
+## Tier 1（ABI 5，已可用）
+
+对标 space 0.1.3 补进来的一批能力。当前 dll 为 **ABI 5**，用
+`PhysicsNatives.hasTier1()` / `MIN_ABI_TIER1` 判断是否可用。
+
+| 函数 | 对标 space | 说明 |
+|---|---|---|
+| `worldSetFloor(world, y, enabled)` | `PhysicalWorld.setMinY` | 维度无限地面（法线朝上的半空间） |
+| `colliderAttachBoxes(world, body, boxes, friction, restitution, membership, filter)` | `ColliderBody.Type.COMPLEX_VOXEL` | 任意盒复合碰撞体（台阶/楼梯/栅栏/墙…） |
+| `colliderSetMaterial(world, collider, friction, restitution, skin, fricRule, restRule)` | `ColliderBody.setFrictionCombineRule` + `CONTACT_SKIN` | 材质与组合规则（contact skin 消抖） |
+| `bodyAddTorque` / `bodyResetTorque` / `bodyApplyTorqueImpulse` | `rigidBodyAddTorque` 等 | 力矩与角冲量 |
+| `bodyAddForceAtPoint(world, body, fx,fy,fz, px,py,pz)` | `rigidBodyAddForceAtPoint` | 偏心受力（推进器让船自转） |
+| `bodySetDamping` / `bodySetGravityScale` / `bodySetAdditionalMassProperties` | `RigidBody` 构造器参数 | 阻尼 / 重力缩放 / 质心+质量+惯量 |
+| `bodyEnableCcd` / `bodySetEnabledRotations` | `rigidBodyEnableCcd` / `SetEnabledRotations` | CCD / 逐轴旋转锁 |
+| `bodySetNextKinematicTranslation` / `bodySetNextKinematicRotation` | `rigidBodySetNextKinematicPosition` | 运动学体目标位姿（电梯/移动平台） |
+| `tier1Selftest()` | — | 原生自检，返回通过位掩码（bit0..bit7） |
+
+验证方式（两选一）：
+
+```bash
+./gradlew copyNativePhysics
+java -cp <classes> NativeSmokeTest <dll 绝对路径>   # 见 native/jni-smoketest/
+```
+
+游戏内：`/polymech physics tier1test`（逐项打印 ✔/✘）。
+
 ## 加载与降级
 
 `PhysicsNatives` 会依次尝试：
@@ -96,4 +121,4 @@ Rust 侧与 Java 侧都已就位，且 `src/main/resources/natives/` 下的预�
 
 任何一步失败都只会让物理功能不可用（日志警告），**不会导致游戏崩溃**。
 
-自检命令：`/polymech physics status`、`/polymech physics selftest`
+自检命令：`/polymech physics status`、`/polymech physics selftest`、`/polymech physics tier1test`

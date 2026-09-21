@@ -6,6 +6,7 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.phys.shapes.CollisionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -188,9 +189,14 @@ public final class PhysicsTerrain {
         long start = System.nanoTime();
         LevelChunk chunk = level.getChunk(pos.x, pos.z);
         int minY = level.getMinBuildHeight();
+        int minX = chunk.getPos().getMinBlockX();
+        int minZ = chunk.getPos().getMinBlockZ();
         LevelChunkSection[] sections = chunk.getSections();
 
         List<Long> cells = new ArrayList<>();
+        // B1：非满碰撞形状（台阶/楼梯/栅栏/墙/锁链…）单独收成复合盒。
+        // 只当整格的话半砖会变成一整格 —— 人浮空半格、楼梯上不去、栅栏当实心墙。
+        PhysicsShapes.Boxes boxes = new PhysicsShapes.Boxes();
         for (int index = 0; index < sections.length; index++) {
             LevelChunkSection section = sections[index];
             if (section == null || section.hasOnlyAir()) {
@@ -209,34 +215,67 @@ public final class PhysicsTerrain {
                         if (state.isAir() || !state.getFluidState().isEmpty()) {
                             continue;
                         }
-                        cells.add(NativePhysics.packCell(x, baseY - minY + y, z));
-                        if (cells.size() >= MAX_CELLS_PER_CHUNK) {
-                            break;
+                        int localY = baseY - minY + y;
+                        if (PhysicsShapes.isFullBlock(state)) {
+                            cells.add(NativePhysics.packCell(x, localY, z));
+                            if (cells.size() >= MAX_CELLS_PER_CHUNK) {
+                                break;
+                            }
+                        } else if (PhysicsNatives.hasTier1()) {
+                            // 形状必须在真实位置上求：栅栏/墙的碰撞形状取决于邻居
+                            BlockPos worldPos = new BlockPos(minX + x, baseY + y, minZ + z);
+                            boxes.addShape(
+                                    state.getCollisionShape(level, worldPos, CollisionContext.empty()),
+                                    x, localY, z,
+                                    PhysicsShapes.MAX_BOXES_PER_CHUNK - boxes.count());
+                        } else {
+                            // 原生层低于 ABI 5（Java 已更新、dll 还没重编）：退回旧行为 —— 统统当整格。
+                            // 半砖会偏大，但至少是实心的，不会因为"没有复合盒能力"就让人穿地。
+                            cells.add(NativePhysics.packCell(x, localY, z));
+                            if (cells.size() >= MAX_CELLS_PER_CHUNK) {
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
 
-        if (cells.isEmpty()) {
-            chunks.put(pos.toLong(), new ChunkBody(0, 0));
-            return;
-        }
-
         long[] packed = new long[cells.size()];
         for (int i = 0; i < packed.length; i++) {
             packed[i] = cells.get(i);
         }
+        double[] boxArray = boxes.toArray();
+        if (packed.length == 0 && boxArray.length == 0) {
+            chunks.put(pos.toLong(), new ChunkBody(0, 0));
+            return;
+        }
 
         long body = NativePhysics.bodyCreate(world, NativePhysics.BODY_FIXED,
-                chunk.getPos().getMinBlockX(), minY, chunk.getPos().getMinBlockZ(),
+                minX, minY, minZ,
                 0.0, 0.0, 0.0, 1.0, 0.0);
-        long collider = NativePhysics.colliderAttachVoxels(world, body,
-                1.0, 1.0, 1.0, packed, 0.7, 0.0);
-        if (body <= 0 || collider <= 0) {
-            if (body > 0) {
-                NativePhysics.bodyDestroy(world, body);
+        if (body <= 0) {
+            return;
+        }
+        int attached = 0;
+        if (packed.length > 0) {
+            long collider = NativePhysics.colliderAttachVoxels(world, body,
+                    1.0, 1.0, 1.0, packed, PhysicsMaterials.TERRAIN_FRICTION, 0.0);
+            if (collider > 0) {
+                PhysicsMaterials.apply(world, collider, PhysicsMaterials.TERRAIN_FRICTION, 0.0);
+                attached++;
             }
+        }
+        if (boxArray.length > 0) {
+            long collider = NativePhysics.colliderAttachBoxes(world, body, boxArray,
+                    PhysicsMaterials.TERRAIN_FRICTION, 0.0, 1, -1);
+            if (collider > 0) {
+                PhysicsMaterials.apply(world, collider, PhysicsMaterials.TERRAIN_FRICTION, 0.0);
+                attached++;
+            }
+        }
+        if (attached == 0) {
+            NativePhysics.bodyDestroy(world, body);
             LOGGER.warn("[PolyMech] 区块 {} 体素碰撞体创建失败", pos);
             return;
         }

@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 30000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:io"
+  },
+  "mass": 8.932E22,
+  "pos": [
+    6.043962683781854E11,
+    1.58E10,
+    5.411442298944404E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 1821600.0,
+  "speed": [
+    2650.76556411221,
+    -142.58869603472797,
+    7165.3423618932775
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/io/surface.png"
+}

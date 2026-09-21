@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 5000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:charon"
+  },
+  "mass": 1.586E21,
+  "pos": [
+    -1.667993299483372E12,
+    1.5287E12,
+    -5.455881590481866E12
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 606000.0,
+  "speed": [
+    -4717.5133483755935,
+    1347.9654990163604,
+    554.4082760114256
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/charon/surface.png"
+}

@@ -67,6 +67,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -156,6 +157,30 @@ public class Polymech {
         NeoForge.EVENT_BUS.register(com.mss.polymech.physics.PhysicsServerTick.class);
         NeoForge.EVENT_BUS.register(com.mss.polymech.physics.PhysicsBodyEvents.class);
 
+        // kelvin 天体模拟：开服读回天体状态并启动物理线程，停服先停线程再存档
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.kelvin.event.OrbitPhysicalServerAction.class);
+
+        // kelvin 天体同步：可靠创建的重发表 + 进维度全量下发 + 每 tick 位姿广播
+        // 注意 ReliableCreateSender 必须注册，否则待确认表永远不被重发（包丢了就永久缺状态）
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.space.network.ReliableCreateSender.class);
+        // 注册顺序 = 发包顺序（EntityJoinLevelEvent 按注册顺序调用）：
+        // **克隆层的物理世界同步必须排在 kelvin 的 SyncCreateEnd 之前** ——
+        // 客户端的 SyncCreateEnd 对账会检查 ClientPhysicalWorld 是否存在，
+        // 若 CreateEnd 先到，检查必然失败并误报"切世界数据同步不完整"。
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.network.event.PhysicalWorldUpdateSyncEvent.class);
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.kelvin.network.event.SpaceWorldUpdateSyncEvent.class);
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.kelvin.network.event.CelestialBodyMoveSyncEvent.class);
+
+        // MPS 克隆层物理体：开服建世界/读档/起线程，停服停线程再存档；进维度全量下发。
+        // CollisionPhysicalServerAction 用 EventPriority.LOW 是刻意的：它读 kelvin 的
+        // ServerSpaceWorld/ServerCelestialWorld 来推导重力，必须排在 kelvin(HIGH) 之后，
+        // 否则所有维度都会落进 (0,-9.8,0) 这个兜底分支。
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.event.CollisionPhysicalServerAction.class);
+        // （PhysicalWorldUpdateSyncEvent 已在上面按"发包顺序"注册过，这里不要重复注册 ——
+        //   重复注册会让同一个进维度同步发两遍）
+        // 物理体 ↔ 天体 的桥：船进太空、受力镜像、越过 Height 抛进太空维度
+        NeoForge.EVENT_BUS.register(com.mss.polymech.mps.kelvin.event.PhysicalBodySpaceEvent.class);
+
         // 勘探命令套件（/polymech rock|veins|scan|find|expose，世界生成测试工具）
         NeoForge.EVENT_BUS.addListener(ModCommands::register);
 
@@ -167,6 +192,10 @@ public class Polymech {
 
         // 注册模組配置
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        // 配置加载/重载时把"kelvin 位置权威"开关喂给 SpaceWorld。
+        // 用 ModConfigEvent 而不是在热路径里直接读 Config：ConfigValue 在配置加载前不可读，
+        // 而位置查询是每帧每体都在走的路，不能带 try/catch。
+        modEventBus.addListener(this::onKelvinAuthorityConfig);
     }
 
     /*
@@ -190,8 +219,19 @@ public class Polymech {
      * 
      * @param event 数据包注册事件
      */
-    private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
+    /**
+     * 配置加载/重载：把"kelvin 位置权威"开关喂给
+     * {@link com.mss.polymech.space.SpaceWorld}。
+     *
+     * <p>订阅基类 {@link ModConfigEvent} 即可同时覆盖 {@code Loading} 与 {@code Reloading}；
+     * 放在这里而不是在位置查询里直接读 {@code Config}，是因为位置查询是每帧每体的热路径，
+     * 而 {@code ConfigValue} 在配置加载完成前不可读（直接读会抛异常）。</p>
+     */
+    private void onKelvinAuthorityConfig(ModConfigEvent event) {
+        com.mss.polymech.space.SpaceWorld.setKelvinAuthority(Config.KELVIN_AUTHORITATIVE.get());
+    }
+
+    private void registerPayloads(RegisterPayloadHandlersEvent event) {        PayloadRegistrar registrar = event.registrar("1");
         registrar.playToServer(
                 PipePlacementPacket.TYPE,
                 PipePlacementPacket.STREAM_CODEC,
@@ -261,6 +301,13 @@ public class Polymech {
                 com.mss.polymech.network.PhysicsBodyEditPacket.STREAM_CODEC,
                 com.mss.polymech.network.PhysicsBodyEditPacket::handle
         );
+        // 克隆层（com.mss.polymech.mps）的三个物理体包 —— BlockUpdate / MoveBatch / Remove ——
+        // **不在这里注册**：它们统一由 MPSNetworkHandler.register(registrar) 注册
+        // （与 MPS 的结构一致：一个 handler 管它自己全部的包）。
+        //
+        // 这三处曾经在这里注册过，结果与 MPSNetworkHandler 重复，启动直接崩：
+        //   "Cannot register payload poly_mech:sync_physical_body_remove as it is already registered."
+        // 教训：**注册点只能有一个**；加新包时先全仓搜 TYPE 常量，别只看自己刚写的文件。
         // 玩家推动物理体（客户端 -> 服务端）
         registrar.playToServer(
                 com.mss.polymech.network.PhysicsBodyPushPacket.TYPE,
@@ -316,6 +363,27 @@ public class Polymech {
                 SpaceRotationPayload.TYPE,
                 SpaceRotationPayload.STREAM_CODEC,
                 SpaceRotationPayload::handle
+        );
+
+        // kelvin 天体同步（服务端 → 客户端）：太空世界 / 天体 / 地表维度参数 / 每 tick 位姿
+        com.mss.polymech.mps.kelvin.network.KelvinNetworkHandler.register(registrar);
+        // MPS 克隆层物理体同步：世界 / 体 / 方块 / 位姿 / 挖掘进度 / 交互。
+        // 与本项目既有的 physics_body_* 包并存（资源路径不同、不冲突）—— 这是方案 A 的代价。
+        // 全部包都在 MPSNetworkHandler 里注册，这里不要重复注册（重复会在启动时抛"载荷已注册"）
+        com.mss.polymech.mps.network.MPSNetworkHandler.register(registrar);
+        // 可靠创建的回执（客户端 → 服务端）：按 id 停止重发
+        registrar.playToServer(
+                com.mss.polymech.mps.space.network.packet.SyncCreateAck.TYPE,
+                com.mss.polymech.mps.space.network.packet.SyncCreateAck.STREAM_CODEC,
+                com.mss.polymech.mps.space.network.packet.SyncCreateAck::handle
+        );
+        // 同步结束摘要（服务端 → 客户端）：客户端拿它对账，不一致就报错。
+        // 它虽然不承载数据，但**必须注册**：SpaceWorldUpdateSyncEvent 会真的把它发出去，
+        // 漏注册会在运行时抛"未注册载荷"。
+        registrar.playToClient(
+                com.mss.polymech.mps.space.network.packet.SyncCreateEnd.TYPE,
+                com.mss.polymech.mps.space.network.packet.SyncCreateEnd.STREAM_CODEC,
+                com.mss.polymech.mps.space.network.packet.SyncCreateEnd::handle
         );
     }
 

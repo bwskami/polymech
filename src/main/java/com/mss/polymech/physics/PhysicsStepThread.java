@@ -4,6 +4,7 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -40,8 +41,44 @@ public final class PhysicsStepThread {
 
     private static final Set<Long> WORLDS = ConcurrentHashMap.newKeySet();
 
+    /**
+     * 每个世界"步进之后"要跑的动作（对应 space 的 {@code RapierWorld.tickListeners}）。
+     *
+     * <p>为什么需要：玩家的双刚体必须在**每个 100Hz 子步之后**重设速度
+     * （{@link PlayerPhysicsBody#afterStep}），而不是等 20Hz 的 tick ——
+     * 一个 MC tick 里物理走 5 个子步，只在 tick 边界重设的话子步之间速度会漂。</p>
+     *
+     * <p>这些动作跑在<b>物理步进线程</b>上，只允许碰原生刚体，不能访问 Minecraft 对象。</p>
+     */
+    private static final Map<Long, Set<Runnable>> POST_STEP = new ConcurrentHashMap<>();
+
+    /**
+     * 两次步进的间隔超过它就判定"步进被阻塞"（毫秒）。
+     *
+     * <p>正常周期是 10ms。超过 40ms 就意味着模拟在这段时间里<b>整段停住</b> ——
+     * 玩家看到的就是"正在飞的物理体每隔几秒顿一下"。</p>
+     */
+    private static final long STALL_WARN_MS = 40L;
+    /** 同类告警的最小间隔（纳秒），避免刷屏。 */
+    private static final long STALL_WARN_INTERVAL_NANOS = 3_000_000_000L;
+
+    private static long lastStartNanos;
+    private static long lastStallWarnNanos;
+    private static volatile long stallCount;
+    private static volatile long maxStallMs;
+
     private static ScheduledExecutorService executor;
     private static Runnable task;
+
+    /** 累计"步进被阻塞 ≥ {@link #STALL_WARN_MS} ms"的次数（诊断用）。 */
+    public static long stallCount() {
+        return stallCount;
+    }
+
+    /** 观测到的最长步进间隔（毫秒，诊断用）。 */
+    public static long maxStallMs() {
+        return maxStallMs;
+    }
 
     /** 客户端暂停（单机 ESC）：由客户端设置。 */
     private static volatile BooleanSupplier clientPaused = () -> false;
@@ -65,8 +102,28 @@ public final class PhysicsStepThread {
     /** 注销世界；没有世界了就停线程（避免空转）。 */
     public static synchronized void remove(long world) {
         WORLDS.remove(world);
+        POST_STEP.remove(world);
         if (WORLDS.isEmpty()) {
             stop();
+        }
+    }
+
+    /** 注册"该世界每次步进之后"要跑的动作（幂等：重复注册同一个实例只留一份）。 */
+    public static void addPostStep(long world, Runnable action) {
+        if (world <= 0 || action == null) {
+            return;
+        }
+        POST_STEP.computeIfAbsent(world, k -> ConcurrentHashMap.newKeySet()).add(action);
+    }
+
+    /** 注销步进后动作。 */
+    public static void removePostStep(long world, Runnable action) {
+        Set<Runnable> set = POST_STEP.get(world);
+        if (set != null) {
+            set.remove(action);
+            if (set.isEmpty()) {
+                POST_STEP.remove(world);
+            }
         }
     }
 
@@ -74,12 +131,26 @@ public final class PhysicsStepThread {
         if (executor != null) {
             return;
         }
+        // ⚠️ 必须归零：`lastStartNanos` 是静态字段，线程从"停止"到"重新启动"之间
+        // （退出世界 → 主菜单 → 再进世界）会跨过一次真实的长时间间隔。若不归零，
+        // 新线程的第一步会把"玩家在主菜单待的时间"记成"步进被阻塞"——
+        // 实测报出过 `间隔 112739 ms`，而 112.7 秒正好是那次主菜单停留时长。
+        // 探针本身骗人比没有探针更糟：它会让人去追一个不存在的卡死。
+        lastStartNanos = 0L;
+        lastStallWarnNanos = 0L;
+        stallCount = 0L;
+        maxStallMs = 0L;
         executor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "PolyMech-Physics-Step");
             t.setDaemon(true);
             return t;
         });
         task = () -> {
+            long startNanos = System.nanoTime();
+            // 间隔（上一次任务开始 → 这一次任务开始）：既能抓到"上一次跑太久"，
+            // 也能抓到"这个线程根本没被调度"。暂停时不统计，避免恢复后误报。
+            long gapMs = lastStartNanos == 0L ? 0L : (startNanos - lastStartNanos) / 1_000_000L;
+            lastStartNanos = startNanos;
             if (paused()) {
                 return;
             }
@@ -88,6 +159,30 @@ public final class PhysicsStepThread {
                     NativePhysics.worldStep(handle);
                 } catch (Throwable t) {
                     LOGGER.error("[PolyMech] 物理步进异常（world={}）", handle, t);
+                }
+                // 步进后动作（玩家双刚体的速度继承链）：space 的 RapierWorld.tickListeners 等价物
+                Set<Runnable> actions = POST_STEP.get(handle);
+                if (actions != null) {
+                    for (Runnable action : actions) {
+                        try {
+                            action.run();
+                        } catch (Throwable t) {
+                            LOGGER.error("[PolyMech] 步进后动作异常（world={}）", handle, t);
+                        }
+                    }
+                }
+            }
+            long workMs = (System.nanoTime() - startNanos) / 1_000_000L;
+            if (gapMs >= STALL_WARN_MS || workMs >= STALL_WARN_MS) {
+                stallCount++;
+                maxStallMs = Math.max(maxStallMs, Math.max(gapMs, workMs));
+                if (startNanos - lastStallWarnNanos > STALL_WARN_INTERVAL_NANOS) {
+                    lastStallWarnNanos = startNanos;
+                    // 间隔大 = 线程没被调度（或上一次跑太久）；耗时长 = 卡在世界的互斥锁上
+                    //（同一世界里主线程正在做长操作，比如建区块体素碰撞体/重建物理体碰撞体）。
+                    LOGGER.warn("[PolyMech] 物理步进被阻塞：间隔 {} ms / 本次耗时 {} ms（世界 {} 个，累计 {} 次，最长 {} ms）"
+                                    + " —— 这段时间模拟是停住的，画面上就是「顿一下」",
+                            gapMs, workMs, WORLDS.size(), stallCount, maxStallMs);
                 }
             }
         };
@@ -100,6 +195,8 @@ public final class PhysicsStepThread {
             executor.shutdown();
             executor = null;
             task = null;
+            // 同 startIfNeeded：停止后不能留着上一次的时间基准（见那里的注释）
+            lastStartNanos = 0L;
             LOGGER.info("[PolyMech] 物理步进线程已停止（无物理世界）");
         }
     }

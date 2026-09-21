@@ -1,0 +1,25 @@
+{
+  "type": "planet",
+  "carmen_line_height": 150000.0,
+  "compute": true,
+  "mass": 8.681E25,
+  "pos": [
+    -6.79E11,
+    1.59E9,
+    -2.8E12
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 2.5362E7,
+  "speed": [
+    -6651.974585254224,
+    91.36329765345035,
+    1284.6676237179738
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/uranus/surface.png"
+}

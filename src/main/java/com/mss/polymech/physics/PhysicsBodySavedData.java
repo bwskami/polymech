@@ -23,12 +23,19 @@ import java.util.Map;
  * 因此这里把每个物理体的方块快照与变换写进世界存档（存在主世界的数据存储里，
  * 每条记录自带维度 id）。</p>
  *
- * <p>数据格式（NBT）：{@code {NextId:int, Bodies:[{Id, Dim, Pos[3], Rot[4], Blocks:[...]}]}}，
- * 其中方块用 {@code [dx, dy, dz, stateId]} 四元组扁平存储。</p>
+ * <p>数据格式（NBT）：{@code {NextId:int, Bodies:[{Id, Dim, Pos[3], Rot[4], Vel[3], Angvel[3],
+ * Mem, Fil, Slot, Blocks:[...]}]}}，其中方块用 {@code [dx, dy, dz, stateId]} 四元组扁平存储。</p>
+ *
+ * <p><b>为什么连速度一起存</b>：物理体的位置每 40 tick 才写一次档，只存位置的话，
+ * 重启后一艘正在巡航的船会"原地停住"（速度归零）。space 0.1.3 的
+ * {@code ServerPhysicalBody.saveToTag} 同样存 linvel/angvel。</p>
  */
 public class PhysicsBodySavedData extends SavedData {
 
     public static final String NAME = "polymech_physics_bodies";
+
+    /** 碰撞组未设置：等于 Rapier 默认（membership/filter 全 1，与所有组交互）。 */
+    public static final int GROUP_UNSET = -1;
 
     public static final SavedData.Factory<PhysicsBodySavedData> FACTORY =
             new SavedData.Factory<>(PhysicsBodySavedData::new, PhysicsBodySavedData::load);
@@ -39,10 +46,16 @@ public class PhysicsBodySavedData extends SavedData {
      * @param slot 投影维度的地皮槽位；{@code -1} 表示未分配（投影维度当时不可用）。
      *             <b>必须持久化</b>：槽位决定方块实体活在哪块地皮上，
      *             重启后重新从 0 分配会串位、把旧地皮连同里面的机器状态一起变成孤儿。
+     * @param vx/vy/vz    线速度（m/s），重启后接着飞
+     * @param avx/avy/avz 角速度（rad/s）
+     * @param membership/filter 碰撞组；{@link #GROUP_UNSET} = 没设过（默认与所有组交互）
      */
     public record Entry(long id, ResourceKey<Level> dimension,
                         double x, double y, double z,
                         float qx, float qy, float qz, float qw,
+                        double vx, double vy, double vz,
+                        double avx, double avy, double avz,
+                        int membership, int filter,
                         int slot,
                         int[] blocks) {
     }
@@ -95,14 +108,22 @@ public class PhysicsBodySavedData extends SavedData {
         }
     }
 
-    /** 只更新变换（每 N tick 调用一次，避免每 tick 都标脏）。 */
+    /**
+     * 只更新变换与速度（每 N tick 调用一次，避免每 tick 都标脏）。
+     *
+     * <p>速度一并写：上一版只写 pos/rot，重启后"飞着的船停在半空"。</p>
+     */
     public void updateTransform(long id, double x, double y, double z,
-                                float qx, float qy, float qz, float qw) {
+                                float qx, float qy, float qz, float qw,
+                                double vx, double vy, double vz,
+                                double avx, double avy, double avz) {
         Entry old = entries.get(id);
         if (old == null) {
             return;
         }
-        entries.put(id, new Entry(id, old.dimension(), x, y, z, qx, qy, qz, qw, old.slot(), old.blocks()));
+        entries.put(id, new Entry(id, old.dimension(), x, y, z, qx, qy, qz, qw,
+                vx, vy, vz, avx, avy, avz,
+                old.membership(), old.filter(), old.slot(), old.blocks()));
         setDirty();
     }
 
@@ -121,6 +142,14 @@ public class PhysicsBodySavedData extends SavedData {
             t.putFloat("QY", entry.qy());
             t.putFloat("QZ", entry.qz());
             t.putFloat("QW", entry.qw());
+            t.putDouble("VX", entry.vx());
+            t.putDouble("VY", entry.vy());
+            t.putDouble("VZ", entry.vz());
+            t.putDouble("AVX", entry.avx());
+            t.putDouble("AVY", entry.avy());
+            t.putDouble("AVZ", entry.avz());
+            t.putInt("Mem", entry.membership());
+            t.putInt("Fil", entry.filter());
             t.putInt("Slot", entry.slot());
             t.putIntArray("Blocks", entry.blocks());
             list.add(t);
@@ -146,10 +175,20 @@ public class PhysicsBodySavedData extends SavedData {
             long id = t.getLong("Id");
             // 老存档没有 Slot 字段：给 -1，让 restore 重新分配并回写一份方块
             int slot = t.contains("Slot") ? t.getInt("Slot") : -1;
+            // 老存档也没有速度与碰撞组：速度 0、组未设置，行为与升级前一致
+            double vx = t.contains("VX") ? t.getDouble("VX") : 0.0;
+            double vy = t.contains("VY") ? t.getDouble("VY") : 0.0;
+            double vz = t.contains("VZ") ? t.getDouble("VZ") : 0.0;
+            double avx = t.contains("AVX") ? t.getDouble("AVX") : 0.0;
+            double avy = t.contains("AVY") ? t.getDouble("AVY") : 0.0;
+            double avz = t.contains("AVZ") ? t.getDouble("AVZ") : 0.0;
+            int membership = t.contains("Mem") ? t.getInt("Mem") : GROUP_UNSET;
+            int filter = t.contains("Fil") ? t.getInt("Fil") : GROUP_UNSET;
             data.entries.put(id, new Entry(id, ResourceKey.create(Registries.DIMENSION, dim),
                     t.getDouble("X"), t.getDouble("Y"), t.getDouble("Z"),
                     t.getFloat("QX"), t.getFloat("QY"), t.getFloat("QZ"), t.getFloat("QW"),
-                    slot, blocks));
+                    vx, vy, vz, avx, avy, avz,
+                    membership, filter, slot, blocks));
             if (id >= data.nextId) {
                 data.nextId = id + 1;
             }

@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 80000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:mars"
+  },
+  "mass": 6.417E23,
+  "pos": [
+    -1.87E11,
+    -6.37E9,
+    8.37E10
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 3389500.0,
+  "speed": [
+    10908.568319789752,
+    242.80580512070236,
+    24390.07107263205
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/mars/surface.png"
+}

@@ -43,6 +43,106 @@ public final class SpacePlayerData {
 
     private boolean initialized = false;
 
+    // ==================== 连续头部角（第一人称手专用） ====================
+    //
+    // 用 (yaw,pitch) 欧拉角表示视线时，同一个朝向有**两个等价解**：
+    //     (yaw, pitch)  与  (yaw + 180, 180 − pitch)
+    // 外加 pitch ± 360k。vanilla 的 Entity.turn 把 pitch 夹在 ±90，所以视线一过极点，
+    // 它就会从一支跳到另一支：**方向是连续的，但角度值一帧跳 180°**。
+    //
+    // 这对"只看朝向"的消费者无害（相机走 facing 基底，见 SpaceCameraMixin），
+    // 但任何**对角度的值做差/平滑**的消费者都会被打断 —— 第一人称的手正是如此：
+    //     ItemInHandRenderer#renderHandsWithItems:
+    //         f2/f3 = lerp(pt, xBobO/xBob, …)          ← 每 tick 追 50% 的平滑角
+    //         mulPose(Rx((getViewXRot(pt) − f2) * 0.1)) ← "手滞后于视角"的量
+    //         mulPose(Ry((getViewYRot(pt) − f3) * 0.1))
+    // yaw 一帧跳 180° 时，这一项瞬间变成 0.1 × 180 = 18°，几 tick 后再弹回来 ——
+    // 表现就是"准星划过视野球正上/正下极时，手里的东西突然抽一下"。
+    //
+    // 这里维护一条**不跳的连续分支**（pitch 允许越过 ±90 继续走），并自带一份
+    // 50%/tick 的平滑值（语义与 vanilla 的 xBob/yBob 完全一致，只是同源、不跳）。
+    // 手那边由 SpaceFirstPersonHandMixin 把 vanilla 的这两项换成同源版本。
+
+    /** 连续头部角（度）：pitch 可越过 ±90。 */
+    private double contYaw = 0;
+    private double contPitch = 0;
+    /** 上一 tick 的连续角（partialTick 插值用，对应 vanilla 的 yRotO/xRotO）。 */
+    private double contYawO = 0;
+    private double contPitchO = 0;
+    /** 手的平滑角（= vanilla 的 xBob/yBob，50%/tick 追连续角）。 */
+    private double handYawLag = 0;
+    private double handPitchLag = 0;
+    private double handYawLagO = 0;
+    private double handPitchLagO = 0;
+
+    /** 连续头部角（度），供第一人称手使用。 */
+    public float contYawLerped(float partialTick) {
+        return (float) (contYawO + (contYaw - contYawO) * partialTick);
+    }
+
+    public float contPitchLerped(float partialTick) {
+        return (float) (contPitchO + (contPitch - contPitchO) * partialTick);
+    }
+
+    /** 手的平滑角（度），对应 vanilla 的 lerp(xBobO, xBob, pt)。 */
+    public float handYawLagLerped(float partialTick) {
+        return (float) (handYawLagO + (handYawLag - handYawLagO) * partialTick);
+    }
+
+    public float handPitchLagLerped(float partialTick) {
+        return (float) (handPitchLagO + (handPitchLag - handPitchLagO) * partialTick);
+    }
+
+    /**
+     * 用当前视线刷新连续角：在两个等价欧拉解（含 pitch ±360k）里挑**离上一帧最近**的那个。
+     * 于是角度本身也连续，过极点不再有 ±180 跳变。
+     */
+    private void updateContAnglesFromFacing() {
+        double yawRaw = -Math.atan2(facing.x, facing.z) * TODEG;
+        double pitchRaw = -Math.asin(Math.max(-1.0, Math.min(1.0, facing.y))) * TODEG;
+        double bestYaw = contYaw;
+        double bestPitch = contPitch;
+        double bestCost = Double.MAX_VALUE;
+        for (int branch = 0; branch < 2; branch++) {
+            double yaw = branch == 0 ? yawRaw : yawRaw + 180.0;
+            double pitch = branch == 0 ? pitchRaw : 180.0 - pitchRaw;
+            // yaw 取离上一帧最近的等价角（等价于 ±360k）
+            double yawRep = contYaw + wrapDeg(yaw - contYaw);
+            for (int k = -1; k <= 1; k++) {
+                double p = pitch + 360.0 * k;
+                double cost = Math.abs(yawRep - contYaw) + Math.abs(p - contPitch);
+                if (cost < bestCost) {
+                    bestCost = cost;
+                    bestYaw = yawRep;
+                    bestPitch = p;
+                }
+            }
+        }
+        contYaw = bestYaw;
+        contPitch = bestPitch;
+    }
+
+    /**
+     * tick 末尾调用一次：连续角快照给 O（partialTick 插值），并让手的平滑角追一格 50%。
+     * 与 vanilla 在 {@code LocalPlayer#serverAiStep} 里更新 xBob/yBob 的时机/比例一致。
+     */
+    public void advanceHandAngles() {
+        contYawO = contYaw;
+        contPitchO = contPitch;
+        handYawLagO = handYawLag;
+        handPitchLagO = handPitchLag;
+        handYawLag += (contYaw - handYawLag) * 0.5;
+        handPitchLag += (contPitch - handPitchLag) * 0.5;
+    }
+
+    /** 角度归一化到 (-180, 180]，用于"最近的等价角"。 */
+    private static double wrapDeg(double degrees) {
+        double w = degrees % 360.0;
+        if (w >= 180.0) w -= 360.0;
+        if (w < -180.0) w += 360.0;
+        return w;
+    }
+
     // ── 访问 ──
     public Vector3d facing()  { return facing; }
     public Vector3d left()    { return left; }
@@ -74,6 +174,8 @@ public final class SpacePlayerData {
         orthonormalizeBody();
         orthonormalize();
         initialized = true;
+        // 远端朝向整包换掉：连续角跟着重挑（本地玩家的手不用它，但保持一致）
+        updateContAnglesFromFacing();
     }
 
     /** 让身体基底严格正交归一（网络/存档送进来的向量不保证）。 */
@@ -125,6 +227,18 @@ public final class SpacePlayerData {
         leftO.set(left);
         lastYaw = yawDeg;
         lastRoll = 0;
+
+        // 连续角与手的平滑角一并归位 —— 否则传送/切维度后的第一帧，
+        // 手会从旧角度"甩"到新角度（0.1 × 巨大差值）。
+        contYaw = yawDeg;
+        contPitch = pitchDeg;
+        contYawO = contYaw;
+        contPitchO = contPitch;
+        handYawLag = contYaw;
+        handPitchLag = contPitch;
+        handYawLagO = handYawLag;
+        handPitchLagO = handPitchLag;
+
         initialized = true;
     }
 
@@ -149,21 +263,12 @@ public final class SpacePlayerData {
     /**
      * 该实体此刻是否处于"超人姿态"（太空维度 + 疾跑冲刺中）。
      *
-     * <p>疾跑状态两端各自可得（客户端按键、服务端经 {@code ServerboundPlayerCommandPacket} 同步），
-     * 因此这里<b>不存字段、不发包</b>，直接从 {@code isSprinting()} 派生 —— 零同步、零状态漂移。
-     * 超人姿态下：碰撞箱收缩为 0.6³ 立方体（即 {@link #HEAD_BOX_HALF} 那个头盒；
-     * 刚体中心与头盒中心重合，所以这一个小盒子本身就是头盒），
-     * 物理旋转伺服放开，让这个各向同性小盒子被接触力自由顶进一格洞。
-     * <b>普通姿态不受影响，碰撞箱就是原版 0.6×1.8。</b></p>
+     * <p><b>已按需求禁用（恒 false）</b>：超人姿态（疾跑趴平 + 碰撞箱缩成 0.6³ 头盒钻洞）
+     * 整套功能已停用，下面的常量/方法只是留档。恢复时把本方法改回原来的
+     * "太空维度 + isSprinting()" 派生即可。</p>
      */
     public static boolean isSuperman(net.minecraft.world.entity.Entity entity) {
-        if (!(entity instanceof net.minecraft.world.entity.player.Player player)
-                || !player.isSprinting()) {
-            return false;
-        }
-        net.minecraft.world.level.Level level = entity.level();
-        return level != null
-                && com.mss.polymech.dimension.PlanetDimensions.SPACE.equals(level.dimension());
+        return false;
     }
 
     // ==================== 超人姿态的头盒 ====================
@@ -357,14 +462,14 @@ public final class SpacePlayerData {
     }
 
     /**
-     * 头部相对身体的<b>完整局部旋转</b>（含横滚），ZYX 分解 —— 给头部零件渲染用。
+     * 头部相对身体的<b>完整局部旋转</b>，ZYX 分解 —— 给头部零件渲染用。
      *
-     * <p>为什么不能只喂 headYaw/headPitch：领先量是"绕世界竖轴偏航 + 绕视线左轴俯仰"，
-     * 一旦身体俯仰/倒挂/平躺，这个领先量换算到<b>身体局部坐标</b>里就带横滚分量
-     * （身体平躺时几乎全是横滚）。只给 yaw/pitch 就会把头顶着画歪 —— 这就是"颠倒时头部不对"的原因。</p>
+     * <p>现在颈部领先量本身就是<b>身体局部轴</b>上的量（{@code Ry(headYaw)·Rx(headPitch)}，
+     * 见 {@code rederiveBody()}），所以这里分解出来的横滚项恒为 0，只剩 (低头, 转头, 0)。
+     * 保留"分解四元数"而不是直接喂 headYaw/headPitch，是为了让模型侧永远拿到
+     * "身体⁻¹·视线"的<b>精确</b>值（身体由物理/运动学推导，可能带微小差异）。</p>
      *
-     * <p>分解用 ZYX 是为了配合 {@code ModelPart} 的 {@code rotationZYX(zRot, yRot, xRot)} 组合顺序。
-     * 正立时 x/y 两项与原来的 (headPitch, headYaw) 完全一致，所以平地手感不变。</p>
+     * <p>分解用 ZYX 是为了配合 {@code ModelPart} 的 {@code rotationZYX(zRot, yRot, xRot)} 组合顺序。</p>
      */
     /**
      * 头部相对身体的完整局部旋转（<b>未夹取</b>）。
@@ -377,10 +482,8 @@ public final class SpacePlayerData {
     }
 
     public void headLocalEuler(org.joml.Vector3f out) {
-        // 用**物理真实姿态**：身体被障碍物顶转时，头相对躯干的偏角才是真实的那一个
         headLocalQuat(new org.joml.Quaternionf()).getEulerAnglesZYX(out);
-        // 夹进"脖子做得到"的范围。分解出来的值在身体倾斜时会超出锥，尤其是横滚那一项
-        // （领先量是绕世界竖轴的，换算到躺倒的身体局部坐标里几乎全是横滚）。
+        // 夹进"脖子做得到"的范围（turn() 里已经夹过一次，这里是渲染侧的保险）。
         // 符号约定（与模型一致）：e.x > 0 = 低头，e.y < 0 = 向右，e.z < 0 = 向右歪。
         out.x = (float) clampRange(out.x, NECK_PITCH_UP, NECK_PITCH_DOWN);
         out.y = (float) clampRange(out.y, NECK_YAW_RIGHT, NECK_YAW_LEFT);
@@ -428,60 +531,84 @@ public final class SpacePlayerData {
     // MixinEntity#polymech$spaceBoundingBox。要找回旧实现见 git 历史（提交 2992d52 前后）。
 
     /**
-     * 鼠标转向：<b>俯仰绕屏幕左轴、偏航绕世界竖轴</b>。
+     * 鼠标转向：<b>俯仰绕屏幕左轴、偏航绕屏幕竖轴</b> —— 两个轴都在<b>视线自己的局部系</b>里。
      *
-     * <p>这是早就定下的硬要求：<b>打转（偏航）绝不能让视角歪头</b>。偏航如果绕"身体/头的 up"
-     * 转，那么在低头或抬头之后再打转，up 是斜的 → 地平线会跟着歪 —— 必须绕世界竖轴转。
-     * 屏幕 up 倒挂时翻转偏航符号，否则鼠标左右会反向。</p>
+     * <p><b>为什么是局部轴（真 6DOF），而不是绕世界竖轴（水平锁定相机）：</b>
+     * 世界竖轴在视线指向正上/正下时与视线平行，旋转轴退化成"绕视线自转"——
+     * 鼠标左右只能让画面整体旋转、视线方向一动不动，这就是"视野球上下两个极点"。
+     * 而且这不是实现不够好：<b>球面上不存在处处非零的连续切向量场（毛球定理）</b>，
+     * 只要坚持"打转永远保持地平线水平"，极点就必然存在，只能把俯仰夹在 ±90 让玩家够不到。</p>
      *
-     * <p>颈部锥（照 space 0.0.6 的用意）：头先在自己的锥内领先，领先量夹住之后多出来的
-     * 部分自然落到身体上，于是"头先转、转不动了身体跟上来"。</p>
+     * <p>局部轴（屏幕左轴 / 屏幕竖轴，两者恒垂直于视线）则任何姿态下都非退化：
+     * 鼠标左右永远是"摆动视线"，360° 任意方向都能到，与 space 0.0.6 的
+     * {@code bodyRotation.mul(Ry·Rx·Rz)}（右乘 = 体轴）是同一套模型。</p>
      *
-     * <p><b>身体的领先量是按"世界竖轴偏航 + 视线左轴俯仰"去掉的</b>，不是把视线相对身体的
-     * 偏角做欧拉分解再丢掉横滚 —— 后者在身体已经俯仰时会把"绕世界竖轴转"的部分解成
-     * 横滚丢给身体，于是左右转体时身体（以及跟着身体姿态走的碰撞箱）会一边转一边滚，
-     * 贴地时刮地抽搐。现在身体的横滚恒等于视线的横滚，转体只动偏航。</p>
+     * <p><b>代价（有意接受）</b>：俯仰状态下打转会让<b>地平线跟着滚</b>（世界竖直相对屏幕在变）——
+     * 这是 3 自由度自由视角的固有性质。本项目全场景使用纯 6DOF；晕动靠舒适层缓解：
+     * 深空飞行辅助（默认开，V 键切换）把滚转柔和拉回世界竖直、X 键手动就近回正、
+     * Z/C 自己滚（见 {@link #rollBody(double)}），HUD 另加人工地平线姿态仪
+     * （{@code SpaceAttitudeOverlay}）。</p>
+     *
+     * <p>颈部锥（照 space 0.0.6 的用意）：头先在局部锥内领先，领先量夹住之后多出来的
+     * 部分自然落到身体上，于是"头先转、转不动了身体跟上来"。领先量本身也是局部量
+     * （见 {@link #rederiveBody()}），所以过极点时它同样不会退化。</p>
      *
      * @param yawDelta   {@code Entity#turn} 的 yRot 增量
      * @param pitchDelta {@code Entity#turn} 的 xRot 增量
      */
     public void turn(double yawDelta, double pitchDelta) {
-        // ── 1. 视线（头部）基底 ──
+        // 先自保一次正交（远端/存档送进来的基底不保证），下面两个轴才必然非退化。
+        orthonormalize();
+
+        // ── 1. 视线（头部）基底：绕视线自己的轴转 ──
         Vector3d screenLeft = new Vector3d(left).negate();
         // 俯仰：绕屏幕左轴（该轴自身不变，所以只转 facing）
         double appliedPitch = 0.15 * pitchDelta * TORAD;
         facing.rotateAxis(appliedPitch, screenLeft.x, screenLeft.y, screenLeft.z);
-        // 偏航：绕世界竖轴
-        Vector3d up = new Vector3d(facing).cross(screenLeft, new Vector3d());
-        double yawSign = up.y > 0 ? 1.0 : -1.0;
-        if (Math.abs(up.y) < 1.0e-6) yawSign = 1.0; // roll≈90° 的瞬时退化，保持原方向
-        double appliedYaw = 0.15 * yawDelta * yawSign * TORAD;
-        facing.rotateAxis(appliedYaw, 0, -1, 0);
-        left.rotateAxis(appliedYaw, 0, -1, 0);
+        // 偏航：绕**屏幕竖轴**（= facing × screenLeft，俯仰后重算）。
+        // 它与视线恒垂直，任何姿态下都不会退化成"绕视线自转"。
+        // 符号：绕 +screenUp 转正角会把视线摆向屏幕左，所以鼠标右取负。
+        Vector3d screenUp = new Vector3d(facing).cross(screenLeft, new Vector3d()).normalize();
+        double appliedYaw = -0.15 * yawDelta * TORAD;
+        facing.rotateAxis(appliedYaw, screenUp.x, screenUp.y, screenUp.z);
+        left.rotateAxis(appliedYaw, screenUp.x, screenUp.y, screenUp.z);
         orthonormalize();
 
         // ── 2. 头部领先量：累加并夹在颈部活动范围内（超出的部分就是身体的转动量）──
-        // 符号：headYaw > 0 = 向右，headPitch > 0 = 低头
+        // 符号（局部系）：headYaw > 0 = 头向左转，headPitch > 0 = 低头。
+        // 与 NECK_* 常数的对应关系不变：负方向上限 = RIGHT/UP，正方向上限 = LEFT/DOWN。
         headYaw = clampRange(headYaw + appliedYaw, NECK_YAW_RIGHT, NECK_YAW_LEFT);
         headPitch = clampRange(headPitch + appliedPitch, NECK_PITCH_UP, NECK_PITCH_DOWN);
 
-        // ── 3. 身体 = 视线去掉头部领先量 ──
+        // ── 3. 身体 = 视线去掉头部领先量（同样是局部轴上的四元数求逆）──
         rederiveBody();
+
+        // ── 4. 连续角（第一人称手用）──
+        // 视线这一步刚动过，立刻重挑"离上一帧最近"的欧拉分支，过极点才不会跳。
+        updateContAnglesFromFacing();
     }
 
     /**
-     * 用"当前视线 + 当前领先量"重算身体基底（turn() 的第 3 步；挤洞口时也要用）。
+     * 用"当前视线 + 当前颈部领先量"重算身体基底（turn() 的第 3 步；挤洞口时也要用）。
+     *
+     * <p>视线 = 身体 ∘ {@code Ry(headYaw) ∘ Rx(headPitch)}，所以身体 = 视线 ∘ 领先量的逆。
+     * 全程在<b>局部轴</b>上做四元数右乘/求逆，<b>不出现世界竖轴</b> —— 这正是过极点不退化
+     * 的原因（旧实现"绕世界竖轴反解偏航 + 绕视线左轴反解俯仰"，视线与任一轴平行时就退化）。</p>
+     *
+     * <p>轴的对应关系：{@link #basisToQuat} 的列是 (screenLeft, up, facing)，即局部 X = 屏幕左、
+     * Y = 屏幕竖、Z = 视线，所以 {@code Ry} 就是"绕屏幕竖轴"、{@code Rx} 就是"绕屏幕左轴"，
+     * 与 {@link #turn(double, double)} 施加的方向一致。</p>
      */
     private void rederiveBody() {
-        bodyFacing.set(facing);
-        bodyLeft.set(left);
-        // 俯仰领先量：绕更新后视线的屏幕左轴（= 视线的局部 X）反向转回。
-        // 该轴与 bodyLeft（镜像左）平行，所以 bodyLeft 不用动。
-        Vector3d viewLeft = new Vector3d(left).negate();
-        bodyFacing.rotateAxis(-headPitch, viewLeft.x, viewLeft.y, viewLeft.z);
-        // 偏航领先量：绕世界竖轴反向转回
-        bodyFacing.rotateAxis(-headYaw, 0, -1, 0);
-        bodyLeft.rotateAxis(-headYaw, 0, -1, 0);
+        org.joml.Quaternionf view = basisToQuat(facing, left, new org.joml.Quaternionf());
+        // 注意 JOML：rotationY 是"设置成纯 Y 旋转"，rotateX 才是"右乘"（= 局部 X）。
+        org.joml.Quaternionf headLocal = new org.joml.Quaternionf()
+                .rotationY((float) headYaw)
+                .rotateX((float) headPitch);
+        org.joml.Quaternionf body = view.mul(headLocal.conjugate(), new org.joml.Quaternionf());
+        // 反解回 (bodyFacing, bodyLeft)：Q·(0,0,1) = 前方；Q·(1,0,0) = screenLeft = -left
+        bodyFacing.set(body.transform(new Vector3d(0.0, 0.0, 1.0)));
+        bodyLeft.set(body.transform(new Vector3d(-1.0, 0.0, 0.0)));
         orthonormalizeBody();
     }
 
@@ -512,6 +639,7 @@ public final class SpacePlayerData {
     }
 
     private static final double TORAD = Math.PI / 180.0;
+    private static final double TODEG = 180.0 / Math.PI;
 
     /** 按"负方向上限 / 正方向上限"分别夹取（颈部的三个轴、上下左右各不相同）。 */
     private static double clampRange(double value, double negativeLimit, double positiveLimit) {

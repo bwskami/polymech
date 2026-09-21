@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 500.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:phobos"
+  },
+  "mass": 1.066E16,
+  "pos": [
+    -1.8699281756730133E11,
+    -6.37E9,
+    8.370602677662842E10
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 11267.0,
+  "speed": [
+    9534.755455097395,
+    242.80580512070236,
+    26027.317489678917
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/phobos/surface.png"
+}

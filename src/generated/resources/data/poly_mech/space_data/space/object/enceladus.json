@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 10000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:enceladus"
+  },
+  "mass": 1.08E20,
+  "pos": [
+    -8.250413195838759E11,
+    -5.17E10,
+    -1.0902343350048292E12
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 252100.0,
+  "speed": [
+    4209.842897816274,
+    199.91315472151123,
+    3583.489879699628
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/enceladus/surface.png"
+}

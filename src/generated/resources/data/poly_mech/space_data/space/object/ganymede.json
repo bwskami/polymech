@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 30000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:ganymede"
+  },
+  "mass": 1.482E23,
+  "pos": [
+    6.031800260280854E11,
+    1.58E10,
+    5.4168803985740845E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 2634100.0,
+  "speed": [
+    1585.9570028243024,
+    -142.58869603472797,
+    -17455.013575060337
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/ganymede/surface.png"
+}

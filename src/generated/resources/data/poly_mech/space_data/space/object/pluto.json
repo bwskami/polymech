@@ -1,0 +1,28 @@
+{
+  "type": "planet",
+  "carmen_line_height": 20000.0,
+  "compute": true,
+  "dimension": {
+    "id": "poly_mech:pluto"
+  },
+  "mass": 1.303E22,
+  "pos": [
+    -1.668E12,
+    1.5287E12,
+    -5.4559E12
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 1188300.0,
+  "speed": [
+    -4519.528213481875,
+    1347.9654990163604,
+    482.3475800824324
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/pluto/surface.png"
+}

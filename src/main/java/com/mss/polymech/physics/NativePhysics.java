@@ -194,6 +194,286 @@ public final class NativePhysics {
                                                           double friction, double restitution,
                                                           int membership, int filter);
 
+    // ==================== Tier 1（ABI 5 起）：对标 space 0.1.3 ====================
+
+    /** 摩擦/弹性组合规则序号，与 Rust 侧 {@code combine_rule} 对应。 */
+    public static final int RULE_AVERAGE = 0;
+    public static final int RULE_MIN = 1;
+    public static final int RULE_MULTIPLY = 2;
+    public static final int RULE_MAX = 3;
+    public static final int RULE_CLAMPED_SUM = 4;
+
+    /**
+     * 设置（或清除）本维度的**无限地面**：法线朝上的半空间，平面在 {@code y} 处。
+     *
+     * <p>对应 space 0.1.3 的 {@code PhysicalWorld.setMinY}。非太空维度都该挂一个，
+     * 否则物理体掉出世界就永远回不来了（我们此前只给玩家做了位置复位）。</p>
+     */
+    public static native boolean worldSetFloor(long world, double y, boolean enabled);
+
+    /**
+     * 运动学（位置型）刚体的**下一帧目标位置**。
+     *
+     * <p>用 {@link #bodySetTranslation} 推运动学体是瞬移，求解器读不到速度，
+     * 站在上面的东西不会被带走 —— 电梯/移动平台/传送带必须用这个。</p>
+     */
+    public static native boolean bodySetNextKinematicTranslation(long world, long body,
+                                                                 double x, double y, double z);
+
+    /** 运动学（位置型）刚体的下一帧目标姿态。 */
+    public static native boolean bodySetNextKinematicRotation(long world, long body,
+                                                              double qx, double qy, double qz, double qw);
+
+    /** 累加持续力矩（N·m）；配合 {@link #bodyResetTorque} 做转速伺服。 */
+    public static native boolean bodyAddTorque(long world, long body, double x, double y, double z);
+
+    /** 清除累加的持续力矩。 */
+    public static native boolean bodyResetTorque(long world, long body);
+
+    /** 施加角冲量（kg·m²/s）—— 反作用轮、螺旋桨启动。 */
+    public static native boolean bodyApplyTorqueImpulse(long world, long body, double x, double y, double z);
+
+    /**
+     * 在**偏离质心的点**上施加力（世界系）。
+     *
+     * <p>偏心推进器会产生扭矩让船自转 —— "真实火箭"靠的就是它。</p>
+     */
+    public static native boolean bodyAddForceAtPoint(long world, long body,
+                                                     double fx, double fy, double fz,
+                                                     double px, double py, double pz);
+
+    /** 线速度/角速度阻尼（1/s），负值按 0 处理；太空里的"航行阻尼"。 */
+    public static native boolean bodySetDamping(long world, long body, double linear, double angular);
+
+    /** 重力缩放（0 = 不受重力，1 = 正常）。局部反重力/悬停平台用。 */
+    public static native boolean bodySetGravityScale(long world, long body, double scale);
+
+    /**
+     * 设置附加质量属性（质心 + 质量 + 主转动惯量），覆盖由碰撞体推导的那套。
+     *
+     * <p>对应 space 0.1.3 {@code RigidBody} 构造器的
+     * {@code mass_center} / {@code mass} / {@code principal_inertia}。{@code mass} 必须 &gt; 0。</p>
+     */
+    public static native boolean bodySetAdditionalMassProperties(long world, long body,
+                                                                 double cx, double cy, double cz,
+                                                                 double mass,
+                                                                 double ix, double iy, double iz);
+
+    /** 开关连续碰撞检测（CCD）：高速物体不会穿过地形。 */
+    public static native boolean bodyEnableCcd(long world, long body, boolean enabled);
+
+    /** 逐轴开关旋转（比 {@link #bodyLockRotations} 的全锁/全放更细）。 */
+    public static native boolean bodySetEnabledRotations(long world, long body,
+                                                         boolean xEnabled, boolean yEnabled, boolean zEnabled);
+
+    /**
+     * 设置碰撞体材质：摩擦 / 弹性 / contact skin / 两个组合规则。
+     *
+     * <p>contact skin 是 Rapier 消接触抖动的手段（space 用 {@code 0.02}）；
+     * 组合规则决定"玩家摩擦 20"与"地形摩擦 0.7"相遇时取哪个值（见 {@link #RULE_AVERAGE} 等）。</p>
+     *
+     * @param collider {@link #colliderAttachCuboid} 等返回的碰撞体 id
+     */
+    public static native boolean colliderSetMaterial(long world, long collider,
+                                                     double friction, double restitution, double contactSkin,
+                                                     int frictionRule, int restitutionRule);
+
+    /**
+     * 挂一个**任意盒复合碰撞体**（相对刚体局部空间）。
+     *
+     * <p>满碰撞形状走 {@link #colliderAttachVoxels} 的体素；非满形状（台阶/楼梯/栅栏/墙/锁链…）
+     * 必须用这个，否则半砖会被当成整格（人浮在半空、楼梯走不上去）。
+     * 对应 space 0.1.3 的 {@code ColliderBody.Type.COMPLEX_VOXEL}。</p>
+     *
+     * @param boxes 每 6 个 double 一个盒：{@code minX,minY,minZ,maxX,maxY,maxZ}
+     * @return 碰撞体 id；失败返回 -1
+     */
+    public static native long colliderAttachBoxes(long world, long body, double[] boxes,
+                                                  double friction, double restitution,
+                                                  int membership, int filter);
+
+    /**
+     * Tier 1 原生自检：在独立临时世界里逐项验证 ABI 5 的新能力，返回通过的位掩码。
+     *
+     * <p>bit0 地面 / bit1 力矩 / bit2 运动学位移 / bit3 复合盒平台 / bit4 阻尼 /
+     * bit5 材质与组合规则 / bit6 运动学旋转 / bit7 附加质量属性</p>
+     */
+    public static native int tier1Selftest();
+
+    /**
+     * 读取刚体质量（kg）；刚体不存在返回 -1。
+     *
+     * <p>注意 Rapier 的合成规则：<b>总质量 = 碰撞体推导质量 + 附加质量属性</b>。
+     * 体素碰撞体默认密度 1.0，所以一格方块就是 1 kg —— 这是"玩家一碰物理体就把它撞飞"的根因
+     * （50 kg 的玩家 vs 1 kg 的方块）。</p>
+     */
+    public static native double bodyGetMass(long world, long body);
+
+    /**
+     * 设置碰撞体**密度**（kg/m³）；体素碰撞体的总质量 = 体素数 × 密度。
+     *
+     * <p>Rapier 默认密度 `1.0`（一格方块 1 kg，比玩家还轻）—— 那正是"物理体太容易被推动"的
+     * 物理原因。对应 space 0.1.3 的 {@code colliderBuilderSetDensity}。</p>
+     *
+     * <p>体素碰撞体只能有一个密度，所以要传<b>平均密度</b>（Σ 单块密度 / 块数）：
+     * 总质量 = 块数 × 平均 = Σ 单块密度，正是我们要的。</p>
+     */
+    public static native boolean colliderSetDensity(long world, long collider, double density);
+
+    /** 读取碰撞体密度；不存在返回 -1。 */
+    public static native double colliderGetDensity(long world, long collider);
+
+    // ==================== 碰撞体实时属性（ABI 6，对标 MPS 的 colliderSet*） ====================
+    //
+    // 为什么把这一组单独列出来：MPS 的原生把碰撞体属性做成**可随时修改**，
+    // 所以它们的上层调用顺序是自由的（先挂载再设组、之后再改材质都行）。
+    // 我们此前只能在建体时给，逼得 Java 侧发明"推迟创建"这种等价仿真 —— 殊途同归。
+    // 补齐这组之后，上层就能照 MPS 的原样写。
+
+    /** 实时改碰撞组；判定是双向的，两边都要放行（ABI 6）。 */
+    public static native boolean colliderSetCollisionGroups(long world, long collider,
+                                                            int membership, int filter);
+
+    /** 实时改摩擦（ABI 6）。 */
+    public static native boolean colliderSetFriction(long world, long collider, double friction);
+
+    /** 实时改弹性（ABI 6）。 */
+    public static native boolean colliderSetRestitution(long world, long collider, double restitution);
+
+    /** 实时改摩擦组合规则（见 {@link #RULE_AVERAGE} 等，ABI 6）。 */
+    public static native boolean colliderSetFrictionCombineRule(long world, long collider, int rule);
+
+    /** 实时改弹性组合规则（ABI 6）。 */
+    public static native boolean colliderSetRestitutionCombineRule(long world, long collider, int rule);
+
+    /** 传感器开关：只报事件、不产生接触力（ABI 6）。 */
+    public static native boolean colliderSetSensor(long world, long collider, boolean sensor);
+
+    /** 碰撞事件开关（ActiveEvents 位掩码，ABI 6）。 */
+    public static native boolean colliderSetActiveEvents(long world, long collider, int events);
+
+    /** 接触力事件阈值（ABI 6）。 */
+    public static native boolean colliderSetContactForceEventThreshold(long world, long collider,
+                                                                       double threshold);
+
+    /** 一次性设置位姿（位置 + 姿态，ABI 6）—— 对标 MPS 的 {@code rigidBodySetPose}。 */
+    public static native boolean bodySetPose(long world, long body,
+                                             double x, double y, double z,
+                                             double qx, double qy, double qz, double qw,
+                                             boolean wake);
+
+    /** 读世界重力到 {@code out}（double[3]，ABI 6）。 */
+    public static native boolean worldGetGravity(long world, double[] out);
+
+    /** 世界内刚体数量（ABI 6；与 {@link #worldBodyCount} 同义，保留两者以对齐 MPS 命名）。 */
+    public static native int worldGetRigidBodySetSize(long world);
+
+    /** 世界内碰撞体数量（ABI 6）。 */
+    public static native int worldGetColliderSetSize(long world);
+
+    // ==================== 按句柄移除（ABI 7，对标 MPS 的 worldRemove*） ====================
+
+    /**
+     * 从世界移除**单个**碰撞体（ABI 7）—— 对应 MPS 的 {@code worldRemoveCollider}。
+     *
+     * <p>此前只有 {@link #bodyClearColliders}（按刚体整体清），所以"移除某一个碰撞体"
+     * 只能做成 Java 侧摘记录 —— 结果对、方法错。这是补齐它之后的正确入口。</p>
+     */
+    public static native boolean worldRemoveCollider(long world, long collider, boolean wake);
+
+    /** 从世界移除刚体（带唤醒开关，ABI 7）—— 对应 MPS 的 {@code worldRemoveRigidBody}。 */
+    public static native boolean worldRemoveRigidBody(long world, long body, boolean wake);
+
+    // ==================== cosmos（ABI 9，kelvin 的天体 N 体引力） ====================
+    //
+    // 契约**由 kelvin 的调用点反推**（不是猜）：SpaceWorld.java:134/153/273/275/282/188/203。
+    // space 里另 5 个 cosmos 函数（AddNBody / InsertBody / BodyMass / DynamicBodyCount /
+    // BuilderDestroy）零调用，故未实现。
+    // 读回缓冲区改成 double[3] 出参，替代他们的 Unsafe.allocateMemory(24) 裸指针。
+
+    /**
+     * 建 cosmos 世界。
+     *
+     * @param dt        步长（秒）
+     * @param substeps  每个外层步的子步数（调用点传 4）
+     * @param gridX/Y/Z 粒子网格维度（调用点都是 1）；我们直接 O(n²) 积分，忽略
+     * @param farField  远场截断（调用点 1e6）；直接积分用不到，仅记录
+     */
+    public static native long cosmosWorldCreate(double dt, int substeps,
+                                                int gridX, int gridY, int gridZ, double farField);
+
+    /** 销毁 cosmos 世界。 */
+    public static native void cosmosWorldDestroy(long world);
+
+    /** 推进一次；返回天体数，失败 -1。 */
+    public static native int cosmosWorldStep(long world, double dt);
+
+    /** 造"固定天体"builder（恒星/行星核；质量在插入时传）。 */
+    public static native long cosmosFixedBodyBuilder(double x, double y, double z);
+
+    /** 造"卫星"builder（质量 / 位置 / 速度 / 半径）。 */
+    public static native long cosmosSatelliteBuilder(double mass, double x, double y, double z,
+                                                     double vx, double vy, double vz, double radius);
+
+    /** 把 builder 插进世界并登记为引力源；返回天体句柄。 */
+    public static native long cosmosWorldInsertBodyAsGravitySource(long world, long builder, double mass);
+
+    /** 读回天体位置到 {@code out[0..2]}；**非 0 = 成功，0 = 失败**（kelvin 判 {@code == 0 ? null : 值}）。 */
+    public static native int cosmosBodyTranslationOut(long world, long body, double[] out);
+
+    /** 读回天体速度到 {@code out[0..2]}；**非 0 = 成功，0 = 失败**。 */
+    public static native int cosmosBodyLinvelOut(long world, long body, double[] out);
+
+    // ==================== 分离对象（ABI 8，对标 MPS 的 memory handle 模型） ====================
+    //
+    // 为什么要有它：MPS 的跨维度搬运是 "copy out → insert into another world"。
+    // 没有"不属于任何世界的对象"这个概念时，只能靠"读位姿 + 在新世界重建"冒充，
+    // 而速度/角速度/质量属性/材质组合规则/碰撞组这些细节全靠调用方记得补齐 —— 漏一个就悄悄失真。
+    // 这些句柄（memory handle）与世界内 id 分开编号，插入世界前不属于任何世界。
+
+    /**
+     * 把刚体从世界里**复制**出来（原体保留，由调用方决定是否移除）。
+     *
+     * @return 分离对象句柄；失败返回 -1
+     */
+    public static native long worldCopyRigidBody(long world, long body);
+
+    /** 把碰撞体从世界里复制出来（原体保留）。 */
+    public static native long worldCopyCollider(long world, long collider);
+
+    /** 把分离的刚体插进世界（句柄被消费）。 */
+    public static native long worldInsertRigidBody(long world, long memoryHandle);
+
+    /** 把分离的碰撞体插进世界（无父体）。 */
+    public static native long worldInsertCollider(long world, long memoryHandle);
+
+    /** 把分离的碰撞体插进世界并挂到指定刚体上。 */
+    public static native long worldInsertColliderWithParent(long world, long memoryHandle, long parentBody);
+
+    /**
+     * 释放一个分离对象 —— 对应 MPS 的 {@code RapierConnect.RustMemoryFree}。
+     *
+     * <p>MPS 靠 {@code Cleaner} + {@code Unsafe} 管这些内存句柄；我们这边句柄就是竞技场里的一条记录。
+     * <b>没插回世界就丢弃的分离对象必须调它</b>，否则会一直留在竞技场里。</p>
+     */
+    public static native void RustMemoryFree(long memoryHandle);
+
+    /**
+     * 在世界里投一条射线，命中则把 {@code [toi, nx, ny, nz, colliderId]} 写进 {@code out}（长度须 ≥ 5）。
+     *
+     * <p>对应 space 0.1.3 的 {@code RapierWorld.castRay(origin, direction, maxToi, memberships, filter)}。
+     * space 用它做玩家探地（从脚下五点向下打 0.1m）来设 {@code onGround}。</p>
+     *
+     * <p>{@code memberships}/{@code filter} 是<b>查询方</b>的碰撞组。玩家用 {@code (2, 5)}
+     * 就能打到地形 {@code (1,-1)} 与物理体 {@code (4,-1)}，同时打不到自己的一对盒子。</p>
+     */
+    public static native boolean worldCastRay(long world,
+                                              double ox, double oy, double oz,
+                                              double dx, double dy, double dz,
+                                              double maxToi,
+                                              int memberships, int filter,
+                                              double[] out);
+
     /**
      * 把网格坐标打包进一个 long（各占 21 位有符号，范围 ±1,048,575）。
      * 与 Rust 侧 {@code sign21} 解包逻辑对应。

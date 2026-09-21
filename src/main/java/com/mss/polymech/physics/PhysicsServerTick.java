@@ -25,8 +25,6 @@ public final class PhysicsServerTick {
         PhysicsWorldManager.tick();
         // 投影 → 刚体缓存 的脏区块回写：红石灯亮灭、活塞推块、机器自改结构都靠它传到玩家眼前
         ProjectionManager.tick();
-        // 物理接管中的玩家位置每 tick 无条件回写（不能只靠 Entity.move 里的重定向）
-        ServerPlayerPhysics.writeBackAll();
         // 挖掘进度超时清理：松手时没有包，只能靠服务端自己发现"停手了"并广播清裂纹
         PhysicsBodyInteraction.tick(event.getServer());
     }

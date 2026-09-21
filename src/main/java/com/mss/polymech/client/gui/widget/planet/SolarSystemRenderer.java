@@ -31,6 +31,19 @@ public final class SolarSystemRenderer {
         float[] base = visual.baseColor();
         if (base == null) return;
 
+        // ★ 第 5 条绘制路径（着色器不可用时的 fallback）也必须走同一套压缩口径，
+        //   否则压缩启用时它会画出**未缩放**的星球（尺寸不对）。
+        //   与 `PlanetRenderObject.beginBodyModelView` 完全一致：相机相对偏移与半径**同乘** zoom
+        //   ⇒ 角直径不变（见 docs/mps-clone-plan.md §30.7 的公式与离线验证）。
+        if (com.mss.polymech.client.space.RenderCompression.active) {
+            double len = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
+            double zoom = com.mss.polymech.client.space.RenderCompression.zoomFor(len, radius);
+            relX *= zoom;
+            relY *= zoom;
+            relZ *= zoom;
+            radius *= zoom;
+        }
+
         Matrix4f model = new Matrix4f(view)
                 .translate((float) relX, (float) relY, (float) relZ)
                 .scale((float) radius);

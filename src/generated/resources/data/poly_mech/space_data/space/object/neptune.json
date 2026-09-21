@@ -1,0 +1,25 @@
+{
+  "type": "planet",
+  "carmen_line_height": 200000.0,
+  "compute": true,
+  "mass": 1.024E26,
+  "pos": [
+    -4.4E12,
+    -1.17E11,
+    -7.63E11
+  ],
+  "rotate": [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "rotate_speed": 0.0,
+  "scale": 2.4622E7,
+  "speed": [
+    -959.4996319792301,
+    -90.22092375216815,
+    5384.639719197819
+  ],
+  "texture": "poly_mech:textures/celestial_body/planet/neptune/surface.png"
+}

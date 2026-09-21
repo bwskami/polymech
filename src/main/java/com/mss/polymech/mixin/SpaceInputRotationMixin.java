@@ -2,6 +2,7 @@ package com.mss.polymech.mixin;
 
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpacePlayerData;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -40,6 +41,53 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Entity.class)
 public abstract class SpaceInputRotationMixin {
 
+    /**
+     * 零重力下，把**竖直轴**的每 tick 阻尼补成与水平轴一致 —— 只改"阻尼"，不改"方向"。
+     *
+     * <p><b>为什么必须补</b>：非飞行走的是 {@code LivingEntity.travel} 的地面分支：</p>
+     * <pre>
+     * vec35 = handleRelativeFrictionAndCalculateMovement(...)   // 里含 moveRelative（我们的 6DOF 输入）
+     * setDeltaMovement(vec35.x * f3,  d2 * 0.98,  vec35.z * f3) // ← x/z 有摩擦 f3，y 只有 0.98
+     * </pre>
+     * <p>原版敢让 y 轴没有摩擦，是因为它**指望重力抵消竖直通道**（{@code d2 -= getGravity()}），
+     * 而且走路时 {@code travelVector.y} 恒为 0。**太空是零重力，这个抵消项不存在** ——
+     * 于是 6DOF 输入里那个竖直分量（"低头/抬头按 W"）就按 {@code D ← 0.98·D + 输入} 累积：</p>
+     * <pre>
+     *   固定点 = 输入 / (1 − 0.98) = 50 × 输入
+     *   实测：0.0976 / 0.02 = 4.88 格/tick = 97.6 m/s   ← 日志里那条 ~1Hz 锯齿
+     *   （0.0976 = 走路输入 0.1 × 身体俯角 0.976）
+     * </pre>
+     * <p>顶着物理体时，这条 97 m/s 被接触反复顶回、输入又立刻补上 ⇒ 就是"抽搐"。</p>
+     *
+     * <p><b>怎么补才不改手感</b>：输入本身是"一个速度"（原版在 x/z 上靠摩擦让稳态 ≈ 输入速度）。
+     * 所以只要让 y 轴的**每 tick 总阻尼也是 f3**，三个轴就完全同构：
+     * 同样的输入在同一方向上得到同样的稳态速度 ⇒ <b>速度方向 = 视线方向（6DOF 手感一模一样）</b>，
+     * 而量级被限制在"走路速度"而不是累积到 100 m/s。</p>
+     *
+     * <p>账：travel 随后还会对 y 乘一次 0.98，所以这里先乘 {@code f3 / 0.98}，两者相乘正好等于 f3
+     * —— 与 x/z 的阻尼逐位一致。输入那一侧同理（{@link #polymech$scaleVerticalInput}）。</p>
+     *
+     * <p>只在<b>太空 + 零重力 + 非飞行 + 客户端</b>生效；其它情况一个字节都不碰。</p>
+     */
+    @Inject(method = "baseTick", at = @At("TAIL"))
+    private void polymech$equalizeZeroGravityY(CallbackInfo ci) {
+        Entity self = (Entity) (Object) this;
+        if (!(self instanceof Player player) || !self.level().isClientSide) return;
+        if (!self.level().dimension().equals(PlanetDimensions.SPACE)) return;
+        if (player.getAbilities().flying || player.isSpectator()) return;
+        if (player.getGravity() > 1.0E-6) return;         // 有重力时原版那套本来就自洽
+        double f3 = zeroGFriction(self);
+        Vec3 d = self.getDeltaMovement();
+        self.setDeltaMovement(d.x, d.y * (f3 / 0.98) , d.z);
+    }
+
+    /** 与 travel 里 `f3 = onGround ? f2*0.91 : 0.91` 同一个算法，用于把 y 的阻尼对齐到 x/z。 */
+    private static double zeroGFriction(Entity self) {
+        BlockPos pos = self.getOnPos();
+        float f2 = self.level().getBlockState(pos).getFriction(self.level(), pos, self);
+        return self.onGround() ? f2 * 0.91F : 0.91F;
+    }
+
     @Inject(method = "moveRelative", at = @At("HEAD"), cancellable = true)
     private void polymech$rotateInputBySpaceBasis(float amount, Vec3 relative, CallbackInfo ci) {
         Entity self = (Entity) (Object) this;
@@ -76,6 +124,12 @@ public abstract class SpaceInputRotationMixin {
         double mx = facing.x * inZ + screenLeft.x * inX + screenUp.x * inY;
         double my = facing.y * inZ + screenLeft.y * inX + screenUp.y * inY;
         double mz = facing.z * inZ + screenLeft.z * inX + screenUp.z * inY;
+
+        // 竖直分量与水平分量接受**同一个** f3 阻尼（travel 随后还会给 y 乘 0.98，故这里先除掉），
+        // 否则零重力下竖直输入会被积成 50×（见 polymech$equalizeZeroGravityY 的账）。
+        if (self.getGravity() <= 1.0E-6) {
+            my *= zeroGFriction(self) / 0.98;
+        }
 
         self.setDeltaMovement(self.getDeltaMovement().add(mx, my, mz));
         ci.cancel();
