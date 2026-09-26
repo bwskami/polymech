@@ -21,31 +21,31 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 一颗星球的独立渲染对象（BASE 层迁移）。
+ * 涓€棰楁槦鐞冪殑鐙珛娓叉煋瀵硅薄锛圔ASE 灞傝縼绉伙級銆?
  * <p>
- * 持有星球表面数据（网格、地块 albedo、材质、高度场），负责构建 BASE 层静态 VBO，
- * 并用 PlanetShaders 的 GPU 光照路径绘制。旧构造（仅 PlanetVisual）保持简单球体回退。
+ * 鎸佹湁鏄熺悆琛ㄩ潰鏁版嵁锛堢綉鏍笺€佸湴鍧?albedo銆佹潗璐ㄣ€侀珮搴﹀満锛夛紝璐熻矗鏋勫缓 BASE 灞傞潤鎬?VBO锛?
+ * 骞剁敤 PlanetShaders 鐨?GPU 鍏夌収璺緞缁樺埗銆傛棫鏋勯€狅紙浠?PlanetVisual锛変繚鎸佺畝鍗曠悆浣撳洖閫€銆?
  * </p>
  */
 public final class PlanetRenderObject {
 
-    /** 为 null 时走旧版简单球体渲染。 */
+    /** 涓?null 鏃惰蛋鏃х増绠€鍗曠悆浣撴覆鏌撱€?*/
     private final Planet planet;
     private final PlanetVisual visual;
     private final double radius;
     /**
-     * 天体位置（米，游戏宇宙坐标系）。<b>非 final</b>：位置要能从静态
-     * {@code RealAstroData} 切到 kelvin 的积分结果，由
-     * {@link PlanetRenderObjectFactory#refreshPositions()} 每帧刷新。
+     * 澶╀綋浣嶇疆锛堢背锛屾父鎴忓畤瀹欏潗鏍囩郴锛夈€?b>闈?final</b>锛氫綅缃鑳戒粠闈欐€?
+     * {@code RealAstroData} 鍒囧埌 kelvin 鐨勭Н鍒嗙粨鏋滐紝鐢?
+     * {@link PlanetRenderObjectFactory#refreshPositions()} 姣忓抚鍒锋柊銆?
      */
     private double posX;
     private double posY;
     private double posZ;
 
     /**
-     * 迁移用：把本对象的位置刷新为当前权威位置。
-     * 由 {@link PlanetRenderObjectFactory#refreshPositions()} 每帧调用；
-     * 未启用 kelvin 权威时传入的就是静态值（等同赋值，无副作用）。
+     * 杩佺Щ鐢細鎶婃湰瀵硅薄鐨勪綅缃埛鏂颁负褰撳墠鏉冨▉浣嶇疆銆?
+     * 鐢?{@link PlanetRenderObjectFactory#refreshPositions()} 姣忓抚璋冪敤锛?
+     * 鏈惎鐢?kelvin 鏉冨▉鏃朵紶鍏ョ殑灏辨槸闈欐€佸€硷紙绛夊悓璧嬪€硷紝鏃犲壇浣滅敤锛夈€?
      */
     public void updatePosition(double posX, double posY, double posZ) {
         this.posX = posX;
@@ -53,45 +53,45 @@ public final class PlanetRenderObject {
         this.posZ = posZ;
     }
 
-    /** BASE 层表面数据（planet == null 时均为 null）。 */
+    /** BASE 灞傝〃闈㈡暟鎹紙planet == null 鏃跺潎涓?null锛夈€?*/
     private final Polyhedron mesh;
     private final PlanetHeight planetHeight;
     private final float[][] faceColors;
     private final SurfaceMaterial[] faceMaterials;
     private final int surfaceSeed;
 
-    /** 大气层外半径（米）。0 表示不渲染大气层。 */
+    /** 澶ф皵灞傚鍗婂緞锛堢背锛夈€? 琛ㄧず涓嶆覆鏌撳ぇ姘斿眰銆?*/
     private final double atmosphereRadius;
 
     private VertexBuffer baseVbo;
     private VertexBuffer atmoVbo;
 
-    /** 云层棱柱厚度（相对行星半径）：只生成顶/底两个多边形面，不生成侧壁。 */
+    /** 浜戝眰妫辨煴鍘氬害锛堢浉瀵硅鏄熷崐寰勶級锛氬彧鐢熸垚椤?搴曚袱涓杈瑰舰闈紝涓嶇敓鎴愪晶澹併€?*/
     static final float CLOUD_THICKNESS_FRACTION = 0.006f;
 
-    /** 云层（从 Planet.layers 收集，已按半径排序）。 */
+    /** 浜戝眰锛堜粠 Planet.layers 鏀堕泦锛屽凡鎸夊崐寰勬帓搴忥級銆?*/
     private final List<PlanetLayer> cloudLayers = new ArrayList<>();
     private final Map<PlanetLayer, VertexBuffer> cloudVbos = new HashMap<>();
     private float[][] cloudLayerDensities;
     private float[][] cloudFaceNormals;
-    /** 光环层（土星/天王星/海王星）。 */
+    /** 鍏夌幆灞傦紙鍦熸槦/澶╃帇鏄?娴风帇鏄燂級銆?*/
     private final List<PlanetLayer> ringLayers = new ArrayList<>();
-    /** 阴影投射天体（真实天体）。 */
+    /** 闃村奖鎶曞皠澶╀綋锛堢湡瀹炲ぉ浣擄級銆?*/
     private final List<RealAstroData> casterBodies;
 
-    /** 自转速度（rad/s），用于太空维度里让行星/云层动起来。 */
+    /** 鑷浆閫熷害锛坮ad/s锛夛紝鐢ㄤ簬澶┖缁村害閲岃琛屾槦/浜戝眰鍔ㄨ捣鏉ャ€?*/
     private final float rotationSpeed;
-    /** 自转轴倾角（弧度），0 = 垂直黄道面。 */
+    /** 鑷浆杞村€捐锛堝姬搴︼級锛? = 鍨傜洿榛勯亾闈€?*/
     private final float axialTilt;
 
-    /** 复用的临时数据，避免每帧分配。 */
+    /** 澶嶇敤鐨勪复鏃舵暟鎹紝閬垮厤姣忓抚鍒嗛厤銆?*/
     private final Matrix4f modelView = new Matrix4f();
     private final float[] viewDir = new float[3];
     private final float[] localSun = new float[3];
     private final float[] localView = new float[3];
     private final float[] tmpCaster = new float[3];
 
-    /** 真实天体与 GUI 星图 SolarSystem 的 pi 索引一致，保证地表/云层噪声和 GUI 星图完全同款。 */    private static int surfaceSeedFor(String planetName) {
+    /** 鐪熷疄澶╀綋涓?GUI 鏄熷浘 SolarSystem 鐨?pi 绱㈠紩涓€鑷达紝淇濊瘉鍦拌〃/浜戝眰鍣０鍜?GUI 鏄熷浘瀹屽叏鍚屾銆?*/    private static int surfaceSeedFor(String planetName) {
         return switch (planetName) {
             case "sun" -> 0;
             case "mercury" -> 1;
@@ -107,7 +107,7 @@ public final class PlanetRenderObject {
         };
     }
 
-    /** 云层噪声种子使用 GUI 星图里的玩具半径，让太空云层图案和 GUI 星图完全一致。 */
+    /** 浜戝眰鍣０绉嶅瓙浣跨敤 GUI 鏄熷浘閲岀殑鐜╁叿鍗婂緞锛岃澶┖浜戝眰鍥炬鍜?GUI 鏄熷浘瀹屽叏涓€鑷淬€?*/
     private float guiCloudSeedRadius(PlanetLayer layer) {
         double ratio = layer.radius() / radius;
         return switch (planet.name()) {
@@ -117,7 +117,7 @@ public final class PlanetRenderObject {
         };
     }
 
-    /** 旧版简单构造：只携带视觉属性，渲染时走 SolarSystemRenderer 的纯色球。 */
+    /** 鏃х増绠€鍗曟瀯閫狅細鍙惡甯﹁瑙夊睘鎬э紝娓叉煋鏃惰蛋 SolarSystemRenderer 鐨勭函鑹茬悆銆?*/
     public PlanetRenderObject(PlanetVisual visual, double radius, double posX, double posY, double posZ) {
         this.planet = null;
         this.visual = visual;
@@ -136,18 +136,18 @@ public final class PlanetRenderObject {
         this.casterBodies = List.of();
     }
 
-    /** BASE 层构造：使用 Planet 携带的网格、颜色提供器、高度场和材质。 */
+    /** BASE 灞傛瀯閫狅細浣跨敤 Planet 鎼哄甫鐨勭綉鏍笺€侀鑹叉彁渚涘櫒銆侀珮搴﹀満鍜屾潗璐ㄣ€?*/
     public PlanetRenderObject(Planet planet, double radius, double posX, double posY, double posZ) {
         this(planet, radius, 0, posX, posY, posZ);
     }
 
-    /** BASE + ATMO 构造：atmosphereRadius 为大气层外半径（米），小于等于 radius 时不渲染大气。 */
+    /** BASE + ATMO 鏋勯€狅細atmosphereRadius 涓哄ぇ姘斿眰澶栧崐寰勶紙绫筹級锛屽皬浜庣瓑浜?radius 鏃朵笉娓叉煋澶ф皵銆?*/
     public PlanetRenderObject(Planet planet, double radius, double atmosphereRadius,
                               double posX, double posY, double posZ) {
         this(planet, radius, atmosphereRadius, List.of(), posX, posY, posZ);
     }
 
-    /** BASE + ATMO + 阴影投射者构造。 */
+    /** BASE + ATMO + 闃村奖鎶曞皠鑰呮瀯閫犮€?*/
     public PlanetRenderObject(Planet planet, double radius, double atmosphereRadius,
                               List<RealAstroData> casterBodies,
                               double posX, double posY, double posZ) {
@@ -196,12 +196,12 @@ public final class PlanetRenderObject {
         return posZ;
     }
 
-    /** 大气层外半径（米）；0 表示无大气。 */
+    /** 澶ф皵灞傚鍗婂緞锛堢背锛夛紱0 琛ㄧず鏃犲ぇ姘斻€?*/
     public double atmosphereRadius() {
         return atmosphereRadius;
     }
 
-    /** 天体名称，与 {@link RealAstroData#byId(String)} 一致；旧版简单球体回退时为空串。 */
+    /** 澶╀綋鍚嶇О锛屼笌 {@link RealAstroData#byId(String)} 涓€鑷达紱鏃х増绠€鍗曠悆浣撳洖閫€鏃朵负绌轰覆銆?*/
     public String planetName() {
         return planet != null ? planet.name() : "";
     }
@@ -229,7 +229,7 @@ public final class PlanetRenderObject {
         return !cloudLayers.isEmpty();
     }
 
-    /** 绘制 CLOUD 层（半透明；与 BASE 同批绘制，保持 GUI 的层次顺序）。 */
+    /** 缁樺埗 CLOUD 灞傦紙鍗婇€忔槑锛涗笌 BASE 鍚屾壒缁樺埗锛屼繚鎸?GUI 鐨勫眰娆￠『搴忥級銆?*/
     public void renderClouds(PlanetRenderParams params) {
         if (!hasClouds() || params.lighting() == null || !PlanetShaders.isCloudReady()) return;
         for (int i = 0; i < cloudLayers.size(); i++) {
@@ -241,7 +241,7 @@ public final class PlanetRenderObject {
         return !ringLayers.isEmpty();
     }
 
-    /** 绘制 RING 层（半透明；调用方需已设置 depthMask(false)）。 */
+    /** 缁樺埗 RING 灞傦紙鍗婇€忔槑锛涜皟鐢ㄦ柟闇€宸茶缃?depthMask(false)锛夈€?*/
     public void renderRings(PlanetRenderParams params) {
         if (!hasRings() || params.lighting() == null) return;
         for (PlanetLayer ring : ringLayers) {
@@ -249,13 +249,13 @@ public final class PlanetRenderObject {
         }
     }
 
-    /** 绘制 ATMO 层（半透明；调用方需已设置 depthMask(false)）。 */
+    /** 缁樺埗 ATMO 灞傦紙鍗婇€忔槑锛涜皟鐢ㄦ柟闇€宸茶缃?depthMask(false)锛夈€?*/
     public void renderAtmosphere(PlanetRenderParams params) {
         if (!hasAtmosphere() || params.lighting() == null || !PlanetShaders.isAtmoReady()) return;
         drawAtmosphereGpu(params);
     }
 
-    /** 释放 BASE / ATMO 层 VBO（移除渲染对象时调用，避免 GPU 内存泄漏）。 */
+    /** 閲婃斁 BASE / ATMO 灞?VBO锛堢Щ闄ゆ覆鏌撳璞℃椂璋冪敤锛岄伩鍏?GPU 鍐呭瓨娉勬紡锛夈€?*/
     public void close() {
         if (baseVbo != null) {
             baseVbo.close();
@@ -271,7 +271,7 @@ public final class PlanetRenderObject {
         cloudVbos.clear();
     }
 
-    // ==================== BASE 层预计算 ====================
+    // ==================== BASE 灞傞璁＄畻 ====================
 
     private void precomputeSurface() {
         long seed = 0x5EED1234L + surfaceSeed * 0x1234567L;
@@ -303,9 +303,9 @@ public final class PlanetRenderObject {
         if (hasOcean) planetHeight.clampToSea = true;
     }
 
-    // ==================== BASE 层 VBO ====================
+    // ==================== BASE 灞?VBO ====================
 
-    /** 构建 BASE 层静态 VBO：局部坐标（×radius）+ 地块 albedo + 法线。 */
+    /** 鏋勫缓 BASE 灞傞潤鎬?VBO锛氬眬閮ㄥ潗鏍囷紙脳radius锛? 鍦板潡 albedo + 娉曠嚎銆?*/
     private VertexBuffer getOrCreateBaseVbo() {
         if (baseVbo != null) return baseVbo;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
@@ -384,7 +384,7 @@ public final class PlanetRenderObject {
         return vb;
     }
 
-    /** 发射一个三角形，三个顶点各自使用预计算的平滑法线（太空场景避免面片感）。 */
+    /** 鍙戝皠涓€涓笁瑙掑舰锛屼笁涓《鐐瑰悇鑷娇鐢ㄩ璁＄畻鐨勫钩婊戞硶绾匡紙澶┖鍦烘櫙閬垮厤闈㈢墖鎰燂級銆?*/
     private static void addTriSmooth(BufferBuilder bb, Matrix4f mat,
                                      float[] p0, float[] p1, float[] p2,
                                      float[] n0, float[] n1, float[] n2,
@@ -394,7 +394,7 @@ public final class PlanetRenderObject {
         bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(alb[0], alb[1], alb[2], alpha).setNormal(n2[0], n2[1], n2[2]);
     }
 
-    /** 用高度场在顶点方向的切平面梯度计算平滑地形法线，避免每个三角面各算一个平直法线。 */
+    /** 鐢ㄩ珮搴﹀満鍦ㄩ《鐐规柟鍚戠殑鍒囧钩闈㈡搴﹁绠楀钩婊戝湴褰㈡硶绾匡紝閬垮厤姣忎釜涓夎闈㈠悇绠椾竴涓钩鐩存硶绾裤€?*/
     private static float[] smoothTerrainNormal(float x, float y, float z, float R, PlanetHeight ph, float hs) {
         float[] v = normalize3(new float[]{x, y, z});
         float h0 = ph.rawHeight(v[0], v[1], v[2]);
@@ -440,7 +440,7 @@ public final class PlanetRenderObject {
         return new float[]{a[0] - b[0], a[1] - b[1], a[2] - b[2]};
     }
 
-    /** 发射一个三角形，法线从位移后的几何重新计算（平面着色）。 */
+    /** 鍙戝皠涓€涓笁瑙掑舰锛屾硶绾夸粠浣嶇Щ鍚庣殑鍑犱綍閲嶆柊璁＄畻锛堝钩闈㈢潃鑹诧級銆?*/
     private static void addTriFlat(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2, float[] alb, float alpha) {
         float ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2];
         float vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2];
@@ -461,9 +461,9 @@ public final class PlanetRenderObject {
     }
 
 
-    // ==================== ATMO 层 VBO ====================
+    // ==================== ATMO 灞?VBO ====================
 
-    /** 构建 ATMO 层静态 VBO：全部面，颜色白，法线为径向/面法线。 */
+    /** 鏋勫缓 ATMO 灞傞潤鎬?VBO锛氬叏閮ㄩ潰锛岄鑹茬櫧锛屾硶绾夸负寰勫悜/闈㈡硶绾裤€?*/
     private VertexBuffer getOrCreateAtmoVbo() {
         if (atmoVbo != null) return atmoVbo;
         BufferBuilder bb = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION_COLOR_NORMAL);
@@ -513,12 +513,12 @@ public final class PlanetRenderObject {
     }
 
 
-    // ==================== CLOUD 层 VBO ====================
+    // ==================== CLOUD 灞?VBO ====================
 
     /**
-     * 一次性计算所有云层的逐面密度，并做全局防空洞：
-     * 只有当某张脸在所有云层里都没有云时，才选该脸噪声值最高的那层补一个软边云。
-     * 这样单层可以有洞，但整颗星球不会出现大范围无云区。
+     * 涓€娆℃€ц绠楁墍鏈変簯灞傜殑閫愰潰瀵嗗害锛屽苟鍋氬叏灞€闃茬┖娲烇細
+     * 鍙湁褰撴煇寮犺劯鍦ㄦ墍鏈変簯灞傞噷閮芥病鏈変簯鏃讹紝鎵嶉€夎鑴稿櫔澹板€兼渶楂樼殑閭ｅ眰琛ヤ竴涓蒋杈逛簯銆?
+     * 杩欐牱鍗曞眰鍙互鏈夋礊锛屼絾鏁撮鏄熺悆涓嶄細鍑虹幇澶ц寖鍥存棤浜戝尯銆?
      */
     private void computeCloudDensities() {
         if (cloudLayerDensities != null) return;
@@ -530,7 +530,7 @@ public final class PlanetRenderObject {
         float[][] rawVals = new float[layerCount][faceCount];
         float[][] vs = mesh.vertices;
 
-        // 先算好所有面法线，所有云层共用。
+        // 鍏堢畻濂芥墍鏈夐潰娉曠嚎锛屾墍鏈変簯灞傚叡鐢ㄣ€?
         for (int f = 0; f < faceCount; f++) {
             int[] fv = mesh.faces[f];
             float fnx = 0, fny = 0, fnz = 0;
@@ -561,15 +561,15 @@ public final class PlanetRenderObject {
                 float threshold;
                 int style = li % 3;
                 if (style == 0) {
-                    // 横向长条带：水平方向频率低（云条长），纵向频率高（云条短/密）
+                    // 妯悜闀挎潯甯︼細姘村钩鏂瑰悜棰戠巼浣庯紙浜戞潯闀匡級锛岀旱鍚戦鐜囬珮锛堜簯鏉＄煭/瀵嗭級
                     cloudVal = layerNoise.fbm(fnx * 2.0f + 7.3f, fny * 8.0f + 13.7f, fnz * 2.0f + 3.1f);
                     threshold = 0.56f;
                 } else if (style == 1) {
-                    // 散碎小团块：各方向频率都较高
+                    // 鏁ｇ灏忓洟鍧楋細鍚勬柟鍚戦鐜囬兘杈冮珮
                     cloudVal = layerNoise.fbm(fnx * 6.0f + 11.3f, fny * 6.0f + 17.7f, fnz * 6.0f + 5.9f);
                     threshold = 0.60f;
                 } else {
-                    // 细长条带/丝缕
+                    // 缁嗛暱鏉″甫/涓濈紩
                     float a = layerNoise.fbm(fnx * 2.5f + 3.1f, fny * 12.0f + 9.2f, fnz * 2.5f + 5.7f);
                     float b = layerNoise.fbm(fnx * 8.0f + 17.3f, fny * 8.0f + 2.9f, fnz * 8.0f + 11.1f);
                     cloudVal = a * 0.75f + b * 0.25f;
@@ -586,7 +586,7 @@ public final class PlanetRenderObject {
             }
         }
 
-        // 全局防空洞：只补没有任何云层覆盖的脸。
+        // 鍏ㄥ眬闃茬┖娲烇細鍙ˉ娌℃湁浠讳綍浜戝眰瑕嗙洊鐨勮劯銆?
         for (int f = 0; f < faceCount; f++) {
             boolean any = false;
             for (int li = 0; li < layerCount; li++) {
@@ -608,7 +608,7 @@ public final class PlanetRenderObject {
             }
         }
 
-        // 控制层间重叠：同一张脸最多两层云覆盖；若超过，则去掉噪声值最低的层。
+        // 鎺у埗灞傞棿閲嶅彔锛氬悓涓€寮犺劯鏈€澶氫袱灞備簯瑕嗙洊锛涜嫢瓒呰繃锛屽垯鍘绘帀鍣０鍊兼渶浣庣殑灞傘€?
         for (int f = 0; f < faceCount; f++) {
             int covered = 0;
             for (int li = 0; li < layerCount; li++) {
@@ -631,8 +631,8 @@ public final class PlanetRenderObject {
     }
 
     /**
-     * 构建单层 CLOUD 静态 VBO：CPU 噪声整面分类，核心面/一圈多边形软边面/剔除。
-     * 保留的面生成正多边形顶/底两个端面，并在云区外围边界生成侧壁。
+     * 鏋勫缓鍗曞眰 CLOUD 闈欐€?VBO锛欳PU 鍣０鏁撮潰鍒嗙被锛屾牳蹇冮潰/涓€鍦堝杈瑰舰杞竟闈?鍓旈櫎銆?
+     * 淇濈暀鐨勯潰鐢熸垚姝ｅ杈瑰舰椤?搴曚袱涓闈紝骞跺湪浜戝尯澶栧洿杈圭晫鐢熸垚渚у銆?
      */
     private VertexBuffer getOrCreateCloudVbo(PlanetLayer layer, int cloudIdx) {
         VertexBuffer cached = cloudVbos.get(layer);
@@ -655,7 +655,7 @@ public final class PlanetRenderObject {
         PlanetHeight ph = planetHeight;
         int faceCount = mesh.faces.length;
 
-        // 第二遍：建立边到面的邻接表，用于只在外围边界生成侧壁。
+        // 绗簩閬嶏細寤虹珛杈瑰埌闈㈢殑閭绘帴琛紝鐢ㄤ簬鍙湪澶栧洿杈圭晫鐢熸垚渚у銆?
         java.util.HashMap<Long, int[]> edgeToFaces = new java.util.HashMap<>();
         for (int f = 0; f < faceCount; f++) {
             int[] fv = mesh.faces[f];
@@ -709,8 +709,8 @@ public final class PlanetRenderObject {
 
 
     /**
-     * 发射一个云层棱柱：画底面和顶面两个正多边形端面。
-     * 只有边界边（一侧是云、另一侧是空）才生成侧壁，内部相邻棱柱之间不生成衔接面。
+     * 鍙戝皠涓€涓簯灞傛１鏌憋細鐢诲簳闈㈠拰椤堕潰涓や釜姝ｅ杈瑰舰绔潰銆?
+     * 鍙湁杈圭晫杈癸紙涓€渚ф槸浜戙€佸彟涓€渚ф槸绌猴級鎵嶇敓鎴愪晶澹侊紝鍐呴儴鐩搁偦妫辨煴涔嬮棿涓嶇敓鎴愯鎺ラ潰銆?
      */
     private void emitCloudSlab(BufferBuilder bb, Matrix4f mat, float[][] vs, int[] fv,
                                float fnx, float fny, float fnz,
@@ -725,11 +725,11 @@ public final class PlanetRenderObject {
             outer[k] = cloudPos(vs[vi][0], vs[vi][1], vs[vi][2], outerR, ph, hs);
         }
 
-        // 先底面（更远）后顶面（更近），普通 alpha 混合顺序正确。
+        // 鍏堝簳闈紙鏇磋繙锛夊悗椤堕潰锛堟洿杩戯級锛屾櫘閫?alpha 娣峰悎椤哄簭姝ｇ‘銆?
         emitCloudCap(bb, mat, vs, fv, fnx, fny, fnz, inner, innerR, ph, hs, density);
         emitCloudCap(bb, mat, vs, fv, fnx, fny, fnz, outer, outerR, ph, hs, density);
 
-        // 仅外围边界侧壁，显示棱柱厚度；内部衔接面不渲染。
+        // 浠呭鍥磋竟鐣屼晶澹侊紝鏄剧ず妫辨煴鍘氬害锛涘唴閮ㄨ鎺ラ潰涓嶆覆鏌撱€?
         for (int k = 0; k < kn; k++) {
             if (!boundary[k]) continue;
             int a1 = (k + 1) % kn;
@@ -745,7 +745,7 @@ public final class PlanetRenderObject {
         return ((long) min << 32) | (max & 0xFFFFFFFFL);
     }
 
-    /** 侧壁法线取四个顶点的平均方向，接近该云块边缘的径向朝外方向。 */
+    /** 渚у娉曠嚎鍙栧洓涓《鐐圭殑骞冲潎鏂瑰悜锛屾帴杩戣浜戝潡杈圭紭鐨勫緞鍚戞湞澶栨柟鍚戙€?*/
     private static float[] edgeNormal(float[] a, float[] b, float[] c, float[] d) {
         float x = a[0] + b[0] + c[0] + d[0];
         float y = a[1] + b[1] + c[1] + d[1];
@@ -755,7 +755,7 @@ public final class PlanetRenderObject {
         return new float[]{x / len, y / len, z / len};
     }
 
-    /** 发射棱柱的一个正多边形端面（底面或顶面）。 */
+    /** 鍙戝皠妫辨煴鐨勪竴涓澶氳竟褰㈢闈紙搴曢潰鎴栭《闈級銆?*/
     private void emitCloudCap(BufferBuilder bb, Matrix4f mat, float[][] vs, int[] fv,
                               float fnx, float fny, float fnz,
                               float[][] pos, float capR, PlanetHeight ph, float hs,
@@ -779,7 +779,7 @@ public final class PlanetRenderObject {
         return new float[]{x * r, y * r, z * r};
     }
 
-    /** 发射一个云层三角形：三个顶点统一法线和密度（用于侧壁）。 */
+    /** 鍙戝皠涓€涓簯灞備笁瑙掑舰锛氫笁涓《鐐圭粺涓€娉曠嚎鍜屽瘑搴︼紙鐢ㄤ簬渚у锛夈€?*/
     private static void addCloudTri(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2,
                                     float nx, float ny, float nz, float density) {
         bb.addVertex(mat, p0[0], p0[1], p0[2]).setColor(density, 0, 0, 1f).setNormal(nx, ny, nz);
@@ -787,7 +787,7 @@ public final class PlanetRenderObject {
         bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(density, 0, 0, 1f).setNormal(nx, ny, nz);
     }
 
-    /** 发射一个云层三角形：三个顶点各自使用径向法线和密度，光照连续。 */
+    /** 鍙戝皠涓€涓簯灞備笁瑙掑舰锛氫笁涓《鐐瑰悇鑷娇鐢ㄥ緞鍚戞硶绾垮拰瀵嗗害锛屽厜鐓ц繛缁€?*/
     private static void addCloudTri(BufferBuilder bb, Matrix4f mat, float[] p0, float[] p1, float[] p2,
                                     float[] n0, float[] n1, float[] n2,
                                     float d0, float d1, float d2) {
@@ -796,7 +796,7 @@ public final class PlanetRenderObject {
         bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(d2, 0, 0, 1f).setNormal(n2[0], n2[1], n2[2]);
     }
 
-    /** 扇形三角化版本：中心顶点使用面法线和中心密度，边缘顶点使用各自径向法线和密度。 */
+    /** 鎵囧舰涓夎鍖栫増鏈細涓績椤剁偣浣跨敤闈㈡硶绾垮拰涓績瀵嗗害锛岃竟缂橀《鐐逛娇鐢ㄥ悇鑷緞鍚戞硶绾垮拰瀵嗗害銆?*/
     private static void addCloudTri(BufferBuilder bb, Matrix4f mat, float[] pc, float[] p1, float[] p2,
                                     float fnx, float fny, float fnz, float[] n1, float[] n2,
                                     float dc, float d1, float d2) {
@@ -805,16 +805,16 @@ public final class PlanetRenderObject {
         bb.addVertex(mat, p2[0], p2[1], p2[2]).setColor(d2, 0, 0, 1f).setNormal(n2[0], n2[1], n2[2]);
     }
 
-    // ==================== GPU 绘制 ====================
+    // ==================== GPU 缁樺埗 ====================
 
     private void applyCasterUniforms(ShaderInstance sh, PlanetRenderParams params) {
         applyCasterUniforms(sh, params, 0f);
     }
 
     /**
-     * 设置阴影投射天体 uniform。
-     * 当行星/云层绕 Y 轴自转后，着色器在局部系里算阴影，
-     * 因此投射天体的相对位置也要同步旋转到局部系。
+     * 璁剧疆闃村奖鎶曞皠澶╀綋 uniform銆?
+     * 褰撹鏄?浜戝眰缁?Y 杞磋嚜杞悗锛岀潃鑹插櫒鍦ㄥ眬閮ㄧ郴閲岀畻闃村奖锛?
+     * 鍥犳鎶曞皠澶╀綋鐨勭浉瀵逛綅缃篃瑕佸悓姝ユ棆杞埌灞€閮ㄧ郴銆?
      */
     private void applyCasterUniforms(ShaderInstance sh, PlanetRenderParams params, float angle) {
         int nC = Math.min(casterBodies.size(), 4);
@@ -822,7 +822,10 @@ public final class PlanetRenderObject {
         for (int i = 0; i < 4; i++) {
             if (i < nC) {
                 RealAstroData caster = casterBodies.get(i);
-                double[] cwp = com.mss.polymech.space.SpaceWorld.gamePos(caster);
+                // ★ 必须与天体本体**同一插值口径**（2026-09-25）：本体位置走 blockPos(data, partialTick)，
+        //   投射者若仍取 gamePos（= 物理步进原始值）就会每 tick 相对本体跳一次
+        //   —— 表现是"影子自己在天体表面上一跳一跳"。两者都用 partialTick 才自洽。
+        double[] cwp = com.mss.polymech.space.SpaceWorld.blockPos(caster, params.partialTick());
                 worldToLocalDirection((float) (cwp[0] - posX),
                         (float) (cwp[1] - posY),
                         (float) (cwp[2] - posZ),
@@ -847,7 +850,10 @@ public final class PlanetRenderObject {
         float sunX = params.lighting().dirX(), sunY = params.lighting().dirY(), sunZ = params.lighting().dirZ();
         float maxShadow = 0f;
         for (RealAstroData caster : casterBodies) {
-            double[] cwp = com.mss.polymech.space.SpaceWorld.gamePos(caster);
+            // ★ 必须与天体本体**同一插值口径**（2026-09-25）：本体位置走 blockPos(data, partialTick)，
+        //   投射者若仍取 gamePos（= 物理步进原始值）就会每 tick 相对本体跳一次
+        //   —— 表现是"影子自己在天体表面上一跳一跳"。两者都用 partialTick 才自洽。
+        double[] cwp = com.mss.polymech.space.SpaceWorld.blockPos(caster, params.partialTick());
             float casterRelX = (float) (cwp[0] - posX);
             float casterRelY = (float) (cwp[1] - posY);
             float casterRelZ = (float) (cwp[2] - posZ);
@@ -872,18 +878,18 @@ public final class PlanetRenderObject {
     }
 
     /**
-     * 铺好"相机 → 天体"的模型矩阵（方案 B / S3，见 {@code docs/mps-clone-plan.md} §30.7）。
+     * 閾哄ソ"鐩告満 鈫?澶╀綋"鐨勬ā鍨嬬煩闃碉紙鏂规 B / S3锛岃 {@code docs/mps-clone-plan.md} 搂30.7锛夈€?
      *
-     * <p><b>为什么只留这一处</b>：本体 / 云 / 大气 / 光环四条绘制路径原来<b>各写一遍</b>
-     * {@code modelView.set(view)} + {@code translate(pos − camera)}。压缩要求
-     * "相机相对偏移与天体自身尺寸<b>同乘</b> zoom"（这样角直径才不变），四处各改一次
-     * 就是四份实现 —— 本项目吃过这个亏（§29.3）。</p>
+     * <p><b>涓轰粈涔堝彧鐣欒繖涓€澶?/b>锛氭湰浣?/ 浜?/ 澶ф皵 / 鍏夌幆鍥涙潯缁樺埗璺緞鍘熸潵<b>鍚勫啓涓€閬?/b>
+     * {@code modelView.set(view)} + {@code translate(pos 鈭?camera)}銆傚帇缂╄姹?
+     * "鐩告満鐩稿鍋忕Щ涓庡ぉ浣撹嚜韬昂瀵?b>鍚屼箻</b> zoom"锛堣繖鏍疯鐩村緞鎵嶄笉鍙橈級锛屽洓澶勫悇鏀逛竴娆?
+     * 灏辨槸鍥涗唤瀹炵幇 鈥斺€?鏈」鐩悆杩囪繖涓簭锛埪?9.3锛夈€?/p>
      *
-     * <p>均匀缩放与后续旋转**可交换**，所以 {@code scale} 放在 {@code translate} 之后即可
-     * 让所有图层（含光环/云的局部几何）半径同步缩放。</p>
+     * <p>鍧囧寑缂╂斁涓庡悗缁棆杞?*鍙氦鎹?*锛屾墍浠?{@code scale} 鏀惧湪 {@code translate} 涔嬪悗鍗冲彲
+     * 璁╂墍鏈夊浘灞傦紙鍚厜鐜?浜戠殑灞€閮ㄥ嚑浣曪級鍗婂緞鍚屾缂╂斁銆?/p>
      *
-     * <p>压缩未启用时 {@code zoom == 1.0}，本方法与改造前<b>逐位等价</b>
-     * （只多一次浮点乘法 ×1.0）。</p>
+     * <p>鍘嬬缉鏈惎鐢ㄦ椂 {@code zoom == 1.0}锛屾湰鏂规硶涓庢敼閫犲墠<b>閫愪綅绛変环</b>
+     * 锛堝彧澶氫竴娆℃诞鐐逛箻娉?脳1.0锛夈€?/p>
      */
     private void beginBodyModelView(PlanetRenderParams params) {
         modelView.set(params.viewMatrix());
@@ -897,7 +903,7 @@ public final class PlanetRenderObject {
         }
     }
 
-    /** 本帧该天体应被缩放的比例（压缩未启用 ⇒ 恒为 1.0）。 */
+    /** 鏈抚璇ュぉ浣撳簲琚缉鏀剧殑姣斾緥锛堝帇缂╂湭鍚敤 鈬?鎭掍负 1.0锛夈€?*/
     private double compressionZoom(PlanetRenderParams params) {
         if (!com.mss.polymech.client.space.RenderCompression.active) {
             return 1.0;
@@ -916,7 +922,7 @@ public final class PlanetRenderObject {
         modelView.rotateY(angle);
 
         computeViewDir(params);
-        // 光照/视线方向转到轴倾 + 自转后的局部系，保证晨昏线和镜面高光不随自转/轴倾漂移。
+        // 鍏夌収/瑙嗙嚎鏂瑰悜杞埌杞村€?+ 鑷浆鍚庣殑灞€閮ㄧ郴锛屼繚璇佹櫒鏄忕嚎鍜岄暅闈㈤珮鍏変笉闅忚嚜杞?杞村€炬紓绉汇€?
         worldToLocalDirection(params.lighting().dirX(), params.lighting().dirY(), params.lighting().dirZ(),
                 angle, axialTilt, localSun);
         worldToLocalDirection(viewDir[0], viewDir[1], viewDir[2], angle, axialTilt, localView);
@@ -926,17 +932,20 @@ public final class PlanetRenderObject {
         float intensity = params.lighting().intensity();
         sh.getUniform("ViewDir").set(localView[0], localView[1], localView[2]);
         sh.getUniform("Intensity").set(intensity);
-        sh.getUniform("ViewFillStrength").set(0.50f); // 太空专用相机补光，UI 路径显式设为 0
+        sh.getUniform("ViewFillStrength").set(0.50f); // 澶┖涓撶敤鐩告満琛ュ厜锛孶I 璺緞鏄惧紡璁句负 0
         sh.getUniform("IsSun").set(visual.isGlowing() ? 1f : 0f);
         sh.getUniform("SunVisibility").set(computeSunVisibility(params));
         applyCasterUniforms(sh, params, angle);
 
-        // 卫星地照：比自身大的投射天体作为反射光源（例如月球受地球反光）
+        // 鍗槦鍦扮収锛氭瘮鑷韩澶х殑鎶曞皠澶╀綋浣滀负鍙嶅皠鍏夋簮锛堜緥濡傛湀鐞冨彈鍦扮悆鍙嶅厜锛?
         float reflStrength = 0f;
         float prx = 0f, pry = 0f, prz = 0f;
         for (RealAstroData caster : casterBodies) {
             if (caster.radiusMeters() > radius) {
-                double[] cwp = com.mss.polymech.space.SpaceWorld.gamePos(caster);
+                // ★ 必须与天体本体**同一插值口径**（2026-09-25）：本体位置走 blockPos(data, partialTick)，
+        //   投射者若仍取 gamePos（= 物理步进原始值）就会每 tick 相对本体跳一次
+        //   —— 表现是"影子自己在天体表面上一跳一跳"。两者都用 partialTick 才自洽。
+        double[] cwp = com.mss.polymech.space.SpaceWorld.blockPos(caster, params.partialTick());
                 float cwx = (float) (cwp[0] - posX);
                 float cwy = (float) (cwp[1] - posY);
                 float cwz = (float) (cwp[2] - posZ);
@@ -950,7 +959,7 @@ public final class PlanetRenderObject {
         sh.getUniform("ParentRel").set(prx, pry, prz);
         sh.getUniform("ReflStrength").set(reflStrength);
 
-        // 环影：土星/天王星/海王星的行星环在表面投下的阴影
+        // 鐜奖锛氬湡鏄?澶╃帇鏄?娴风帇鏄熺殑琛屾槦鐜湪琛ㄩ潰鎶曚笅鐨勯槾褰?
         float ringInner = 0f, ringOuter = 0f, ringShadowStrength = 0f;
         for (PlanetLayer ring : ringLayers) {
             ringOuter = ring.radius();
@@ -992,7 +1001,7 @@ public final class PlanetRenderObject {
         sh.getUniform("SunDir").set(localSun[0], localSun[1], localSun[2]);
         sh.getUniform("ViewDir").set(localView[0], localView[1], localView[2]);
         sh.getUniform("Intensity").set(params.lighting().intensity());
-        sh.getUniform("ViewFillStrength").set(0.50f); // 云层也使用同一套太空补光
+        sh.getUniform("ViewFillStrength").set(0.50f); // 浜戝眰涔熶娇鐢ㄥ悓涓€濂楀お绌鸿ˉ鍏?
         applyCasterUniforms(sh, params, angle);
 
         RenderSystem.setShader(() -> sh);
@@ -1000,7 +1009,7 @@ public final class PlanetRenderObject {
         RenderSystem.defaultBlendFunc();
         VertexBuffer vb = getOrCreateCloudVbo(layer, cloudIdx);
         if (vb != null) {
-            // 云块有边界侧壁，关闭背面剔除避免侧壁因绕序差异被剪掉；深度测试仍会挡住背面云。
+            // 浜戝潡鏈夎竟鐣屼晶澹侊紝鍏抽棴鑳岄潰鍓旈櫎閬垮厤渚у鍥犵粫搴忓樊寮傝鍓帀锛涙繁搴︽祴璇曚粛浼氭尅浣忚儗闈簯銆?
             RenderSystem.disableCull();
             vb.bind();
             vb.drawWithShader(modelView, params.projectionMatrix(), sh);
@@ -1048,14 +1057,14 @@ public final class PlanetRenderObject {
         RenderSystem.applyModelViewMatrix();
 
         beginBodyModelView(params);
-        // 光环和赤道面共面：跟着行星轴倾一起倾斜。
+        // 鍏夌幆鍜岃丹閬撻潰鍏遍潰锛氳窡鐫€琛屾槦杞村€句竴璧峰€炬枩銆?
         modelView.rotateZ(axialTilt);
 
         float baseR = (float) radius;
         float innerR = Math.max(baseR * 1.15f, ringLayer.radius() * 0.65f);
         float outerR = ringLayer.radius();
         int bands = 24, segs = 96;
-        // 环阴影判定在环的局部系算：世界太阳方向先逆轴倾。
+        // 鐜槾褰卞垽瀹氬湪鐜殑灞€閮ㄧ郴绠楋細涓栫晫澶槼鏂瑰悜鍏堥€嗚酱鍊俱€?
         float ct = (float) Math.cos(axialTilt), st = (float) Math.sin(axialTilt);
         float sunX = ct * params.lighting().dirX() + st * params.lighting().dirY();
         float sunY = -st * params.lighting().dirX() + ct * params.lighting().dirY();
@@ -1121,7 +1130,7 @@ public final class PlanetRenderObject {
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
     }
 
-    /** 环上一点是否落在行星本影里。返回 0..1 阴影因子。 */
+    /** 鐜笂涓€鐐规槸鍚﹁惤鍦ㄨ鏄熸湰褰遍噷銆傝繑鍥?0..1 闃村奖鍥犲瓙銆?*/
     private static float ringShadowFactor(float x, float z, float sunX, float sunY, float sunZ, float baseR) {
         float dotP = x * sunX + z * sunZ;
         float t = -dotP;
@@ -1140,7 +1149,7 @@ public final class PlanetRenderObject {
         normalize(dx, dy, dz, viewDir);
     }
 
-    /** 绕 Y 轴旋转一个方向/位置向量（与 modelView.rotateY 同侧手性）。 */
+    /** 缁?Y 杞存棆杞竴涓柟鍚?浣嶇疆鍚戦噺锛堜笌 modelView.rotateY 鍚屼晶鎵嬫€э級銆?*/
     private static void rotateY(float x, float y, float z, float angle, float[] out) {
         float c = (float) Math.cos(angle);
         float s = (float) Math.sin(angle);
@@ -1150,9 +1159,9 @@ public final class PlanetRenderObject {
     }
 
     /**
-     * 世界方向/相对位置 -> 星球局部系。
-     * 与 BASE/CLOUD 的 modelView 顺序对应：先绕 Z 轴轴倾，再绕 Y 轴自转。
-     * 逆变换顺序为 R_y(-angle) * R_z(-tilt)。
+     * 涓栫晫鏂瑰悜/鐩稿浣嶇疆 -> 鏄熺悆灞€閮ㄧ郴銆?
+     * 涓?BASE/CLOUD 鐨?modelView 椤哄簭瀵瑰簲锛氬厛缁?Z 杞磋酱鍊撅紝鍐嶇粫 Y 杞磋嚜杞€?
+     * 閫嗗彉鎹㈤『搴忎负 R_y(-angle) * R_z(-tilt)銆?
      */
     private static void worldToLocalDirection(float x, float y, float z,
                                               float angle, float tilt, float[] out) {

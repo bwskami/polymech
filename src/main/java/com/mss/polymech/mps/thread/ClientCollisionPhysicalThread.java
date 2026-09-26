@@ -66,8 +66,13 @@ public abstract class ClientCollisionPhysicalThread {
         }
 
         if (alreadyRunning) {
-            Polymech.LOGGER.error("[MPS] [Physic] [step] 已存在同名线程，拒绝重复启动！"
-                    + "重复启动会把物理世界每步推进两次。");
+            // 这不是故障，是**预期**的重发：space 0.1.3 的线程同样跨维度常驻，
+            // 只在整个客户端退出世界时 stop（org.deep_space_studio.space.client.ClientWorldCleanup 只挂 LoggingOut），
+            // 而服务端每次 EntityJoinLevelEvent（含换维度）都会重发 SyncPhysicalThreadStart ⇒ 第二次必然撞名。
+            // space 在这里打的也是 ERROR（"Can't create new thread! There is a thread with the same name…"）；
+            // 我们保留完全相同的"拒绝重复启动"语义，只把级别降为 WARN，免得它掩盖真正的错误。
+            Polymech.LOGGER.warn("[MPS] [Physic] [step] 已存在同名线程，忽略本次重复启动"
+                    + "（换维度会重发启动包，而步进线程跨维度常驻；只有真的起两个才会把物理世界每步推进两次）");
             return;
         }
 

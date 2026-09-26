@@ -3,6 +3,8 @@ package com.mss.polymech.physics;
 import com.mss.polymech.network.PhysicsBodyBlockEntityPacket;
 import com.mss.polymech.network.PhysicsBodyMoveBatchPacket;
 import com.mss.polymech.network.PhysicsBodySyncPacket;
+import com.mss.polymech.space.SpaceScaleMigration;
+import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceKey;
@@ -845,6 +847,28 @@ public final class PhysicsBodyTracker {
             if (world <= 0) {
                 continue;
             }
+
+            // 旧 ZOOM 尺度迁移（缺口1）：太空维度翻恒等（见 docs/mps-clone-plan.md §31.7）之前
+            // 存下来的刚体坐标是 ÷10000 的旧尺度。判据与玩家迁移**共用同一个函数**
+            // （SpaceScaleMigration.looksLikeLegacyScale），否则会出现"人搬了、船没搬"——
+            // 那比完全不搬更糟（§30.14）。搬完立刻回写存档，只迁一次。
+            double ex = entry.x();
+            double ey = entry.y();
+            double ez = entry.z();
+            if (SpaceScaleMigration.looksLikeLegacyScale(level, ex, ez)) {
+                ex *= SpaceWorld.ZOOM;
+                ey *= SpaceWorld.ZOOM;
+                ez *= SpaceWorld.ZOOM;
+                saved.put(new PhysicsBodySavedData.Entry(entry.id(), entry.dimension(),
+                        ex, ey, ez, entry.qx(), entry.qy(), entry.qz(), entry.qw(),
+                        entry.vx(), entry.vy(), entry.vz(), entry.avx(), entry.avy(), entry.avz(),
+                        entry.membership(), entry.filter(), entry.slot(), entry.blocks()));
+                LOGGER.warn("[坐标迁移] 物理体 {} 在太空维度检测到 ZOOM 尺度旧坐标 ({}, {}, {})（最近天体 {}）⇒ ×{} 搬到 ({}, {}, {})",
+                        entry.id(), entry.x(), entry.y(), entry.z(),
+                        String.format(java.util.Locale.ROOT, "%.3e",
+                                SpaceScaleMigration.nearestBodyDistance(entry.x(), entry.z())),
+                        (long) SpaceWorld.ZOOM, ex, ey, ez);
+            }
             List<PhysicsBodySyncPacket.BlockEntry> blocks = new ArrayList<>();
             List<Long> cells = new ArrayList<>();
             int[] packed = entry.blocks();
@@ -898,7 +922,7 @@ public final class PhysicsBodyTracker {
                 }
                 if (newlyAssigned) {
                     saved.put(new PhysicsBodySavedData.Entry(entry.id(), entry.dimension(),
-                            entry.x(), entry.y(), entry.z(),
+                            ex, ey, ez,
                             entry.qx(), entry.qy(), entry.qz(), entry.qw(),
                             entry.vx(), entry.vy(), entry.vz(),
                             entry.avx(), entry.avy(), entry.avz(),
@@ -908,7 +932,7 @@ public final class PhysicsBodyTracker {
 
             // 冻结为固定体：无人时不会被重力带走
             long body = NativePhysics.bodyCreate(world, NativePhysics.BODY_FIXED,
-                    entry.x(), entry.y(), entry.z(),
+                    ex, ey, ez,
                     entry.qx(), entry.qy(), entry.qz(), entry.qw(), 0.0);
             if (body <= 0) {
                 continue;
@@ -947,8 +971,8 @@ public final class PhysicsBodyTracker {
             motion[3] = entry.avx();
             motion[4] = entry.avy();
             motion[5] = entry.avz();
-            TrackedBody tracked = new TrackedBody(level, body, BlockPos.containing(entry.x(), entry.y(), entry.z()),
-                    blocks, entry.x(), entry.y(), entry.z(),
+            TrackedBody tracked = new TrackedBody(level, body, BlockPos.containing(ex, ey, ez),
+                    blocks, ex, ey, ez,
                     entry.qx(), entry.qy(), entry.qz(), entry.qw(), true);
             BODIES.put(entry.id(), tracked);
             restored++;

@@ -68,12 +68,27 @@ public final class PlanetRenderObjectFactory {
      * 不产生任何行为差异。</p>
      */
     public static void refreshPositions() {
+        refreshPositions(1.0f);
+    }
+
+    /**
+     * 太空维度渲染用的<b>插值</b>版本（2026-09-25 新增）。
+     *
+     * <p>原来只走 {@link SpaceWorld#gamePos}（= {@code blockPos} → {@code getPos()}，物理步进的原始值），
+     * <b>完全没有插值</b>：物理 20Hz / 渲染 60fps ⇒ 天体一个 tick 跳一次。
+     * 地表那条路（{@link #refreshPositionsFromCelestial(float)}）一直是对的，太空这条一直是漏的，
+     * 所以症状只在太空维度出现（用户 2026-09-25："太空维度里的星球移动还是不够流畅"）。
+     * 天体速度是真实轨道速度 × 71.8 倍时间（地球每 tick 108.2 km），不插值就是肉眼可见的台阶。</p>
+     *
+     * @param partialTick 与本帧相机同一来源的插值系数（无参重载传 1.0 = 取当前位置）
+     */
+    public static void refreshPositions(float partialTick) {
         for (PlanetRenderObject object : BODIES) {
             RealAstroData data = RealAstroData.byId(object.planetName());
             if (data == null) {
                 continue;
             }
-            double[] pos = SpaceWorld.gamePos(data);
+            double[] pos = SpaceWorld.blockPos(data, partialTick);
             object.updatePosition(pos[0], pos[1], pos[2]);
         }
     }

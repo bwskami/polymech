@@ -222,6 +222,35 @@ public final class SpaceWorld {
     }
 
     /**
+     * 方块口径的<b>插值</b>版本（2026-09-25 新增）—— 太空维度渲染用它。
+     *
+     * <h2>为什么必须补这一版</h2>
+     * 地表维度的渲染走 {@link #renderPos(RealAstroData, float)}（含 {@code getSmoothPos} 插值），
+     * 而<b>太空维度</b>走的是 {@link #blockPos(RealAstroData)} → {@code kelvinPos} → {@code getPos()}，
+     * 也就是<b>物理步进后的原始值、完全没有插值</b>。物理是 20Hz、渲染是 60fps，
+     * 于是太空里天体的位置只在每个 tick 跳一次 —— 用户实机看到的就是"太空维度里的星球移动不够流畅"。
+     *
+     * <p>数值有多大：天体走的是<b>真实轨道速度 × 71.8 倍时间</b>。地球 30.15 km/s
+     * ⇒ 每 tick 位移 <b>108.2 km</b>。近地观察时这是肉眼可见的台阶（十几像素一跳），
+     * 插值之后才连续。Y 仍按方块口径压平（理由见 {@link #blockPos(RealAstroData)} 的注释：
+     * 真实 Y 跨度会把天体扔出维度高度、且会让 {@code gamePos} 的口径不一致）。</p>
+     *
+     * @param partialTick 与本帧相机同一来源的插值系数
+     */
+    public static double[] blockPos(RealAstroData b, float partialTick) {
+        double[] base = staticGamePos(b);
+        CelestialBody body = kelvinBody(b);
+        if (body == null) {
+            return base;
+        }
+        Vector3d p = body.getSmoothPos(partialTick);
+        if (p == null || !p.isFinite()) {
+            return blockPos(b);
+        }
+        return new double[]{p.x(), base[1], p.z()};
+    }
+
+    /**
      * <b>渲染口径</b>（米，宇宙系）：天体的<b>真实三维位姿</b>（含真实 Y）。
      *
      * <p><b>给谁用</b>：天体渲染、光照/阴影投射、头盔 HUD、星图。它们都只把结果喂给

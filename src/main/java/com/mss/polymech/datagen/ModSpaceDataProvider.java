@@ -60,8 +60,11 @@ import java.util.concurrent.CompletableFuture;
  *       与摩尔质量等大气模型参数，我方没有自采数据；照抄 space 的数值等于照抄它的数据集。
  *       后果：{@code Planet.getAtmosphericHeight()} 保持 -1，
  *       {@code Meteoroid} 的"是否进入大气"恒为假，流星不会烧蚀 —— 待补。</li>
- *   <li><b>{@code rotate}</b> 发单位四元数、<b>{@code rotate_speed}</b> 不发（=0）：
- *       没有自有的自转轴倾角与自转速率数据。后果：天体不自转（纯观感，不影响轨道）。</li>
+ *   <li><b>{@code rotate}</b> 仍发单位四元数（自转轴倾角<b>待补</b>：要先把 space 的 {@code rotate}
+ *       四元数约定反推清楚，否则倾角方向会错、季节跟着错）；
+ *       <b>{@code rotate_speed}</b> 本轮已按公开天文常数补上（
+ *       {@link RealAstroData#rotateSpeedRadPerSec()}）。修复的后果：行星会自转，
+ *       地表天空的太阳不再钉死在地平线上（详见 {@link RealAstroData} 里那张表的说明）。</li>
  *   <li><b>{@code texture}</b> 必须发（读取端会直接 {@code getAsString()}，缺了会 NPE），
  *       但发的是<b>占位路径</b> {@code poly_mech:textures/celestial_body/planet/&lt;id&gt;/surface.png}：
  *       本项目的行星由着色器程序化渲染，目前没有运行时消费者读这个字段。</li>
@@ -145,12 +148,14 @@ public class ModSpaceDataProvider implements DataProvider {
         json.addProperty("scale", body.radiusMeters());
         json.addProperty("carmen_line_height", body.carmenLineHeightMeters());
         json.add("pos", vec3(body.posX(), body.posY(), body.posZ()));
-        // 无自有自转轴数据 → 单位四元数（见类注释）
+        // 自转轴倾角：用**真实黄赤交角**自己构造（不抄 space 那份数据，理由见 RealAstroData#rotateQuaternion）。
+        // 约定按我们的映射：R_body · Y = 真实北极方向（space = R_body⁻¹·v + bodyPos）。
+        double[] rot = body.rotateQuaternion();
         JsonArray rotate = new JsonArray();
-        rotate.add(0.0);
-        rotate.add(0.0);
-        rotate.add(0.0);
-        rotate.add(1.0);
+        rotate.add(rot[0]);
+        rotate.add(rot[1]);
+        rotate.add(rot[2]);
+        rotate.add(rot[3]);
         json.add("rotate", rotate);
 
         if (star) {
@@ -171,7 +176,10 @@ public class ModSpaceDataProvider implements DataProvider {
 
         json.addProperty("mass", body.massKg());
         json.add("speed", vec3(velocity[0], velocity[1], velocity[2]));
-        json.addProperty("rotate_speed", 0.0);
+        // 自转速率：照 space 0.1.3 的做法发**真实值**（见 RealAstroData#rotateSpeedRadPerSec）。
+        // 没有它行星不转 ⇒ 地表"上方向"（= 从行星中心指向该点的径向）在惯性空间里冻住
+        // ⇒ 天空里太阳的高度角是个常数：大白天也会看到太阳吊在地平线下（2026-09 实机现象）。
+        json.addProperty("rotate_speed", body.rotateSpeedRadPerSec());
         json.addProperty("compute", true);
         return json;
     }
@@ -219,17 +227,32 @@ public class ModSpaceDataProvider implements DataProvider {
             return circularVelocity(body.posX(), body.posY(), body.posZ(), RealAstroData.SUN.massKg());
         }
 
-        // 卫星：母星速度 + 绕母星的圆轨道速度（本轮不改）
-        double[] parentVelocity = velocities.get(parent.id());
-        double[] relative = circularVelocity(
-                body.posX() - parent.posX(),
-                body.posY() - parent.posY(),
-                body.posZ() - parent.posZ(),
+        // 卫星：母星速度 + 绕**母星赤道面**的圆轨道速度（§31.13）。
+        // 必须与 RealAstroData.ofSatellite 的位置**同时**改：位置在赤道面、速度在黄道面会得到
+        // 不自洽的轨道（比不改更糟）。做法是把相对位置旋进"母星赤道系"（那里极轴 = +Y），
+        // 用既有的 circularVelocity 取顺行圆速度，再旋回宇宙系 —— 顺行由既有函数保证，
+        // 不必自己抄一遍引力常数。ε 与位置那边同一规则：月球取 0（轨道近黄道面）。
+        double eps = Math.toRadians("moon".equals(body.id()) ? 0.0 : parent.axialTiltDeg());
+        double ce = Math.cos(eps);
+        double se = Math.sin(eps);
+        double relX = body.posX() - parent.posX();
+        double relY = body.posY() - parent.posY();
+        double relZ = body.posZ() - parent.posZ();
+        // 宇宙系 → 赤道系：R_x(−ε)。位置按构造满足 relY·cosε + relZ·sinε ≡ 0 ⇒ 该系里 y = 0
+        double[] velocityEq = circularVelocity(relX, relY * ce + relZ * se, -relY * se + relZ * ce,
                 parent.massKg());
+        // ⚠️ 2026-09-22 验收抓到的旧账：circularVelocity 返回的方向是**逆行**的
+        // （实测 轨道法向·母星极轴 = −1.00000000）。此前只验过"周期误差 0.01~0.05%"、
+        // 从没验过方向 ⇒ 卫星一直绕着母星倒着转。这里取负号纠正为顺行（L ∝ +极轴）。
+        for (int k = 0; k < 3; k++) {
+            velocityEq[k] = -velocityEq[k];
+        }
+        double[] parentVelocity = velocities.get(parent.id());
+        // 赤道系 → 宇宙系：R_x(+ε)
         return new double[]{
-                parentVelocity[0] + relative[0],
-                parentVelocity[1] + relative[1],
-                parentVelocity[2] + relative[2]};
+                parentVelocity[0] + velocityEq[0],
+                parentVelocity[1] + (velocityEq[1] * ce - velocityEq[2] * se),
+                parentVelocity[2] + (velocityEq[1] * se + velocityEq[2] * ce)};
     }
 
     /** 一个天文单位（米）。 */

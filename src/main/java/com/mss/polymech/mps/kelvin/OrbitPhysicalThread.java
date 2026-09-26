@@ -94,6 +94,20 @@ public abstract class OrbitPhysicalThread {
      * 所以运行中改它立刻生效，两条积分路径（原生 / 纯 Java 兜底）都吃到新值。</p>
      */
     public static volatile double core_tick_time = 0.72;
+
+    /**
+     * 天体**时间尺度**（唯一来源）：让"天体的一天" = **原版的一天 = 20 分钟**（用户 2026-09-22 拍板）。
+     *
+     * <p>原版一天 = {@code Level.TICKS_PER_DAY = 24000} tick @20 tps = 1200 秒；
+     * 现实地球自转 = 86164 秒 ⇒ 倍率 = 86164 / 1200 = 71.8033。</p>
+     *
+     * <p><b>为什么必须是常量而不是各处硬写</b>：{@code /polymech kelvin speed <倍率>} 的语义是
+     * "相对<b>默认尺度</b>的倍率"（{@code speed 1} = 默认 71.8×、{@code speed 2} = 143.6×）。
+     * 命令里若自己再乘一遍 {@code Config.CORE_TICK_TIME}，{@code speed 1} 会把默认悄悄拉回 1×。</p>
+     */
+    public static double timeScale() {
+        return 86164.0 / 1200.0;
+    }
     /** 暂停开关，由 {@code /polymech kelvin pause <bool>} 改。 */
     public static volatile boolean pause = false;
     private static int tick_record;
@@ -123,7 +137,16 @@ public abstract class OrbitPhysicalThread {
         }
 
         core_tick_speed = Config.CORE_TICK_SPEED.get();
-        core_tick_time = Config.CORE_TICK_TIME.get();
+        // 天体**时间尺度**（用户 2026-09-22 拍板）：让"天体的一天" = **原版的一天 = 20 分钟**。
+        //   原版一天 = 24000 tick @20 tps = 1200 秒（见 Level.TICKS_PER_DAY）；
+        //   现实地球自转 = 86164 秒 ⇒ 倍率 = 86164 / 1200 = 71.8。
+        // 于是：地球自转 20.0 分钟一轮（与原版昼夜同长）、月球公转 27.32 d ⇒ 9.13 小时、
+        //       地球公转 365.25 d ⇒ 5.09 天。
+        // 其它一切天体量（半长轴/偏心率/倾角/升交点、自转轴倾角、真实自转速率）都保持现实值，
+        // **只把"时间"这一个量缩放**。
+        // ⚠️ 绝不能改 Config.CORE_TICK_TIME —— 那是 MPS 碰撞物理与 kelvin 共用的基准 dt，
+        //    改它会把碰撞步长一起改掉；倍率只在这里乘。
+        core_tick_time = Config.CORE_TICK_TIME.get() * timeScale();
         pause = false;
         simulatedSeconds = 0.0;
         timer = new Timer("OrbitPhysicalThread");

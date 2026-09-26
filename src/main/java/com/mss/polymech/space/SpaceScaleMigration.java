@@ -2,6 +2,7 @@ package com.mss.polymech.space;
 
 import com.mss.polymech.Polymech;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -54,32 +55,69 @@ public final class SpaceScaleMigration {
     }
 
     private static void migrate(ServerPlayer player) {
-        if (!SpaceWorld.identityMode()) {
-            return; // 旧约定下存档本来就是旧尺度，不需要搬
-        }
-        if (!SpaceWorld.isSpace(player.level())) {
-            return;
-        }
         double x = player.getX();
         double y = player.getY();
         double z = player.getZ();
-        if (Math.max(Math.abs(x), Math.abs(z)) >= 3.0e7) {
-            return; // 已经在米尺度（远离原点）
-        }
-        double nearest = Double.MAX_VALUE;
-        for (RealAstroData b : RealAstroData.BODIES) {
-            double[] p = SpaceWorld.gamePos(b);
-            nearest = Math.min(nearest, Math.hypot(p[0] - x, p[2] - z));
-        }
-        if (nearest < 1.0e8) {
-            return; // 本来就贴着某颗天体 ⇒ 是正常落点，别动它
+        if (!looksLikeLegacyScale(player.level(), x, z)) {
+            return;
         }
         double nx = x * SpaceWorld.ZOOM;
         double ny = y * SpaceWorld.ZOOM;
         double nz = z * SpaceWorld.ZOOM;
         player.teleportTo(nx, ny, nz);
         Polymech.LOGGER.warn("[坐标迁移] 太空维度检测到 ZOOM 尺度旧坐标 ({}, {}, {})（最近天体 {}) ⇒ ×{} 搬到 ({}, {}, {})",
-                x, y, z, String.format(java.util.Locale.ROOT, "%.3e", nearest),
+                x, y, z, String.format(java.util.Locale.ROOT, "%.3e", nearestBodyDistance(x, z)),
                 (long) SpaceWorld.ZOOM, nx, ny, nz);
+    }
+
+    /**
+     * 判据本体：**玩家与物理体共用这一个**（避免两处判据各自演化而漂移）。
+     *
+     * <p>两条同时成立才算"旧尺度"：</p>
+     * <ol>
+     *   <li>{@code max(|x|,|z|) < 3.0e7} —— 米尺度下"靠近任何天体"必然 ≥1e8，所以小坐标是旧尺度的强特征；</li>
+     *   <li>到最近天体的距离 {@code ≥1.0e8} —— 正常落点总是紧贴某颗天体，所以"离所有天体都极远"只可能是旧尺度。</li>
+     * </ol>
+     *
+     * <p>反例（为什么不能只看"坐标小"）：太空维度里<b>原点附近也有正常的小坐标区域</b>——
+     * 22 日实机日志里就有一条 {@code [太空阴影] ... 实体=ItemEntity，世界坐标=(-1.33, -59.6, -0.47)}。
+     * 它没有被误判，靠的正是第二条判据：<b>太阳就在原点</b>（{@code sun gamePos(格)=(0,0,0)}），
+     * 到它的距离只有约 1.4 ⇒ 判定"紧贴天体"、不搬。
+     * 也就是说这两条判据是<b>配对</b>的，单独任何一条都会误伤。</p>
+     */
+    public static boolean looksLikeLegacyScale(Level level, double x, double z) {
+        return looksLikeLegacyScale(SpaceWorld.identityMode(), SpaceWorld.isSpace(level), x, z,
+                nearestBodyDistance(x, z));
+    }
+
+    /**
+     * 判据的<b>纯函数部分</b>（不碰 {@code Level} 与天文数据表），便于离线复核与将来做回归。
+     *
+     * <p>注意"验算 ≠ 回归"：离线只能验算这几条阈值的取值方向，
+     * 真正接上游戏的那条路径（{@link Level} / {@code RealAstroData} / 存档读写）仍必须实机确认。</p>
+     *
+     * @param identityMode 当前是否为恒等约定（{@code false} 说明还是旧 ZOOM 约定，存档本来就是旧尺度）
+     * @param spaceDim     该坐标所在维度是否为太空世界
+     * @param nearestBodyDistance 到最近天体（含原点处的太阳）的水平距离
+     */
+    public static boolean looksLikeLegacyScale(boolean identityMode, boolean spaceDim,
+                                               double x, double z, double nearestBodyDistance) {
+        if (!identityMode || !spaceDim) {
+            return false;
+        }
+        if (Math.max(Math.abs(x), Math.abs(z)) >= 3.0e7) {
+            return false; // 已经在米尺度（远离原点）
+        }
+        return nearestBodyDistance >= 1.0e8;
+    }
+
+    /** 到最近天体的水平距离（米），供判据与日志共用。 */
+    public static double nearestBodyDistance(double x, double z) {
+        double nearest = Double.MAX_VALUE;
+        for (RealAstroData b : RealAstroData.BODIES) {
+            double[] p = SpaceWorld.gamePos(b);
+            nearest = Math.min(nearest, Math.hypot(p[0] - x, p[2] - z));
+        }
+        return nearest;
     }
 }

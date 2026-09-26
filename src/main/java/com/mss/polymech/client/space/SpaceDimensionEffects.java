@@ -30,7 +30,13 @@ public class SpaceDimensionEffects extends DimensionSpecialEffects {
     private static final boolean DEFER_SKYBOX_TO_RENDERER = false;
 
     public SpaceDimensionEffects() {
-        super(192.0f, false, SkyType.NONE, false, false);
+        // ⚠️ 必须是 NORMAL 而不是 NONE（2026-09-25 用户拍板）：
+        //   NONE 让原版 `LevelRenderer.renderSky` 既不进 END 分支也不进 NORMAL 分支 ⇒
+        //   天幕渐变、日落红染、星空**全部**没有，地表天空只剩一个平坦的雾色 —— 用户的评价是
+        //   "天空太干净了"。NORMAL 把原版天空（含渐变与星空）放回来，我们只**单独掐掉原版日月**
+        //   （见 mixin/LevelRendererCelestialSkyMixin），这样天上就只有我们自己的真实天体。
+        //   太空维度不受影响：本类的 renderSky 在太空维度返回 true，直接跳过原版天空。
+        super(192.0f, false, SkyType.NORMAL, false, false);
     }
 
     @Override

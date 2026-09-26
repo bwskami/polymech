@@ -50,6 +50,24 @@ public class ClientSpaceWorld extends SpaceWorld {
         bufferSpaceWorld = null;
     }
 
+    /**
+     * 位姿搬运次数 / 最后一次搬运的时刻（诊断用：见 {@link #getPoseCopyCount()}）。
+     *
+     * <p>刻意只放"无初始化器的静态 long"（默认 0，不产生 {@code <clinit>}）。</p>
+     */
+    private static long poseCopyCount = 0L;
+    private static long lastPoseCopyNanos = 0L;
+
+    /** 诊断用：累计位姿搬运次数。每帧都搬 ⇒ 这个数的增速 ≈ 帧率×天体数；每 tick 搬 ⇒ ≈ 20×天体数。 */
+    public static long getPoseCopyCount() {
+        return poseCopyCount;
+    }
+
+    /** 诊断用：最后一次真正搬运的时刻（{@link System#nanoTime()}）。 */
+    public static long getLastPoseCopyNanos() {
+        return lastPoseCopyNanos;
+    }
+
     /** 每帧渲染前：flush 缓冲区 → 把缓冲区的位姿整体拷进显示世界。 */
     public static void syncMoveData() {
         if (bufferSpaceWorld != null) {
@@ -59,8 +77,30 @@ public class ClientSpaceWorld extends SpaceWorld {
         for (CelestialBody celestialBody : spaceWorld.getAllCelestialBody()) {
             CelestialBody bufferCelestialBody = bufferSpaceWorld.getCelestialBody(celestialBody.getName());
             if (bufferCelestialBody != null) {
-                celestialBody.moveToDirect(bufferCelestialBody.getPos());
-                celestialBody.rotateToDirect(bufferCelestialBody.getRotate());
+                // ★★ 只在缓冲区**真的变了**的时候才搬 —— 本项目对 space 0.1.3 的**有意偏离**。
+                //
+                // 【为什么必须加这个判断】moveToDirect 的第一件事是 `old_pos.set(pos)`：
+                // 它把"上一帧的位置"推平成"当前帧的位置"。而 syncMoveData 是**每帧**被调的
+                // （space 在 SpaceRenderer.init 每帧一次；我们另有 ClientPhysicsDriver 每 tick 一次），
+                // 网络包却只有**每 tick**一份。于是同一个包值被反复搬进去：
+                //   第 1 帧：old_pos = P(t−1), pos = P(t)      ← 插值还有救
+                //   第 2 帧起：old_pos = P(t), pos = P(t)      ← 被推平了
+                // 从此 `getSmoothPos` 的 `lerp(old_pos, pos, partialTick)` 恒等于 `pos`，
+                // **插值完全失效**，天体只能在包到达的那一瞬跳一格 —— 用户看到的"跟抽帧一样"。
+                // 注意本类 javadoc 声明的设计就是"突变只发生在同步点，同步点之间交给 getSmoothPos"，
+                // 即**实现把自己的前提拆掉了**；这个 if 只是把前言与实现重新对齐。
+                //
+                // 【这是偏离，不是"修正抄错"】：space 0.1.3 同样每帧调用
+                // （decompiled-space/0.1.3/.../SpaceRenderer.java:106）、moveToDirect 同形 ⇒ 它也一样跳。
+                // 依据是它自己写下的意图；若要回到逐字同形，把这个 if 去掉即可（其余一字不改）。
+                // 影响面仅限**渲染采样**：显示世界是纯客户端影子，不参与任何权威状态。
+                if (!celestialBody.getPos().equals(bufferCelestialBody.getPos(), 1.0e-9)
+                        || !celestialBody.getRotate().equals(bufferCelestialBody.getRotate(), 1.0e-9)) {
+                    celestialBody.moveToDirect(bufferCelestialBody.getPos());
+                    celestialBody.rotateToDirect(bufferCelestialBody.getRotate());
+                    poseCopyCount++;
+                    lastPoseCopyNanos = System.nanoTime();
+                }
             }
         }
     }

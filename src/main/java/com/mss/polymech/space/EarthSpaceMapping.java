@@ -47,11 +47,14 @@ public final class EarthSpaceMapping {
 
     /** 主世界坐标 → 真实太空坐标。 */
     public static double[] worldToSpace(double x, double y, double z, double seconds) {
-        x = -x;
+        // ★ 2026-09-22：与 CelestialWorld.getSpacePosFromWorldPos 同步（§31.15）——
+        //   **天空必须与 MC 的东西南北对应**：经度 ← 世界 +X(东)、纬度 ← −世界 +Z(南)，
+        //   并去掉原来的 x=-x 镜像。两条映射必须同改，否则"飞上太空的落点"与"天空朝向"差 90°。
         double dx = x - CENTER_X;
         double dz = z - CENTER_Z;
-        double latitude = dx / LONGITUDE_LENGTH * (Math.PI / 2);
-        double longitude = dz / LONGITUDE_LENGTH * (Math.PI / 2);
+        // 经度取负：物理东 = 极轴 × 上方向 在 lon=0 处指向 −Z ⇒ 经度增大方向是"西"（见 §31.15）。
+        double longitude = -dx / LONGITUDE_LENGTH * (Math.PI / 2);
+        double latitude = -dz / LONGITUDE_LENGTH * (Math.PI / 2);
         double heightRatio = (y - MIN_Y) / (HEIGHT - MIN_Y);
         double surfaceRadius = RealAstroData.EARTH.radiusMeters()
                 + heightRatio * RealAstroData.EARTH.carmenLineHeightMeters();
@@ -90,8 +93,9 @@ public final class EarthSpaceMapping {
         }
         double latitude = Math.asin(relY / r);
         double longitude = Math.atan2(relZ, relX);
-        double x0 = latitude / (Math.PI / 2) * LONGITUDE_LENGTH;
-        double z0 = longitude / (Math.PI / 2) * LONGITUDE_LENGTH;
+        // 与 worldToSpace 同一约定：世界 X ← −经度、世界 Z ← −纬度。
+        double x0 = -longitude / (Math.PI / 2) * LONGITUDE_LENGTH;
+        double z0 = -latitude / (Math.PI / 2) * LONGITUDE_LENGTH;
         double worldX = x0 + CENTER_X;
         double worldZ = z0 + CENTER_Z;
         double worldY = MIN_Y
