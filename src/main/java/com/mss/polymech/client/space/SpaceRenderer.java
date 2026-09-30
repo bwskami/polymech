@@ -398,6 +398,10 @@ public final class SpaceRenderer {
             }
 
         } finally {
+            // 绘制目标也要兜底绑回主缓冲：正常情况下合成那一步已经绑回来了，
+            // 但天体 pass 中途抛异常时会停在天体缓冲上 —— 那会让**后续 MC 渲染画到错误的 FBO**。
+            // 主缓冲本来就是进入本方法前的状态，绑回去是"恢复原状"而不是改动。
+            mainTarget.bindWrite(false);
             mvs.popMatrix();
             RenderSystem.applyModelViewMatrix();
             RenderSystem.setProjectionMatrix(oldProj, VertexSorting.DISTANCE_TO_ORIGIN);
