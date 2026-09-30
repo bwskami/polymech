@@ -238,6 +238,15 @@ public final class SpaceRenderer {
                 GlStateManager._clearDepth(0.0);            // 反向 Z：0.0 = 无穷远
                 GlStateManager._clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
                 GlStateManager._depthFunc(GL11.GL_GEQUAL);  // 反向 Z：近 ⇒ 深度大 ⇒ 用 GEQUAL
+                // ★★ 上面那次 blit 走的是 PostPass。**已核对 MC 1.21.1 源码**
+                //   （neoforge-21.1.228-sources.jar: net/minecraft/client/renderer/PostPass.java）：
+                //   process() 只设自己 effect 的 ProjMat **uniform**，**不动** GL 投影矩阵、
+                //   也不动模型视图栈；它还会把 depthFunc 临时改成 519(ALWAYS) 再还原 515(LEQUAL)。
+                //   所以下面两行不是必需的 —— 留着是防 MC 版本变化的廉价保险：
+                //   天体是"用 spaceProj + 这个 view"画的，矩阵被换掉就会整层画错。
+                RenderSystem.setProjectionMatrix(spaceProj, VertexSorting.DISTANCE_TO_ORIGIN);
+                mvs.set(view);
+                RenderSystem.applyModelViewMatrix();
             } else {
                 // 地表维度维持原样（天体直接画进主缓冲）：那里天体在真实天文距离上、深度≈1.0，
                 // 挡不住任何地形，而且后处理不在这条路上跑。
@@ -369,10 +378,18 @@ public final class SpaceRenderer {
                 //   两套 Z 约定从不混进同一张缓冲，所以世界几何体（含物理体）照常画在天体上面。
                 //   这正是 space 用 spaceRenderTarget 换来的效果：不再需要"画完把主深度清一遍"
                 //   那种补丁（第十一轮的权宜之计，本轮删除）。
+                //
+                // ⚠ 合成前必须 **depthMask(false)**：PostPass.process 画那个全屏四边形时
+                //   只把 depthFunc 临时改成 519(ALWAYS)、**不动 depthMask**（已核对 1.21.1 源码），
+                //   所以 depthMask 为 true 时它会往主深度里写下 ~0.5 ⇒ 之后整个世界几何体
+                //   都过不了 LEQUAL ⇒ 地形和物理体全部看不见。两条现成的后处理链
+                //   （star_bloom / atmosphere）也是这么做的：blit 前一律 depthMask(false)。
                 GlStateManager._depthFunc(GL11.GL_LEQUAL);
+                RenderSystem.depthMask(false);
                 mainTarget.bindWrite(false);
                 spaceBlitPass.process(partialTick);
                 mainTarget.bindWrite(false);
+                RenderSystem.depthMask(true);
                 // 后处理拿天体层深度去比"世界 vs 天体"谁更近（SpaceDepthSampler）。
                 spaceSkyDepthTexture = spaceRenderTarget.getDepthTextureId();
             } else {
@@ -389,6 +406,9 @@ public final class SpaceRenderer {
             //   不恢复就会让**后续整个世界渲染**在 GEQUAL 下与 1.0 比较 —— 什么都通不过 ⇒ 黑屏。
             //   放在 finally 里，与 depthMask/enableDepthTest 同级。
             GlStateManager._depthFunc(GL11.GL_LEQUAL);
+            // 同理复位 clearDepth：天体缓冲要清成 0.0，那个值留在全局状态里是不该带出本方法的。
+            // （RenderTarget.clear 自己会把它设回 1.0，所以这只是"离开时恢复原状"的纪律。）
+            RenderSystem.clearDepth(1.0f);
             RenderSystem.depthMask(true);
             RenderSystem.enableDepthTest();
             RenderSystem.enableCull();

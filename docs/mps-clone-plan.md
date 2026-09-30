@@ -4141,6 +4141,24 @@ MC 主投影(正常 Z, near=0.05, far=F) : depth = (0.05/(F-0.05))·(F/z − 1)
   两者在本项目几何下**等价**（世界 ≤ 512 格，天体压缩后恒 ≥ 16384 m ⇒ 世界永远更近），
   但前者少绑一张纹理、少一次比较。行星遮挡仍走角空间解析判定。
 
+**实现陷阱（两个都会真出"黑屏"，都是从 MC 源码里核出来的，不是猜的）**
+
+> **先记一条方法论**：**MC 的源码就在本机，可以直接查**
+> —— `build\moddev\artifacts\neoforge-21.1.228-sources.jar`（NeoForge 的 sources jar，
+> 含 `net/minecraft/**` 与 `com/mojang/blaze3d/**` 的**可读 .java**）。
+> 用 `System.IO.Compression.ZipFile` 按路径取出来即可。
+> 本轮就是靠它把 `PostPass.process` 与 `RenderTarget.clear` 的**逐行行为**读明白的 ——
+> 这类"MC 内部到底动不动我的 GL 状态"的问题，读反编译/凭经验都容易错。
+
+| # | 陷阱 | 后果 | 处理 |
+|---|---|---|---|
+| 1 | `PostPass.process` 画全屏四边形时只把 `depthFunc` 临时改成 **519(ALWAYS)** 再还原 515(LEQUAL)，**完全不动 `depthMask`** | 合成前若 `depthMask=true`，那个四边形会往**主深度**里写下 ~0.5 ⇒ 之后整个世界几何体都过不了 LEQUAL ⇒ **地形和物理体全部看不见** | 合成前显式 `RenderSystem.depthMask(false)`（两条现成后处理链也是这么做的） |
+| 2 | `RenderTarget.clear` 固定用 `_clearDepth(1.0)`，且**颜色+深度一起清** | ① 拷贝 blit 会把天体缓冲深度清成 **1.0**（不是 0.0）⇒ 必须在之后显式清 0.0（本实现确实这么做了，顺序不能反）；② 合成 blit 会把**主缓冲深度清回 1.0** —— 这正是我们要的干净状态 | 拷贝后立刻 `_clearDepth(0.0)` + `_clear(GL_DEPTH_BUFFER_BIT)`；`finally` 里把全局 clearDepth 复位 1.0 |
+
+**另一条核对结论**：`PostPass.process` **不碰 GL 投影矩阵、不碰模型视图栈**
+（它只设自己 effect 的 `ProjMat` uniform），所以 `beginCelestialTarget` 之后重设一次
+`spaceProj`/`view` 并非必需 —— 保留它只是防 MC 版本变化的廉价保险，注释里已写明这是保险而非必需。
+
 **离线回归**：`gradlew compileJava` BUILD SUCCESSFUL；`run-offline-checks.ps1` **13/13 全部通过**；
 `DepthOcclusionProbe` **27/27**（新增 D 组 4 条判据：精确镜像 / 不对表偏差 / 反向 Z 档数 / 正常 Z 不同形）；
 `check-artifact.ps1` **9 条契约全 OK**（其中 3 条是本轮新增的结构契约，2 条旧的"清深度"契约已作废）。
