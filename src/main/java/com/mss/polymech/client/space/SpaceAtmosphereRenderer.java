@@ -166,18 +166,22 @@ public final class SpaceAtmosphereRenderer {
         var stepCount = effect.getUniform("StepCount");
         if (stepCount != null) stepCount.set(STEP_COUNT);
         var useMcDepth = effect.getUniform("useMinecraftDepth");
-        // 保持 0：视图位置由 **SpaceDepthSampler（太空底）** 重建 —— 那是"星球表面在哪"的正解；
-        // 混进 MC 深度反而会算出一个跨投影的假距离。世界的遮挡不靠这一项，而是靠 fsh 开头
-        // "mainDepth < 1.0 ⇒ 直接输出 0" 那条判据（2026-09-30 重定为**投影无关**的写法：
-        // SpaceRenderer 在星球层画完、留完太空底之后把主深度清回了 1.0，
-        // 所以主深度里只剩 MC 世界几何体。此前那条 "mainDepth < skyDepth" 是拿两套投影的
-        // 深度比大小，临界距离只有 2.80 格 —— 比这远的物理体全都挡不住，正是那个 bug 的根因）。
-        if (useMcDepth != null) useMcDepth.set(0);
+        // ★ 2026-09-30（第十二轮）：按 space 置 **1** —— 视图位置取"世界与天体里**更近**的那个表面"：
+        //       max((1 − mainDepth) × useMinecraftDepth, spaceDepth)
+        //   这条式子成立的前提是本轮补齐的结构：两套投影共用同一对数字、只是对调了顺序
+        //   （{@code SpaceDepthFarMixin} 把 getDepthFar() 抬到 FAR×2，天体投影取 (FAR×2, 0.05)），
+        //   于是 `1 − mainDepth` 与 `spaceDepth` 是**精确镜像**（都等于 0.05/z，可代数验证），
+        //   不是"差不多"。置 0（旧写法）也能跑，因为 fsh 开头那条 "mainDepth < 1.0 ⇒ 输出 0"
+        //   已经把"世界挡在天体前面"的像素提前掐掉了；改成 1 是为了让式子本身自洽，
+        //   而不是依赖那条早退。
+        if (useMcDepth != null) useMcDepth.set(1);
 
         effect.setSampler("DepthSampler", () -> mcDepthTextureId);
-        // ★ SpaceDepthSampler 必须绑 AFTER_SKY 的太空底（不能与 DepthSampler 同一张纹理）：
-        //   下面 ScreenToWorld 要用它重建星球表面位置。曾经这里也传 mcDepthTextureId，
-        //   于是"太空表面深度"其实是"世界画完之后的深度"，重建出的世界坐标是错的。
+        // ★ SpaceDepthSampler = **天体层独立缓冲的深度**（{@code spaceRenderTarget.getDepthTextureId()}），
+        //   不再是主深度的副本：ScreenToWorld 要用它重建星球表面位置，而它现在是**反向 Z** 下
+        //   spaceProj 自己的深度值 ⇒ 与 iProjMat（spaceProj 的逆）严格配套。
+        //   曾经这里绑"主深度在 AFTER_SKY 的副本"，那是因为天体画在主缓冲里；
+        //   本轮天体改画进独立缓冲（space 的结构），第十一轮那套副本机制已整体删除。
         effect.setSampler("SpaceDepthSampler", () -> skyDepthTextureId);
     }
 }

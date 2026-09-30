@@ -146,14 +146,15 @@ foreach ($r in $resFiles) {
     }
 }
 
-# --- 着色器/接口契约（源文本级；这是 2026-09-29 与 2026-09-30 两次「星球挡住物理体」bug 的回归判据）---
-# 为什么必须查文本：那两次都是「深度纹理绑错」/「遮挡判据写错」，
+# --- 着色器/接口契约（源文本级；这是 2026-09-29 / 09-30 / 09-30 三次「星球挡住物理体」bug 的回归判据）---
+# 为什么必须查文本：那几次都是「深度纹理绑错」/「遮挡判据写错」/「两套投影的深度混进同一张缓冲」，
 # 编译期毫无提示、只有实机画面看得出来 —— 契约只能钉在文本上。
 #
-# 2026-09-30 订正：判据从「主深度 < 太空底」（跨**两套投影**比大小，临界距离只有 2.80 格 ⇒ 假）
-# 换成「主深度 < 1.0」（投影无关的"世界画过没有"）。配套地，SpaceRenderer 必须在星球层画完、
-# 留完太空底之后把主深度清回 1.0 —— 否则星球写下的 spaceProj 深度会把后续世界几何体
-# 全部挡掉（物理体直接画不出来）。离线量化见 native\jni-smoketest\DepthOcclusionProbe.java。
+# 2026-09-30 第十二轮订正：判据从「主深度 < 1.0 + 画完把主深度清一遍」（第十一轮的权宜之计）
+# 换成 **space 的结构**：天体画进独立的 spaceRenderTarget（两套 Z 约定不再混进同一张深度缓冲），
+# SpaceDepthFarMixin 让两套投影共用同一对 near/far（只是对调顺序）⇒ 1 - mainDepth 与 spaceDepth
+# 成为精确镜像。下列契约钉的就是这套结构里**少一条就退化**的环节。
+# 离线量化见 native\jni-smoketest\DepthOcclusionProbe.java。
 $contracts = @(
     @{ file = 'src\main\resources\assets\poly_mech\shaders\program\planet\planet_atmosphere.fsh';
        must = 'texture(DepthSampler, texCoord).r < 1.0 - 1.0e-7';
@@ -162,14 +163,26 @@ $contracts = @(
        must = 'texture(DepthSampler, screenPos).r < 1.0 - DEPTH_EPS';
        why = '泛光的 MC 几何体掩码同理（跨投影比大小的旧判据是假的）' },
     @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceRenderer.java';
-       must = '星球层的深度**必须在离开本阶段之前抹掉**';
-       why = '星球层画完必须把主深度清回 1.0，否则世界几何体被 spaceProj 的深度挡掉' },
+       must = 'reversedZ ? (float) (RenderCompression.FAR * 2.0) : SPACE_NEAR_PLANE';
+       why = '天体投影必须是反向 Z（near=FAR×2, far=0.05）：正常 Z 下 16384~262144m 只剩 ~48 个 float 值 ⇒ 行星 z-fighting' },
+    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceRenderer.java';
+       must = 'GlStateManager._depthFunc(GL11.GL_GEQUAL)';
+       why = '反向 Z 必须配 GEQUAL + 清 0.0（配 LEQUAL 会整层天体不显示）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceRenderer.java';
+       must = 'spaceSkyDepthTexture = spaceRenderTarget.getDepthTextureId();';
+       why = '后处理的 SpaceDepthSampler 必须来自**天体层独立缓冲**的深度（大气靠它重建星球表面位置）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceRenderer.java';
+       must = 'spaceBlitPass.process(partialTick);';
+       why = '天体层颜色必须合成回主缓冲（漏了 ⇒ 星球整个看不见）' },
     @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceAtmosphereRenderer.java';
        must = 'effect.setSampler("SpaceDepthSampler", () -> skyDepthTextureId)';
-       why = 'SpaceDepthSampler 必须绑"太空底"，不能与 DepthSampler 同一张（那正是 bug 本身）' },
-    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceRenderer.java';
-       must = 'spaceSkyDepthTexture = captureSkyDepth(';
-       why = '太空底必须无条件采集（大气散射要用它重建星球表面位置；漏采 ⇒ 星球又会盖住物理体）' }
+       why = 'SpaceDepthSampler 必须绑天体层深度，不能与 DepthSampler 同一张（那正是 bug 本身）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceAtmosphereRenderer.java';
+       must = 'useMcDepth.set(1)';
+       why = 'useMinecraftDepth 必须为 1（space 的取值）：ScreenToWorld 取"世界与天体里更近的那个表面"' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceDepthFarMixin.java';
+       must = 'return (float) (RenderCompression.FAR * 2.0);';
+       why = '两套投影必须"对表"：MC 主投影的 far 要等于天体投影的 near，否则 1-mainDepth 与 spaceDepth 不可比' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

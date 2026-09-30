@@ -13,25 +13,26 @@
 // 深度只用来判定「这个像素是不是 MC 几何体」，不用来反解距离。
 //
 // space mod 能拿深度直接算世界距离，靠的是让两套投影共用同一对 near/far：
-// mixin 把 getDepthFar 改成 FarCompress * 4 = 4194304，MC 主投影是
-// setPerspective(near=0.05, far=4194304)，它自己的太空投影是
-// setPerspective(near=4194304, far=0.05) —— 数值相同、Z 方向翻转，
+// mixin 把 getDepthFar 改成 farCompressionDistance × 2 = 524288，MC 主投影是
+// setPerspective(near=0.05, far=524288)，它自己的太空投影是
+// setPerspective(near=524288, far=0.05) —— 数值相同、Z 方向翻转，
 // 于是 1 - mainDepth 和 spaceDepth 都等于 0.05/d，才能写成 max() 统一取值
-// （见 space 的 star_bloom.fsh:63 与 buffer_switch.fsh:28 的 gl_FragDepth）。
-// 再加 PositionCompression 把 [16384,∞) 压进 [16384,1048576)、远平面取 4 倍压缩上限，
+// （见 space 的 star_bloom.fsh 与 buffer_switch.fsh 里的 gl_FragDepth）。
+// 再加 PositionCompression 把 [16384,∞) 压进 [16384,262144)、远平面取 2 倍压缩上限，
 // 保证天空一定反解到比任何天体都远，距离阈值才有意义。
 //
-// 本项目一样都没有（2026-09-30 订正）：主深度是**混合投影**的 —— 星球在 AFTER_SKY 用
-// spaceProj (near=1000m / far=524288m) 写入，地形/实体/粒子随后用 MC 自己的投影写入，
-// 两套投影的深度值**不可比**（同一个距离在两边差着数量级），所以反解出来的距离是假的，
-// 拿它做距离阈值的结果就是整颗恒星的泛光被随机剔掉 —— 之前实机「一闪一闪」的真凶之一。
+// ★ 2026-09-30（第十二轮）：本项目**已经补齐了这套结构**。
+//   天体不再画进主缓冲，而是画进独立的 spaceRenderTarget（space 的做法），
+//   主深度从头到尾只属于 MC 世界；SpaceDepthFarMixin 又把 getDepthFar() 抬到 FAR×2，
+//   使 MC 主投影 (0.05, FAR×2) 与天体投影 (FAR×2, 0.05) 共用同一对数字 ⇒
+//   `1 - mainDepth` 与 `spaceDepth` 是**精确镜像**（都等于 0.05/z，可代数验证）。
+//   所以"主深度里只有世界几何体"是**结构上**成立的，不依赖任何清理时机。
 //
 // 曾经的对策是再留一份"太空底"（SkyDepthSampler）逐像素比 depthNow < skyDepth。
 // 那条判据是**假的**：两份深度来自两套投影，星球深度 0.98221 vs 5 格处方块 0.99006
 // ⇒ 方块"更远" ⇒ 掩码永远是 0 ⇒ 泛光盖到物理体上（临界距离只有 2.80 格）。
-// 现在改成结构性的做法：SpaceRenderer 在星球层画完、留完太空底之后把主深度**清回 1.0**，
-// 于是主深度里只剩 MC 世界几何体，"mainDepth < 1.0" 就是那个投影无关的掩码。
-// 因此本 pass 不再需要 SkyDepthSampler（那个采样器只为大气散射重建星球表面位置而留）。
+// 第十一轮改成"画完把主深度清回 1.0"，本轮进一步换成结构性的做法（见上），
+// 于是"mainDepth < 1.0"就是那个投影无关的掩码，且不再需要 SkyDepthSampler。
 //
 // 遮挡只做逐像素一级：本像素是 MC 几何体就不叠泛光，没被挡住的像素照常叠加。
 // 于是方块和玩家会在光晕/星芒上剪出自己的轮廓 —— 挡住的部分消失，没挡住的部分露出来。
@@ -179,9 +180,9 @@ const float DEPTH_EPS = 1.0e-7;
 //  世界走 MC 主投影），**从来就是假的** —— 地球表面压缩后 50853 m → 0.98221，
 //  而 5 格处的方块 → 0.99006，方块反而"更远" ⇒ 掩码永远是 0 ⇒ 泛光盖到物理体上。
 //  临界距离只有 2.80 格（换回压缩前的 far=1e13 是 2.53 格，所以不是压缩引入的回归）。
-//  现在 SpaceRenderer 在星球层画完、留完太空底之后把主深度**清回 1.0**，
-//  所以"主深度 < 1.0"就是"这一像素有世界几何体" —— 投影无关。
-//  因此本 pass 不再需要 SkyDepthSampler（那个采样器只为大气散射重建星球表面位置而留）。
+//  现在（第十二轮）天体画进独立缓冲、主深度结构上只含 MC 世界几何体，
+//  所以"主深度 < 1.0"就是"这一像素有世界几何体" —— 投影无关，且不依赖清理时机。
+//  因此本 pass 不需要 SkyDepthSampler（那个采样器只为大气散射重建星球表面位置而留）。
 //  "世界一定比天体近"的依据与唯一例外见 DepthOcclusionProbe 的 C 组。
 bool MinecraftOccluder(vec2 screenPos) {
     return texture(DepthSampler, screenPos).r < 1.0 - DEPTH_EPS;

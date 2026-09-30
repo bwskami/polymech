@@ -64,11 +64,15 @@ public final class RenderCompression {
      * 临界距离只有 <b>2.80 格</b>。<b>而且这不是压缩引入的</b>：换回压缩前的 far=1e13
      * 时临界距离是 <b>2.53 格</b>，旧判据从来只对贴脸的东西成立。</p>
      *
-     * <p>现在的做法见 {@code SpaceRenderer.renderSpaceBodies}：星球层画完、留完太空底之后
-     * 把主深度<b>清回 1.0</b>，于是世界几何体永远画在天体上面；后处理的遮挡判据也换成投影无关的
-     * {@code mainDepth < 1.0}。<b>有意不采用</b> space 的"让两套投影共用同一对 near/far"
-     * （mixin 改 {@code getDepthFar} + 太空投影反向 Z），因为那要改全局 MC 投影；
-     * 清深度能达到同样的结构效果（主深度里没有天体深度），代价只是星球层得自己留一份太空底。</p>
+     * <p><b>第十二轮（2026-09-30）起改成 space 的结构，不再是权宜之计</b>：
+     * 天体画进独立的 {@code spaceRenderTarget}（color+depth），主深度从头到尾只属于 MC 世界
+     * ⇒ 世界几何体永远画在天体上面，不需要"画完把主深度清一遍"那种补丁；
+     * 同时 {@code SpaceDepthFarMixin} 把太空维度的 {@code getDepthFar()} 抬到 {@code FAR × 2}，
+     * 天体投影取 {@code setPerspective(fov, aspect, getDepthFar(), 0.05F)}（反向 Z）
+     * ⇒ 两套投影共用同一对数字、只是对调顺序，{@code 1 - mainDepth} 与 {@code spaceDepth}
+     * 成为<b>精确镜像</b>，后处理里 space 的 {@code max(1 - mainDepth, spaceDepth)} 才成立。
+     * （此前"有意不采用 mixin"的写法已废弃：清深度虽然也能让主深度干净，
+     * 但两套投影的数值仍然不可比，任何需要跨缓冲比大小的判据都不能写。）</p>
      */
     public static boolean enabled = true;
 

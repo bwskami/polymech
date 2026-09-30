@@ -4062,6 +4062,104 @@ near/far**（`MixinGameRenderer` 把 `getDepthFar` 改成 `farCompressionDistanc
 
 > 兜底：若进游戏发现**大气整体消失**，说明 shader 没编过（`SpaceAtmosphereRenderer` 的
 > `catch (RuntimeException)` 会把大气整体禁用，**不会崩**）—— 把那行报错发我。
+>
+> ⚠ **本表已被下一节（第十二轮）取代**：第十一轮"画完把主深度清回 1.0"的做法已删除，
+> 所以上表里凡提到"清回 1.0 / 那句 `clearDepth`"的首查项都已失效，改看第十二轮的判据表。
+> 判据 1~5 的**期望现象不变**（那些是用户能看到的结果），变的只是实现与首查位置。
+
+
+#### 星球遮挡第十二轮：**按 space 重构 —— 独立天体缓冲 + 反向 Z + 两套投影「对表」**（2026-09-30）
+
+用户拍板：**方案 A（完整对齐 space）**，并且**先把第十一轮那个已验证可用的状态提交**当回退点
+（提交 `2ec3443`「太空建造 + 牵引枪 + 星球遮挡根因修复」）。理由很直白：第十一轮虽然修好了现象，
+但它**没有修根因**，只是把根因的后果擦掉。
+
+**第十一轮为什么是权宜之计**（用户的原话："是恢复到之前的状态，还是又在此基础上继续写修正方法？
+我怕代码臃肿"）：
+
+| | 第十一轮的做法 | 问题 |
+|---|---|---|
+| 天体画在哪 | 主缓冲（和世界共用一张深度缓冲） | 两套 Z 约定混在一张缓冲里，必须靠"画完把主深度清回 1.0"收场 |
+| 天体深度精度 | 正常 Z，near=1000 / far=524288 | 天体区间只剩 **48** 个 float32 可表示值（探针实测）⇒ 行星间会 z-fighting |
+| 后处理判据 | `mainDepth < 1.0` | 成立，但依赖"清深度"这个时机；两套投影的深度**仍然不可比**，任何跨缓冲比大小的判据都不能写 |
+| 太空底 | 额外再复制一份主深度（`spaceSkyDepthSnapshot`） | 为了给大气重建星球表面位置而多养一张纹理 |
+
+**space 0.1.3 的真实结构**（读实物，不是回忆）：
+
+1. `MixinGameRenderer.modifyDepthFar`：`@ModifyReturnValue` 把 `getDepthFar()` 改成
+   `SpaceRenderer.farCompressionDistance * 2.0`（= 262144 × 2 = **524288**），条件 `enableSpaceRender`。
+2. `space$getProjectionMatrixZ(fov)` = `setPerspective(fov, aspect, getDepthFar(), 0.05F)`
+   —— **near/far 对调**（反向 Z）。
+3. `renderSpace()`：主缓冲 `_clear(16640)` → 画天空盒 → 绑 `spaceRenderTarget`、`_clearDepth(0.0)`、
+   `_clear(256)` → 用反向投影画近天体 → 深空天体进 `deepSpaceRenderTarget` →
+   `compositeSpaceBuffers()` 合成回主缓冲 → 最后 `_depthFunc(513)` 复原。
+4. 后处理用 `max(1 - mainDepth, spaceDepth)` 统一取值。
+
+**本轮我们做了什么（六条，全部落在 space 的结构上）**：
+
+1. **新增 `mixin/SpaceDepthFarMixin`**：太空维度里 `getDepthFar()` → `RenderCompression.FAR × 2`。
+   判据与 `SpaceRenderer` 的 `inSpace` 同一条件，**地表维度仍是原版 768**（地形深度精度一点不变）。
+   动手前核对过：MC 1.21.1 里 `getDepthFar()` **全库只有一个调用点**（主投影那一行），
+   改它不碰雾、不碰视锥剔除。
+2. **天体改画进独立缓冲 `spaceRenderTarget`**（color + depth）—— 替换掉第十一轮的
+   `spaceSkyDepthSnapshot`（那份只存深度，是"打补丁"的产物），**不是叠加**。
+3. **反向 Z**：天体投影取 `perspective(FOV, aspect, FAR×2, 0.05)`，清深度 **0.0**、`depthFunc(GEQUAL)`。
+4. **合成回主缓冲**：先把主缓冲颜色（= 本维度天空盒）拷进天体缓冲，画完再 `minecraft:blit` 回去。
+   于是**主缓冲的深度全程没被天体碰过** —— 第十一轮那 3 行"清回 1.0"补丁**删除**。
+5. **后处理拿天体层自己的深度**当 `SpaceDepthSampler`；`useMinecraftDepth` 按 space 置 **1**。
+6. `finally` 里兜底恢复 `depthFunc(LEQUAL)`：万一中途抛异常，不恢复会让后续世界渲染在 GEQUAL 下
+   与 1.0 比较 ⇒ **什么都通不过 ⇒ 黑屏**。
+
+**关键结论：两套投影现在是「精确镜像」，不是"差不多"**（探针 D 组实测）：
+
+```
+MC 主投影(正常 Z, near=0.05, far=F) : depth = (0.05/(F-0.05))·(F/z − 1)
+天体投影(反向 Z, near=F, far=0.05) : depth = (0.05/(F-0.05))·(F/z − 1)   ← 同一个式子
+⇒ 1 − mainDepth 与 spaceDepth 逐位相等（实测最大偏差 5.551e-17）
+```
+**前提是两边的 F 必须是同一个数** —— 这正是 `SpaceDepthFarMixin` 存在的理由。
+不对表（MC far 仍 768）时偏差 **6.501e-05**，判据就只能"近似"成立。
+
+**为什么必须反向 Z（而不是"正常 Z 的同一对数字"）** —— 探针 D3 实测：
+
+| 方案 | 天体区间 [16384, 262144] m 的深度 | float32 可表示值 |
+|---|---|---|
+| 正常 Z，near=0.05（与 `1-mainDepth` 同形） | 0.999997020 ~ 0.999999881 | **48 个** ⇒ 行星间 z-fighting |
+| 反向 Z，far=0.05（数值完全相同） | 9.537e-08 ~ 2.956e-06 | **4152 万个**（档数 ×865075） |
+| 正常 Z，near=1000（精度够） | 0.9822（在 50853 m 处） | 精度够，但与 `1-mainDepth` **不同形** ⇒ 跨缓冲判据失效 |
+
+⇒ 反向 Z 是**唯一**同时满足"与主深度同形"和"精度够"的选择，不是风格偏好。
+⇒ 而反向 Z 与主缓冲的正常 Z **不能共存于同一张深度缓冲**（清 0.0/GEQUAL 与清 1.0/LEQUAL 互斥）
+⇒ 独立缓冲是**结论**，不是多余复杂度。
+
+**刻意偏离 space 的两处**（都记下来，别当成"抄漏了"）：
+
+- **只做一张天体缓冲，没有 `deepSpaceRenderTarget`**：space 分近/深空两级是为了它那 8 条后处理链，
+  本项目没有那些链。天体互相遮挡靠同一张缓冲里的深度已经足够。
+- **泛光的遮挡判据保留 `mainDepth < 1.0`，没换成 space 的 `max(1-mainDepth, spaceDepth)`**：
+  本 pass 要的是"这一像素有没有世界几何体"（逐像素掩码），不是"更近的那个表面在哪"。
+  两者在本项目几何下**等价**（世界 ≤ 512 格，天体压缩后恒 ≥ 16384 m ⇒ 世界永远更近），
+  但前者少绑一张纹理、少一次比较。行星遮挡仍走角空间解析判定。
+
+**离线回归**：`gradlew compileJava` BUILD SUCCESSFUL；`run-offline-checks.ps1` **13/13 全部通过**；
+`DepthOcclusionProbe` **27/27**（新增 D 组 4 条判据：精确镜像 / 不对表偏差 / 反向 Z 档数 / 正常 Z 不同形）；
+`check-artifact.ps1` **9 条契约全 OK**（其中 3 条是本轮新增的结构契约，2 条旧的"清深度"契约已作废）。
+
+**实机判据（请用户验；本轮改的是渲染路径，助手无法自验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 进太空，看有没有星球 | 星球/太阳照常显示（**最要紧**：漏了合成就是整个看不见） | 日志 `天体层独立缓冲已建立`；没有则是 `beginCelestialTarget` 失败（日志有 error） |
+| 2 | 太空里把物理体放在星球前面 | 物理体完整可见（**第十一轮的老现象不能回归**） | 天体是否真画进独立缓冲（`GlStateManager._depthFunc(GL11.GL_GEQUAL)` 那一段） |
+| 3 | 看两颗**距离相近**的行星重叠处 | 边缘干净，没有闪烁的锯齿/斑块（这是反向 Z 换来的 86 万倍档数） | 反向 Z 投影是否生效（契约 `reversedZ ? … FAR * 2.0 …`） |
+| 4 | 地表维度看远处地形/山 | 与改动前一致（**far 仍是 768**，不该有任何变化） | `SpaceDepthFarMixin` 的判据是否误伤地表（只应命中 `PlanetDimensions.SPACE`） |
+| 5 | 恒星泛光 + 行星大气 | 与第十一轮一致（别回归）；被方块挡住的部分仍剪出轮廓 | `star_bloom` / `planet_atmosphere` 的 `mainDepth < 1.0` |
+| 6 | 日志里搜"深度对表" | 出现一次 `getDepthFar() 768.0 → 524288.0` | 没出现 ⇒ mixin 没命中（看 `poly_mech.mixins.json` 是否注册 `SpaceDepthFarMixin`） |
+
+> **已知副作用（本轮引入，请一并验）**：`Meteoroid.java` 用
+> `getDepthFar() * 0.5` 当压缩远界，太空维度里会从 384 变成 **262144**。
+> 这其实**更接近 space 的原意**（space 的 `farCompressionDistance` 就是 `getDepthFar()/2`），
+> 但会让流星体的压缩行为变化 —— 判据 1/3 里顺带看一眼流星有没有异常。
 
 
 #### 构建/运行坑：`could not open ...\dataRunVmArgs.txt`（2026-09-27 实际踩到）

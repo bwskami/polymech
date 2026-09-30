@@ -140,12 +140,12 @@ float fittedY(float x) {
 }
 
 void main() {
-    // ★★★ 世界几何遮挡（2026-09-30 重定：用户第二次报"远处的星球把近处的物理体挡住"）
+    // ★★★ 世界几何遮挡（2026-09-30 第十二轮：改用 space 的结构，判据本身保持"投影无关"）
     //
     //   判据只问一件事：**这一像素上 MC 世界画了几何体吗？**
     //   画了 ⇒ 它一定比天体近，大气绝对不许再往这一像素上画。
-    //   依据：太空维度里世界几何体最远也就到渲染距离（≤512 格 ≈ 1247 压缩米），
-    //   而任何天体压缩后都 ≥ NEAR = 16384 米（更别说未压缩时的真实米数）。
+    //   依据：太空维度里世界几何体最远也就到渲染距离（≤512 格），而任何天体压缩后都
+    //   ≥ NEAR = 16384 米（更别说未压缩时的真实米数）⇒ 世界永远更近。
     //
     //   ⚠ 这里曾经是 `DepthSampler < SpaceDepthSampler`（拿主深度与"太空底"比大小）。
     //   那条判据是**假的**，因为两张深度来自**两套投影**：星球走 spaceProj
@@ -156,10 +156,15 @@ void main() {
     //   （换回压缩启用前的 far=1e13 时临界距离是 2.53 格 ⇒ **不是**距离压缩引入的回归，
     //     旧判据从一开始就只对贴脸的东西成立。）
     //
-    //   现在改问"世界画过没有"：SpaceRenderer 在星球层画完、留完太空底之后把主深度
-    //   **清回 1.0**，于是 AFTER_PARTICLES 的主深度里只剩世界几何体，
-    //   `mainDepth < 1.0` 就是那个投影无关的掩码。SpaceDepthSampler 仍然只用于
-    //   下面 ScreenToWorld 重建星球表面位置（useMinecraftDepth=0）。
+    //   ★ 第十二轮起 `mainDepth < 1.0` 之所以成立，不再靠"画完把主深度清一遍"那种补丁，
+    //   而是**结构上**成立：天体改画进独立的 spaceRenderTarget（space 的做法），
+    //   主深度从头到尾只属于 MC 世界。同时两套投影已对表（SpaceDepthFarMixin 把
+    //   getDepthFar() 抬到 FAR×2，天体投影取 (FAR×2, 0.05) ⇒ 反向 Z），
+    //   于是 `1 - mainDepth` 与 `spaceDepth` 是**精确镜像**（都等于 0.05/z）。
+    //   本判据因此可以等价地写成 space 的 `1 - mainDepth > spaceDepth`；
+    //   这里保留更简单的形式（少绑一张纹理、少一次比较，两者在本项目几何下等价）。
+    //   SpaceDepthSampler 仍只用于下面 ScreenToWorld 重建星球表面位置
+    //   （useMinecraftDepth=1，取"世界与天体里更近的那个表面"）。
     if (texture(DepthSampler, texCoord).r < 1.0 - 1.0e-7) {
         fragColor = vec4(0.0);
         return;

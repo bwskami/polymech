@@ -12,7 +12,7 @@
 #   6) check-probe-log.ps1    —— 日志判读器自测（既会 PASS 也会 FAIL = 不是死判据）
 #   7) check-artifact.ps1     —— 产物自检（源码改动真的进了 build\classes 吗）
 #   8) BodyRaycastProbe      —— 服务端体求交（准星指着哪个物理体；坏数据必须跳过）
-#   9) DepthOcclusionProbe   —— 两套投影共用一张深度缓冲时"比深度大小"到底成不成立
+#   9) DepthOcclusionProbe   —— 两套投影能不能"比深度大小" + 第十二轮反向 Z / 对表判据
 #                                （2026-09-30「星球挡住物理体」的根因量化 + 回归）
 #
 # 为什么必须有 2)：姿态帧那几行纯数学，"读代码觉得对"与"真的是对的"之间隔着 JOML 的存储约定。
@@ -146,7 +146,7 @@ Write-Host "`n===== 12/13 服务端体求交（BodyRaycastProbe：准星指着�
     Select-String -Pattern '\[ OK \]|\[FAIL\]|体求交判据 PASS|有 [0-9]+ 项' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '服务端体求交判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 13/13 深度遮挡判据（DepthOcclusionProbe：两套投影共用深度缓冲时能不能比大小）=====" -ForegroundColor Cyan
+Write-Host "`n===== 13/13 深度遮挡判据（DepthOcclusionProbe：两套投影能不能比大小 + 反向 Z / 对表）=====" -ForegroundColor Cyan
 # 2026-09-30：用户第二次报"远处的星球把近处的物理体挡住"。根因是主深度里混了**两套投影**
 # 的深度值（星球走 spaceProj，世界走 MC 主投影），任何"比大小"的遮挡判据都是假的 ——
 # 临界距离只有 2.80 格。这一步把"旧判据必失败、新判据必成立"钉死，顺带记录

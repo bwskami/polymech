@@ -15,9 +15,12 @@ import com.mss.polymech.client.gui.widget.planet.PlanetRenderObject;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderObjectFactory;
 import com.mss.polymech.client.gui.widget.planet.PlanetRenderParams;
 import com.mss.polymech.client.gui.widget.planet.StarGlowRenderer;
+import com.mss.polymech.Polymech;
 import com.mss.polymech.mps.kelvin.physical.celestial_world.ClientCelestialWorld;
 import com.mss.polymech.mps.kelvin.physical.space_world.ClientSpaceWorld;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.server.packs.resources.ResourceProvider;
 import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.client.Camera;
@@ -28,7 +31,9 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.lwjgl.opengl.GL11;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -76,37 +81,34 @@ public final class SpaceRenderer {
     private static RenderTarget spaceDepthSnapshot;
 
     /**
-     * AFTER_SKY 星球层画完、MC 地形还没开始画时的主深度副本。
+     * <b>天体层独立缓冲</b>（color + depth）—— 对应 space 0.1.3 的
+     * {@code SpaceRenderer.spaceRenderTarget}。
      *
-     * <p>这份底**只用来重建星球表面的位置**（大气散射的 {@code SpaceDepthSampler}，
-     * {@code useMinecraftDepth=0}）：星球是用 spaceProj 写进主深度的，那个深度值只在
-     * spaceProj 里才有意义；等 AFTER_PARTICLES 时主深度早被 MC 的世界覆盖过，反解不出星球表面。</p>
+     * <p>为什么天体不能画进主缓冲：太空维度里两套投影的 Z 约定**相反**
+     * （世界走 MC 主投影的正常 Z：{@code depth = 1 − 0.05/z}；天体走反向 Z：{@code depth = 0.05/z}），
+     * 而"清 1.0 + LEQUAL"与"清 0.0 + GEQUAL"**不能共存于同一张深度缓冲**。
+     * 让天体独占一张缓冲，主缓冲的深度就永远只属于 MC 世界 ——
+     * 世界几何体（含物理体）自然画在天体上面，不需要任何"画完把主深度清一遍"的补丁。</p>
      *
-     * <p><b>它不再承担「世界遮挡」的判据（2026-09-30 订正）。</b>曾经的做法是逐像素比
-     * {@code depthNow < skyDepth}，以为它等价于「该像素有 MC 几何体真正画了上去」。
-     * 那条判据是**假的**：两份深度来自**两套投影**，同一个距离在两边差着数量级。
-     * 实测（{@code native/jni-smoketest/DepthOcclusionProbe}；取用户 09-30 会话：
-     * 玩家离地球 15849 格）地球表面压缩后 50853 m → spaceProj 深度 <b>0.98221</b>，
-     * 而 5 格处的方块用 MC 主投影是 <b>0.99006</b> —— 方块反而「更远」⇒ 判据不触发
-     * ⇒ 大气整块盖到物理体上。临界距离只有 <b>2.80 格</b>：比这远的方块全都输给星球。
-     * <b>这不是距离压缩（09-27）引入的回归</b> —— 把 far 换回压缩前的 1e13，临界距离是
-     * <b>2.53 格</b>，一样只对贴脸的东西成立；是 09-27 起太空里**有了物理体**，
-     * 才第一次有东西需要它遮挡。
-     * 现在 {@link #renderSpaceBodies} 在留完这份底之后把主深度**清回 1.0**，
-     * 于是「这一像素有没有世界几何体」就是 {@code mainDepth < 1.0} —— 投影无关、不依赖这份底。</p>
+     * <p>它的**颜色** = "天空盒副本 + 天体"，画完 blit 回主缓冲；
+     * 它的**深度**留给 AFTER_PARTICLES 的后处理当 {@code SpaceDepthSampler}
+     * （大气散射靠它重建星球表面位置；两条后处理链靠它比"世界 vs 天体"谁更近）。</p>
      *
-     * <p>space mod 不需要这份底，因为它的结构更干净：天体画进**独立的 render target**
-     * （{@code SpaceRenderer.renderSpace} 里的 {@code spaceRenderTarget}），主深度从头到尾
-     * 没被天体污染过；再让两套投影共用同一对 near/far（mixin 把 {@code getDepthFar} 改成
-     * {@code farCompressionDistance * 2}，太空投影取
-     * {@code setPerspective(fov, aspect, getDepthFar(), 0.05F)}，即反向 Z），
-     * 于是 {@code max(1 - mainDepth, spaceDepth)} 天然就是「更近的那个表面」。
-     * 本项目把星球直接画进主缓冲（省一个 target 与一次合成），代价就是必须自己把星球深度
-     * 清掉、并自己提供这份太空底。</p>
+     * <p>历史：第十一轮曾经把天体画进主缓冲、画完再把主深度清回 1.0，
+     * 并用投影无关的 {@code mainDepth < 1.0} 当遮挡判据 —— 那是**权宜之计**，
+     * 本轮按 space 的结构删掉。两套投影深度不可比的实测见
+     * {@code native/jni-smoketest/DepthOcclusionProbe.java}。</p>
+     *
+     * @see #beginCelestialTarget
      */
-    private static RenderTarget spaceSkyDepthSnapshot;
-    /** {@link #spaceSkyDepthSnapshot} 的深度纹理 id，每帧在 AFTER_SKY <b>无条件</b>刷新
-     * （大气散射的 {@code SpaceDepthSampler} 要用它重建星球表面位置）；帧末清零以免误用陈值。 */
+    private static RenderTarget spaceRenderTarget;
+    /** 主缓冲 → {@link #spaceRenderTarget} 的颜色拷贝（把天空盒带进天体缓冲）。 */
+    private static PostPass spaceCopyPass;
+    /** {@link #spaceRenderTarget} → 主缓冲的颜色合成（把天体叠回画面）。 */
+    private static PostPass spaceBlitPass;
+    private static int spaceTargetWidth = -1;
+    private static int spaceTargetHeight = -1;
+    /** {@link #spaceRenderTarget} 的深度纹理 id，每帧在 AFTER_SKY 刷新；帧末清零以免误用陈值。 */
     private static int spaceSkyDepthTexture;
 
     private SpaceRenderer() {
@@ -181,13 +183,35 @@ public final class SpaceRenderer {
         Matrix4f view = new Matrix4f().rotation(cameraRot).mul(new Matrix4f().rotation(spaceRotation));
         float aspect = (float) mc.getWindow().getWidth() / (float) mc.getWindow().getHeight();
         if (!(aspect > 0.0f) || !Float.isFinite(aspect)) return; // 宽高为 0 时兜底（不应发生）
+        // ★ 2026-09-30（第十二轮）：太空维度改用 **space 的反向 Z 约定**（照抄
+        //   space 0.1.3 的 `MixinGameRenderer.space$getProjectionMatrixZ`：
+        //   `setPerspective(fov, aspect, getDepthFar(), 0.05F)` —— **near/far 对调**）：
+        //       天体深度 = 0.05/z            （反向 Z：近 ⇒ 深度大）
+        //   配合本项目的 SpaceDepthFarMixin（太空维度 getDepthFar() → FAR×2），MC 主投影是
+        //       (0.05, FAR×2) ⇒ 世界深度 = 1 − 0.05/z
+        //   两者互为镜像 ⇒ 后处理里 space 的 `max(1 − mainDepth, spaceDepth)` 才是合法的
+        //   "取更近的那个表面"。
+        //
+        //   为什么不干脆两套投影都用正常 Z 的同一对 near/far（那样深度也能直接比）：
+        //   要与 `1 - mainDepth` **同形**，正常 Z 就必须取 near = MC 的 0.05（far 随意），
+        //   于是天体区间 [16384, 262144] m 的深度全挤在 0.999997020~0.999999881 ——
+        //   float32 在那一段**只有 48 个可表示值** ⇒ 距离相近的两颗行星会 z-fighting。
+        //   反向 Z（far = 0.05）**数值完全相同**（精确镜像），但落在 [9.54e-8, 2.96e-6]，
+        //   有 **4152 万个**可表示值 —— 档数提高 **86.5 万倍**。
+        //   （以上四个数字都是 native/jni-smoketest/DepthOcclusionProbe.java 的 D 组实测值，
+        //     不是估算：正常 Z 即使改用 near=1000 换来精度，深度也与 1-mainDepth **不同形**、
+        //     跨缓冲判据直接失效 —— 所以反向 Z 是唯一解，不是风格选择。）
+        //   ⚠ 反向 Z 与主缓冲的正常 Z **不能共存于同一张深度缓冲**（清 0.0/GEQUAL 与清 1.0/LEQUAL
+        //   互斥）⇒ 天体必须画进独立的 spaceRenderTarget —— 这正是 space 的结构，
+        //   也是"独立 target 不是多余复杂度"的原因。
+        boolean reversedZ = RenderCompression.active;
         Matrix4f spaceProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect,
-                SPACE_NEAR_PLANE,
+                reversedZ ? (float) (RenderCompression.FAR * 2.0) : SPACE_NEAR_PLANE,
                 // 压缩启用时 far 收紧到 FAR×2：压缩把所有天体压进 (NEAR, FAR)，
                 // far 若仍是 1e13，near/far 比 1e10 会让深度精度白瞎（压缩就白做了）。
                 // FAR×2 而不是 FAR：`exp(-巨大)` 下溢到 0 ⇒ "无穷远"压缩后**恰好等于 FAR**，
                 // far 若正好 = FAR，最远的天体会正好落在远平面上被裁掉（space 取 FAR×2 就是这个原因）。
-                RenderCompression.active ? (float) (RenderCompression.FAR * 2.0) : SPACE_FAR_PLANE);
+                reversedZ ? 0.05f : SPACE_FAR_PLANE);
         // 天空盒投影：同 FOV，near/far 覆盖 r=1000 立方体即可（不影响屏幕方向，只影响深度）。
         Matrix4f skyProj = new Matrix4f().perspective((float) Math.toRadians(FOV_DEG), aspect, 0.05f, 2000.0f);
 
@@ -197,14 +221,29 @@ public final class SpaceRenderer {
         mvs.set(view);
         RenderSystem.applyModelViewMatrix();
 
+        RenderTarget mainTarget = mc.getMainRenderTarget();
         try {
             // 直接用 MC 原生天空盒（维度 effects），不再手画 cubemap。
             RenderSystem.setProjectionMatrix(spaceProj, VertexSorting.DISTANCE_TO_ORIGIN);
             // 星球 BASE 层不透明：确认深度测试/写入开启（天空盒绘制后依赖它恢复，这里显式兜底）。
             RenderSystem.enableDepthTest();
             RenderSystem.depthMask(true);
-            RenderSystem.clearDepth(1.0f);
-            RenderSystem.clear(0x100, false);
+
+            if (reversedZ) {
+                // ★ 天体画进**独立缓冲**（space 的 spaceRenderTarget）：主缓冲的深度留给 MC 世界，
+                //   两边的 Z 约定不同、绝不混进同一张深度缓冲。
+                //   先把主缓冲当前的**颜色**（= 本维度天空盒，由 SpaceDimensionEffects 在 AFTER_SKY
+                //   之前画好）拷进来，这样画完天体再 blit 回去时天空不会丢。
+                if (!beginCelestialTarget(mainTarget)) return;
+                GlStateManager._clearDepth(0.0);            // 反向 Z：0.0 = 无穷远
+                GlStateManager._clear(GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+                GlStateManager._depthFunc(GL11.GL_GEQUAL);  // 反向 Z：近 ⇒ 深度大 ⇒ 用 GEQUAL
+            } else {
+                // 地表维度维持原样（天体直接画进主缓冲）：那里天体在真实天文距离上、深度≈1.0，
+                // 挡不住任何地形，而且后处理不在这条路上跑。
+                RenderSystem.clearDepth(1.0f);
+                RenderSystem.clear(0x100, false);
+            }
             // 自转相位用存档世界时间（gameTime），不用真实时间：
             // 真实 J2000 秒(~8e8) × 自转速度 的相位在每次启动时近乎随机，
             // 星球每次进游戏都换一面（会被误认为"贴图种子变了"）。
@@ -323,35 +362,33 @@ public final class SpaceRenderer {
             spaceFrameDrawn = true;
             spaceHasStars = hasStars;
 
-            // 星球层到此为止、MC 地形还没画 —— 这是留深度底唯一可行的时机。
-            // ★ 2026-09-29：这份底**必须无条件留**（原来只在"本帧有恒星"时才留），
-            //   大气 pass 的 SpaceDepthSampler 要用它重建星球表面位置。
-            spaceSkyDepthTexture = captureSkyDepth(mc.getMainRenderTarget());
-
-            // ★★ 2026-09-30：星球层的深度**必须在离开本阶段之前抹掉**，把主深度还给 MC。
-            //
-            // 主深度是 MC 的投影缓冲（near=0.05 / far=getDepthFar()），而星球是用 **spaceProj**
-            // 写进去的（near=1000m / far=524288m）。两套投影的深度值不可比，留着它们的后果是
-            // **后续世界几何体会被深度测试挡掉**（星球写下的深度更小 = 判定为"更近"）：
-            //   实测（DepthOcclusionProbe；用户 09-30 会话：玩家离地球 15849 格）
-            //   地球表面压缩后 50853 m ⇒ 深度 0.98221；而 5 格处的方块用 MC 主投影是 0.99006
-            //   ⇒ LEQUAL 失败 ⇒ 物理体根本画不出来。临界点只有 **2.80 格**。
-            //   这正是用户报的"远处的星球把近处的物理体挡住了"。
-            //   （把 far 换回压缩前的 1e13 时临界点是 2.53 格 —— 所以**不是**距离压缩引入的回归，
-            //     这条判据从一开始就只对贴脸的东西成立；只是 09-27 起太空里有了物理体才露头。）
-            //
-            // 抹掉之后：世界几何体照常画在星球**上面**，后处理的遮挡判据也随之变成投影无关的
-            // `mainDepth < 1.0`（见 planet_atmosphere.fsh 与 star_bloom.fsh 的 MinecraftOccluder）。
-            // "世界一定比天体近"的依据与唯一例外见 DepthOcclusionProbe 的 C 组。
-            // 星球层自己的互相遮挡不受影响 —— 它们在本行之前已经画完。
             RenderSystem.depthMask(true);
-            RenderSystem.clearDepth(1.0f);
-            RenderSystem.clear(0x100, false);
+            if (reversedZ) {
+                // 天体画完：恢复 MC 的深度约定，并把天体层颜色合成回主缓冲。
+                // ★ 主缓冲的**深度**全程没被碰过（MC 自己清的 1.0）—— 天体画在独立缓冲里，
+                //   两套 Z 约定从不混进同一张缓冲，所以世界几何体（含物理体）照常画在天体上面。
+                //   这正是 space 用 spaceRenderTarget 换来的效果：不再需要"画完把主深度清一遍"
+                //   那种补丁（第十一轮的权宜之计，本轮删除）。
+                GlStateManager._depthFunc(GL11.GL_LEQUAL);
+                mainTarget.bindWrite(false);
+                spaceBlitPass.process(partialTick);
+                mainTarget.bindWrite(false);
+                // 后处理拿天体层深度去比"世界 vs 天体"谁更近（SpaceDepthSampler）。
+                spaceSkyDepthTexture = spaceRenderTarget.getDepthTextureId();
+            } else {
+                // 地表维度：天体画在主缓冲里、深度≈1.0；后处理不在这条路上跑。
+                spaceSkyDepthTexture = 0;
+            }
 
         } finally {
             mvs.popMatrix();
             RenderSystem.applyModelViewMatrix();
             RenderSystem.setProjectionMatrix(oldProj, VertexSorting.DISTANCE_TO_ORIGIN);
+            // ★ 深度函数必须在这里兜底恢复：天体层用反向 Z 会把 depthFunc 设成 GEQUAL，
+            //   而主缓冲的深度是"清 1.0 + LEQUAL"的约定。万一中间抛异常（天体 pass 里任何一处），
+            //   不恢复就会让**后续整个世界渲染**在 GEQUAL 下与 1.0 比较 —— 什么都通不过 ⇒ 黑屏。
+            //   放在 finally 里，与 depthMask/enableDepthTest 同级。
+            GlStateManager._depthFunc(GL11.GL_LEQUAL);
             RenderSystem.depthMask(true);
             RenderSystem.enableDepthTest();
             RenderSystem.enableCull();
@@ -1042,13 +1079,16 @@ public final class SpaceRenderer {
             int depthTexture = snapshotDepth(mainTarget);
             try {
                 if (spaceHasStars) {
-                    // 2026-09-30：泛光不再需要太空底（它的遮挡判据已改成投影无关的
-                    // `mainDepth < 1.0`，见 star_bloom.fsh 的 MinecraftOccluder）。
+                    // 泛光只需要"这一像素有没有世界几何体"的掩码（mainDepth < 1.0，见
+                    // star_bloom.fsh 的 MinecraftOccluder）—— 主深度结构上只含 MC 世界几何体
+                    // （天体画在独立缓冲里），所以这条判据与清理时机无关。
                     SpaceStarBloomRenderer.get().render(spaceView, spaceProj, spacePartialTick,
                             depthTexture);
                 }
-                // ★ 大气也必须拿到"太空底"：它的 SpaceDepthSampler 要靠这份底重建星球表面位置，
-                //   而 fsh 开头那条"mainDepth < skyDepth ⇒ 输出 0"的世界遮挡判据同样靠它。
+                // ★ 大气需要两张深度，语义完全不同：
+                //   DepthSampler      = 主深度快照（世界几何体，正常 Z）→ 世界挡在前面就整像素早退；
+                //   SpaceDepthSampler = **天体层独立缓冲的深度**（反向 Z）→ ScreenToWorld 靠它
+                //                       重建星球表面位置（与 iProjMat 严格配套）。
                 if (spaceSkyDepthTexture != 0) {
                     SpaceAtmosphereRenderer.get().render(spaceView, spaceProj, spacePartialTick,
                             depthTexture, spaceSkyDepthTexture);
@@ -1064,28 +1104,69 @@ public final class SpaceRenderer {
     }
 
     /**
-     * 在星球层画完、MC 地形还没开始画时把主深度复制一份作为「底」，返回其深度纹理 id。
+     * 准备天体层的独立缓冲：必要时创建/缩放，把主缓冲当前的**颜色**（= 本维度天空盒，
+     * 由 {@code SpaceDimensionEffects} 在 AFTER_SKY 之前画好）拷进去，并把绘制目标切到它上面。
      *
-     * @see #spaceSkyDepthSnapshot
+     * <p>颜色拷贝是必要的：天体层画完要 blit 回主缓冲，而 {@code minecraft:blit}
+     * 是**替换**写而不是混合，所以天体缓冲里必须先有天空盒，否则合成回去会把天空抹黑。</p>
+     *
+     * @return false = 缓冲/通道建不起来 ⇒ 本帧不画天体
+     *         （失败模式安全：天空照旧，只是没有星球，并且日志里有明确报错）
      */
-    private static int captureSkyDepth(RenderTarget mainTarget) {
-        if (spaceSkyDepthSnapshot == null) {
-            spaceSkyDepthSnapshot = new TextureTarget(mainTarget.width, mainTarget.height, true, false);
-            // 同 snapshotDepth：两边深度附件格式不一致时 glBlitFramebuffer 会静默失败。
-            if (mainTarget.isStencilEnabled()) {
-                spaceSkyDepthSnapshot.enableStencil();
-            }
-        } else if (spaceSkyDepthSnapshot.width != mainTarget.width || spaceSkyDepthSnapshot.height != mainTarget.height) {
-            spaceSkyDepthSnapshot.resize(mainTarget.width, mainTarget.height, false);
-        }
-        // blit 走的是拷贝路径而不是片元管线，理论上不受 depthMask 影响；
-        // 这里显式置 true 只是为了排除驱动差异（drawSunGlows 的 finally 已经把它恢复成 true）。
+    private static boolean beginCelestialTarget(RenderTarget mainTarget) {
+        if (!ensureSpaceTarget(mainTarget.width, mainTarget.height)) return false;
+        // 全屏拷贝四边形不该被深度测试/面剔除影响（与两条后处理链同样的处理）。
+        RenderSystem.disableDepthTest();
+        RenderSystem.disableCull();
+        RenderSystem.depthMask(false);
+        spaceCopyPass.process(0.0f);
+        // PostPass.process 会把 GL_FRAMEBUFFER 解绑到默认窗口缓冲，必须绑回天体缓冲，
+        // 否则紧接着画的星球会画到窗口上而不是天体 FBO。
+        spaceRenderTarget.bindWrite(false);
+        RenderSystem.enableDepthTest();
+        RenderSystem.enableCull();
         RenderSystem.depthMask(true);
-        spaceSkyDepthSnapshot.copyDepthFrom(mainTarget);
-        // copyDepthFrom 会把 GL_FRAMEBUFFER 解绑到默认窗口缓冲。这里必须绑回主缓冲，
-        // 否则紧接着的地形会画到窗口上而不是主 FBO。
-        mainTarget.bindWrite(false);
-        return spaceSkyDepthSnapshot.getDepthTextureId();
+        return true;
+    }
+
+    /** 创建/缩放天体缓冲与两条 blit 通道；建不起来返回 false（报错一次，之后每帧重试）。 */
+    private static boolean ensureSpaceTarget(int width, int height) {
+        Minecraft mc = Minecraft.getInstance();
+        try {
+            if (spaceRenderTarget == null) {
+                spaceRenderTarget = new TextureTarget(width, height, true, Minecraft.ON_OSX);
+                spaceRenderTarget.setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+                if (mc.getMainRenderTarget().isStencilEnabled()) spaceRenderTarget.enableStencil();
+            } else if (spaceRenderTarget.width != width || spaceRenderTarget.height != height) {
+                spaceRenderTarget.resize(width, height, Minecraft.ON_OSX);
+            }
+            if (spaceCopyPass != null && spaceTargetWidth == width && spaceTargetHeight == height) {
+                return true;
+            }
+            closeSpacePasses();
+            ResourceProvider provider = mc.getResourceManager();
+            RenderTarget main = mc.getMainRenderTarget();
+            spaceCopyPass = new PostPass(provider, "minecraft:blit", main, spaceRenderTarget, false);
+            spaceBlitPass = new PostPass(provider, "minecraft:blit", spaceRenderTarget, main, false);
+            Matrix4f ortho = new Matrix4f().setOrtho(0.0f, (float) width, 0.0f, (float) height, 0.1f, 1000.0f);
+            spaceCopyPass.setOrthoMatrix(ortho);
+            spaceBlitPass.setOrthoMatrix(ortho);
+            spaceTargetWidth = width;
+            spaceTargetHeight = height;
+            Polymech.LOGGER.info("[poly_mech] 天体层独立缓冲已建立（{}x{}，对应 space 的 spaceRenderTarget）",
+                    width, height);
+            return true;
+        } catch (IOException e) {
+            Polymech.LOGGER.error("[poly_mech] 天体层独立缓冲建立失败，本帧不画天体（画面退化为只有天空）：{}",
+                    e.toString());
+            closeSpacePasses();
+            return false;
+        }
+    }
+
+    private static void closeSpacePasses() {
+        if (spaceCopyPass != null) { spaceCopyPass.close(); spaceCopyPass = null; }
+        if (spaceBlitPass != null) { spaceBlitPass.close(); spaceBlitPass = null; }
     }
 
     /** 把主缓冲深度 blit 到快照缓冲，返回快照的深度纹理 id。 */

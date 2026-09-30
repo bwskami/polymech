@@ -21,6 +21,10 @@ import com.mss.polymech.client.space.RenderCompression;
  *       世界几何体距离都成立，且**只**是 mainDepth 的函数（与天体无关）。</li>
  *   <li><b>C 组</b>：新判据成立的**前提** —— 会画出来的世界几何体（≤ 渲染距离）在渲染帧里
  *       一定比"超出 NEAR 的天体"近；并把这个前提的**例外**（天体近到 NEAR 以内）显式钉出来。</li>
+ *   <li><b>D 组</b>：第十二轮那套结构（天体画进独立缓冲 + 两套投影对表 + 反向 Z）到底换来了什么：
+ *       {@code 1 - mainDepth} 与 {@code spaceDepth} 是否**逐位相等**（精确镜像）、
+ *       不对表会差多少、以及**为什么必须反向 Z** —— 与 {@code 1-mainDepth} 同形要求正常 Z 取
+ *       near=0.05，那会把整个天体区间压进不到 100 个 float 值；反向 Z 数值相同但档数多几个数量级。</li>
  * </ul>
  *
  * <p>跑法（仓库根目录，见 docs/mps-clone-plan.md §13）：
@@ -165,6 +169,74 @@ public final class DepthOcclusionProbe {
         check("compress 单调", isMonotonic());
         System.out.println();
 
+        // ---------- D 组：第十二轮的结构（独立缓冲 + 两套投影对表 + 反向 Z）----------
+        System.out.println("--- D 组：第十二轮结构 —— 反向 Z 与「对表」到底换来了什么 ---");
+        // D1：镜像必须**精确**。MC 主投影（正常 Z, near=MC_NEAR, far=SPACE_FAR_COMPRESSED）
+        //     的 1-depth 要逐位等于天体投影（反向 Z, near=SPACE_FAR_COMPRESSED, far=MC_NEAR）的 depth。
+        //     这是后处理 max(1 - mainDepth, spaceDepth) 成立的全部依据。
+        double worstMirror = 0.0;
+        for (double z : new double[]{1.0, 10.0, 512.0, 1.0e4, 5.0853e4, 1.6384e4, 2.62144e5}) {
+            double mcDepth = depth(MC_NEAR, SPACE_FAR_COMPRESSED, z);       // 世界（对表后）
+            double spDepth = depth(SPACE_FAR_COMPRESSED, MC_NEAR, z);       // 天体（反向 Z）
+            double err = Math.abs((1.0 - mcDepth) - spDepth);
+            worstMirror = Math.max(worstMirror, err);
+            System.out.printf("  z=%9.1f m: 1-mainDepth=%.17f  spaceDepth=%.17f  差=%.3e%n",
+                    z, 1.0 - mcDepth, spDepth, err);
+        }
+        System.out.printf("  最大偏差 = %.3e（1e-15 量级即「逐位相等」）%n", worstMirror);
+        check("1-mainDepth 与 spaceDepth 精确镜像（对表后）", worstMirror < 1.0e-15);
+
+        // D2：不对表会怎样 —— 保持 MC 的 far=768 不动，镜像误差有多大？
+        double worstNoMixin = 0.0;
+        for (double z : new double[]{1.0, 10.0, 512.0}) {
+            double mcDepth = depth(MC_NEAR, MC_FAR, z);
+            double spDepth = depth(SPACE_FAR_COMPRESSED, MC_NEAR, z);
+            worstNoMixin = Math.max(worstNoMixin, Math.abs((1.0 - mcDepth) - spDepth));
+        }
+        System.out.printf("  不对表（MC far 仍 %.0f）时最大偏差 = %.3e ⇒ 判据只能「近似」成立%n",
+                MC_FAR, worstNoMixin);
+        check("不对表则镜像不精确（偏差 >> 1e-15）⇒ SpaceDepthFarMixin 是必要的",
+                worstNoMixin > 1.0e-9);
+
+        // D3：**为什么必须反向 Z**（而不是"正常 Z 的同一对数字"）。
+        //     要与 1-mainDepth 同形，正常 Z 就必须取 near=MC_NEAR=0.05（far 随意），
+        //     于是天体深度被挤到 ~0.99999x；反向 Z 取 far=MC_NEAR=0.05，深度是 0.05/z。
+        //     两者**数值相同**（D1 已证），但**可表示值的个数**差着几个数量级 —— 这才是反向 Z 的理由。
+        // 天体**渲染**距离区间 = [NEAR, FAR]：compress 把 [NEAR, ∞) 映到 [NEAR, FAR)，
+        // 所以最远的天体渲染在 FAR 附近（注意 compress(FAR) 只有 16444 m —— 别再拿它当上界）。
+        double bodyNear = RenderCompression.NEAR;       // 16384 m
+        double bodyFar = RenderCompression.FAR;         // 262144 m
+        // 注意两端顺序：正常 Z 是"越远深度越大"，反向 Z 是"越远深度越小"，这里统一取 min/max。
+        float normalEnd = (float) depth(MC_NEAR, SPACE_FAR_COMPRESSED, bodyFar);
+        float normalStart = (float) depth(MC_NEAR, SPACE_FAR_COMPRESSED, bodyNear);
+        float normalLo = Math.min(normalStart, normalEnd);
+        float normalHi = Math.max(normalStart, normalEnd);
+        float reversedEnd = (float) depth(SPACE_FAR_COMPRESSED, MC_NEAR, bodyFar);
+        float reversedStart = (float) depth(SPACE_FAR_COMPRESSED, MC_NEAR, bodyNear);
+        float reversedLo = Math.min(reversedStart, reversedEnd);
+        float reversedHi = Math.max(reversedStart, reversedEnd);
+        double normalCount = representableFloats(normalLo, normalHi);
+        double reversedCount = representableFloats(reversedLo, reversedHi);
+        System.out.printf("  天体距离区间 = [%.0f, %.0f] m%n", bodyNear, bodyFar);
+        System.out.printf("  正常 Z(near=0.05): 深度 [%.9f, %.9f] ⇒ float32 可表示值 %.0f 个%n",
+                normalLo, normalHi, normalCount);
+        System.out.printf("  反向 Z(far=0.05) : 深度 [%.3e, %.3e] ⇒ float32 可表示值 %.0f 个%n",
+                reversedLo, reversedHi, reversedCount);
+        System.out.printf("  ⇒ 反向 Z 把可分辨距离的档数提高 %.0f 倍%n", reversedCount / normalCount);
+        check("正常 Z 会把整个天体区间压进不到 100 个 float 值（行星间会 z-fighting）", normalCount < 100.0);
+        check("反向 Z 有 100 万个以上可表示值", reversedCount > 1.0e6);
+        check("反向 Z 的档数是正常 Z 的 1000 倍以上", reversedCount / normalCount > 1000.0);
+
+        // D4：正常 Z 若改用 near=SPACE_NEAR(1000) 换取精度，深度就与 1-mainDepth **不同形**了
+        //     ⇒ 后处理再也无法跨缓冲比大小。这一条说明"反向 Z"不是可选风格，而是唯一解。
+        double near1000Depth = depth(SPACE_NEAR, SPACE_FAR_COMPRESSED, 5.0853e4);
+        double mirrorDepth = depth(SPACE_FAR_COMPRESSED, MC_NEAR, 5.0853e4);
+        System.out.printf("  正常 Z(near=1000) 在 50853 m 处 = %.9f；反向 Z = %.9f ⇒ 差 %.3e（不可比）%n",
+                near1000Depth, mirrorDepth, Math.abs(near1000Depth - mirrorDepth));
+        check("正常 Z 即使精度够，深度也与 1-mainDepth 不同形 ⇒ 跨缓冲判据失效",
+                Math.abs(near1000Depth - mirrorDepth) > 0.5);
+        System.out.println();
+
         System.out.printf("=== DepthOcclusionProbe: %d/%d 通过，失败 %d ===%n",
                 checks - failures, checks, failures);
         if (failures > 0) {
@@ -177,6 +249,28 @@ public final class DepthOcclusionProbe {
     /** 标准透视深度（越小越近），返回 [0,1]：{@code z=n ⇒ 0}，{@code z=f ⇒ 1}。 */
     private static double depth(double n, double f, double z) {
         return ((f + n) / (f - n) - (2.0 * f * n) / ((f - n) * z) + 1.0) / 2.0;
+    }
+
+    /**
+     * {@code [lo, hi]} 区间内 float32 **可表示值**的个数（按指数分桶精确求和）。
+     *
+     * <p>为什么不用循环 {@code Math.nextUp}：反向 Z 那一侧有上千万个值，逐个走太慢；
+     * 而 float32 在 {@code [2^e, 2^(e+1))} 里恰好有 {@code 2^23} 个值、ulp = {@code 2^(e-23)}，
+     * 所以按桶累加是精确且常数级的。</p>
+     */
+    private static double representableFloats(float lo, float hi) {
+        if (!(lo < hi)) return 0.0;
+        double total = 0.0;
+        float x = lo;
+        for (int guard = 0; guard < 64 && x < hi; guard++) {
+            int e = Math.getExponent(x);
+            float bucketEnd = Math.min(hi, Math.scalb(1.0f, e + 1));
+            double ulp = Math.scalb(1.0, e - 23);
+            total += (bucketEnd - (double) x) / ulp;
+            if (!(bucketEnd > x)) break;
+            x = bucketEnd;
+        }
+        return total;
     }
 
     /** 求"MC 深度 == skyDepth"的临界方块距离（由 {@code depth(MC_NEAR,MC_FAR,d)=skyDepth} 反解）。 */

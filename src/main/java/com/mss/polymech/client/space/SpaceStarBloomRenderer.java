@@ -26,23 +26,21 @@ import java.io.IOException;
  * space mod 的 {@code ScreenToWorld} 能拿深度直接反解世界距离，是因为它让 MC 主投影与
  * 自己的太空投影共用同一对 near/far（mixin 把 {@code getDepthFar} 改成
  * {@code farCompressionDistance * 2}，太空投影取 {@code setPerspective(fov, aspect, getDepthFar(), 0.05F)}，
- * 数值相同、Z 方向翻转），于是 {@code max(1 - mainDepth, spaceDepth)} 天然就是「更近的那个表面」，
- * 再配 {@code PositionCompression} 与 {@code fittedY()} 容差把天体全部压进精度甜区。
- * 本项目是把星球直接画进主缓冲、用标准 Z（near=1000m / far=524288m）的真实米坐标，
- * 主深度在 AFTER_PARTICLES 时是混合投影的，两者区间互相重叠，反解出的距离是假的。</p>
+ * 数值相同、Z 方向翻转），于是 {@code max(1 - mainDepth, spaceDepth)} 天然就是「更近的那个表面」。
+ * <b>2026-09-30（第十二轮）本项目也补齐了这套结构</b>：天体改画进独立的
+ * {@code spaceRenderTarget}（见 {@link SpaceRenderer}），{@code SpaceDepthFarMixin} 让两套投影
+ * 共用同一对数字，于是 {@code 1 - mainDepth} 与 {@code spaceDepth} 成为**精确镜像**。</p>
  *
- * <p>所以本 pass 只绑一张深度纹理：{@code DepthSampler}（AFTER_PARTICLES 的主深度）。
- * <b>2026-09-30 起它只含 MC 世界几何体</b> —— {@link SpaceRenderer} 在星球层画完、
- * 留完太空底之后把主深度清回了 1.0，于是 {@code mainDepth < 1.0} 就是投影无关的
- * 「这一像素有世界几何体」掩码。此前那套"再留一份太空底、逐像素比 {@code depthNow < skyDepth}"
- * 的写法在距离压缩启用（09-27）之后恒为假（星球 0.97285 vs 5 格处方块 0.99006），
- * 表现为泛光/大气整块盖到物理体上，已废弃。</p>
+ * <p>所以本 pass 只绑一张深度纹理：{@code DepthSampler}（AFTER_PARTICLES 的主深度快照）。
+ * <b>它只含 MC 世界几何体</b> —— 不是靠"画完把主深度清一遍"，而是**结构上**天体就没画进主缓冲，
+ * 主深度从头到尾只属于 MC 世界。于是 {@code mainDepth < 1.0} 就是「这一像素有世界几何体」
+ * 的掩码，投影无关、也不依赖任何清理时机。</p>
  *
- * <p>遮挡是<b>逐像素</b>的，不是逐恒星的整体开关：被挡住的部分消失，没挡住的部分照常露出来，
- * 于是方块和玩家只在光晕/星芒上剪出自己的轮廓。
- * （space mod star_bloom.fsh:95 那种采样恒星中心一点、被挡就整颗 continue 的写法不要照搬：
- * 它会让遮挡变成全有全无，那一条阈值在 space 里同时兼做行星遮挡，本项目不需要。）
- * 行星遮挡不走深度，仍是着色器里的角空间解析判定。详见 star_bloom.fsh 顶部注释。</p>
+ * <p>这里刻意<b>不用</b> space 的 {@code max(1 - mainDepth, spaceDepth)} 写法：那是为了反解
+ * "更近的那个表面在哪"，而本 pass 要的只是"这一像素有没有世界几何体"。两者在本项目的几何下
+ * 等价（世界物体的真实距离 ≤ 512 格，而天体的压缩距离恒 ≥ {@code RenderCompression.NEAR} = 16384 m
+ * ⇒ 世界永远更近），但前者要多绑一张纹理、多一次比较。行星遮挡不走深度，
+ * 仍是着色器里的角空间解析判定。详见 star_bloom.fsh 顶部注释。</p>
  */
 public final class SpaceStarBloomRenderer {
 

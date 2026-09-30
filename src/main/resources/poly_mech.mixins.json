@@ -17,6 +17,7 @@
     "space.MixinEntityRenderDispatcher",
     "LevelLoadStatusManagerMixin",
     "LevelRendererCelestialSkyMixin",
+    "SpaceDepthFarMixin",
     "mps.MixinClientChunkCache"
   ],
   "mixins": [
