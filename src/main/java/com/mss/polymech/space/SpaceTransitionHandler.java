@@ -42,6 +42,31 @@ public final class SpaceTransitionHandler {
     private static final Map<UUID, PendingTransition> PENDING = new ConcurrentHashMap<>();
     private static final Map<UUID, Integer> COOLDOWN = new ConcurrentHashMap<>();
 
+    /**
+     * 每个玩家**最近一次升空**时"相对地球的单位方向"——只给回程诊断用。
+     *
+     * <p><b>为什么必须有它</b>：回程那一行打印的是玩家的<b>输入绝对坐标</b>，而去程那行打印的是
+     * <b>映射算出来的目标点</b>；玩家被放到目标点后若没动过，两行必然"逐位一致"——
+     * 那是<b>同义反复</b>，判不出映射对不对（§31.28 的旧判据就是这样；归档日志 09-21 18:10 那一对即是）。
+     * 真正能自动判的是两条：</p>
+     * <ol>
+     *   <li><b>回程落点是否回到起飞点</b>：{@code 落点(x,z)} vs {@code 玩家地表(x,z)}，±2 格；</li>
+     *   <li><b>回程方向是否与去程同一条径线</b>：夹角 ≤5° —— 地球在两次之间已经走过几十万公里
+     *       （每 tick 108.2 km），绝对坐标根本不可直接比。</li>
+     * </ol>
+     */
+    private static final Map<UUID, double[]> LAST_ASCENT_DIR = new ConcurrentHashMap<>();
+
+    /** 单位化；长度 ~0 时返回 null（调用方判空，不制造 NaN）。 */
+    private static double[] unit(double x, double y, double z) {
+        double n = Math.sqrt(x * x + y * y + z * z);
+        return n < 1.0e-9 ? null : new double[]{x / n, y / n, z / n};
+    }
+
+    private static double norm(double x, double y, double z) {
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+
     private SpaceTransitionHandler() {
     }
 
@@ -76,17 +101,33 @@ public final class SpaceTransitionHandler {
         double spaceY = SpaceWorld.toMc(spaceReal[1]);
         double spaceZ = SpaceWorld.toMc(spaceReal[2]);
 
+        // ★ 往返诊断（2026-09-27）：记下"相对地球的方向"与"半径比"，供回程那一行算夹角/落点回归。
+        //   判据① 半径比 = 2.20（到达距离 2.2R，与 EarthSpaceMapping.ARRIVAL_RADIUS_FACTOR 同口径）；
+        //   判据② 回程的半径比 = 1.02（卡门线捕获壳），夹角 ≤5°（同一条径线）。
+        double[] earthRef = SpaceWorld.blockPos(RealAstroData.EARTH);
+        double relX = spaceReal[0] - earthRef[0];
+        double relY = spaceReal[1] - earthRef[1];
+        double relZ = spaceReal[2] - earthRef[2];
+        double[] ascDir = unit(relX, relY, relZ);
+        if (ascDir != null) {
+            LAST_ASCENT_DIR.put(id, ascDir);
+        }
+        double ascRadiusRatio = norm(relX, relY, relZ) / RealAstroData.EARTH.radiusMeters();
+
         // ★ 落点诊断（方案 B / S5 的验收依据，见 docs/mps-clone-plan.md §30.12）。
         //   判据：翻 `identityMode` 前后，**"宇宙系(米)"必须逐位不变**（映射本身没动），
         //   而**"目标"必须恰好 ×ZOOM**（toMc 从 ÷ZOOM 变恒等）。有这两列，
         //   "落点逐位比对"就不再靠肉眼猜，日志一 diff 即可。
         com.mss.polymech.Polymech.LOGGER.info(
-                "[坐标落点] {} → 太空 | 玩家地表=({}, {}, {}) | 宇宙系(米)=({}, {}, {}) | 目标=({}, {}, {}) | 约定={}",
+                "[坐标落点] {} → 太空 | 玩家地表=({}, {}, {}) | 宇宙系(米)=({}, {}, {}) | 目标=({}, {}, {}) | 约定={}"
+                        + " | 地球参考=(米)({}, {}, {}) 半径比={}（期望≈2.20）",
                 player.level().dimension().location(),
                 player.getX(), player.getY(), player.getZ(),
                 spaceReal[0], spaceReal[1], spaceReal[2],
                 spaceX, spaceY, spaceZ,
-                SpaceWorld.identityMode() ? "恒等(1格=1米)" : "历史(1格=10000米)");
+                SpaceWorld.identityMode() ? "恒等(1格=1米)" : "缩放(1格=10000米)",
+                earthRef[0], earthRef[1], earthRef[2],
+                String.format(java.util.Locale.ROOT, "%.4f", ascRadiusRatio));
 
         // ★ 预加载必须按范围守门（方案 B / S4a 的**前置**）：恒等约定下目标会到 1e11 量级，
         //   而 `(int)` 强转的上限只有 2.1e9 ⇒ **溢出**，预加载会拿到一个垃圾（别名）坐标。
@@ -141,10 +182,35 @@ public final class SpaceTransitionHandler {
                 //   这一条是"太空→地表"的落点，翻 `identityMode` 后**它不该变**
                 //   （因为落点最终是**方块坐标** planetX/Z，由 spaceToWorld 的球面反算给出，
                 //    与 ZOOM 无关）——但玩家在太空里的输入坐标 pxReal 会变，两者要一起看才算证完。
+                //
+                // ★★ 2026-09-27 补两项**可自动判定**的量（旧的"两行坐标逐位一致"是同义反复）：
+                //    ① 半径比：回程应当 ≈1.02（卡门线捕获壳），去程 ≈2.20（到达距离）；
+                //    ② 与去程的方向夹角：≤5° ⇒ PASS（同一条径线）。
+                //    再配合"落点(x,z) vs 玩家地表(x,z) ±2 格"，往返一致性就不再靠肉眼 diff。
+                double[] earthRef = SpaceWorld.blockPos(RealAstroData.EARTH);
+                double dxE = pxReal - earthRef[0];
+                double dyE = pyReal - earthRef[1];
+                double dzE = pzReal - earthRef[2];
+                double downRadiusRatio = norm(dxE, dyE, dzE) / RealAstroData.EARTH.radiusMeters();
+                double[] downDir = unit(dxE, dyE, dzE);
+                double[] upDir = LAST_ASCENT_DIR.get(id);
+                double angleDeg = Double.NaN;
+                if (upDir != null && downDir != null) {
+                    double dot = upDir[0] * downDir[0] + upDir[1] * downDir[1] + upDir[2] * downDir[2];
+                    angleDeg = Math.toDegrees(Math.acos(Math.max(-1.0, Math.min(1.0, dot))));
+                }
+                String roundTripVerdict = Double.isNaN(angleDeg) ? "n/a(本局没有去程记录)"
+                        : angleDeg <= 5.0 ? "PASS(与去程同一条径线)" : "★FAIL(与去程不同径线)";
                 com.mss.polymech.Polymech.LOGGER.info(
-                        "[坐标落点] 太空 → {} | 太空输入(米)=({}, {}, {}) | 落点=({}, {}, {}) | 约定={}",
+                        "[坐标落点] 太空 → {} | 太空输入(米)=({}, {}, {}) | 落点=({}, {}, {}) | 约定={}"
+                                + " | 地球参考=(米)({}, {}, {}) 半径比={}（期望≈1.02）"
+                                + " | 往返: 与去程方向夹角={}° ⇒ {} | 落点回位判据: 落点({},{}) vs 去程地表(见上一条)",
                         body.id(), pxReal, pyReal, pzReal, planetX, surfaceY, planetZ,
-                        SpaceWorld.identityMode() ? "恒等(1格=1米)" : "历史(1格=10000米)");
+                        SpaceWorld.identityMode() ? "恒等(1格=1米)" : "缩放(1格=10000米)",
+                        earthRef[0], earthRef[1], earthRef[2],
+                        String.format(java.util.Locale.ROOT, "%.4f", downRadiusRatio),
+                        Double.isNaN(angleDeg) ? "n/a" : String.format(java.util.Locale.ROOT, "%.3f", angleDeg),
+                        roundTripVerdict, planetX, planetZ);
 
                 ServerLevel overworld = player.server.overworld();
                 SpacePreloader.preload(overworld, new BlockPos(planetX, surfaceY, planetZ));

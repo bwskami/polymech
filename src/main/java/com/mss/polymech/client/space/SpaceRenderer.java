@@ -69,27 +69,44 @@ public final class SpaceRenderer {
      * 都要 blit 回主缓冲，先跑的那条会把主深度抹掉；云/天气也需要主深度。
      * 所以开跑前先快照一份，结束后再写回主缓冲。</p>
      *
-     * <p>大气散射拿它反解距离；恒星泛光只拿它与 {@link #spaceSkyDepthSnapshot} 比对，
-     * 判断像素是不是 MC 几何体，不用它算距离（见 {@link SpaceStarBloomRenderer} 类注释）。</p>
+     * <p>大气散射拿它反解距离（{@code DepthSampler}）；恒星泛光只用它得出 MC 几何体掩码
+     * （{@code mainDepth < 1.0}），不用它算距离（见 {@link SpaceStarBloomRenderer} 类注释）。
+     * 2026-09-30 起它**只含 MC 世界几何体** —— 星球层的深度已在 AFTER_SKY 抹掉。</p>
      */
     private static RenderTarget spaceDepthSnapshot;
 
     /**
      * AFTER_SKY 星球层画完、MC 地形还没开始画时的主深度副本。
      *
-     * <p>泛光需要区分「星球」和「MC 几何体」，但 AFTER_PARTICLES 时主深度是混合投影的：
-     * 星球用 spaceProj（near=1000m / far=1e13m）写入，地形/实体/粒子随后用 MC 自己的投影写入，
-     * 两者深度区间互相重叠（地球 8.88e6m → 0.9998874，443m 处的方块 → 0.9998871），
-     * 单看一个值分不出来源。留下这份底之后逐像素比较就够了：
-     * {@code depthNow < skyDepth} 当且仅当该像素有 MC 几何体通过深度测试、真正画了上去。</p>
+     * <p>这份底**只用来重建星球表面的位置**（大气散射的 {@code SpaceDepthSampler}，
+     * {@code useMinecraftDepth=0}）：星球是用 spaceProj 写进主深度的，那个深度值只在
+     * spaceProj 里才有意义；等 AFTER_PARTICLES 时主深度早被 MC 的世界覆盖过，反解不出星球表面。</p>
      *
-     * <p>space mod 不需要这一步，因为它让两套投影共用同一对 near/far
-     * （mixin 改 getDepthFar 为 FarCompress*4，太空投影取 setPerspective(4194304, 0.05)），
+     * <p><b>它不再承担「世界遮挡」的判据（2026-09-30 订正）。</b>曾经的做法是逐像素比
+     * {@code depthNow < skyDepth}，以为它等价于「该像素有 MC 几何体真正画了上去」。
+     * 那条判据是**假的**：两份深度来自**两套投影**，同一个距离在两边差着数量级。
+     * 实测（{@code native/jni-smoketest/DepthOcclusionProbe}；取用户 09-30 会话：
+     * 玩家离地球 15849 格）地球表面压缩后 50853 m → spaceProj 深度 <b>0.98221</b>，
+     * 而 5 格处的方块用 MC 主投影是 <b>0.99006</b> —— 方块反而「更远」⇒ 判据不触发
+     * ⇒ 大气整块盖到物理体上。临界距离只有 <b>2.80 格</b>：比这远的方块全都输给星球。
+     * <b>这不是距离压缩（09-27）引入的回归</b> —— 把 far 换回压缩前的 1e13，临界距离是
+     * <b>2.53 格</b>，一样只对贴脸的东西成立；是 09-27 起太空里**有了物理体**，
+     * 才第一次有东西需要它遮挡。
+     * 现在 {@link #renderSpaceBodies} 在留完这份底之后把主深度**清回 1.0**，
+     * 于是「这一像素有没有世界几何体」就是 {@code mainDepth < 1.0} —— 投影无关、不依赖这份底。</p>
+     *
+     * <p>space mod 不需要这份底，因为它的结构更干净：天体画进**独立的 render target**
+     * （{@code SpaceRenderer.renderSpace} 里的 {@code spaceRenderTarget}），主深度从头到尾
+     * 没被天体污染过；再让两套投影共用同一对 near/far（mixin 把 {@code getDepthFar} 改成
+     * {@code farCompressionDistance * 2}，太空投影取
+     * {@code setPerspective(fov, aspect, getDepthFar(), 0.05F)}，即反向 Z），
      * 于是 {@code max(1 - mainDepth, spaceDepth)} 天然就是「更近的那个表面」。
-     * 本项目没这套约定，只能用双快照换。</p>
+     * 本项目把星球直接画进主缓冲（省一个 target 与一次合成），代价就是必须自己把星球深度
+     * 清掉、并自己提供这份太空底。</p>
      */
     private static RenderTarget spaceSkyDepthSnapshot;
-    /** {@link #spaceSkyDepthSnapshot} 的深度纹理 id，每帧在 AFTER_SKY 刷新；本帧没有恒星时为 0。 */
+    /** {@link #spaceSkyDepthSnapshot} 的深度纹理 id，每帧在 AFTER_SKY <b>无条件</b>刷新
+     * （大气散射的 {@code SpaceDepthSampler} 要用它重建星球表面位置）；帧末清零以免误用陈值。 */
     private static int spaceSkyDepthTexture;
 
     private SpaceRenderer() {
@@ -307,8 +324,29 @@ public final class SpaceRenderer {
             spaceHasStars = hasStars;
 
             // 星球层到此为止、MC 地形还没画 —— 这是留深度底唯一可行的时机。
-            // 没有恒星就不留：泛光是这份底唯一的消费者，能省掉一次全屏 blit。
-            spaceSkyDepthTexture = hasStars ? captureSkyDepth(mc.getMainRenderTarget()) : 0;
+            // ★ 2026-09-29：这份底**必须无条件留**（原来只在"本帧有恒星"时才留），
+            //   大气 pass 的 SpaceDepthSampler 要用它重建星球表面位置。
+            spaceSkyDepthTexture = captureSkyDepth(mc.getMainRenderTarget());
+
+            // ★★ 2026-09-30：星球层的深度**必须在离开本阶段之前抹掉**，把主深度还给 MC。
+            //
+            // 主深度是 MC 的投影缓冲（near=0.05 / far=getDepthFar()），而星球是用 **spaceProj**
+            // 写进去的（near=1000m / far=524288m）。两套投影的深度值不可比，留着它们的后果是
+            // **后续世界几何体会被深度测试挡掉**（星球写下的深度更小 = 判定为"更近"）：
+            //   实测（DepthOcclusionProbe；用户 09-30 会话：玩家离地球 15849 格）
+            //   地球表面压缩后 50853 m ⇒ 深度 0.98221；而 5 格处的方块用 MC 主投影是 0.99006
+            //   ⇒ LEQUAL 失败 ⇒ 物理体根本画不出来。临界点只有 **2.80 格**。
+            //   这正是用户报的"远处的星球把近处的物理体挡住了"。
+            //   （把 far 换回压缩前的 1e13 时临界点是 2.53 格 —— 所以**不是**距离压缩引入的回归，
+            //     这条判据从一开始就只对贴脸的东西成立；只是 09-27 起太空里有了物理体才露头。）
+            //
+            // 抹掉之后：世界几何体照常画在星球**上面**，后处理的遮挡判据也随之变成投影无关的
+            // `mainDepth < 1.0`（见 planet_atmosphere.fsh 与 star_bloom.fsh 的 MinecraftOccluder）。
+            // "世界一定比天体近"的依据与唯一例外见 DepthOcclusionProbe 的 C 组。
+            // 星球层自己的互相遮挡不受影响 —— 它们在本行之前已经画完。
+            RenderSystem.depthMask(true);
+            RenderSystem.clearDepth(1.0f);
+            RenderSystem.clear(0x100, false);
 
         } finally {
             mvs.popMatrix();
@@ -460,7 +498,19 @@ public final class SpaceRenderer {
             String angDiam = String.format(java.util.Locale.ROOT, "%.3f",
                     Math.toDegrees(2.0 * Math.atan(nearest.radius() / Math.max(1.0, dist))));
 
-            boolean okSmooth = medianDeg > 1.0e-9 && smoothMaxDeg / medianDeg < 1.30;
+            // ★ 2026-09-27：给这条判据补两条**下限**。归档日志里 48 条 ★FAIL 全是判据自己的假报警：
+            //   ① 每帧最大位移 < 0.5 px ⇒ 肉眼必然连续，直接 PASS。
+            //      为什么必须补：每帧角位移降到 0.01 px 量级时，"中位"落进浮点/量化噪声，
+            //      `max/中位` 必然爆掉（实测 fps=1501 那一行：均=0.01px、最大=0.03px，抖动却算出 3.80）。
+            //      阈值 1.30 是在"每帧几个像素"的条件下离线标定的（InterpProbe：旧 4.15 / 新 1.09）。
+            //   ② 样本 < 30 帧 ⇒ 不判（旧行为拿 0 帧样本去算抖动 ⇒ 刚进维度那一行必 FAIL）。
+            double maxPx = smoothMaxDeg * pxPerDeg;
+            boolean enoughSamples = smoothFrames >= 30;
+            boolean okSmooth = enoughSamples
+                    && (maxPx < 0.5 || (medianDeg > 1.0e-9 && smoothMaxDeg / medianDeg < 1.30));
+            String smoothVerdict = !enoughSamples ? "n/a(样本不足)"
+                    : okSmooth ? (maxPx < 0.5 ? "PASS(每帧<0.5px)" : "PASS(抖动<1.30)")
+                    : "★FAIL(有跳变)";
             // ⚠️ SLF4J 的 {} 不支持格式说明符 ⇒ 数字全部先 String.format 拼好
             com.mss.polymech.Polymech.LOGGER.info(
                     "[Kelvin] [太空视运动] 最近={} 距离={} m 角直径={}° | 视运动={}°/秒"
@@ -471,7 +521,7 @@ public final class SpaceRenderer {
                     fmtPx(smoothFrames > 0 ? smoothSumDeg / smoothFrames : Double.NaN, pxPerDeg),
                     fmtPx(smoothMaxDeg, pxPerDeg),
                     smoothMinDeg == Double.MAX_VALUE ? "n/a" : fmtPx(smoothMinDeg, pxPerDeg),
-                    jitter, smoothZeroFrames, smoothFrames, okSmooth ? "PASS(抖动<1.30)" : "★FAIL(有跳变)",
+                    jitter, smoothZeroFrames, smoothFrames, smoothVerdict,
                     siTxt, span, fps);
 
             // 下一轮重新累计
@@ -702,7 +752,16 @@ public final class SpaceRenderer {
                 // 太阳常常不在渲染表里（它由另一条着色器路径画）——那样上面那次循环就取不到它，
                 // 于是"白天太阳该不该在上面"这个最关键的数反而缺了（2026-09-22 实测就是这样：
                 // 日志里只写 太阳(不在渲染表里)）。这里直接从天体表补一次。
-                if (sun.startsWith("太阳(") && celestialWorld.celestialBody.spaceWorld != null) {
+                //
+                // ★★ 2026-09-27 修一处**连带损伤**（§31.23 的后遗症；证据是归档日志，不是推理）：
+                //    原来的门是「太阳**不在**渲染表里」。§31.23 把太阳判据改成 byId 之后，
+                //    太阳在正常会话里会被主循环找到（`太阳: 高度角=…`）⇒ **这个兜底块不再执行**
+                //    ⇒ 块里那四项读数一次都拿不到：`方位检查`、`天空转速`、`插值跨度(sun)`、`太阳角直径`。
+                //    09-26 20:11 那一局的实机日志就是铁证：`天空转速=n/a`、`插值跨度=NaN`、`太阳角直径` 全缺
+                //    （而 09-26 19:11 之后地表天空探针再没跑过 —— 当前 build 19:34 之后没有一次读数）。
+                //    现在门只要求「本维度有太空世界」，太阳文本来自哪条路都照样把这些量算出来。
+                boolean sunFromFallback = sun.startsWith("太阳(");
+                if (celestialWorld.celestialBody.spaceWorld != null) {
                     com.mss.polymech.mps.kelvin.physical.celestial_body.CelestialBody sunBody =
                             celestialWorld.celestialBody.spaceWorld.getCelestialBody("sun");
                     if (sunBody != null) {
@@ -804,9 +863,12 @@ public final class SpaceRenderer {
                                                     : "★FAIL(渲染把太阳画到了帧预测的另一侧)");
                                 }
                             }
-                            sun = String.format(java.util.Locale.ROOT,
+                            String sunTail = String.format(java.util.Locale.ROOT,
                                     "太阳: 高度角=%+.2f° 时角=%s %s%s%s（正午应≈+90、午夜≈−90；上午应在东半）",
                                     elev, hour, azTxt, azVerdict, ndcTxt);
+                            // 兜底自己取到太阳 ⇒ 整段替换；主循环已经给过 ⇒ 只补它没有的三项
+                            // （方位 / 方位检查 / 画面 ndc），别把已算好的 距角 之类覆盖掉。
+                            sun = sunFromFallback ? sunTail : sun + " " + azTxt + azVerdict + ndcTxt;
                         }
                     }
                 }
@@ -922,7 +984,12 @@ public final class SpaceRenderer {
                                 diagLastHourRaw = Double.NaN;
                                 diagLastHourUnwrapped = Double.NaN;
                             }
-                            String tickVerdict = Math.abs(tickPerSec - 20.0) < 1.0 ? "（=原版 20 ⇒ 一天 20 分钟 ✔）"
+                            // ★ 2026-09-27：世界暂停时 dayTime 不推进 ⇒ tickPerSec=0，
+                            //   旧写法会打印 `时钟: 0.00 ★（≠20 ⇒ 一天不是 20 分钟）` —— 那是**假 FAIL**
+                            //   （归档日志：09-26 19:09:55–19:10:55 整整 60 秒全是这种行）。
+                            boolean clockStalled = tickPerSec < 1.0;
+                            String tickVerdict = clockStalled ? "（世界暂停/未推进 ⇒ 本次不判）"
+                                    : Math.abs(tickPerSec - 20.0) < 1.0 ? "（=原版 20 ⇒ 一天 20 分钟 ✔）"
                                     : "★（≠20 ⇒ 一天不是 20 分钟）";
                             timing = String.format(java.util.Locale.ROOT,
                                     " | 时钟: %.2f tick/秒%s 一天=%s 分钟 天空转速=%s°/秒(原版0.300)"
@@ -974,11 +1041,18 @@ public final class SpaceRenderer {
             CelestialBodyDataBuffer.get().update(spaceBodies, spaceCamRealX, spaceCamRealY, spaceCamRealZ);
             int depthTexture = snapshotDepth(mainTarget);
             try {
-                if (spaceHasStars && spaceSkyDepthTexture != 0) {
+                if (spaceHasStars) {
+                    // 2026-09-30：泛光不再需要太空底（它的遮挡判据已改成投影无关的
+                    // `mainDepth < 1.0`，见 star_bloom.fsh 的 MinecraftOccluder）。
                     SpaceStarBloomRenderer.get().render(spaceView, spaceProj, spacePartialTick,
+                            depthTexture);
+                }
+                // ★ 大气也必须拿到"太空底"：它的 SpaceDepthSampler 要靠这份底重建星球表面位置，
+                //   而 fsh 开头那条"mainDepth < skyDepth ⇒ 输出 0"的世界遮挡判据同样靠它。
+                if (spaceSkyDepthTexture != 0) {
+                    SpaceAtmosphereRenderer.get().render(spaceView, spaceProj, spacePartialTick,
                             depthTexture, spaceSkyDepthTexture);
                 }
-                SpaceAtmosphereRenderer.get().render(spaceView, spaceProj, spacePartialTick, depthTexture);
             } finally {
                 restoreDepth(mainTarget);
             }

@@ -35,10 +35,42 @@ public final class RenderCompression {
     public static final double FAR = 262144.0;
 
     /**
-     * 开关（默认<b>关</b>）：S3 期间可随时切回旧投影做 A/B，
-     * 也保证"接进来"这一步本身是零风险的。
+     * 开关（<b>2026-09-27 起默认开</b>，照抄两个参考版本：0.0.6 与 0.1.3 都默认启用）。
+     *
+     * <h2>启用前已经验过的三件事（离线，见 {@code native/jni-smoketest/RenderCompressionTest}）</h2>
+     * <ol>
+     *   <li><b>角直径不变</b>：{@code atan(R/L) == atan((R·zoom)/compress(L))}，浮点误差内逐位相同；</li>
+     *   <li><b>不会被远平面裁掉</b>：压缩后恒 ≤ FAR，而启用时 {@code spaceProj} 的 far 自动取
+     *       {@code FAR×2}（{@code SpaceRenderer} 里那行三元表达式）；</li>
+     *   <li><b>UBO 与该压的一起压</b>：{@code CelestialBodyDataBuffer} 的 Pos / 半径 / 大气壳厚度
+     *       都走压缩帧，而 {@code RealPos} 与真实大气高度保持米 —— 实测光照方向误差
+     *       <b>0.003°</b>（全压则是 <b>4.34°</b>），所以这里**有意不照抄** space 的"全压"。</li>
+     * </ol>
+     *
+     * <h2>回退</h2>
+     * 把下面这行改回 {@code false} 重新编译即可（{@code active} 随之恒假 ⇒ 渲染路径逐位回到启用前）。
+     *
+     * <h2>⚠️ 两套投影的深度值不可比 —— 2026-09-30 已按结构处理，别再靠"东西都近"兜</h2>
+     * 压缩只作用于天体（以及它们的大气壳），而地形/实体/粒子仍用 MC 自己的投影画真实距离。
+     * 距离压缩是**单调**的，所以空间上的远近顺序本身没错；但**深度缓冲里的数值**来自两套投影
+     * （天体走 {@code spaceProj} near=1000m / far=524288m，世界走 MC 主投影 near=0.05 / far=768），
+     * 同一个距离在两边差着数量级 ⇒ 任何"拿主深度与天体深度比大小"的判据都是假的。
+     *
+     * <p>这里原来写的是"放置的方块/船都在几百米内，所以安全" —— <b>那句是错的</b>，
+     * 而且正是"远处的星球把近处的物理体挡住"的根因。实测（{@code DepthOcclusionProbe}；
+     * 用户 09-30 会话，玩家离地球 15849 格）：地球表面压缩后 50853 m → spaceProj 深度
+     * <b>0.98221</b>，而 5 格处的方块用 MC 主投影是 <b>0.99006</b> —— 方块反而"更远"
+     * ⇒ 星球赢得深度测试（物理体被 LEQUAL 挡掉），后处理的遮挡掩码也恒为 0。
+     * 临界距离只有 <b>2.80 格</b>。<b>而且这不是压缩引入的</b>：换回压缩前的 far=1e13
+     * 时临界距离是 <b>2.53 格</b>，旧判据从来只对贴脸的东西成立。</p>
+     *
+     * <p>现在的做法见 {@code SpaceRenderer.renderSpaceBodies}：星球层画完、留完太空底之后
+     * 把主深度<b>清回 1.0</b>，于是世界几何体永远画在天体上面；后处理的遮挡判据也换成投影无关的
+     * {@code mainDepth < 1.0}。<b>有意不采用</b> space 的"让两套投影共用同一对 near/far"
+     * （mixin 改 {@code getDepthFar} + 太空投影反向 Z），因为那要改全局 MC 投影；
+     * 清深度能达到同样的结构效果（主深度里没有天体深度），代价只是星球层得自己留一份太空底。</p>
      */
-    public static boolean enabled = false;
+    public static boolean enabled = true;
 
     /**
      * 本帧是否真的对<b>当前这次绘制的天体</b>启用压缩（默认 false）。

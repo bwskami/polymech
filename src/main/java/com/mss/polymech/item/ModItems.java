@@ -115,6 +115,14 @@ public class ModItems {
     public static final DeferredItem<TeleporterItem> TELEPORTER =
             ITEMS.register("teleporter", () -> new TeleporterItem(new Item.Properties()));
 
+    /*
+     * 牵引枪（GMod 式）：瞄准 MPS 物理体右键 = 抓住，按住时按弹簧力把它拖到准星前方，松开放手。
+     * <p>作用对象是**物理体**（服务端权威的 Rapier 刚体），只施力不写位置 —— 见 PhysgunItem 的类注释。</p>
+     */
+    public static final DeferredItem<PhysgunItem> PHYSGUN =
+            ITEMS.register("physgun", () -> new PhysgunItem(new Item.Properties()
+                    .stacksTo(1)));
+
     public static final DeferredItem<SpaceHelmetItem> SPACE_HELMET =
             ITEMS.register("space_helmet", () -> new SpaceHelmetItem(
                     ModArmorMaterials.SPACE_SUIT,

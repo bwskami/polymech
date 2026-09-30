@@ -3142,6 +3142,9 @@ javap -c -p -cp build\moddev\artifacts\neoforge-21.1.228.jar net.minecraft.clien
 > `build/pm-diag/` 只能放**一次性**排查中间产物。
 > 另：`clean` 在本项目会因 `build/moddev/artifacts/*.jar` 被占用而**中途失败**，删一半留一半 ——
 > 要强制重编请用 `gradlew classes --rerun-tasks`，**不要用 clean**。
+>
+> ⚠️ **本文档下文（以及上文 §31.2、§27.x 等处）凡引用 `build/pm-diag/*.java` 的探针，都已经不存在了**
+> （本轮 `clean` 删掉，共 9 处引用）。要复用请按所在节的描述**重建**，别以为只是找不到文件。
 
 ### 31.23 **死判据**：查表恒为 null 的判据比没有判据更糟
 
@@ -3276,6 +3279,997 @@ $b = [System.IO.File]::ReadAllBytes($p); ($b[0..2] | % { $_.ToString('X2') }) -j
 ```
 
 不是 `EF BB BF` 就 `[System.IO.File]::WriteAllBytes($p, ([byte[]](0xEF,0xBB,0xBF) + $b))`。
+
+### 31.27 参考 space 0.1.3 的"平滑方案"到底是什么 —— **它对这个病没有解**
+
+用户问："你看一下 space 用的是什么方案"（只查不写）。把 0.1.3 的整条链路读完，结论是
+**参考原生就是 20 Hz 硬跳**，我们修之前与它逐字相同。以下是带行号的证据，**以后不必再读一遍反编译**。
+
+#### 完整链路
+
+| 环节 | 参考的做法 | 证据（`decompiled-space/0.1.3/`） |
+|---|---|---|
+| 时间倍率 | `0.72` × `100 Hz` = **72×** ⇒ 一天 19.95 分钟 | `kelvin/OrbitPhysicalThread.java:18,67` |
+| 坐标尺度 | **恒等**（1 格 = 1 米），无 ZOOM；星际移动靠**传送器** | 全库无 `toReal`/`ZOOM` |
+| 发包 | 每 tick 全量位姿（20 Hz），写**缓冲区世界** | `kelvin/network/event/CelestialBodyMoveSyncEvent.java:22`（`LevelTickEvent.Pre`）、`:34`（`getPos()` 原始值）；`SyncCelestialBodyMoveBatch.java:63`（`body.moveTo(...)` 入队） |
+| 显示世界更新 | `init`（`AFTER_SKY`，**每帧**）→ `syncMoveData()`：`up()` 后**无条件**整块拷贝 | `sunshine/render/SpaceRenderer.java:87-106`；`kelvin/.../ClientSpaceWorld.java:24-36` |
+| 插值 | **只有** `lerp(old_pos,pos,partialTick)` / `slerp`，全渲染路径都用它 | `CelestialBody.java:47,55`；`SpaceRenderer.java:475`；`ClientCelestialBody.java:30`；`ClientPlanet.java:41,44`；`ClientStar.java:36,43`；`CelestialBodyDataUBO.java:162` |
+| 其它平滑 | **无**：没有时间戳、客户端预测/外推、滤波 | 全库 grep `lerp/smooth/predict/interpolat` 只命中上面那些 |
+
+#### 为什么它的插值**是失效的**
+
+`moveToDirect` 第一步 = `old_pos ← pos`（`CelestialBody.java:67`），而 `syncMoveData()` **每帧**无条件拷一次：
+
+```
+包到达那一帧：old_pos = P(t−1), pos = P(t)   ← 插值只在这一帧有效
+之后每一帧  ：old_pos = P(t),   pos = P(t)   ← 被推平 ⇒ lerp 恒等于 pos
+```
+
+⇒ 参考画面里的天体位置 = **每 tick 硬跳一次（20 Hz）**。
+**这是它的原生行为，不是我们抄错**；我们那两个类与它逐字相同（§31.19 里的"有意偏离"就是从这里来的）。
+
+#### 它的 `getRenderZoom` **不是**为了丝滑（别把它当答案）
+
+`ClientCelestialBody.java:29-35`：`zoom = PositionCompression(|p−c|) / |p−c|`，把远处压进 `[16384, 262144]`。
+但把整条偏移向量乘一个标量**既不改变方向、也不改变角直径**：
+
+```
+投影 = (o·z).xy / (o·z).z  ≡  o.xy / o.z        // 分子分母同时乘 z，约掉
+```
+
+⇒ 它与"跳不跳"无关，真实目的是**深度精度/视锥**（否则 `near=0.05、far=1e13` 下远处天体 z-fighting、
+或正好落在远平面上被裁掉；配套 `sunshine/mixin/renderer/MixinGameRenderer.java:55` 把 far 收紧到
+`farCompressionDistance × 2`）。
+
+> **我们这儿的现状**：`RenderCompression` 已移植但 `enabled` **从未打开**（全库只有读没有写），
+> 所以"远处天体渲染稳定性"这一项我们有缺口 —— 但它**与丝滑无关**，属另一件事，别混。
+
+#### 两边对照（只列真正起作用的差别）
+
+| 环节 | 参考 0.1.3 | 我们（§31.19/24/25 修完） |
+|---|---|---|
+| 时间倍率 | 72× → 一天 19.95 分钟 | 71.8033× → 正好 20.000 分钟 |
+| 坐标尺度 | 恒等 1 格 = 1 米 | 同 |
+| 发包 | 每 tick 全量包 20 Hz | 同 |
+| 显示世界更新 | **每帧无条件整块拷贝** | 只在**值真的变了**时拷贝 |
+| 渲染取位姿 | **绘制时**直接读 `getSmoothPos(partialTick)`，不缓存 | 缓存到 `PlanetRenderObject`（曾走 `gamePos` 取原始值 ⇒ §31.24 那个锅是**我们自己的**，参考没这毛病） |
+| 插值算法 | 两拍 lerp（因上面那条而失效 ⇒ 20 Hz 硬跳） | **时间戳快照环 + 100 ms 延迟插值** |
+| 距离压缩 | 有，默认开（深度精度用途） | 已移植但关着 |
+
+#### 结论（一句话）
+
+> 参考的方案 = "20 Hz 全量包 + 每帧整块拷贝 + 两拍 lerp"，这个组合让它自己的插值失效；
+> 它对"天体一顿一顿"**没有解**，因为它的设计里玩家不会贴着行星看（星际靠传送器，
+> 而 72× 时间 × 恒等尺度下"近距离停留"本来就不成立）。
+> 我们那两处改动（**只在变化时拷贝**、**时间戳插值**）是对参考的**真偏离**，
+> 也正是用户感到"真的流畅了"的直接原因 —— 回退点在 §31.19 / §31.25 各写了一次。
+
+### 31.28 进出太空的过渡（地表 ⇄ 太空）：**验过什么 / 没验什么 / 根本没做什么**
+
+用户 2026-09-26 提醒："从太空降落到星球和从星球升到太空之类我记得有些还没测"。查证结果：
+**这一整类里只有一项被验过**，而且里面混着三类性质完全不同的东西 —— 分开记，别互相冒充。
+
+#### 四条实际路径（`SpaceTransitionHandler.java` / `PlanetDimensions.java`）
+
+| 路径 | 触发 | 落点/行为 | 代码 |
+|---|---|---|---|
+| **A. 地表 → 太空（无缝上升）** | **仅主世界**：`dim == Level.OVERWORLD` 且 `player.getY() >= 10000` | `EarthSpaceMapping.worldToSpace` → `SpaceWorld.toMc` →（\|坐标\| ≤ 3e7 才）预加载 → 发 `SpaceTransitionSyncPacket` → **2 tick 后** `changeDimension(space, pos, deltaMovement, yRot, xRot, DO_NOTHING)` + `SpacePlayerData.initFromVanilla` | `:59,64-107,165-189` |
+| **B. 太空 → 地球（卡门线捕获下降）** | 与**地球** `gamePos` 距离 < `半径 + 卡门线 − 1` | `EarthSpaceMapping.spaceToWorld` → 方块坐标 → `surfaceY` → 预加载 → 发同步包 → 2 tick 后 `teleportToPlanetSurface(idx=3, x, z)` | `:109-154` |
+| **C. 太空 → 其它可着陆天体** | 同一套卡门线捕获 | **落到该影子维度的世界出生点**（`PlanetDimensions.teleport(idx)`）；**不发同步包**；注释自承"精确落点捕获**留待 M4**" | `:155-160,171-176` |
+| **D. 命令/传送器** | `/polymech` 或 `TeleporterScreen` | `teleportToSpaceAbove`：放在 `max(2.2R, R+150)` 处、**速度 `Vec3.ZERO`**、朝向天体中心；或 `teleportToPlanetSurface` 表面出生点 | `PlanetDimensions.java:119-183` |
+
+**可着陆集合** = `PlanetDimensions.isTeleportable(idx)` = 是否注册了影子维度：水星/金星/地球/月球/火星/火卫一二/木卫一~四/土卫六/土卫二/冥王星/卡戎。
+**太阳与四颗气态巨行星不可着陆**（只当景观）—— 设计选择。
+
+#### ✅ 已验证（唯一一项）
+
+- **地表 → 太空（去程）的落点**：§31.8，19:13:59 实机日志 `[坐标落点] overworld → 太空`：
+  **`宇宙系(米)` 与 `目标` 逐位一致、`约定=恒等`**，无 `InjectionError`。
+- 同一区域但**不是过渡本身**：太空维度里不卡死 + `[太空阴影] 锚点已在运行时生效并跳过`（§31.9）。
+
+#### ❌ 没测（功能在，但没人走过）
+
+1. **太空 → 地球 的下降（路径 B）—— 从来没走过**。§31.9 末尾明写"**仍待验证**：本局是直接读档在太空、未走维度过渡"。
+2. **往返一致性**：去程验了、回程没验 ⇒ `地球 → 太空 → 回地球`两个方向的 `[坐标落点]` 是否逐位一致**未知**。
+3. **下降那一刻的表现**：2 tick 延迟 + 同步包这条无缝路径有没有黑屏/错位/一帧跳变；速度与朝向是否保住
+   （去程传了 `deltaMovement`，回程 `teleportToPlanetSurface` **没有速度参数**）。
+4. **`teleportToSpaceAbove`（路径 D）的落点回归**：§30.13/§31.13 写着"**必须做落点回归**"，没有已验记录；
+   且它用 `gamePosMc`（Y 压平）而渲染/物理用真实 Y ⇒ 落点与"看到的那颗星"是否重合没验。
+5. **卡门线边界反复穿越**：`COOLDOWN_TICKS = 80`、`DELAY_TICKS = 2`、`PENDING` 去重 —— 边界上下抖动会不会重复触发/卡住/漏触发。
+6. **深空落点**：`|坐标| > 3.0e7` 时**跳过区块预加载**（`:96-102`）⇒ 落进纯虚空会不会掉出世界、有没有落脚面。
+7. **落到气态巨行星/太阳上会怎样**：捕获循环里 `isTeleportable` 直接 `continue` ⇒ 会**穿过去**，没人试过。
+
+#### ⛔ 根本没做（结构性缺口，别当成"没测"）
+
+1. **无缝上升只在主世界**：入口是 `else if (dim == Level.OVERWORLD)` ⇒ **在火星/金星/月球等地表升到 10000 格不会进太空**，
+   只能靠命令/传送器。要通用化得先把 `EarthSpaceMapping` 并到 kelvin 的通用映射（§29.2 那条待办）。
+2. **太空 → 非地球天体是"非无缝 + 出生点落点"**（路径 C）：注释自己写着"精确落点捕获留待 M4"，且不发同步包。
+3. **两套映射并行**：`EarthSpaceMapping` 是地球硬编码（CENTER (0,0) / 经度长度 100000 / HEIGHT 10000 / MinY −64）
+   与 `CelestialWorld` 的通用映射**同时存在**（§29.2）。
+4. **`SURFACE_TO_SPACE_SCALE = 0.01` 是死常数**：全库只有声明、无人引用（`SpaceTransitionHandler.java:27`）。
+   它看着像"地表↔太空换算比例"，实际是 ZOOM 时代遗留 ⇒ **读这段代码时不要以为它生效**。
+5. ⚠️ **承重关系（§30.13 已记，这里再钉一次）**：`tickInSpace` 的卡门线判定靠 `gamePos`（**Y 压平**）
+   与玩家那个"小 Y"在同一尺度上；**一旦把方块口径的 Y 解压平，捕获判定会永远失败**。做任何坐标/参考系改动前先读这条。
+
+#### 过渡要去验时的读数
+
+- 两条路径都打 `[坐标落点]`：`… → 太空 | 玩家地表=… | 宇宙系(米)=… | 目标=… | 约定=…` 与
+  `太空 → <天体> | 太空输入(米)=… | 落点=… | 约定=…`。
+- 判据（§31.8 / §30.12）：**同一段路"宇宙系(米)"必须逐位不变**（映射没动）；**回程落点是方块坐标、与约定无关**。
+- 另需 `[坐标自检]` 的校验和与往返误差（历史上记过 `-5410990681030` / `0.000e+00`）。
+- **③ 与"太空维度方案"直接相关**：参考系跟随会改变卡门线捕获与落地所用的坐标口径 ⇒ 做那个方案前先把上面三张清单过一遍。
+
+### 31.30 玩家侧物理玩法：**太空放方块 = 造物理体** + **牵引枪**（2026-09-27）
+
+用户需求（两轮，第二轮覆盖第一轮）：
+1. "先实现一个玩家放置物理体的功能，并且有个类似 gmod 或者机械动力航空学那种的拖拽物理体的工具"；
+2. **"不需要装配器，就是如果在太空对着空处放置方块会变成物理体，但是对着物理体不会再旁边再新建一个，还有一系列的保护措施
+   ……因为原版方块到了 30m 之后就放不出来了"**。
+
+⇒ 第一轮的**两点选区装配器已按第 2 条撤销**（类/注册/物品栏/lang/模型全删，`datagen.ps1` 还加了"不该存在"的反向判据）；
+最终形态就是**放置驱动的造体** + **牵引枪拖拽**。
+
+#### 为什么必须这样（用户给的理由，也是硬约束）
+
+**原版方块到了 ~3×10⁷ 格（30m）之后就放不出来了**：`BlockPos` 的 X/Z 各只有 26 位（±33,554,431），
+超出会静默别名到原点附近；我们另有 `LevelSpaceAccessMixin:59-76` 在 `isDeepSpace` 时把 `setBlock` 直接返回 false。
+缩放约定下地球在 1.53e6 格（放得下）、**木星及以外 7.8e7 格（放不下）** —— 所以"在外行星那边盖东西"
+只能靠**物理体**（Rapier 刚体 + 投影维度 `poly_mech:projection_world` 里的真实方块），它在原版方块体系之外。
+
+#### 参考依据（行号可查；只借机制，不借代码）
+
+| 环节 | 参考 | 我们的对应件 |
+|---|---|---|
+| **造体顺序** | `RocketAssemblyService.java:258-279 materialize(...)`：建体 → `getProjection()` → `getStart().offset(64,64,64)`（地皮 = `slot*192 ± 64` = **129³**）→ `copyBlock` → `uploadAllChunks` → `addPhysicalBody` | `SpaceBlockPlacement.createBody`：同序；因为方块还没进世界，把 `copyBlock` 换成"直接写地皮中心那一格 + `onBlockUpload` 标脏" |
+| **往体上放东西** | `handleInteraction` / `INTERACTION_USE` | 我们已有 `PhysicsBodyInteraction.useOrPlace`（在投影维度里跑原版 `useItemOn`/`BlockPlaceContext`） |
+| **推进器怎么施力** | `ChemicalThrusterBlockEntity.java:29-43`：`ProjectionManager.getPhysicalBody(worldPosition)` 找"自己所属的刚体"→ 用刚体旋转把方块朝向转世界方向 → `body.addForce(Force(dir·1000, 0.05))`；化学版**不烧燃料** | `ProjectionManager.java:226 getPhysicalBody(BlockPos)` 已有 ✔ |
+| **拾取** | —（参考没有玩家工具） | `PhysicalRaycast.cast(...)` → `Hit(PhysicalBody, localBlockPos, localFace, worldLocation, distance)` 已有 ✔ |
+
+#### 关键取证：为什么整件事可以**纯服务端**做（这是"不会在旁边再新建一个"的结构性保证）
+
+物理体的方块**不在客户端的 level 里**（活在投影维度）⇒ 客户端射线必然 miss
+⇒ 客户端发的是**原版"用物品"包**，服务端在 `ServerPlayerGameMode` 里触发
+`PlayerInteractEvent.RightClickItem`。取证方式是从**打过补丁的产物**里扫常量池，不靠记忆：
+
+```
+全 jar 扫描 neoforge-21.1.228{,-merged}.jar：调用 CommonHooks.onItemRightClick 的类 =
+   net/minecraft/server/level/ServerPlayerGameMode        ← 服务端"用物品"路径（我们的钩子）
+   net/minecraft/client/multiplayer/MultiPlayerGameMode   ← 客户端（我们不用）
+（在 1.21.1 里 "RightClickItem" 这个类名只出现在 NeoForge 自己的常量池里，
+  补丁过的 MC 类引用的是方法名 onItemRightClick —— 所以只搜事件类名会漏。）
+```
+
+于是**一个服务端处理器**同时覆盖两种情况，不存在"客户端包 + 服务端逻辑各触发一次"：
+
+| 准星 | 服务端行为 |
+|---|---|
+| 打在**物理体**上（`PhysicalRaycast` 命中） | **并进那个体**（写它地皮里对应的一格 + 标脏），**绝不新建** |
+| 前方是**空的**（附近也没有体） | **新建一个单方块物理体**，落在准星前方 3 格 |
+
+#### 保护措施（12 条；每条都写了"为什么"）
+
+| # | 措施 | 为什么 |
+|---|---|---|
+| 1 | 只在**太空维度**生效 | 行星地表有真实方块空间，那里就该放普通方块 |
+| 2 | 不在**投影维度**生效 | 否则会在地皮里套娃建体 |
+| 3 | 必须有物理世界，否则什么都不做 | 不能把方块扔进虚空 |
+| 4 | 只处理**方块物品** | 食物/工具照原样走原版 |
+| 5 | 每玩家 **4 tick 冷却** | 防连点刷体 |
+| 6 | 目标格与**玩家包围盒相交 ⇒ 拒绝** | 把方块塞进自己身体会被卡住/弹开 |
+| 7 | 每维度 **≤ 256 个体**（只挡"新建"，并体不受限） | 防把物理世界塞爆 |
+| 8 | **目标格不得与玩家身体相交**（AABB 相交即拒） | 别把自己的腿封进方块里。**注意**：曾经这里还有一条"离玩家 ≤2.5 格"，第二轮实机反馈"**离玩家的保护就别这么远了，不然不好放啊**"后**已撤** —— 目标格只可能是"贴体相邻格"或"准星前方 3 格"，那条门防的是一个不存在的风险（"放得很远"），代价是把正面放置全挡了 |
+| 9 | 目标格必须是**空气** | 这是"放置"不是"替换"（`placeBlockAt` 也会再判一次） |
+| 10 | 创造模式**不消耗**，生存消耗 1 个 | 与原版一致 |
+| 11 | 单个体方块数上限 | 由原语自己的 `MAX_BLOCKS` 把关（`placeBlock` 内） |
+| 12 | 拒绝时也**吃掉这次右键** | 否则原版会去走它自己的放置（要么放不出、要么写出一个孤儿方块） |
+
+**命中面的世界化**（结构性，不是补丁）：体被牵引枪转过之后，命中面是**体局部**的
+（`PhysicalRaycast.Hit.localFace()`），直接用会把方块放到**体的另一侧**。
+`SpaceBuildRules.rotateFace(局部面, 刚体旋转)` 把它转成世界方向（离线判据里专有"体绕 Y 转 90°"一组）。
+
+#### 实现落点（**第二版：只有一个实现入口**）
+
+- `physics/SpaceBlockPlacement`：`RightClickItem` 处理器（服务端）。算**世界坐标**的目标格 ⇒ 过前置判据
+  ⇒ 调 **`PhysicsBodyTracker.placeBlockAt(level, pos, stateId)`**（项目已有原语）⇒ 消耗物品 + actionbar/日志。
+- `physics/SpaceBuildRules`：**零 MC 依赖**的纯函数（判据表 + 拒绝文案 + `rotateFace`）⇒ 离线可直接判。
+- `physics/PhysicsBodyTracker`：把 `placeBlockAt` 里那段"找面相邻体"的扫描抽成
+  `findAdjacentBody` + 公开 `hasAdjacentBody`（**同一次扫描，不做第二份实现** —— §29.3 的教训）。
+- `item/PhysgunItem` + `physics/PhysgunSpring`：牵引枪（射线拾取 → `startUsingItem` → 每 MC tick 施一次
+  `F = m·a` 的弹簧力，`a = clamp(Kp·err − Kd·v)`，Kp=8/Kd=4/aMax=80/误差上限 32/力时长 0.05 s）；
+  **只施力、不写位置**。注册：`ModItems.physgun` + 工具物品栏 + datagen 模型（v1 复用原版 `item/blaze_rod`）+ 中英 lang。
+
+#### ⚠️ 第一版的根因（用户实机报"放出来不显示、也无法对这个物理体再放方块"）
+
+第一版（2026-09-27 当天早些时候）**没找到 `placeBlockAt`**，自己拼了一条路：
+`new ServerPhysicalBody(...)` + `ProjectionManager.setBlock(地皮中心)` + `uploadAllChunks` + `addPhysicalBody`。
+它看起来"照抄了参考的六行"，但**绕过了 `PhysicsBodyTracker`**，而项目里真正的两条链是：
+
+| 链 | 依赖 | 我漏掉的后果 |
+|---|---|---|
+| **客户端渲染** | `PhysicsBodyTracker` 的方块快照（`PhysicsBodySyncPacket` / `refresh`） | 客户端收到的是**空体** ⇒ **不显示** |
+| **碰撞体** | `PhysicsBodyTracker.rebuildCollider`（由体素方块网格推导） | 体**没有碰撞体** ⇒ 射线打不到它 ⇒ 判定为"附近没有体" ⇒ **每次都在旁边新建**，永远并不到一起 |
+
+⇒ 现象与你报的两条**逐字吻合**。修法不是打补丁，而是**改走唯一原语**：
+`PhysicsBodyTracker.placeBlockAt` 一次做完"并进面相邻的体 / 由这一块新建体 + 建碰撞体 + 写存档 + 广播客户端 + 落地皮"，
+注释原文就是"太空维度里玩家摆出来的方块应当是物理体……并入面相邻的现有物理体，找不到就由这一块新建一个物理体"。
+**教训（本项目第 N 次同类）：动手前先把"这个功能是不是已经存在"查干净 —— 我查了 `ProjectionManager`，
+没查 `PhysicsBodyTracker` 的公开 API，于是重造了一套绕过账本的实现。**
+
+#### 离线验收（都已并入回归）
+
+| 判据 | 结果 |
+|---|---|
+| `PhysgunDragProbe`（第 9 项）：真 MPS 刚体 + 真弹簧 | 误差 1/10/32 格 ⇒ 收敛 1.19 / 2.45 / 2.94 秒，稳态误差 **0.0000**，超调 ~4%，限幅生效，80 kg 与 50 t 差 **0.0%** ✔ |
+| `SpaceBuildRulesProbe`（第 10 项）：判据表 8 例 + 4 条拒绝文案 + `rotateFace` 4 例 | **16 项全 PASS** ✔ |
+| `check-artifact`（第 7 项） | 13 个类的常量池里都有本轮标记（含 `placeBlockAt`/`hasAdjacentBody`/`rotateFace`）✔ |
+
+跑法：`pwsh native\jni-smoketest\run-offline-checks.ps1` → **10/10，退出码 0**。
+
+#### 实机判据（下一次会话）
+
+1. 太空里手持方块，**对着前方右键** ⇒ actionbar "**新建物理体** …：(x,y,z) 方块名"，
+   方块出现在准星前方 3 格，**立刻可见、可被牵引枪打到**（这两点是第一版缺的）；
+2. 对着它旁边右键 ⇒ actionbar "**并入物理体** …" ⇒ **体变大，旁边不多出新体**；
+3. 把准星压到脚下/贴着自己身体放 ⇒ 被拒："太贴着你了，把准星往前挪一点"；连点 ⇒ 被 4 tick 冷却吃掉；
+   （**"离玩家太远 ⇒ 拒绝"那条已经撤掉了** —— 见上表第 8 行，用户反馈"不好放"）
+4. 日志搜 `[太空建造]`，每行含 `新建物理体` / `并入物理体` 字样。
+
+**已知不完美（照抄原语的既有假设，先记着别急着改）**：`PhysicsBodyTracker` 算方块世界坐标用的是
+`tracked.origin + 局部坐标`，**不含刚体旋转** ⇒ 体被牵引枪转过之后，相邻判定/落点会按"未旋转"算。
+要不要把它做成旋转感知，需要动体素账本模型（也可能与参考同构），**先攒证据再动**。
+
+#### 牵引枪的**视觉**（2026-09-27 第三轮：用户"完全不像是 GMod/机械动力那样啊，牵引枪的线呢？"）
+
+第一版只有"施力"、**零客户端视觉**（我自己在 v1 里列为"已知简化"），所以手感上完全不像 —— 补上四件：
+
+| # | 画什么 | 颜色 | 实现要点 |
+|---|---|---|---|
+| 1 | **准星目标高亮**：命中体的局部 AABB 线框（12 条边、跟着刚体旋转） | 青 | `PhysgunBeamRenderer.drawBodyOutline` |
+| 2 | **枪口射线**：近似枪口 → 命中点 | 青 | 枪口 = 眼 + 视线×0.35 + 右×0.18 − 上×0.12（正上/正下看时右向量退化，有兜底） |
+| 3 | **抓住后的光束**：枪口 → 目标点（= 眼 + 视线 × holdDistance，**与服务端施力同一个公式**） | 橙 | `PhysgunClientState.holdDistance` |
+| 4 | **落点环**：目标点的小线框盒 | 橙 | 让人看得出"拉力正把它拽向哪里" |
+
+- 渲染通道照本项目已验证的写法：`RenderLevelStageEvent` 的 `AFTER_TRANSLUCENT_BLOCKS` +
+  `event.getPoseStack()` + `event.getCamera().getPosition()`（裸 `PoseStack` 会缺相机旋转，§ 已记录）；
+  线用 `RenderType.lines()`（POSITION_COLOR_NORMAL ⇒ 每个顶点都要 `setNormal`）。
+- **拾取为什么在客户端自己算**：客户端镜子体不保证有碰撞体（Rapier 射线可能打不到），
+  而客户端手里已有每个体的方块列表 + 位姿 ⇒ 用 `RayBox`（**纯 joml，离线可判**）在体局部空间做 slab 求交更稳。
+  服务端仍是权威（真正抓谁由服务端射线决定），客户端这份只服务视觉与"抓住瞬间的距离"。
+- **一个必须踩过才知道的点**：客户端要画光束就必须 `player.isUsingItem()`，
+  而原版只有在 `use()` 返回 `consumesAction()`（`consume`）时才 `startUsingItem` ——
+  v1 客户端返回的是 `success` ⇒ 按住右键也不会 `isUsingItem()` ⇒ 光束永远不出现。现在客户端分支返回 `consume`。
+
+**离线判据**：`SpaceBuildRulesProbe` 第 4 节专测 `RayBox`（正打 t=1.5 / 平行擦过 miss / 盒在背后 miss /
+起点在盒内 t=0 / 3 格长体的局部 AABB / **体转 90° 后同一根射线命中而未旋转则 miss**）。
+其中"体转 90°"那组**我写错过两次期望**（第一次方向写反、第二次忘了算射线朝向），
+两次都是**判据的期望错了、代码是对的** —— 与本项目"断言必须由调用方推导"那条教训同源，记在这里。
+
+**已知缺口（下一步，按优先级）**：
+1. **线太细**：`RenderType.lines()` 是 1px 线；GMod/机械动力的光束是**有厚度的发光条**（用四边形带 billboard 或 `lightning` 类通道）；
+2. **别人的牵引枪看不见**：现在只画本地玩家 ⇒ 需要服务端把"谁抓着哪个体"广播（`PhysgunGrabPacket`），
+   顺带能消掉"客户端镜子体滞后导致光束指向另一个体"的极端情况；
+3. **抓住时的旋转控制**（GMod 用滚轮+按键转物体）：现在只能靠弹簧自然摆动；
+4. **手感**：现在 Kp=8/Kd=4（1–2 秒收敛、略软）；想更"焊住"就调 Kp/Kd（离线探针可直接扫参，先看收敛与超调）。
+
+1. **误删 datagen 产物**：我用 `Remove-Item src\generated\resources\data\poly_mech\* -Recurse` 想删"装配器相关产物"，
+   结果删掉整个 `data/poly_mech/**`（4201 个被跟踪文件，含 `space_data/space/object/*.json`），
+   第 1 项轨道验收立刻报 `NoSuchFileException`。恢复方式：`git checkout -- src/generated/resources/data`（4201 个文件全回），
+   然后让 datagen 重跑。**规矩：`src/generated` 下永远不要用通配删除**，要"让 datagen 自己清"，或直接 `git checkout` 回滚。
+2. **`.ps1` 的 BOM 又被编辑工具弄掉**（`check-artifact.ps1` 整份被按 GBK 解析、满屏语法错）。
+   这次已有 `datagen.ps1` 里的补 BOM 手法兜底：改完 `.ps1` **必须**复查前三字节 `EF BB BF`。
+
+
+#### 牵引枪视觉**第四轮**：照参考重做（用户"太廉价"；同时挖出"线呢？"的真正根因）（2026-09-28）
+
+用户原话：**"牵引枪不对，完全不像是机械动力航空学和 gmod 的那种啊，牵引枪的线呢？"**、
+**"你这显示的完全不对啊，不像，太廉价了好吗"**，并给了参考仓 `C:\Users\34573\Desktop\Simulated-Project-main`。
+上一轮我自己把"线太细 / 别人看不见"写进了"已知缺口"（见上），这一轮就是去关掉它们 ——
+但**不是调参**，而是先取证：参考那套东西到底由哪几样构成。
+
+**取证（只读参考仓，行号可查；只借机制不借代码）**
+
+| 参考位置 | 事实 | 我们上一轮 | 结论 |
+|---|---|---|---|
+| `physics_staff/PhysicsStaffClientHandler.java:439-527` | `PhysicsBeam`：节点链，`TARGET_SPACING=1.5`、`MIN_POINTS=8`、`targetNodeRadius=0.2`；`BeamNode.update()` = `(position + offsetRandom(random,3)) * 0.5` | 一条直线 | 光束是**会呼吸的电浆绳**：节点半径 `0.2·√(scaled/count)`≈0.18 格，均值回复（不漂走） |
+| 同上 `:468` | `line.getParams().colored(0xffffff).disableLineNormals().lineWidth(0.6f/16f)` | `RenderType.lines()`（1px） | 参考**自绘四边形**当线用 —— 因为核心 profile 把 `glLineWidth` 钳到 1，光靠 GL 线宽做不出厚度 |
+| 同上 `:493-500` | `extension = lerp(0.5, extension, 1)`；松手 `intensity *= .6f`，`< .4f` 移除 | 松手硬切 | 有**收束淡出**（1.0 → 0.6 → 消失） |
+| 同上 `:439`、`:357-384` | `Map<UUID, PhysicsBeam> beams`；每帧 `beam.render(focusPos, interpolatedBeamEnd, …)`，端点 `previousStart/End.lerp(pt)` | 只画本地玩家 | 别人的光束也看得见；20Hz 端点按帧插值补平 |
+| `network/packets/physics_staff/PhysicsStaffBeamPacket.java` | `(uuid, start, end)` 服务端 → 客户端 | 客户端自己求交决定"抓没抓到" | **权威必须在服务端** —— 这条同时就是"线呢？"的根因（见下） |
+| `physics_staff/PhysicsStaffRenderHandler.java` | `Outliner.showCluster(...).colored(...).lineWidth(1/32f).withFaceTexture(AllSpecialTextures.CHECKERED)` | 单色 1px 线框盒 | 悬停是**棋盘面 + 有宽度的框**，不是一根细单色线 |
+
+**"牵引枪的线呢？"的根因（本轮最重要的发现，不是观感问题而是判据分裂）**
+
+上一轮客户端在 `use()` 里自己用 `PhysgunTarget`（解析求交，打客户端镜子体）决定抓谁，
+**打不中就 `return success`** ⇒ 不 `startUsingItem` ⇒ 渲染器的判据 `player.isUsingItem()` 为假 ⇒
+**一根线都不画**。而服务端在同一次点击里走 Rapier 射线（`PhysicalRaycast`）**命中了**，
+于是聊天栏老老实实显示"已抓住"。
+两边对"抓没抓到"用的根本不是同一套判据 —— 客户端镜子体没同步上时，这个分叉是常态而非极端情况。
+修法与参考同构：① 客户端**无论如何**都 `startUsingItem` + 返回 `consume`（打中就顺手记一条本地预测，光束立刻出现）；
+② 服务端把抓取结果（谁、两端在世界哪里、松没松手）用 `PhysgunBeamPacket` 广播给附近的人（`sendToPlayersNear`，含自己）。
+
+**本轮落地（5 件，每件都有独立回退点）**
+
+| # | 文件 | 做了什么 | 为什么（判据） |
+|---|---|---|---|
+| 1 | `physics/PhysgunBeamShape.java`（新，纯数学） | 节点数/半径公式、随机游走、线段四边形、正对相机的方块、棋盘奇偶、强度曲线 | 抽出来才能**离线判**（照 `PhysgunSpring` 的同一招）：公式错、退化除零、NaN 都在这里被钉住 |
+| 2 | `client/physics/PhysgunRenderTypes.java`（新） | 两个 `RenderType.create` 通道：`BEAM`（加色混合 `ADDITIVE_TRANSPARENCY` + `COLOR_WRITE` 不写深度 + `NO_CULL`，`POSITION_COLOR` 自发光）、`OVERLAY`（普通透明，画棋盘面与厚线框） | 本项目**第一次**用 `RenderType.create`：已从反编译源核实 `create(String,VertexFormat,Mode,int,boolean,boolean,CompositeState)` 是 public、`RenderStateShard` 的常量全是 public、且 `name` 无命名空间校验 |
+| 3 | `client/physics/PhysgunClientState.java`（重写） | `Map<UUID, Beam>`：每玩家一条；节点链 + 端点 `prev→cur` 插值；`intensity` 淡出；**本地预测 vs 服务端权威**（`serverDriven` 一旦为真，预测不再写端点） | 照参考的"按玩家一张表"；预测保证开火瞬间就有光束，权威到达后接管 |
+| 4 | `client/physics/PhysgunBeamRenderer.java`（重写） | ① 抖动能量绳（每段画**十字双四边形**：核心 0.030 格 + 外晕 0.080 格，任何视角都有厚度）；② 抓点光斑（两层正对相机的方块）；③ 落点标记；④ 体的高亮框改成厚线（0.026 格）+ 命中的那一格画**几何生成的棋盘面**（每面 3×3 填一半，替代参考的 `CHECKERED` 贴图）；⑤ 光束起点对本地玩家用枪口近似 | 十字截面解决"视线与光束平行时细成一条线"；棋盘面不引入新资产 |
+| 5 | `network/PhysgunBeamPacket.java`（新）+ `PhysgunItem` + `PhysicsClientHooks` + `Polymech` 注册 | S2C 广播：`(playerId, start, end, holdDistance, released)`；服务端抓取瞬间 + 每 2 tick（`BROADCAST_INTERVAL_TICKS`）重算端点（抓点存**体局部**，用刚体姿态变换 ⇒ 船转光束跟着转）；松手/体消失/抓取被拒都发 `released` | 走 dist-safe 桥（`PhysicsClientHooks.physgunBeamConsumer`，默认 no-op）⇒ 服务端不会加载客户端类；**端点直接发世界坐标**，避免跨 UUID ↔ ProjectionManager 槽位 ↔ tracker long id 三重 id 映射 |
+
+顺带：抓取/松手接上原版 `CONDUIT_ACTIVATE/DEACTIVATE`（参考有 ignite/idle/lock/extinguish 一整套自造 ogg，
+自造音频资产是另一件事，先用原版顶上，至少有听觉反馈）。
+
+**离线验收（全部并入回归，`run-offline-checks.ps1` 现为 11 步）**
+
+- 新增第 11 步 `PhysgunBeamShapeProbe`（**55 项**，纯数学、连 joml 都不需要）：
+  数值锚点对参考逐个核对（1.5 / 8 / 0.2 / 0.5 / 0.6 / 0.4）；
+  节点数公式与 4096 保护；半径随节点数单调减小；随机游走两万步**有界且均值回复**（平均 |pos|≈0.83 ⇒ 20 格光束振幅 ≈0.15 格）；
+  线段四边形四个角点到轴线距离都等于半宽、面积 = 长×宽；
+  **相机落在光束轴上、两端点重合等退化情形不出 NaN**（实机表现就是"光束突然消失"）；
+  正对相机的方块在"相机在正上方/正中心"时不退化；棋盘 8×8 正好一半；强度曲线收敛到 1 且松手后 `<0.4` 才移除。
+- 产物自检扩到 **21 个类**（含新类、以及 `PhysgunClientState$Beam` 这个**内部类**独立 .class —— 教训：
+  marker 必须写它真正所在的那个 class，字段属于内部类就搜不到外层类里）。
+
+**实机判据（请用户验；每条的 FAIL 表现与首查点都写好）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 太空里手持牵引枪，准星指着物理体（**不按右键**） | 体上出现**青色厚线框** + 指着的那一格有**棋盘面** | `PhysgunTarget.find` 是否命中（`aimedBodyId()`）；客户端 `ClientPhysicsWorld` 里有没有这个体 |
+| 2 | 按住右键抓一个体 | **立刻**出现一条**会轻微抖动**的蓝白光束（不是直线、不是 1px），末端有个亮斑 | 先看聊天栏："已抓住"⇒ 包没到或渲染器没跑；"没指到物理体"⇒ 服务端射线问题 |
+| 3 | 抓着时拖动鼠标/走动 | 光束跟着枪口与抓点走，**没有一抽一抽**（端点 20Hz + 逐帧插值） | 掉帧说明 `nodeCount` 过大（看日志/`nodeTotal`） |
+| 4 | 松开右键 | 光束**淡出收束**（约 0.1 秒），不是硬切 | `PhysgunClientState.tick()` 是否在跑（`ClientTickEvent.Post`） |
+| 5 | 抓着一艘船**转它**（撞击/推进后） | 光束端点**粘在船身的同一处**跟着转 | 端点由服务端每 2 tick 用体局部抓点重算 ⇒ 看包是否在发 |
+| 6 | 客户端有第二个玩家（或看别人） | 别人的牵引枪光束**你也看得见** | `PacketDistributor.sendToPlayersNear` 半径 128 与 `physgunBeamConsumer` 装配点（`PhysicsBodyRenderer.Setup`） |
+
+**已知未做（诚实记录）**：抓住时的**旋转控制**（GMod 用滚轮+按键转物体，现在只能靠弹簧自然摆动，见上一轮缺口 3）；
+自造音效资产；`PhysicsBodyTracker` 用"origin + 局部坐标"算世界坐标时**不含刚体旋转**（§ 已记，
+表现为旋转过的体上放方块/邻接判定会偏 —— 需要先取证再动）。
+
+#### 牵引枪第五轮：**右键即崩** + 半格坐标约定（2026-09-29，两个独立 bug 一起收）
+
+用户一句话：**"牵引枪右键物理体直接崩溃了"**。查 `run/crash-reports/crash-2026-09-29_19.48.59-client.txt`，
+崩的不是服务端而是我的渲染通道：
+
+```
+java.lang.IllegalStateException: Not building!
+  at BufferBuilder.ensureBuilding
+  at PhysgunBeamRenderer.emit(:400) ← segment(:241) ← drawBeam(:221) ← onRenderLevelStage(:156)
+```
+
+**根因（读 1.21.1 反编译源 `MultiBufferSource.BufferSource.getBuffer` 得到，不是猜的）**：
+
+```java
+if (bb != null) return bb;
+else {
+    ByteBufferBuilder fixed = this.fixedBuffers.get(renderType);
+    if (fixed != null) bb = new BufferBuilder(fixed, ...);
+    else {
+        if (this.lastSharedType != null) this.endBatch(this.lastSharedType);   // ←★
+        bb = new BufferBuilder(this.sharedBuffer, ...);
+        this.lastSharedType = renderType;
+    }
+}
+```
+
+**自定义（非 fixed）通道共用一条 `sharedBuffer`，取第二个通道会把第一个提前 `endBatch` 掉**。
+我上一轮在同一帧里先 `getBuffer(BEAM)` 再 `getBuffer(OVERLAY)`，随后回头往 BEAM 写第一个顶点 ⇒ 那个
+builder 已经 `build()` 过（不再 building）⇒ "Not building!"。
+旧版只用一个 `RenderType.lines()`，所以这个坑一直没露头；**一旦有第二个自定义通道就必炸**。
+
+- 为什么"瞄准高亮"当时不崩：它往**第二个**通道（OVERLAY）写，那个还开着；只有抓住后往 BEAM 写才炸
+  —— 于是症状是"一右键就崩"，完全不像渲染通道的锅。
+- 修法：**一个通道一趟**（`getBuffer → 写完 → endBatch`，绝不跨趟持有消费者），光束一趟、高亮一趟。
+- 加固：新增 `client/renderer/RenderPassGuard`（纯状态机、零 MC 依赖）+ `PhysgunRenderTypes.beginPass/endPass`。
+  重入时立刻抛一条点名两个通道、并说明"共享 BufferSource"的异常，而不是让顶点写到一半才炸不好读的
+  "Not building!"；抛异常时先清状态（fail-open，不让一帧的异常连坐后面每一帧）。
+  判据：`PhysgunBeamShapeProbe` 第 10 节（重入必抛、异常信息含通道名与 BufferSource、关错/关空必抛、fail-open、
+  正确用法不抛）。
+
+**顺带挖出的第二个（更贴合用户实际体验的）bug：方块局部坐标差了半格**
+
+日志显示两次右键都是 `[Server] [牵引枪] 准星没指到物理体（64 格内）` —— 服务端 `ShipRaycast` 两发全空，
+而客户端解析求交**命中**了（所以是本地预测画出的光束崩的）。两条判据口径不同不是偶然：
+`RayBox.blockBounds` 把整数当**块中心**（`dx ± 0.5`），而真实约定是**块占 `[x, x+1)`**。
+三处**互相独立**的证据：
+
+| 证据 | 事实 |
+|---|---|
+| `PhysicsBodyTracker.localToWorld:1133` | `new Vector3d(dx + 0.5, dy + 0.5, dz + 0.5)` ⇒ 块心在 `dx+0.5`（服务端物理世界坐标） |
+| `PhysicsBodyRenderer` | `pose.translate(entry.dx(), dy(), dz())` 后画占 `[0,1]` 的原版方块模型 ⇒ 块占 `[dx, dx+1)` |
+| `PhysicsBodyInteractionClient:310` | `tmp.set(hit.dx + 0.5F, ...)` 求块心 |
+
+后果不是"差一点"：客户端的拾取盒**平移半格且比真实体大一圈**（`[min−0.65, max+0.65]` 而非
+`[min−0.15, max+1.15]`）⇒ ①**悬停框画在错位置**，玩家照着错的框去瞄；②服务端用真实方块形状 ⇒
+"客户端命中、服务端全空"；③光束抓点落在体旁边。
+
+- 修：`RayBox.blockBounds` 改成 `min = min(dx) − inflate`、`max = max(dx) + 1 + inflate`；
+  悬停格由 `Math.round(localHit)` 改为 `floor`（块的另一半），注释同步改写。
+- **教训（已写进 `RayBox.blockBounds` 的注释）**：`SpaceBuildRulesProbe` 第 4 节当年把期望写成
+  `x∈[-0.5, 2.5]`、`t=4.5` —— 那是**从我自己刚写的实现推出来的**，于是"判据通过"只证明了实现自洽、
+  证明不了约定正确。本轮按独立证据改成 `x∈[0,3]`、`t=5.0`，并新增一条"单格 AABB = [0,1]³（块心 0.5）"
+  的约定判据。**期望必须来自独立证据，不能来自被测实现自身。**
+- 另加服务端诊断：没打中时聊天栏补一句"最近 X 格（共 N 个体）"，
+  让一句话区分开三种原因 —— ①这个维度没有物理体；②体在 64 格外；③体就在眼前却没打中（真 bug）。
+  这一轮若早有它，第一眼就能看出是③。
+
+**本轮判据**：`run-offline-checks.ps1` **11/11 全过**（含第 10 节通道守卫与改正后的约定判据）；
+`check-artifact.ps1` 21 个类全命中。
+
+**实机判据（请用户验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 太空里对物理体右键 | **不崩** | 崩溃报告栈顶：若是 `Not building!` ⇒ 又跨趟持有通道了（查 `RenderPassGuard` 的异常） |
+| 2 | 手持牵引枪对准物理体（不按键） | 高亮框与体**真实轮廓重合**（不再偏半格） | `RayBox.blockBounds` 的约定 |
+| 3 | 对物理体右键 | 聊天栏出现"已抓住 …"，且**立刻**有抖动光束 | 若仍"准星没指到物理体"⇒ **看新增的"最近 X 格（共 N 个体）"**：X 很大 = 没瞄准/太远；X 很小却打不中 = 求交本身的问题（下一步取证） |
+| 4 | 松开右键 | 光束淡出收束（约 0.1 秒） | `PhysgunClientState.tick()`（`ClientTickEvent.Post`） |
+| 5 | 有第二个玩家 | 别人的光束你也看得见 | 包注册 + `physgunBeamConsumer` 装配点 |
+
+#### 牵引枪第六轮：**画面呈现照参考重做**（用户："你看看航空学是怎么设计画面呈现的效果的"，2026-09-29 同日）
+
+用户发了张截图 + 一句"???何意味"：屏幕上一个大青框套住褐色平台，右端还飘着几个蓝色方块。
+问清后两条回答很关键：**"你看看航空学是怎么设计画面呈现的效果的"** + **"好像是你给物理体的框框"**
+—— 那堆蓝色方块**是我画的**（悬停格的棋盘面），而且它飘到框外去了。
+
+**先把参考的呈现方式逐行读清楚**（`physics_staff/PhysicsStaffRenderHandler.java`）：
+
+| 参考 | 我上一轮做的 | 结论 |
+|---|---|---|
+| `:78` `Outliner.showCluster("physicsStaffSelection", List.of(hoverBlockPos))` —— **只高亮一个方块** | 框住**整个物理体**（用户的 15 格大青框） | 参考是"指着哪格亮哪格"；整框是我自己发明的，且遮视线 |
+| `:76` `new Color(191/255f, 191/255f, 191/255f, 1f)` = **0xBFBFBF 浅灰** | 亮青色 `{0.42,0.85,1.0}` | 参考在这一点上很克制：高亮用中性灰，彩色留给光束 |
+| `:81` `lineWidth(1/32f)` = 0.03125 | 0.026（接近，但颜色错、范围错） | 线宽照抄 |
+| `:82` `withFaceTexture(AllSpecialTextures.CHECKERED)` | 用几何拼 3×3 棋盘 | 参考用的是**贴图**；贴图每面只要 1 个四边形（几何拼法要 27 个），格纹也更细 |
+| `:95-100` 抓住时 `hoverBlockPos = BlockPos.containing(dragSession.dragLocalAnchor())` —— 框**移到抓点那一格** | 整框 + 一个落点标记 | 抓住时高亮跟着抓点走 |
+| `:125-151` `renderAllLocks`：对每个被锁定的 sub-level，在它的渲染位置上、`rotate(cameraOrientation())` 后画一个 **1×1**（−0.5..+0.5）的 `SimRenderTypes.lock()` 四边形，`0xffffffff` + `LightTexture.FULL_BRIGHT` | 无 | "锁定"标记 = **正对相机的 1×1 方块** |
+| `:52` `if (Minecraft.getInstance().options.hideGui) return;` | 无判 | F1 时不画 |
+
+**本轮改动（对齐上表）**
+
+1. **只高亮一格**：`drawBodyBox`（整框）删掉；改成 `drawCellFaces`（棋盘贴图面）+ `drawCellEdges`
+   （12 条细灰棱，`CELL_LINE_WIDTH = 1/32`）。颜色 `HOVER_RGB = 0xBFBFBF`。
+2. **抓住时**：高亮格跟到**抓点那一格**（用服务端广播的光束终点 `renderEnd()` → 体局部 → `floor`），
+   并在抓点画 **正对相机的 1×1 lock**（`drawLockFaces`/`drawLockEdges`，`FULL_BRIGHT`、白色）
+   —— 就是参考 `renderAllLocks` 的形状。
+3. **棋盘改成贴图**（对齐 `withFaceTexture`）：新增 `assets/poly_mech/textures/misc/physgun_checker.png`
+   （16×16、4px 格、白 + 全透明交替；生成器 `native/jni-smoketest/MakeCheckerTexture.java`，幂等可重跑）
+   + 新通道 `PhysgunRenderTypes.CHECKER`（`POSITION_COLOR_TEX_LIGHTMAP` + 公开的
+   `POSITION_COLOR_TEX_LIGHTMAP_SHADER` + 公开的 `TextureStateShard`，顶点给 `FULL_BRIGHT`）。
+4. `hideGui` 时不画（照 `:52`）。
+5. **通道纪律升级成三条**（BEAM / CHECKER / OVERLAY），每趟严格 `beginPass → 写完 → endPass`
+   ——`RenderPassGuard` 会在重入时立刻抛异常。
+
+**顺带修掉的真 bug：悬停格的"面"仍在用中心约定**
+
+`drawHoverCell` 里那半格错误**没被我上一轮修干净**：格的**索引**已经改成 `floor`（对），但**面的位置**
+还是手写的"格心 ± 0.495" ⇒ 棋盘整体平移半格、飘到体轮廓之外。这正是用户截图里"框外面那几个蓝方块"。
+现在面的几何抽成纯函数 `PhysgunBeamShape.cellFace(axis, sign, cell, inset, xyz12, uv8)`
+（格占 `[x, x+1)`；只在**法线**方向内缩 `inset`，**切向**铺满整格），一次同时给出角点与同序 UV
+—— 免得两个数组分开写、顺序对不上。
+
+**判据**：`PhysgunBeamShapeProbe` 第 8 节整段重写（原来是"棋盘奇偶"这种自证式判据）：
++X/−X/+Y 三个面各自落在正确的平面上、面在切向铺满整格（面积 1.0）、**相邻角点间距都 = 1.0**
+（真能分辨"绕圈"与"蝴蝶结"顺序 —— 面积判据分辨不出来，我一开始把它写成"顺便证明顺序"是错的）、
+UV 与角点同序、6 个面的并集 = 整格 `[c, c+1]³`。
+
+**又一次"期望写错、代码是对的"**（本轮两次）：面只在法线方向内缩（切向仍铺满），所以面积是 1.0 而不是
+`(1−2·inset)²`；并集要算上其它面的切向铺展，所以是整格而不是三轴都缩。两次都是**我先入为主地假设
+"整体缩小一圈"**。与 §31.30 记的"期望必须有独立依据"同源，记在这里当第三次。
+
+**产物自检加了资源检查**：`check-artifact.ps1` 现在除了 22 个 `.class`，还检查
+`src/main/resources/assets/poly_mech/textures/misc/physgun_checker.png` 是否存在 ——
+贴图缺了**不会编译报错**，游戏里只会变"紫黑格"，属于典型静默坏。
+
+**实机判据（请用户验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 手持牵引枪对准物理体（不按键） | **只有准星指着的那一格**亮起：浅灰细框 + 棋盘格面（不再是整个体的大青框） | `PhysgunTarget.find` 的命中格；`cellFace` 的约定 |
+| 2 | 换着瞄准体的不同格子 | 高亮格**跟着准星走**，且**贴在该格上**（不再飘半格） | `drawCellFaces`/`drawCellEdges` 的 `inset`/`grow` |
+| 3 | 右键抓住一个体 | 抓点处出现**正对相机的 1×1 lock**（白 + 棋盘），高亮格跟到抓点那一格 | 光束是否收到（`PhysgunClientState.beam(self)`） |
+| 4 | 按 F1 隐藏界面 | 高亮与光束**都不画** | `hideGui` 判在渲染器最前 |
+| 5 | 看那张棋盘贴图有没有变成紫黑格 | 正常是白色棋盘 | 资源检查（`check-artifact.ps1` 的"资源文件"一节） |
+
+
+#### 牵引枪第八轮：**"无法长按"的根因 = 查错了注册表**（2026-09-29 晚间，用户实机）
+
+用户原话：**"点一下右键才能有一瞬间的射线，根本就无法长按，更无法得知是否可以工作了"**
+（同一张截图里还有一句"HUD 怎么一堆 0"）。两件事都查清了，第二件是前一件的症状链。
+
+**决定性证据来自上一轮自己加的那句诊断**（`run/logs/latest.log`）：
+
+```
+[牵引枪] Dev ：准星没指到物理体（64 格内），最近 1.7976931348623157E308 格（共 2 个体）
+```
+
+`1.7976931348623157E308` = `Double.MAX_VALUE`：说明**每个体算出来的距离都是 NaN**
+（NaN 与任何数比较都是 false ⇒ `best` 一直没被更新）。而服务端走的是
+`PhysicalRaycast` → `ShipRaycast`，它的 `pose()` 里正好有 `position.isFinite()` 检查
+⇒ **它把每一个体都 `continue` 掉了** ⇒ 永远"没指到"。整条症状链于是闭合：
+
+```
+服务端求交全空 → use() 走失败分支 → broadcastReleased(sp)
+  → 客户端收到 released → 本地预测那条光束被强度曲线收掉（约 0.1 秒）→ "只有一瞬间的射线"
+  → GRABS 里没有记录 → onUseTick 直接 return → "无法长按"
+  → 聊天栏只剩一句"准星没指到物理体" → "无法得知是否可以工作"
+```
+
+**架构层面的根因：两套注册表**（这才是要修的东西）
+
+| | 客户端拾取 / 渲染 / 太空放方块 | 牵引枪（旧） |
+|---|---|---|
+| 数据源 | `PhysicsBodyTracker`（long id）→ `PhysicsBodySyncPacket` → `ClientPhysicsWorld` | MPS 层 `ServerPhysicalWorld`（`PhysicalBody` + UUID） |
+| 位姿 | 有效（所以你看得见、客户端拾取也命中了那块平台） | **NaN**（该维度 2 个体全是） |
+| 结果 | 命中 ✔ | 全空 ✖ |
+
+`SpaceBlockPlacement`（太空放方块造体）用的正是 tracker ⇒ 玩家**造出来的东西和牵引枪查的东西
+根本不是一张表**。上一轮"客户端命中、服务端全空"的不对称根就在这里 —— 当时只当成"两边口径不同"，
+这次有了 NaN 证据才看清是两张表。
+
+**修法：服务端与客户端"同一张表 + 同一套数学"**
+
+1. 新增纯函数 `physics/BodyRaycast`（只依赖 joml，可离线判）：把射线变到体局部、用 `RayBox`
+   做 slab 求交 —— **与客户端 `PhysgunTarget` 完全相同的算法**；位姿 NaN / 零四元数 / 无方块的体
+   **逐个跳过**（而不是让一个坏体把整次求交污染成 NaN）。
+2. `PhysicsBodyTracker.rotationOf(long)`：原来只暴露 `positionOf`，拿不到姿态就转不了抓点；补上。
+3. `PhysgunItem` 改到 tracker 上：抓取走 `BodyRaycast`；施力用 `applyImpulse(J)`，其中
+   `J = PhysgunSpring.forceFor(mass, acc) × FORCE_DURATION` —— **与原来 MPS 那条
+   `addForce(Force(f, 0.05))` 等效**（弹簧数学仍只有 `PhysgunSpring` 一份，`PhysgunDragProbe` 继续有效）。
+   端点广播改用 tracker 位姿算抓点世界坐标。
+4. 没打中时的诊断也换成 tracker 的表 ⇒ 报出来的数字才是真的（"最近体原点 X 格（共 N 个体）"）。
+
+**顺带修掉 HUD 的"一堆 0"**（把截图放大逐字读出来的）：`SpaceAttitudeOverlay` 把俯仰梯整组按滚转
+倾斜（`mulPose(tiltDeg)`），**数字跟着一起转** —— 侧翻 180° 时 `60` 显示成 `09`、`30` 显示成 `0E`，
+再叠上 `滚转 -180.0` 与天体标签 `+ 月球` 挤在同一行，看上去就是"满屏 0 和乱数字"。
+修法：每个刻度数字先 `translate(0, y)` + `mulPose(-tiltDeg)` 转回来再画 ——
+**真实姿态仪也是这样：地平线/梯级随姿态转，刻度数字始终正立**。
+
+**离线判据**：新增第 12 步 `BodyRaycastProbe`（19 项）：单体正打（t=4.85 = 外扩面）、
+多体取最近（不是拿第一个）、超距 null、**体转 90° 命中而未旋转打不到**（真能分辨旋转）、
+**位姿 NaN 的体被跳过且坏体不废掉整次求交**（就是这次的故障）、零四元数/空方块/空表/零方向/
+非正 maxDistance 全部安全、擦边（1.10 命中 / 1.20 未命中）、背后不命中。
+`run-offline-checks.ps1` 现为 **12/12 全绿**；`check-artifact.ps1` **23 个类 + 1 张贴图**全命中。
+
+**又一次"marker 写错地方"**：`BodyRaycast.Hit` 是内部 record ⇒ `localX` 在 `BodyRaycast$Hit.class`
+里，不在外层类。这已是本项目第三次（前两次 `PhysgunClientState$Beam`、`PhysgunBeamShape`）——
+规矩：**marker 必须写它真正所在的那个 class**。
+
+**实机判据（请用户验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 太空里对准物理体**按住**右键 | 光束一直在，物体被弹簧拖向准星前方；松手才淡出 | 聊天栏：若仍"准星没指到"，看后面那句"最近体原点 X 格"（现在是真数字；X 很小却打不中 = 求交还有问题） |
+| 2 | 抓着时走动/转视角 | 物体跟着走，光束端点粘在物体同一处 | `worldAnchor` 用的 `rotationOf` |
+| 3 | 松手 | 光束淡出（约 0.1 秒）+ 音效 | `releaseUsing` 的客户端分支 |
+| 4 | 侧翻 180° 看姿态仪 | 俯仰梯数字**正立**（60 就是 60，不再像 09） | `SpaceAttitudeOverlay` 的 `-tiltDeg` 反旋 |
+| 5 | 别人也拿一把枪 | 他的光束你也看得见 | 包注册 + 广播半径 |
+
+
+#### 牵引枪第九轮：**把"闪电"换成"钓鱼竿曲线"**（2026-09-29，用户定调）
+
+用户原话：**"航空学的那种酷似闪电的连线也太有辨识度了，我们要防止撞车，就一般曲线就好了，
+要是曲线，并且会根据你移动画面而更改，就跟钓鱼竿受力弯曲一样"**。
+
+这句其实是把**第二~六轮一直照抄的那件东西**（参考 {@code PhysicsBeam} 的<b>节点链 + 随机游走抖动</b>）
+明确否掉了 —— 它正是航空学辨识度的来源。所以这一轮是"**从照抄转向避让**"：
+形状机制不能再跟参考同构，要换成我们自己的曲线。
+
+**新形状：贝塞尔 + 软弹簧"虚拟竿尖"**
+
+```
+虚拟竿尖 tip ──软弹簧(K=160, D=15, 4 子步)──▶ 真实抓点 end     // 每 tick 推进一步
+受力向量 bend = end − tip（按模长限幅 3 格）                  // 你甩视角时它最大
+控制点     c  = (start+end)/2 + bend×1.5 + 垂直基础弓形(0.02/格,≤0.2)
+曲线       B(t)= (1−t)²·start + 2(1−t)t·c + t²·end            // 两端始终咬住
+线宽       w(t)= w₀·(1 − 0.55t)                              // 根粗尖细 = 竿形
+取样       0.75 格一段（6..48 段）
+```
+
+三个设计要点（都是为了满足用户那句话）：
+
+1. **两端永远咬住**枪口与物体，弯的只有中间 ⇒ 甩视角时<b>不会</b>出现"光束脱开物体"
+   （如果让"末端落后"直接体现在端点上就会脱开 —— 这里把落后量只用在<b>控制点</b>上）。
+2. **弯曲方向 = 受力方向**：`bend` 指向"物体正在拉竿的方向"，所以你朝哪边甩，竿身就朝哪边鼓；
+   停下后弹簧归位，曲线慢慢回直 —— 这就是钓鱼竿的手感。
+3. **基础弓形与相机无关**（沿"光束方向 × 参考上方向"的垂直轴），否则你只是转头、曲线就自己晃。
+   静止时是温和的曲线（"一般曲线就好了"），不是死直线、也不再是锯齿闪电。
+
+**改动的文件**：`PhysgunBeamShape`（删掉 nodeCount/nodeRadius/walk/point → 换成
+segments/bezier/control/lagStep/taper）、`PhysgunClientState.Beam`（节点数组 → 虚拟竿尖 + 速度 + 软弹簧）、
+`PhysgunBeamRenderer.drawBeam`（折线 → 贝塞尔采样 + 收细）。
+
+**离线判据**：`PhysgunBeamShapeProbe` 第 0~4b 节整段重写（节点链那套判据随机制一起删掉）：
+段数下限/上限与单调、收细单调且 t 越界被夹、贝塞尔两端<b>正好</b>落在端点上且 t 单调推进、
+控制点在"无受力/落后 1 格/落后 60 格（限幅）"三种情况下的偏移量精确对表、
+基础弓形只走横向（控制点的沿轴分量必须正好是中点）、软弹簧一步内不乱跑 / 0.25 秒跑过一半 /
+1.25 秒收敛到 1% 内 / 瞬移时落后量可见但有限 / 不出 NaN。套件仍 **12/12 全绿**。
+
+**实机判据（请用户验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 抓住后不动 | 一条**平滑曲线**（微微弓形），不是直线、不是锯齿闪电 | `control` 的基础弓形项（0.02/格） |
+| 2 | **快速左右甩视角** | 竿身朝甩动方向**明显弯**，停下后 0.3 秒左右回直 | `LAG_K/LAG_D`（ω≈12.6、ζ≈0.6）；`lagStep` 的子步数 |
+| 3 | 长时间快速甩 | 弯曲有上限（不会把曲线拉成麻花） | `LAG_MAX=3` 的模长限幅 |
+| 4 | 近距离抓小物体 | 短光束近乎直线（弓形按长度算，短的就小） | `BOW_PER_BLOCK` |
+| 5 | 看粗细 | 从枪口到抓点**逐渐变细**（竿形） | `taper` / `TAPER=0.55` |
+
+
+#### 星球遮挡第十轮：**"远处的星球把近处的物理体挡住"**（2026-09-29，用户实测）
+
+用户原话：**"发现一个bug，远处的星球反而还把近处的物理体给挡住了"**。
+
+**取证路径**（都写在注释里了，此处归档）：
+
+1. 先排除"星球本体画在了世界之后"：`SpaceRenderer.renderSpaceBodies` 跑在 **`AFTER_SKY`**，
+   即 MC 地形/实体之前 —— 顺序本来是对的，而且它在 `AFTER_SKY` 清深度也是安全的
+   （那时深度缓冲里只有天空盒）。所以**不是本体**。
+2. 于是看 `AFTER_PARTICLES` 的屏幕空间后处理。对照两条链路：
+
+| | `DepthSampler` | `SpaceDepthSampler` / `SkyDepthSampler` | `useMinecraftDepth` |
+|---|---|---|---|
+| 恒星泛光（正常） | AFTER_PARTICLES 主深度 | **AFTER_SKY 太空底** ✔ | — |
+| 行星大气（有问题） | AFTER_PARTICLES 主深度 | **同一张主深度** ✗ | **0** ✗ |
+
+3. 再看 shader：`planet_atmosphere.fsh:131` 的 `ScreenToWorld()` 用
+   `max((1 - DepthSampler.r) * useMinecraftDepth, SpaceDepthSampler.r)` 重建视图位置 ——
+   `useMinecraftDepth=0` 把**唯一会看世界几何的那一项**乘成了 0；而 `SpaceDepthSampler`
+   又被绑成"世界画完之后"的主深度 ⇒ 重建出来的位置是跨投影的假距离。
+4. 最后 `blitToMain` 是**关掉深度测试的全屏 blit** ⇒ 大气（视觉上就是星球本体/边缘）
+   无条件盖到物理体上。
+
+**两道"保护世界几何"的机制同时失效** —— 这就是那个 bug。
+
+**修法（照泛光已验证的契约把大气对齐）**
+
+1. `SpaceAtmosphereRenderer.render(...)` 增加 `skyDepthTextureId` 参数；
+   `SpaceDepthSampler` 改绑 **AFTER_SKY 的太空底**（不再与 `DepthSampler` 同一张）。
+2. `planet_atmosphere.fsh` 的 `main()` 开头加**世界优先**判据：
+   ```glsl
+   if (texture(DepthSampler, texCoord).r < texture(SpaceDepthSampler, texCoord).r - 1.0e-7) {
+       fragColor = vec4(0.0);   // 这一像素上世界几何比星球更近 ⇒ 大气不许画
+       return;
+   }
+   ```
+   判据就是 `SpaceRenderer` 注释里那条（"depthNow < skyDepth 当且仅当该像素有 MC 几何体
+   真正画了上去"），也是泛光 pass 用的同一条。两者都是同一相机、标准深度（越小越近），
+   而星球恒在最远端（压缩后 ≈ FAR）⇒ 任何世界几何都比它近。
+3. `SpaceRenderer` 里太空底改成**无条件采集**（原来只在"本帧有恒星"时采，注释写着泛光是
+   唯一消费者 —— 大气现在也消费它，那条假设作废）。
+
+**离线回归判据（源文本级，加进 `check-artifact.ps1`）**：这类 bug 编译期毫无提示、只有画面能看出来，
+所以把契约钉在文本上 —— ① 大气 shader 必须含那条世界优先判据；② `SpaceDepthSampler` 必须绑
+`skyDepthTextureId`（不能与 `DepthSampler` 同一张）；③ 太空底必须无条件采集（源码里不许再出现三元判断）。
+
+**风险与兜底**：着色器改动若编译失败，MC 会记一条 shader 错误，`SpaceAtmosphereRenderer` 的
+`catch (RuntimeException)` 会把大气整体禁用（**不会崩**）—— 所以这一条请务必看一眼实机：
+如果大气整体消失，说明 shader 没编过，把那行报错发我。
+
+**实机判据（请用户验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 太空里把物理体放在星球**前面** | 物理体完整可见，星球在它**后面**（边缘/大气不再盖住它） | shader 是否编过（大气消失=没编过）；`SpaceDepthSampler` 绑定 |
+| 2 | 慢慢移动视角让星球从物体后面经过 | 物体轮廓处星球/大气被**干净地切开** | 判据里的 `1e-7` 容差（浮点相等的情况） |
+| 3 | 地表维度看别的天体 | 地形（山、建筑）同样不会被天体大气盖住 | 地表走的是同一套（`celestialWorld != null`）分支 |
+| 4 | 恒星泛光 | 与原来一致（它本来就是对的，别回归） | `SpaceStarBloomRenderer` 的 sampler |
+
+
+#### 星球遮挡第十一轮：**根因是"两套投影共用一张深度缓冲"，不是纹理绑错**（2026-09-30）
+
+用户第二次报：**"星球遮挡错误啊，远处的星球的图层显示在近处的物理体上面"**
+—— 说明第十轮那个修法（改判据 + 绑对太空底）**没修对**。
+
+**先排除"没生效"**：`build/classes` 里 `SpaceRenderer.class` / `SpaceAtmosphereRenderer.class`
+时间戳（09-29 21:39）晚于源码（21:38）；今天的 `run/logs/latest.log`（09-30 10:56）里
+`Planet atmosphere passes created` 正常、无 shader 报错 ⇒ 改动**进了产物也跑起来了**，
+所以错的是**判据本身**。
+
+**真根因**：主深度缓冲里混了**两套投影**的深度值 —— 星球在 AFTER_SKY 用 spaceProj
+（near=1000m / far=524288m）写入，世界几何体随后用 MC 主投影（near=0.05 / far=768）写入。
+两套投影的深度值**不可比**，于是两件事同时坏掉：
+
+| # | 后果 | 机制 |
+|---|---|---|
+| 1 | 物理体**画不出来** | 星球先写下的深度更小（= 判定为"更近"）⇒ 后画的物理体 LEQUAL 失败 |
+| 2 | 大气/泛光**盖到物理体上** | 遮挡判据 `mainDepth < skyDepth` 恒为假 ⇒ 掩码永远是 0 |
+
+**离线量化**（新增 `native/jni-smoketest/DepthOcclusionProbe.java`；取用户 09-30 会话：
+玩家离地球 15849 格）：
+
+- 地球表面压缩后 **50853 m** → spaceProj 深度 **0.98221**；
+- 5 格处的方块用 MC 主投影 → **0.99006** ⇒ 方块反而"更远"；
+- **临界距离只有 2.80 格** —— 比这远的方块全都输给星球。
+
+**并且推翻了"这是距离压缩引入的回归"这个假设**：把 spaceProj 的 far 换回压缩前的 `1e13`，
+临界距离是 **2.53 格** —— 旧判据**从来**只对贴脸的东西成立。它一直没露头，
+只是因为 09-27 起太空里**才第一次有物理体**需要被它遮挡。
+
+> **教训：这次是探针纠正了我的归因。** 我先按"压缩把星球深度从 0.9999 拉到 0.973"
+> 把注释和结论都写好了，探针一跑才发现两处算错（`compress()` 忘了加 NEAR；
+> 把 far=1e13 时的临界距离想当然）。**数字必须由探针给，不能由推理给** ——
+> 与 §31.23「死判据」同一条纪律的另一面。
+
+**修法（结构性的，不是再调判据）**：把星球层的深度**在离开 AFTER_SKY 之前抹掉**，
+让主深度只属于 MC。
+
+- `SpaceRenderer.renderSpaceBodies`：`captureSkyDepth(...)` 之后加
+  `RenderSystem.depthMask(true); clearDepth(1.0f); clear(0x100, false);`
+  ⇒ 世界几何体照常画在星球**上面**；星球层自己的互相遮挡不受影响（在本行之前已画完）。
+- `planet_atmosphere.fsh`：判据改成**投影无关**的
+  `texture(DepthSampler, texCoord).r < 1.0 - 1.0e-7`（"这一像素世界画过没有"）。
+  `SpaceDepthSampler` 保留，仍只用于 `ScreenToWorld` 重建星球表面位置。
+- `star_bloom.fsh`：`MinecraftOccluder` 同样改成 `mainDepth < 1.0 - DEPTH_EPS`；
+  连带**删掉**它已经用不到的 `SkyDepthSampler`（`.fsh` + `.json` + `SpaceStarBloomRenderer` 的形参），
+  避免"声明了却被 GLSL 优化掉、`setSampler` 找不到名字"这一类隐患。
+
+**新判据成立的前提（已显式钉住）**：会画出来的世界几何体（≤ 渲染距离 32 区块 = 512 格）
+在渲染帧里一定比"超出 NEAR 的天体"近（后者渲染距离 ≥ 16384 m）。唯一例外是天体表面近到
+NEAR 以内（< 1.64 格）—— 那时相机已经贴在天体上，可接受；`DepthOcclusionProbe` 的 C 组
+把这条例外钉出来了。
+
+**有意偏离 space 的地方（记录下来，供以后判断）**：space 的做法是让两套投影**共用同一对
+near/far**（`MixinGameRenderer` 把 `getDepthFar` 改成 `farCompressionDistance * 2`，
+太空投影取 `setPerspective(fov, aspect, getDepthFar(), 0.05F)`，即反向 Z），
+并且天体画进**独立的 render target**、主深度从头到尾没被污染。我们没照抄这两点，因为
+① 改 `getDepthFar` 是**全局** MC 投影改动（地表维度的地形/实体一起吃）；
+② 把星球画进独立 target 要再加一个 target 与一次合成。
+现在的"画完就清深度"能达到**同样的结构效果**（主深度里没有天体深度），
+代价只是星球层必须自己留一份太空底。**若以后要彻底对齐 space，这里是入口。**
+
+**离线回归**：新增第 13 步 `DepthOcclusionProbe`（21 项：旧判据在 1/2/5/20/100/300/512 格处的
+真假、临界距离、压缩前后临界距离对比、新判据与天体距离无关、空像素不被判成遮挡、
+渲染距离上限 < 天体渲染下界、`compress` 单调）。`run-offline-checks.ps1` 现为 **13/13**；
+`check-artifact.ps1` 的着色器契约也按新判据重写（旧契约文本
+`DepthSampler < SpaceDepthSampler` 已作废）。
+
+**为什么这个 bug 直到 09-27 才可能出现（用户提问的追查，2026-09-30）**
+
+用户问："之前好像没有这个问题，也许是在你增加了凭空放置物理体之后，我说物理体无法显示出来的时候有的 bug？"
+—— **时间线对，但那次报告的是另一个 bug。**
+
+1. **这个 bug 只能在"太空维度里已经有物理体"之后才可能被看见**，因为天体只有**在太空维度**才会
+   写下一个 0.98 级的深度：
+   - 太空维度：压缩生效，天体深度 0.9~0.98 ⇒ 挡住世界几何体；
+   - **地表维度**：`RenderCompression.active = false` ⇒ spaceProj 的 far 仍是 `1e13`，
+     最近的天体（月球 3.8e8 m）深度是 0.9999974，反解出的临界距离约 **740 格**，
+     而渲染距离上限是 512 格 ⇒ **挡不住任何地形**。而且"当前所在天体"在
+     `SpaceRenderer` 第 252-255 行就被 `bodies.removeIf(o -> selfId.equalsIgnoreCase(...))`
+     排除了，所以地表也不会画自己脚下那颗星球。
+   - 而物理体在 09-27「凭空放置物理体」之前**只可能存在于地表维度** ⇒ 那时这个 bug 无从显形。
+2. **但用户记得的那次"物理体无法显示"是另一个根因**（见本节上方「⚠️ 第一版的根因」）：
+   第一版太空建造绕过了 `PhysicsBodyTracker`，客户端收到的是**空体**（没有方块快照）
+   ⇒ 没东西可画；同时**没有碰撞体** ⇒ 射线打不到 ⇒ 判定"附近没有体"而不断新建。
+   **指纹是"也无法对这个物理体再放方块"** —— 纯渲染/深度问题**不可能**导致拾取失败，
+   所以那次一定是数据链的 bug，与深度无关。
+3. **两个 bug 的症状会重叠，这就是记忆模糊的原因**：放置距离正好 `SpaceBuildRules.PLACE_DISTANCE = 3.0`
+   格，而当时的深度临界是 **2.80 格** —— 所以"数据修好之后"，只要那个方向背后正好有星球，
+   **体仍然看不见**。也就是说那次修完之后症状并没有被完全消除，只是概率降低了。
+
+⇒ 结论：**这个 bug 不是 09-27 引入的，而是 09-27 第一次"有机会"出现**
+（探针也证明它不是距离压缩引入的：换回 far=1e13 时临界距离 2.53 格）。
+它与"物理体无法显示"是**两个** bug，只是症状部分重叠。
+
+**实机判据（请用户验）**
+
+| # | 操作 | PASS | FAIL 时首查 |
+|---|---|---|---|
+| 1 | 太空里把物理体放在星球**前面** | 物理体完整可见，星球在它**后面**（大气边缘不再盖住它） | 大气是否还在（`Planet atmosphere passes created`）；`mainDepth < 1.0` 判据 |
+| 2 | 慢慢移动视角让星球从物体后面经过 | 物体轮廓处星球/大气被**干净地切开** | 主深度是否真被清回 1.0（`SpaceRenderer` 里那句 `clearDepth`） |
+| 3 | 把物理体放到**几格以外**（越过旧的 2.80 格临界） | 同样挡得住（这正是旧判据做不到的） | 同上 |
+| 4 | 地表维度看别的天体 | 远处地形（山、建筑）不会被天体大气盖住 | 星球层深度清掉后，地形应当总能画上去 |
+| 5 | 恒星泛光 | 与原来一致（别回归）；被方块挡住的部分仍剪出轮廓 | `star_bloom` 的 `MinecraftOccluder` |
+
+> 兜底：若进游戏发现**大气整体消失**，说明 shader 没编过（`SpaceAtmosphereRenderer` 的
+> `catch (RuntimeException)` 会把大气整体禁用，**不会崩**）—— 把那行报错发我。
+
+
+#### 构建/运行坑：`could not open ...\dataRunVmArgs.txt`（2026-09-27 实际踩到）
+
+- **现象**：`runData`（datagen）直接以
+  `Error: could not open '...\build\moddev\dataRunVmArgs.txt'` 失败。
+- **根因**：`gradle.properties` 里 `org.gradle.configuration-cache=true`，而 moddev 的 run 参数文件
+  （`dataRunVmArgs.txt` / `clientRunVmArgs.txt` …）是**任务产出**（`prepareDataRun` 等）。
+  配置缓存命中时会按缓存里的旧状态跳过这些任务 ⇒ 一旦磁盘上的 argfile 被删
+  （`clean` / 手动删 / 换机器），JavaExec 就会去开一个不存在的 `@argfile`。
+  实机取证：`build\moddev\` 里只有 09-26 的 client 那几个 argfile、**没有 data 的**，
+  而 `build\moddev\artifacts\*.jar` 还在（所以不是 `clean` 删的）。
+- **修法**：加 `--no-configuration-cache` 强制重新配置 + 重跑参数任务：
+  `.\gradlew runData --no-configuration-cache`（`runClient` / `runServer` 同理）。
+- **固化**：`native/jni-smoketest/datagen.ps1` —— 一条命令跑 datagen 并**自检产物**
+  （`dataRunVmArgs.txt` + 两件工具模型 + 中英 lang 各 2 个键），全绿才退出 0。
+  判据不看 gradle 退出码（本项目常见"退出码 1 但 BUILD SUCCESSFUL"），只看产物。
+
+### 31.29 太空维度"可玩"方案：**拍板 ①（缩放 1 格 = 10⁴ 米）**，判定规则 = "哪个最像 space"
+
+用户 2026-09-27 给的规则原话：**"哪个最像 space 我们就选哪个"**。下面是按这条规则逐个方案的取证结果
+（全部带行号；"像不像 space"只看两版参考里**有没有这个机制**，不看它是否好用）。
+
+| 方案 | 0.0.6 | 0.1.3（对齐目标） | 判定 |
+|---|---|---|---|
+| **① 缩放坐标（1 格 = N 米）** | **是它的原生机制**：`SpaceWorld.PositionZoom`（`.wipbak/space006/src/org/cn_grass_block/space/util/classes/SpaceWorld.java:27,40-44`），换算 `:78-80`（×Zoom）/`:90-92`（÷Zoom），数据 `space_data/*/type.json` 的 `position_zoom: 10000`，读取点 `util/manger/SpaceModDataPackManger.java:77,84`，咽喉调用点 8 处（`event/PlayerTeleportManger.java:43,84,102`、`client/render/SpaceRenderMainline.java:100`、`mixin/.../MixinEntity.java:57,74,97` 等） | **删掉了**：`kelvin/physical/space_world/SpaceWorld.java:46-49` 构造只剩两个参数；`:88-90`、`:100-102` 两个换算方法体是 `new Vector3d(x,y,z)`（恒等）；数据侧 `SpaceModDataPackManger.java:80-82` 只读 `sky_texture`；`solar_system/type.json` 已无该字段（`alpha_system/type.json:3` 留着 `10000` 是**死字段**） | **像 0.0.6 的 space**（且是唯一一个"space 为太空维度自己设计的坐标机制"）⇒ **选它** |
+| **② 时间倍率旋钮** | `config/SpaceModCommonConfig.java:17` `tick_time = 0.72` ⇒ 100 Hz × 0.72 = **72×** | `config/SpaceModCommonConfig.java:26` `tick_time = 0.01` ⇒ **1×**（`kelvin/OrbitPhysicalThread.java:34-35` 从配置读、`:67` 10 ms；`:18` 的 0.72 只是 `startThread` 之前的字段占位，`:80-81` stop 时复位 0.01） | 两版都有这个旋钮 ⇒ "像"，但**单独不解决问题**（1× 下地球仍 30,151 格/秒），保留为旋钮 |
+| **③ 天体参考系跟随** | **没有**：`ValkyrienSkies_SYNC_MODE`（"物理体跟随天体"）与 `ACCELERATION_SCALING` 只在 `config/SpaceModCommonConfig.java:22-27` **声明**，全库**没有任何一处读它们**（死配置）；`compat/valkyrienskies/ShipManger.java` 只做三件事 —— 维度重力、`y ≥ Height` 时把船传进太空（`:64` 用 ÷Zoom）、把船注册成 `Aircraft` 天体吃引力（`:112-131`） | **没有**：全库 grep 无 `valkyrienskies`/`ValkyrienSkies`；星际靠**火箭**（`game/rocket/RocketAssemblyService.java:258 materialize(...)`、`block/.../LaunchPadBaseBlockEntity.java`、`propulsion/{Chemical,Hall}ThrusterBlockEntity.java`），地表→太空仍是自动传送（`util/event/SpacePlayerTeleport.java:22-34`） | **两版都没有 ⇒ 选它就不是"像 space"，是自创 ⇒ 否决** |
+| **④ 距离压缩** | `util/classes/CelestialBody.java:269-276`（`getRenderZoom`/`PositionCompression`） | `sunshine/render/celestial_body/ClientCelestialBody.java:29-35`，调用点 `SpaceRenderer.java:476`、`CelestialBodyDataUBO.java:161,245`、`ClientPlanet.java:43`、`ClientStar.java:38` | **两版都开** ⇒ 最"像"；**本轮已接通并启用**（见下文"④"小节），但 UBO 的 `RealPos` **有意保持真实**（量化依据：全压 4.34° vs 半压 0.003°） |
+
+**结论与代价（据实记）**：① 是**坐标重标定**，物理关系按 N 等比例改善 ——
+地球等效速度 2.165e6 格/秒 → **216 格/秒**；地月 3.84e8 → **38,400 格**；地球方块坐标 1.53e10 → **1.53e6 格**
+（回到 BlockPos 26 位上限 3.36e7 之内 ⇒ **太空维度重新拥有区块**，这正是今天每次升空都打
+`目标在深空，跳过区块预加载` 的原因）；地球半径 → **637 格**。但"贴脸停住"仍需要与行星同速（216 格/秒），
+这条 ① 给不了 —— 要么接受"掠过"，要么将来做火箭/推进（0.1.3 的原生答案）。
+地表维度本身**不是等比的**（离线实测：水平 **1 格 = 200.2 m**、竖直 **1 格 = 9.9 m**，差 20.1 倍），缩放只作用于太空侧。
+
+#### 本轮已落地（增量 S0 / S1，都可回退）
+
+- **S0 判据修复**（纯诊断，零行为改动；回退 = `git checkout` 这两个文件）：
+  - `SpaceRenderer`：兜底分支的门从"太阳**不在**渲染表里"放开成"本维度有太空世界" ⇒ 修掉 §31.23 的**连带损伤**：
+    归档日志证据（09-26 20:11 会话）`时钟: 20.00 tick/秒 ✔` 但 `天空转速=n/a`、`插值跨度=NaN`、
+    `太阳角直径` **一次都没打印** —— 因为这三项只在兜底分支里赋值，而太阳改成 `byId` 之后主循环就能找到它。
+    （`方位检查` 同理；09-26 19:11 之后地表天空探针再没跑过，当前 build 19:34 无读数。）
+  - `顺滑=PASS` 判据补两条下限：每帧最大位移 **< 0.5 px ⇒ PASS**；样本 **< 30 帧 ⇒ 不判**。
+    依据：归档 48 条 `★FAIL` 全是假报警（fps=1501 那行 均=0.01px、最大=0.03px，抖动却算出 3.80）。
+  - `时钟` 补暂停守卫：世界暂停时 `dayTime` 不推进，旧写法会打 `时钟: 0.00 ★（≠20）`（归档里连续 60 秒都是这种假 FAIL）。
+  - `[坐标落点]` 两条都补 `地球参考=(米)(…) 半径比=…`；回程再补 `与去程方向夹角=…° ⇒ PASS/★FAIL`
+    —— 旧判据"两行坐标逐位一致"是**同义反复**（回程打印的是玩家输入坐标，玩家没动过 ⇒ 必然一致）。
+- **S1 迁移双向化**（① 的前置，否则一翻约定存档里人和天体差 10⁴ 倍，即 §30.14 的"迁一半更糟"）：
+  `SpaceScaleMigration` 现在按 `identityMode` 决定方向（恒等 ⇒ ×ZOOM，缩放 ⇒ ÷ZOOM），
+  判据改成**单位对口径**（旧版拿"米"的天体距离去比"格"的玩家坐标）+ **三维距离**（水平距离会把
+  "站在星球正上方"算成 0 ⇒ 误判成钻进天体里），并带"换算后钻进天体内部 ⇒ 不动"的防假阳性守卫；
+  `PhysicsBodyTracker` 与玩家共用同一个纯函数。离线场景表（6 条）见
+  `native/jni-smoketest/SpaceMappingProbe.java` 第 5 节，全部 PASS。
+- **S1b 判据自动化 + 静默判据清理**（2026-09-27 同日）：
+  - 新增 `native/jni-smoketest/check-probe-log.ps1` —— **一条命令出判决**：
+    `pwsh native\jni-smoketest\check-probe-log.ps1`（默认读 `run\logs\latest.log`，可 `-Log <.log|.log.gz>`）。
+    它把三种结论**分开报**：`PASS/★FAIL`（判据跑了）／`未出现`（判据根本没跑，比 FAIL 更该查）／
+    `不可判`（读了但 n/a/NaN ⇒ 判据自身坏了）—— 正是 §31.23 那条教训的工程化。
+    自带 `-SelfTest`：样例 A 必须全 PASS、样例 B 必须报出 FAIL（**证明它不是死判据**）。
+  - `[坐标自检]` 从"只打印"改成**真比较**：新增 `SpaceWorld.STATIC_CHECKSUM_GATE`，
+    并查明它与历史值 `-5410990681030` 的差 **Δ=-713,039,320** 的来源 ——
+    提交 `a23ac6e`（"天体太空"）改了**卫星轨道参数化**（相位/轴向互换 + 加入轨道倾角分量）⇒
+    多颗卫星位置同时变（离线证据：这个 Δ 既不是单颗贡献、也不是两颗之差，见探针第 7 节）。
+    **按"有意改动"处理：2026-09-27 重新定基线**；以后一变就该带日期+提交号重定，不许继续静默漂。
+  - `run-offline-checks.ps1` 从 3 项扩到 **5 项**（+ 映射/迁移探针 + 判读器自测），一次跑完退出码 0。
+    两个踩到的坑记在这里：① 该总入口的 `$ErrorActionPreference='Stop'` 会把 Java 的 SLF4J
+    **stderr 当终止错误**，导致 4/5 之后的步骤一个都跑不到（这一段临时改 Continue，只看退出码）；
+    ② 编辑工具改这两个 `.ps1` 会**掉 BOM**（§31.26），每次改完必须复查前三字节 `EF BB BF`。
+
+#### S2（**本轮已落地**）与判据
+
+1. ✅ 已翻 `SpaceWorld.identityMode` 初值 → `false`（回退 = 改回 `true` 重编，或运行时 `setIdentityMode`）。
+2. ✅ 三处口径混算已按 0.0.6 的"边界换算"改掉（`mps/kelvin/event/PhysicalBodySpaceEvent.java`）：
+   - `:101-107` 同步弹簧：**先把 aircraft 的位置换算到方块口径**再相减（`SpaceWorld.toGame`），
+     阈值按 `toMc(1)` 重标（增益不动 —— 冲量 ∝ Δv，换算已含在"距离−阈值"里）；
+   - `:116-118` 力镜像：MPS（格·kg/s²）⇒ kelvin（牛顿）**乘回** ZOOM（`SpaceWorld.toSpace`），
+     方向与 `ShipManger.java:122-124` 一致；
+   - `:152-159` `dimensionLeap` 目标点：`getSpacePosFromWorldPos`（米）**过 `toMc`** 之后才用作太空维度落点。
+   - 线速度/角速度仍原样带过去（地表↔太空映射各向异性，不存在正确的速度换算；0.0.6 是**清零**）——
+     改成清零属**玩法决定**，单列待拍板。
+3. ✅ 离线把两种约定都验了一遍（`native/jni-smoketest/SpaceMappingProbe.java`，15 项判据全 PASS）。两个新发现：
+   - **访问器契约必须钉死**：`blockPos`/`renderPos` 返回的是 **米**（天文坐标系，与方块约定无关），
+     `gamePosMc` 才是**格**（随 `identityMode` 变）。恒等约定下两者同值，所以 §31.6 以来一直分不清；
+     翻转后这一条是"渲染/传送会不会错 10⁴ 倍"的分水岭 —— 探针第 6 节现在把三条契约都写成了断言
+     （防止将来有人"顺手"把 `blockPos` 改成 `toMc`，那会把渲染和捕获一起改坏）。
+   - 翻转后的世界数：地球 **1.53e6 格**（< BlockPos 26 位上限 ⇒ **"目标在深空，跳过区块预加载"将消失**）、
+     半径 **637.1 格**、地月 **38,400 格**、地球每 tick 位移 **10.8 格**（对照：恒等时是 1.08e5）。
+   - 太空维度的生成器是 `minecraft:flat`（`mps/space/util/manger/SpaceModDataPackManger.java:515-516`）⇒
+     翻转后**有区块、无地形**：空空间（"太空里要不要地面"是另一个决定），但**方块是真的能放了** —— 三条数：
+     ① `data/poly_mech/dimension_type/space.json`：`height=2048 / min_y=-64` ⇒ 合法 Y ∈ [−64, 1983]，
+        而翻转后玩家/地球在太空的 Y = 1087.6（= 1.0876e7 ÷ 10⁴）✔ 在建造高度内
+        （**恒等时是 1.0876e7，远超上限 ⇒ 连放置合法性都不成立**）；
+     ② `LevelSpaceAccessMixin.java:30-76`：只有 `isDeepSpace`（|x| 或 |z| > 3.355e7）才把
+        `getBlockState` 顶成 VOID_AIR、并把**两个 `setBlock` 重载直接返回 false**（§30.10 那个别名坑）。
+        地球在恒等时 |z| = 1.47e11 **命中**（整片近地空间放不进任何方块），翻转后 1.47e7 **不命中** ✔；
+     ③ 该守卫的边界 = 3.36e7 格 = 3.36e11 m ≈ 2.25 AU ⇒ 覆盖水星/金星/地球/月球/火星，
+        **木星及以外仍是深空桩**（无方块可放）—— 这正是"守卫以内是真实区块，供地球/火星近旁活动"的原设计。
+     `SpacePreloader.RADIUS_CHUNKS = 3`（7×7=49 区块）⇒ 预加载本身很便宜。
+4. 傻瓜判据（一次重启的会话里 grep）：
+   > **首选：不用手抄** —— `pwsh native\jni-smoketest\check-probe-log.ps1` 直接读 `run\logs\latest.log`
+   > 打出上表全部判据的 PASS/★FAIL/未出现/不可判（退出码 0=全过、1=有 FAIL、2=有判据没跑）。
+   > 底下这几条是它对应的原始行，手抄时按这个对照：
+   - `[坐标落点] … → 太空` **不再**跟着 `目标在深空，跳过区块预加载`，且 `约定=缩放(1格=10000米)`、`半径比≈2.20` ⇒ **PASS**；
+   - 回程行 `半径比≈1.02` + `往返: 与去程方向夹角=x° ⇒ PASS(与去程同一条径线)`，且 `落点(x,z)` 与去程
+     `玩家地表(x,z)` 差 ≤2 格 ⇒ **PASS**（**历史 09-21 那一局这里就是 ★FAIL：Δz=11.5 格**，
+     判读器已能自动指出，这正是 S0 加那两个字段的意义）；
+   - 位置从恒等存档迁过来时应有**一次** `[坐标迁移] … ÷10000 搬到 …`；不该重复出现（重复 = 判据不幂等）；
+   - `[Kelvin] [地表天空]` 必须出现 `天空转速=0.3xx°/秒`、`插值跨度=<非 NaN> m`、`太阳角直径=0.5xx°`（S0 修的四项）；
+   - `[Kelvin] [太空视运动]` 首行应为 `n/a(样本不足)`，之后为 `PASS(每帧<0.5px)` 或带真实 `最大>0.5px` 的 `★FAIL`；
+   - `[坐标自检]` 现在会打 `静态blockPos校验和=…（闸门=… ⇒ PASS）`—— **没有那个 `⇒` 就是判据被改回"只打印"了**。
+
+#### ④ 距离压缩：**本轮接通并启用**（照抄两版默认开），但**有意不照抄"全压"**
+
+- 接线：`CelestialBodyDataBuffer` 里 **Pos / 半径 / 大气壳厚度** 乘 zoom（网格帧），
+  **`RealPos` 与真实大气高度保持米**（物理量）。依据是 shader 的**消费方**：
+  `planet_atmosphere.fsh:104,152,161,162` 用 `planet.Pos`/`R`/`AtmosphericHeight` 做球面求交、法线、
+  壳厚积分（必须与网格同帧），`:168` 只用 `starlist[].RealPos` 算**光照方向与遮挡**（必须真实）；
+  shader 自己那行 `AtmosphericHeight / RealAtmosphericHeight` 就是它要的压缩因子。
+- **量化判据**（`native/jni-smoketest/RenderCompressionTest.java` 第 ⑤ 节，离线）：
+  相机在地球 2.2R 处、样点取球面四个方位：
+  **全压（= space 的做法）光照方向误差最大 4.3445°**，而
+  **半压（我们：Pos 压 / RealPos 真）只有 0.0026°** ⇒ 相差约 1600 倍。
+  **这就是"照抄思路、不照抄这一处"的依据** —— 不是口味问题，是 4.3° 的实测量。
+  同节还确认：地球表面被压 **419 倍**（7.645e6 → 1.824e4 m）、太阳压缩后贴到 **FAR=262144**，
+  而启用时 `spaceProj` 的 far 自动取 `FAR×2=524288` ⇒ 不会被远平面裁掉。
+- **前提（写进代码注释了）**：压缩只作用于天体，地形/实体/粒子仍用 MC 自己的投影画真实距离。
+  压缩是**单调**的所以近处遮挡顺序不变；但超过 `NEAR=16384 m` 后两套投影的深度值不再可比。
+  现在太空维度是 `minecraft:flat` **空世界**（无地形），放置的方块/船都在几百米内 ⇒ 安全；
+  **将来若给太空维度加地形或远距离结构，必须先解决这一步**（space 的做法是让两套投影共用 near/far）。
+- **回退**：`RenderCompression.enabled = false` 一行；此时 `active` 恒假 ⇒ 渲染路径逐位回到启用前
+  （UBO 里的 `zoomOf` 也直接返回 1.0，不做任何乘法）。
+- 离线回归现在 **7/7**（第 5 项 = 距离压缩，**第 7 项 = 新增 `check-artifact.ps1` 产物自检**），退出码 0。
+  `check-artifact.ps1` 专治本项目两次真实教训：§31.9 的"mixin 注入成功是静默的"以及
+  "源码改了但没重编 ⇒ 客户端跑旧 class ⇒ 日志里还是旧格式"。做法是在 `build\classes` 的 .class
+  常量池里搜本次改动的字符串/方法名（8 个类、20+ marker），任一缺失就报 MISS。
+  顺带记一个新的编码坑：**补 BOM 只许用字节级 `ReadAllBytes`/`WriteAllBytes`** ——
+  这轮有人用 `Get-Content -Raw` + `WriteAllText` 想"规范化编码"，结果整份中文脚本被按 ANSI 解成乱码、
+  直接解析失败（比 §31.26 的"掉 BOM"更狠）。
+
+#### S2 翻转审计台账（2026-09-27：逐条读过代码，别再重审一遍）
+
+| 环节 | 结论 | 证据 |
+|---|---|---|
+| 坐标咽喉 | ✔ 唯一入口 | `SpaceWorld.toMc/toReal`；全仓 44 处 `gamePos/blockPos/gamePosMc` 消费点已逐个过 |
+| 渲染相机 | ✔ 同帧 | `SpaceRenderer.java:160-162` 相机 `toReal`（米）；行星位姿走 `blockPos/renderPos`（米）⇒ 两侧都是米 |
+| 进/出太空 | ✔ 同帧 | `SpaceTransitionHandler`：`pxReal=toReal`（米）与 `gamePos`（米）比较；落点/预加载走 `toMc`（格） |
+| 传送命令 | ✔ | `PlanetDimensions.java:165,178` 用 `gamePosMc` + `toMc(radius)` |
+| 存档迁移 | ✔ 双向 + 单位对口径 | `SpaceScaleMigration`（本轮改），`PhysicsBodyTracker` 共用同一纯函数 |
+| 物理 ↔ 天体桥 | ✔ 三处边界换算 | `PhysicalBodySpaceEvent.java:101,116,152`（弹簧 / 力 / 跃迁落点） |
+| 客户端过渡 | ✔ | `ClientSpaceTransition`（只转发服务端坐标）、`SpaceTransitionSyncPacket`；`SpaceTravelMixin.java:175` 的"单 tick >1000 格 = 传送"阈值在两种约定下都成立（缩放后一次传送 ≥1e6 格，而正常飞行 ≤11 格/tick） |
+| 头盔 HUD | ✔ 同口径 | `SpaceHelmetHudOverlay.java:72-101`：太空支路相机取方块坐标、天体 `renderPos→toMc`；地表支路两侧都 `toMc` ⇒ 两条路一致 |
+| UBO（大气/泛光） | ✔ 已接线 | `CelestialBodyDataBuffer`：Pos/半径/壳厚走压缩帧，`RealPos`/真实高度保持米 |
+| 访问器契约 | ✔ 已钉死 | `blockPos/renderPos` = **米**；`gamePosMc` = **格**；探针第 6 节有断言（防"顺手改成 toMc"） |
+| 姿态死代码 | 记录 | `PlanetRenderObject.renderZoom` 无调用点；真正的接线点是同文件的 `beginBodyModelView → compressionZoom`（勿被名字误导） |
+
+**顺带结案**：轨道验收"检查 19 个天体" vs `[坐标自检]` "大气数=20" —— 差的是**太阳**：
+`OrbitAcceptanceTest.java:104-105` 有意跳过（`sun` 无母天体 ⇒ 没有轨道六要素可验）。不是漏验。
+
+#### 下一段主线：推进 —— "能飞、能停"的最后一块（离线标定已完成，2026-09-27）
+
+**参考的答案（两版一致）**：space 不给玩家任何推进 —— 全库无 jetpack / 作用于玩家的 thrust。
+它的推进是**方块**：`ChemicalThrusterBlockEntity:17,40` 与 `HallThrusterBlockEntity:22,66`，
+两者都是 `magnitude = 1000.0`，每 MC tick 追加一个**持续 0.05 s** 的力（世界 tickTime = 0.01 ⇒ 稳态恰好一份）；
+霍尔版代价 32 FE/tick、缓冲 2048。
+
+**离线标定**（`native/jni-smoketest/ThrustCalibrationProbe.java`，跑真实 MPS 克隆层，已并入回归第 8 项）：
+
+| 载荷 | 追上地球 216.5 格/秒（= **能停**） | 128 格/秒（≈5 分钟走完地月的巡航速度） |
+|---|---|---|
+| **80 kg（人+服）** | **17.4 秒** | 10.3 秒 |
+| 500 kg（小艇） | 1.8 分 | 64 秒 |
+| 5 t（船） | 18.0 分 | 10.7 分 |
+| 50 t（大船） | >2 小时未达到 | 1.78 时 |
+
+- **引擎契约 PASS**：实测加速度 = `F/m`，误差 0.4%（例：5000 kg + 1000 ⇒ 0.1992 vs 0.2000 格/秒²）。
+  这一条顺带证明了 MPS 克隆层的单位就是 **kg + 方块帧力** ⇒ 天体引力桥那三处"边界换算"的量纲方向正确。
+- **选型含义**：同一推力下 80 kg 与 5 t 差 62.5 倍 —— **质量是唯一杠杆**。
+  「能停」的最短路径是**套装级**（80 kg，17 秒）；「能飞星际」是**船级**（5 t，10.7 分钟到月球速度）。
+- **"停"的两种语义**（别混）：① 与行星同速悬停（上面这张表）；
+  ② space 原本的"停" = **落到行星影子维度**（我们已经有了，路径 A/B/C）。② 不需要推进，① 需要。
+
+**三个增量**（I1 已完成）：
+1. ✅ **I1 标定**：上面这张表 + 引擎契约（离线）。
+2. **I2 推进器本体**：方块 + BlockEntity + `serverTick → applyForce(Force(dir, 0.05))`，
+   照 0.1.3 的结构与参数；我们的管道已就位（MPS `RigidBody.Force` ✔、力镜像桥 `PhysicalBodySpaceEvent:116` ✔、
+   `CelestialBodyForce` 换算 ✔、机器方块/能源的现成模式 ✔）。判据：离线可验"力进得去、a=F/m"，
+   实机验"船真的动、燃料/电真的扣"。
+3. **I3 实机试飞**：用户重启后按上表对时间。
+
+**另一条路（明确标记为偏离）**：给玩家 6DOF 驱动加一个"太空档位"（速度上限 ×N）。
+一行代码就能让人在太空里"飞起来、追得上"，但**两个参考版本都没有这个机制** ⇒ 属自创；
+按"最像 space"的规则不首选，只作为"先要手感"的临时开关备选。
+
+#### 顺带更正的三处旧记录
+
+1. §31.27 表格"0.1.3 = 0.72 × 100 Hz = 72×"是 **0.0.6 的数**；0.1.3 出厂默认 `tick_time = 0.01` = **1×**（行号见上表 ②）。
+2. §31.28"太空 → 地球的回程**从来没走过**"应更正为：**走过一次**（09-21 18:10:53，升空后 4 秒），
+   但那一对日志的"逐位一致"是同义反复（见 S0 第 4 条），且**落点 z 差 11.5 格**至今无解释
+   —— 离线已证映射角向闭合到 8e-8 格（`SpaceMappingProbe` 第 1 节），所以那 11 格只能来自
+   "两侧用的地球参考不同/玩家不在同一径线"，要靠 S0 新加的字段在下次会话里判。
+3. 归档文档第二节"本轮所有新增判据的读数一次都没有人看过"应更正为：**读数在 `run/logs/*.log.gz` 里**
+   （去重后 `[地表天空]` 4095 行、`[太空视运动]` 38 行、`[坐标落点]` 11 行、`[坐标自检]` 45 行），
+   而且其中 4 项（天空转速/插值跨度(sun)/太阳角直径/方位检查）**读不出来**（原因见 S0）。
+   另：`[坐标自检]` 的 `静态blockPos校验和=-5411703720350` 与代码里写死的闸门 `-5410990681030` **不一致**，
+   而这条判据只打印不比较 ⇒ 要么补上比较、要么更新闸门值，别让它继续静默。
+
 
 
 

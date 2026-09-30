@@ -240,6 +240,7 @@ public class ModEnUsLangProvider extends LanguageProvider {
         add(ModBlocks.COKE_OVEN_BRICK.get(), "Coke Oven Brick");
         add(ModBlocks.FLUID_TANK.get(), "Fluid Tank");
         add(ModItems.TELEPORTER.get(), "Teleporter");
+        add(ModItems.PHYSGUN.get(), "Physgun (grab & drag physical bodies)");
         add(ModItems.SPACE_HELMET.get(), "Space Helmet");
         add(ModBlocks.MERCURY_STONE.get(), "Mercury Stone");
         add(ModBlocks.VENUS_STONE.get(), "Venus Stone");

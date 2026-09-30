@@ -67,11 +67,80 @@ public final class RenderCompressionTest {
             fails += check("角直径不变(" + names[i] + ")", rel < 1e-12);
         }
 
+        // ⑤ ★ 压缩对 shader 的影响（0.1.3 的 CelestialBodyDataUBO 把 Pos/半径/大气高度都乘了 zoom；
+        //    我们的 UBO 里有 Pos 与 RealPos 两份，而 shader 用 RealPos 算光照方向与遮挡
+        //    ——planet_atmosphere.fsh:168）。所以"要不要开压缩"必须先回答两个量化问题：
+        //      ① 样点与光源**都**按各自 zoom 压缩后，光照方向还准不准？
+        //      ② 只压样点、RealPos 不压（两套坐标系混用）会错多少？
         System.out.println();
+        System.out.println("--- ⑤ 压缩对光照方向的影响（决定 UBO 要不要跟着压）---");
+        double earthR = 6.371e6;
+        double arrival = 2.2 * earthR;                 // 相机在地球 2.2R（传送到达点，§31.28）
+        double sunR = 6.96e8;
+        double sunDist = 1.5e11;
+        double[] earthC = {arrival, 0.0, 0.0};         // 相机在原点，地球在 +X
+        double[] sunC = {sunDist * 0.94, sunDist * 0.34, 0.0};
+        double zEarth = RenderCompression.zoomFor(len(earthC), earthR);
+        double zSun = RenderCompression.zoomFor(len(sunC), sunR);
+        double earthSurfLen = len(earthC) - earthR;
+        System.out.printf("   地球: 中心距=%.3e 半径=%.3e ⇒ zoom=%.6f（表面 %.3e → %.3e，压了 %.1f 倍）%n",
+                len(earthC), earthR, zEarth, earthSurfLen, RenderCompression.compress(earthSurfLen),
+                earthSurfLen / RenderCompression.compress(earthSurfLen));
+        System.out.printf("   太阳: 中心距=%.3e 半径=%.3e ⇒ zoom=%.6e（压缩后 %.1f，FAR=%.0f，far 取 FAR×2）%n",
+                len(sunC), sunR, zSun, RenderCompression.compress(len(sunC) - sunR), RenderCompression.FAR);
+        String[] dirs = {"正对相机", "背对相机", "侧向", "朝太阳侧"};
+        double[][] surf = {
+                {earthC[0] + earthR, 0.0, 0.0},
+                {earthC[0] - earthR, 0.0, 0.0},
+                {earthC[0], earthR, 0.0},
+                {earthC[0] + earthR * 0.94, earthR * 0.34, 0.0},
+        };
+        double maxBoth = 0.0;
+        double maxMixed = 0.0;
+        for (int i = 0; i < surf.length; i++) {
+            double[] s = surf[i];
+            double[] trueDir = norm(sub(sunC, s));                              // 真实方向
+            double[] both = norm(sub(scale(sunC, zSun), scale(s, zEarth)));     // 两侧都压（space 做法）
+            double[] mixed = norm(sub(sunC, scale(s, zEarth)));                 // 只压样点（我们现状）
+            double eBoth = angleDeg(trueDir, both);
+            double eMixed = angleDeg(trueDir, mixed);
+            maxBoth = Math.max(maxBoth, eBoth);
+            maxMixed = Math.max(maxMixed, eMixed);
+            System.out.printf("   样点%-8s 全压误差=%.4f°   只压一半误差=%.3f°%n", dirs[i], eBoth, eMixed);
+        }
+        // 判据：**我们自己的双份设计**（Pos 压缩、RealPos 真实）必须准；全压只是拿来当"不照抄"的证据。
+        fails += check("半压（Pos 压缩 / RealPos 真实）光照方向误差 < 0.05°", maxMixed < 0.05);
+        fails += check("全压明显更差（= 不照抄 space 这一处的量化依据）", maxBoth > maxMixed * 100.0);
+        System.out.printf("   ⇒ 最大误差：全压 %.4f° / 半压 %.4f° ⇒ UBO 里 RealPos 必须保持**真实**（%s）%n",
+                maxBoth, maxMixed, maxBoth > maxMixed * 100.0 ? "已量化" : "数值不支持这个结论，需复查");
+        System.out.println();
+
         System.out.println(fails == 0 ? "全部通过（角直径在浮点误差内逐位不变）" : ("失败 " + fails + " 项"));
         if (fails != 0) {
             System.exit(1);
         }
+    }
+
+    private static double len(double[] v) {
+        return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    }
+
+    private static double[] sub(double[] a, double[] b) {
+        return new double[]{a[0] - b[0], a[1] - b[1], a[2] - b[2]};
+    }
+
+    private static double[] scale(double[] a, double k) {
+        return new double[]{a[0] * k, a[1] * k, a[2] * k};
+    }
+
+    private static double[] norm(double[] a) {
+        double l = len(a);
+        return l < 1e-12 ? new double[]{0.0, 0.0, 0.0} : new double[]{a[0] / l, a[1] / l, a[2] / l};
+    }
+
+    private static double angleDeg(double[] a, double[] b) {
+        double d = Math.max(-1.0, Math.min(1.0, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]));
+        return Math.toDegrees(Math.acos(d));
     }
 
     private static int check(String name, boolean ok) {

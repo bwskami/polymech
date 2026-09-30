@@ -24,17 +24,21 @@ import java.io.IOException;
  *
  * <p><b>深度用法与 space mod 不同：这里只用深度判定「像素是不是 MC 几何体」，不用它算距离。</b>
  * space mod 的 {@code ScreenToWorld} 能拿深度直接反解世界距离，是因为它让 MC 主投影与
- * 自己的太空投影共用同一对 near/far（mixin 把 {@code getDepthFar} 改成 {@code FarCompress*4}，
- * 太空投影取 {@code setPerspective(4194304, 0.05)}，数值相同、Z 方向翻转），
- * 于是 {@code max(1 - mainDepth, spaceDepth)} 天然就是「更近的那个表面」，
+ * 自己的太空投影共用同一对 near/far（mixin 把 {@code getDepthFar} 改成
+ * {@code farCompressionDistance * 2}，太空投影取 {@code setPerspective(fov, aspect, getDepthFar(), 0.05F)}，
+ * 数值相同、Z 方向翻转），于是 {@code max(1 - mainDepth, spaceDepth)} 天然就是「更近的那个表面」，
  * 再配 {@code PositionCompression} 与 {@code fittedY()} 容差把天体全部压进精度甜区。
- * 本项目是把星球直接画进主缓冲、用标准 Z（near=1000m / far=1e13m）的真实米坐标，
+ * 本项目是把星球直接画进主缓冲、用标准 Z（near=1000m / far=524288m）的真实米坐标，
  * 主深度在 AFTER_PARTICLES 时是混合投影的，两者区间互相重叠，反解出的距离是假的。</p>
  *
- * <p>所以本 pass 绑两张深度纹理：{@code DepthSampler}（AFTER_PARTICLES 的主深度）与
- * {@code SkyDepthSampler}（AFTER_SKY 星球层画完时的深度底），两者都由 {@link SpaceRenderer} 提供。
- * 着色器只比较它们的大小得出 MC 几何体掩码，方块与玩家因此能挡住光晕。
- * 遮挡是<b>逐像素</b>的，不是逐恒星的整体开关：被挡住的部分消失，没挡住的部分照常露出来，
+ * <p>所以本 pass 只绑一张深度纹理：{@code DepthSampler}（AFTER_PARTICLES 的主深度）。
+ * <b>2026-09-30 起它只含 MC 世界几何体</b> —— {@link SpaceRenderer} 在星球层画完、
+ * 留完太空底之后把主深度清回了 1.0，于是 {@code mainDepth < 1.0} 就是投影无关的
+ * 「这一像素有世界几何体」掩码。此前那套"再留一份太空底、逐像素比 {@code depthNow < skyDepth}"
+ * 的写法在距离压缩启用（09-27）之后恒为假（星球 0.97285 vs 5 格处方块 0.99006），
+ * 表现为泛光/大气整块盖到物理体上，已废弃。</p>
+ *
+ * <p>遮挡是<b>逐像素</b>的，不是逐恒星的整体开关：被挡住的部分消失，没挡住的部分照常露出来，
  * 于是方块和玩家只在光晕/星芒上剪出自己的轮廓。
  * （space mod star_bloom.fsh:95 那种采样恒星中心一点、被挡就整颗 continue 的写法不要照搬：
  * 它会让遮挡变成全有全无，那一条阈值在 space 里同时兼做行星遮挡，本项目不需要。）
@@ -97,11 +101,11 @@ public final class SpaceStarBloomRenderer {
 
     /**
      * @param view              与星球绘制同一套相机矩阵（{@code SpaceRenderer} 的 spaceView）
-     * @param proj              与星球绘制同一套投影矩阵（near=1000m / far=1e13m 的 spaceProj）
+     * @param proj              与星球绘制同一套投影矩阵（near=1000m / far=524288m 的 spaceProj）
      * @param mcDepthTextureId  AFTER_PARTICLES 时主深度快照的纹理 id
-     * @param skyDepthTextureId AFTER_SKY 星球层画完时的深度底纹理 id
+     *                          （2026-09-30 起只含 MC 世界几何体 —— 星球层深度已在 AFTER_SKY 抹掉）
      */
-    public void render(Matrix4f view, Matrix4f proj, float partialTick, int mcDepthTextureId, int skyDepthTextureId) {
+    public void render(Matrix4f view, Matrix4f proj, float partialTick, int mcDepthTextureId) {
         if (disabled) return;
         Minecraft mc = Minecraft.getInstance();
         RenderTarget mainTarget = mc.getMainRenderTarget();
@@ -121,7 +125,7 @@ public final class SpaceStarBloomRenderer {
             if (bloomPass == null) return;
 
             EffectInstance bloomEffect = bloomPass.getEffect();
-            bindBloomUniforms(bloomEffect, view, proj, w, h, mcDepthTextureId, skyDepthTextureId);
+            bindBloomUniforms(bloomEffect, view, proj, w, h, mcDepthTextureId);
             celestialBodyData.bindToShader(bloomEffect.getId());
             if (!loggedRun) {
                 Polymech.LOGGER.info("[poly_mech] Star bloom effect id={}, scatter={}", bloomEffect.getId(), SCATTER_COUNT);
@@ -179,7 +183,7 @@ public final class SpaceStarBloomRenderer {
     }
 
     private void bindBloomUniforms(EffectInstance effect, Matrix4f view, Matrix4f proj, int w, int h,
-                                   int mcDepthTextureId, int skyDepthTextureId) {
+                                   int mcDepthTextureId) {
         Matrix4f invProj = new Matrix4f(proj).invert();
         Matrix4f invView = new Matrix4f(view).invert();
         setMatrix(effect, "tProjMat", proj);
@@ -205,9 +209,9 @@ public final class SpaceStarBloomRenderer {
         var streakJitter = effect.getUniform("StreakJitter");
         if (streakJitter != null) streakJitter.set(STREAK_JITTER);
 
-        // 两张深度只用于比大小得出 MC 几何体掩码，着色器不会拿它们反解距离（见类注释）。
+        // 主深度只用于得出 MC 几何体掩码（`mainDepth < 1.0`），着色器不拿它反解距离（见类注释）。
+        // 2026-09-30 起不再需要 SkyDepthSampler：星球层的深度已在 AFTER_SKY 被抹掉。
         effect.setSampler("DepthSampler", () -> mcDepthTextureId);
-        effect.setSampler("SkyDepthSampler", () -> skyDepthTextureId);
     }
 
     private static void setMatrix(EffectInstance effect, String name, Matrix4f value) {

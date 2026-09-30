@@ -140,6 +140,31 @@ float fittedY(float x) {
 }
 
 void main() {
+    // ★★★ 世界几何遮挡（2026-09-30 重定：用户第二次报"远处的星球把近处的物理体挡住"）
+    //
+    //   判据只问一件事：**这一像素上 MC 世界画了几何体吗？**
+    //   画了 ⇒ 它一定比天体近，大气绝对不许再往这一像素上画。
+    //   依据：太空维度里世界几何体最远也就到渲染距离（≤512 格 ≈ 1247 压缩米），
+    //   而任何天体压缩后都 ≥ NEAR = 16384 米（更别说未压缩时的真实米数）。
+    //
+    //   ⚠ 这里曾经是 `DepthSampler < SpaceDepthSampler`（拿主深度与"太空底"比大小）。
+    //   那条判据是**假的**，因为两张深度来自**两套投影**：星球走 spaceProj
+    //   （near=1000m / far=524288m），世界走 MC 主投影（near=0.05 / far=768），
+    //   同一个距离在两边差着数量级。实测（离线 DepthOcclusionProbe，地球 50853 压缩米）：
+    //       星球深度 0.98221，而 5 格处的方块是 0.99006 —— 方块"看起来更远"
+    //       ⇒ 判据不触发 ⇒ 大气整块盖到物理体上。临界距离只有 2.80 格。
+    //   （换回压缩启用前的 far=1e13 时临界距离是 2.53 格 ⇒ **不是**距离压缩引入的回归，
+    //     旧判据从一开始就只对贴脸的东西成立。）
+    //
+    //   现在改问"世界画过没有"：SpaceRenderer 在星球层画完、留完太空底之后把主深度
+    //   **清回 1.0**，于是 AFTER_PARTICLES 的主深度里只剩世界几何体，
+    //   `mainDepth < 1.0` 就是那个投影无关的掩码。SpaceDepthSampler 仍然只用于
+    //   下面 ScreenToWorld 重建星球表面位置（useMinecraftDepth=0）。
+    if (texture(DepthSampler, texCoord).r < 1.0 - 1.0e-7) {
+        fragColor = vec4(0.0);
+        return;
+    }
+
     vec3 Ray = ScreenToWorld(texCoord);
     float RayLength = length(Ray);
 

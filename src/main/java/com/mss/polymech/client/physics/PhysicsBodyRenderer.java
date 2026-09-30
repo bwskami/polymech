@@ -398,6 +398,12 @@ public final class PhysicsBodyRenderer {
             PhysicsClientHooks.bodyMoveBatchConsumer = ClientPhysicsWorld::acceptMoveBatch;
             PhysicsClientHooks.breakProgressConsumer = packet ->
                     acceptBreakProgress(packet.bodyId(), packet.dx(), packet.dy(), packet.dz(), packet.progress());
+            // 牵引枪光束广播：服务端权威地告诉客户端"谁抓着、两端在哪"
+            // （客户端自己那次求交落空时，就靠它出光束 —— 见 PhysgunClientState 的类注释）
+            PhysicsClientHooks.physgunBeamConsumer = packet -> PhysgunClientState.applyServer(
+                    packet.playerId(), -1L, packet.holdDistance(),
+                    packet.startX(), packet.startY(), packet.startZ(),
+                    packet.endX(), packet.endY(), packet.endZ(), packet.released());
             // space 式"物理替代移动"：由客户端物理世界接管本地玩家的位移
             PhysicsClientHooks.movementDriver = (entity, delta) ->
                     entity instanceof net.minecraft.client.player.LocalPlayer player

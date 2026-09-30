@@ -4575,6 +4575,8 @@
   "item.poly_mech.phosphoric_acid_bucket": "Phosphoric Acid Bucket",
   "item.poly_mech.phosphorus_plasma_bucket": "Phosphorus Plasma Bucket",
   "item.poly_mech.phthalic_acid_bucket": "Phthalic Acid Bucket",
+  "item.poly_mech.physgun": "Physgun (grab & drag physical bodies)",
+  "item.poly_mech.physics_assembler": "Physics Assembler (blocks -> physical body)",
   "item.poly_mech.pitchblende_crushed": "Pitchblende Crushed",
   "item.poly_mech.pitchblende_purified": "Pitchblende Purified",
   "item.poly_mech.platinum_bolt": "Platinum Bolt",

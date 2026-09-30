@@ -9,6 +9,7 @@ import com.mss.polymech.mps.kelvin.physical.space_world.ServerSpaceWorld;
 import com.mss.polymech.mps.physical.physical_body.PhysicalBody;
 import com.mss.polymech.mps.physical.physical_world.ServerPhysicalWorld;
 import com.mss.polymech.mps.rapier.helper.RigidBody;
+import com.mss.polymech.space.SpaceWorld;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent.Pre;
@@ -98,11 +99,21 @@ public class PhysicalBodySpaceEvent {
                     continue;
                 }
 
+                // ★★ 2026-09-27（① 缩放方案 S2）：**边界换算**。
+                //   `aircraft.getPos()` 是 kelvin 的**米**坐标，`physicalBody.getPos()` 是方块维度的**格**坐标。
+                //   恒等约定（1 格 = 1 米）下两者同值，所以这个混算一直没暴露；一旦切成 1 格 = 10000 米，
+                //   这里的差值会整体错 10⁴ 倍 ⇒ 弹簧会以 10⁴ 倍的幅度拽物理体。
+                //   照 0.0.6 的做法**在边界上换算**（`ShipManger.java:122-124`：把 kelvin 的量换算回方块口径再喂给船）：
                 Vector3d bodyPos = physicalBody.getPos();
-                Vector3d toAircraft = new Vector3d(aircraft.getPos()).sub(bodyPos);
+                Vector3d toAircraft = SpaceWorld.toGame(aircraft.getPos().x, aircraft.getPos().y, aircraft.getPos().z)
+                        .sub(bodyPos);
+                // 阈值也按同一因子重标（它表达的是"物理距离"，不能随格子大小变形）。
+                // 增益不用改：冲量 ∝ Δv，而 Δv 的换算已经包含在 (距离 − 阈值) 这一项里了。
+                double blockPerMeter = SpaceWorld.toMc(1.0);
+                double threshold = SYNC_DISTANCE_THRESHOLD * blockPerMeter;
                 double distance = toAircraft.length();
-                if (distance > SYNC_DISTANCE_THRESHOLD) {
-                    double magnitude = (distance - SYNC_DISTANCE_THRESHOLD) * SYNC_IMPULSE_GAIN;
+                if (distance > threshold) {
+                    double magnitude = (distance - threshold) * SYNC_IMPULSE_GAIN;
                     physicalBody.applyImpulse(toAircraft.normalize().mul(magnitude));
                 }
 
@@ -113,9 +124,12 @@ public class PhysicalBodySpaceEvent {
                     String name = force.getName();
                     // 跳过天体侧加进去的力，否则自激（见类注释）
                     if (name == null || !name.startsWith("aircraft:")) {
+                        // ★ 边界换算（同 (b) 段）：物理体的力是"格·kg/s²"，kelvin 的力是"米·kg/s²"（牛顿）。
+                        //   照 `ShipManger.java:122-124` 的同一个方向：MPS ⇒ kelvin 要**乘回** ZOOM。
+                        Vector3d f = force.getForce();
                         aircraft.addForce(new CelestialBodyForce(
                                 "physical_body:" + (name == null ? "unknown" : name),
-                                force.getForce(), force.getRemainingTime()));
+                                SpaceWorld.toSpace(f.x, f.y, f.z), force.getRemainingTime()));
                     }
                 }
             }
@@ -149,7 +163,14 @@ public class PhysicalBodySpaceEvent {
             }
 
             // 地表坐标 → 太空坐标（与 CelestialWorld 的换算互为逆运算）
-            Vector3d spacePos = celestialWorld.getSpacePosFromWorldPos(serverPhysicalBody.getPos(), 1.0F);
+            // ★ 边界换算（同 (b) 段）：`getSpacePosFromWorldPos` 给的是**米**，而目标物理世界用的是
+            //   太空维度的**格**（缩放约定下 1 格 = 10000 米）—— 少这一下，船会落到 10⁴ 倍远处。
+            Vector3d spacePosReal = celestialWorld.getSpacePosFromWorldPos(serverPhysicalBody.getPos(), 1.0F);
+            Vector3d spacePos = SpaceWorld.toGame(spacePosReal.x, spacePosReal.y, spacePosReal.z);
+            // 线速度/角速度**原样带过去**：地表↔太空那套映射是各向异性的（水平 1 格 = 200.2 m、
+            // 竖直 1 格 = 9.9 m，见 SpaceMappingProbe 第 4 节），不存在一个正确的速度换算；
+            // 0.0.6 在同类跃迁里是**清零**（`ShipManger.java:67-75` 的 `new Vector3d()`、玩家 `:48`）。
+            // 这里保持与 0.1.3 克隆同形（原样带），要改成清零是一个**玩法决定**，单列。
             if (serverPhysicalWorld.dimensionLeapPhysicalBody(
                     serverPhysicalBody,
                     spaceServerPhysicalWorld,

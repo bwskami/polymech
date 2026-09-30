@@ -66,6 +66,9 @@ public final class PhysicsBodyEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             PhysicsBodyInteraction.forget(player);
             PhysicsBodyTracker.forgetAcks(player); // 可靠握手的待确认表一并清掉
+            // 2026-09-27 新增的两张按玩家表：牵引枪的抓取状态、太空放置的冷却 —— 不清会跟着 UUID 泄漏
+            com.mss.polymech.item.PhysgunItem.forget(player.getUUID());
+            SpaceBlockPlacement.forget(player.getUUID());
             RESEND_AT.remove(player.getUUID());
         }
     }

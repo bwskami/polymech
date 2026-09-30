@@ -174,8 +174,15 @@ public final class SpaceAttitudeOverlay implements LayeredDraw.Layer {
                         major ? cHi : cMid);
                 if (major) {
                     String label = String.valueOf(Math.abs(lp));
-                    g.drawString(font, label, -font.width(label) / 2,
-                            Math.round(y) - font.lineHeight / 2, cHi, true);
+                    // ⚠️ 数字必须**保持正立**：整组已经被滚转倾斜（上面那行 mulPose(tiltDeg)），
+                    //    直接 drawString 会一起转 —— 侧翻 180° 时 "60" 看起来是 "09"、"30" 是 "0E"，
+                    //    用户看到的就是"HUD 怎么一堆 0/乱数字"（2026-09-29 实机报）。真实姿态仪
+                    //    也是这么做的：地平线/梯级随姿态转，刻度数字始终正着读。
+                    g.pose().pushPose();
+                    g.pose().translate(0f, Math.round(y), 0f);
+                    g.pose().mulPose(Axis.ZP.rotationDegrees(-tiltDeg));
+                    g.drawString(font, label, -font.width(label) / 2, -font.lineHeight / 2, cHi, true);
+                    g.pose().popPose();
                 }
             }
             g.pose().popPose();

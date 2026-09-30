@@ -34,6 +34,17 @@ public final class PhysicsClientHooks {
             breakProgressConsumer = packet -> {
     };
 
+    /**
+     * 客户端装载：牵引枪光束广播（服务端权威：谁抓着、光束两端在世界哪里、松手没有）。
+     * 默认 no-op（服务端）。
+     *
+     * <p>它同时修掉第一版的实机症状"抓住了却没有线"—— 客户端自己那次求交落空时，
+     * 只有服务端这条广播能告诉它"确实抓住了、抓点在哪儿"。</p>
+     */
+    public static volatile Consumer<com.mss.polymech.network.PhysgunBeamPacket>
+            physgunBeamConsumer = packet -> {
+    };
+
     /** 物理接管移动（客户端实现）；服务端 no-op。返回 true 表示已接管，本次不再执行原版 setPos。 */
     public static volatile MovementDriver movementDriver = (entity, delta) -> false;
 
@@ -64,5 +75,9 @@ public final class PhysicsClientHooks {
 
     public static void acceptBreakProgress(com.mss.polymech.network.PhysicsBodyBreakProgressPacket packet) {
         breakProgressConsumer.accept(packet);
+    }
+
+    public static void acceptPhysgunBeam(com.mss.polymech.network.PhysgunBeamPacket packet) {
+        physgunBeamConsumer.accept(packet);
     }
 }

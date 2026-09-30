@@ -18,11 +18,22 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
  * 两个数都精确对上"旧的 ÷ZOOM"。这正是文档反复警告的"**迁一半比不迁更糟**"：
  * 坐标换了、存档里的位置没换。留着不管，用户会看到"天体在极远处"且怎么飞都到不了。
  *
- * <h2>判据（两条同时成立才搬，避免误伤正常位置）</h2>
+ * <h2>判据（单位要对口径！）</h2>
  * <ol>
- *   <li>{@code max(|x|,|z|) < 3.0e7} —— 米尺度下"靠近任何天体"必然 ≥1e8，所以这是旧尺度的强特征；</li>
- *   <li>到**最近天体**的距离 {@code ≥1.0e8} —— 正常落点总是紧贴某颗天体（传送目标就是天体坐标），
- *       所以"离所有天体都极远"只可能是旧尺度。</li>
+ *   <li>当前坐标**离所有天体都极远**（{@code ≥1e8} 方块）—— 正常落点总紧贴某颗天体，所以这只能是"另一套尺度"；</li>
+ *   <li>按**另一套**约定换算一次之后**恰好贴住某颗天体**（且没有钻进天体内部）。</li>
+ * </ol>
+ * 两条配对使用，缺一条都会误伤（单看"坐标小"会把原点附近的正常坐标当成旧尺度；单看"换算后贴近"
+ * 会把缩放下真实深空点 {@code ÷ZOOM} 后落进太阳里的那种假阳性算进来）。
+ *
+ * <h2>⚠️ 2026-09-27 的两处修正（① 缩放方案的前置）</h2>
+ * <ol>
+ *   <li><b>口径错配</b>：旧版 {@code nearestBodyDistance} 用的是 {@code SpaceWorld.gamePos}（**米**），
+ *       却拿去和玩家的**方块坐标**比 —— 恒等约定下两者同值所以看不出来，一旦切到缩放约定，
+ *       "贴着地球"会被算成 1e10 远，判据立刻反向。现在改用 {@code gamePosMc}（方块口径）。</li>
+ *   <li><b>单向</b>：旧版只处理"旧 ÷ZOOM 存档 → 恒等"这一个方向。现在由 {@code identityMode}
+ *       决定方向：恒等 ⇒ {@code ×ZOOM}；缩放 ⇒ {@code ÷ZOOM}。判据仍是同一个纯函数
+ *       （{@link #staleScaleDirection(boolean, double, double, double, double)}），可离线复核。</li>
  * </ol>
  *
  * <h2>为什么挂"进入维度"事件</h2>
@@ -58,16 +69,21 @@ public final class SpaceScaleMigration {
         double x = player.getX();
         double y = player.getY();
         double z = player.getZ();
-        if (!looksLikeLegacyScale(player.level(), x, z)) {
+        int dir = staleScaleDirection(player.level(), x, y, z);   // +1 = 存档偏小（旧 ÷ZOOM 时代）⇒ ×ZOOM；−1 = 偏大 ⇒ ÷ZOOM
+        if (dir == 0) {
             return;
         }
-        double nx = x * SpaceWorld.ZOOM;
-        double ny = y * SpaceWorld.ZOOM;
-        double nz = z * SpaceWorld.ZOOM;
+        double f = dir > 0 ? SpaceWorld.ZOOM : 1.0 / SpaceWorld.ZOOM;
+        double nx = x * f;
+        double ny = y * f;
+        double nz = z * f;
         player.teleportTo(nx, ny, nz);
-        Polymech.LOGGER.warn("[坐标迁移] 太空维度检测到 ZOOM 尺度旧坐标 ({}, {}, {})（最近天体 {}) ⇒ ×{} 搬到 ({}, {}, {})",
-                x, y, z, String.format(java.util.Locale.ROOT, "%.3e", nearestBodyDistance(x, z)),
-                (long) SpaceWorld.ZOOM, nx, ny, nz);
+        Polymech.LOGGER.warn("[坐标迁移] 太空维度检测到**跨约定**坐标 ({}, {}, {})"
+                        + "（当前约定={}，最近天体(方块口径) {}）⇒ {} {} 搬到 ({}, {}, {})",
+                x, y, z,
+                SpaceWorld.identityMode() ? "恒等(1格=1米)" : "缩放(1格=" + (long) SpaceWorld.ZOOM + "米)",
+                String.format(java.util.Locale.ROOT, "%.3e", nearestBodyDistance(x, z)),
+                dir > 0 ? "×" : "÷", (long) SpaceWorld.ZOOM, nx, ny, nz);
     }
 
     /**
@@ -85,39 +101,97 @@ public final class SpaceScaleMigration {
      * 到它的距离只有约 1.4 ⇒ 判定"紧贴天体"、不搬。
      * 也就是说这两条判据是<b>配对</b>的，单独任何一条都会误伤。</p>
      */
-    public static boolean looksLikeLegacyScale(Level level, double x, double z) {
-        return looksLikeLegacyScale(SpaceWorld.identityMode(), SpaceWorld.isSpace(level), x, z,
-                nearestBodyDistance(x, z));
+    /** 迁移方向：{@code +1} = ×ZOOM，{@code −1} = ÷ZOOM，{@code 0} = 不动。 */
+    public static int staleScaleDirection(Level level, double x, double y, double z) {
+        if (!SpaceWorld.isSpace(level)) {
+            return 0;
+        }
+        double f = SpaceWorld.identityMode() ? SpaceWorld.ZOOM : 1.0 / SpaceWorld.ZOOM;
+        return staleScaleDirection(SpaceWorld.identityMode(),
+                nearestBodyDistance3D(x, y, z),
+                nearestBodyDistance3D(x * f, y * f, z * f),
+                nearestBodyRadius3D(x * f, y * f, z * f), f);
+    }
+
+    /** "离所有天体都极远"的阈值（方块口径）。 */
+    public static final double FAR_FROM_EVERY_BODY = 1.0e8;
+
+    /** "贴住天体"的判定：允许到天体中心 4 倍半径（覆盖 2.2R 的到达距离），下限 1000 格兜住小天体。 */
+    public static double hugLimit(double nearestBodyRadius) {
+        return Math.max(4.0 * nearestBodyRadius, 1.0e3);
     }
 
     /**
-     * 判据的<b>纯函数部分</b>（不碰 {@code Level} 与天文数据表），便于离线复核与将来做回归。
+     * 判据的<b>纯函数部分</b>（不碰 {@code Level} 与天文数据表），便于离线复核
+     * （`native/jni-smoketest/SpaceMappingProbe.java` 第 5 节就是拿它跑场景表的）。
      *
-     * <p>注意"验算 ≠ 回归"：离线只能验算这几条阈值的取值方向，
-     * 真正接上游戏的那条路径（{@link Level} / {@code RealAstroData} / 存档读写）仍必须实机确认。</p>
-     *
-     * @param identityMode 当前是否为恒等约定（{@code false} 说明还是旧 ZOOM 约定，存档本来就是旧尺度）
-     * @param spaceDim     该坐标所在维度是否为太空世界
-     * @param nearestBodyDistance 到最近天体（含原点处的太阳）的水平距离
+     * @param identityMode 当前是否为恒等约定（决定换算方向）
+     * @param dCurrent     当前坐标到最近天体的<b>三维</b>距离（方块口径）
+     * @param dCandidate   按另一套约定换算一次之后到最近天体的三维距离（方块口径）
+     * @param candidateNearestRadius 换算后那颗最近天体的半径（方块口径）
+     * @param factor       换算因子（{@code >1} ⇒ 方向是 ×ZOOM）
+     * @return {@code +1}（×ZOOM）/ {@code −1}（÷ZOOM）/ {@code 0}（不动）
      */
-    public static boolean looksLikeLegacyScale(boolean identityMode, boolean spaceDim,
-                                               double x, double z, double nearestBodyDistance) {
-        if (!identityMode || !spaceDim) {
-            return false;
+    public static int staleScaleDirection(boolean identityMode, double dCurrent, double dCandidate,
+                                          double candidateNearestRadius, double factor) {
+        if (dCurrent < FAR_FROM_EVERY_BODY) {
+            return 0;                                  // 已经贴着某颗天体 ⇒ 就是本约定的正常坐标
         }
-        if (Math.max(Math.abs(x), Math.abs(z)) >= 3.0e7) {
-            return false; // 已经在米尺度（远离原点）
+        if (dCandidate > hugLimit(candidateNearestRadius)) {
+            return 0;                                  // 换过去还在远处 ⇒ 不是尺度问题（真深空）
         }
-        return nearestBodyDistance >= 1.0e8;
+        if (dCandidate < candidateNearestRadius) {
+            return 0;                                  // 换过去钻进天体内部 ⇒ 典型假阳性（缩放下真深空点 ÷ZOOM 会落进太阳）
+        }
+        return factor > 1.0 ? 1 : -1;
     }
 
-    /** 到最近天体的水平距离（米），供判据与日志共用。 */
+    /** 到最近天体的水平距离（**方块口径**，与玩家坐标同一约定）；判据与日志共用（日志用）。 */
     public static double nearestBodyDistance(double x, double z) {
         double nearest = Double.MAX_VALUE;
         for (RealAstroData b : RealAstroData.BODIES) {
-            double[] p = SpaceWorld.gamePos(b);
+            double[] p = SpaceWorld.gamePosMc(b);
             nearest = Math.min(nearest, Math.hypot(p[0] - x, p[2] - z));
         }
         return nearest;
+    }
+
+    /**
+     * 到最近天体的**三维**距离（方块口径；用真实 Y，不压平）。
+     *
+     * <p>为什么判据必须用三维：<b>水平距离会把"站在星球正上方"算成 0</b> ——
+     * 那正好落进"钻进天体里"那条守卫里，把最常见的"停在地球 2.2R 高处"判成假阳性。
+     * 三维距离下"地面上方 2.2R"= 2.2R &gt; R，正确地落在天体外面。</p>
+     */
+    public static double nearestBodyDistance3D(double x, double y, double z) {
+        double nearest = Double.MAX_VALUE;
+        double blockPerMeter = SpaceWorld.toMc(1.0);
+        for (RealAstroData b : RealAstroData.BODIES) {
+            double[] p = SpaceWorld.renderPos(b);
+            nearest = Math.min(nearest, Math.sqrt(
+                    sq(p[0] * blockPerMeter - x) + sq(p[1] * blockPerMeter - y) + sq(p[2] * blockPerMeter - z)));
+        }
+        return nearest;
+    }
+
+    /** 最近天体的**方块口径**半径（挡"换算后钻进天体里"那类假阳性）；用三维距离挑最近。 */
+    private static double nearestBodyRadius3D(double x, double y, double z) {
+        double nearest = Double.MAX_VALUE;
+        double radiusBlocks = 0.0;
+        double blockPerMeter = SpaceWorld.toMc(1.0);
+        for (RealAstroData b : RealAstroData.BODIES) {
+            double[] p = SpaceWorld.renderPos(b);
+            double d = Math.sqrt(
+                    sq(p[0] * blockPerMeter - x) + sq(p[1] * blockPerMeter - y) + sq(p[2] * blockPerMeter - z));
+            if (d < nearest) {
+                nearest = d;
+                radiusBlocks = b.radiusMeters() * blockPerMeter;
+            }
+        }
+        return radiusBlocks;
+    }
+
+    private static double sq(double v) {
+        return v * v;
     }
 }

@@ -46,11 +46,15 @@ public final class SpaceAtmosphereRenderer {
     }
 
     /**
-     * @param view           与星球绘制同一套相机矩阵（{@code SpaceRenderer} 的 spaceView）
-     * @param proj           与星球绘制同一套投影矩阵（near=1000m / far=1e13m 的 spaceProj）
-     * @param depthTextureId 本帧深度快照的纹理 id，由 {@link SpaceRenderer} 统一提供
+     * @param view             与星球绘制同一套相机矩阵（{@code SpaceRenderer} 的 spaceView）
+     * @param proj             与星球绘制同一套投影矩阵（{@link SpaceRenderer} 的 spaceProj）
+     * @param mcDepthTextureId AFTER_PARTICLES 的主深度快照（<b>只含</b> MC 世界几何体 ——
+     *                         星球层深度已在 AFTER_SKY 被抹掉，见 {@code SpaceRenderer}）
+     * @param skyDepthTextureId AFTER_SKY 的太空底深度（<b>只有</b>天空盒+星球，世界尚未绘制；
+     *                         用来重建星球表面位置）
      */
-    public void render(Matrix4f view, Matrix4f proj, float partialTick, int depthTextureId) {
+    public void render(Matrix4f view, Matrix4f proj, float partialTick,
+                       int mcDepthTextureId, int skyDepthTextureId) {
         if (disabled) return;
         Minecraft mc = Minecraft.getInstance();
         RenderTarget mainTarget = mc.getMainRenderTarget();
@@ -71,7 +75,7 @@ public final class SpaceAtmosphereRenderer {
             if (atmospherePass == null || smoothPass == null) return;
 
             EffectInstance atmosphereEffect = atmospherePass.getEffect();
-            bindAtmosphereUniforms(atmosphereEffect, view, proj, depthTextureId);
+            bindAtmosphereUniforms(atmosphereEffect, view, proj, mcDepthTextureId, skyDepthTextureId);
             celestialBodyData.bindToShader(atmosphereEffect.getId());
             if (!loggedRun) {
                 Polymech.LOGGER.info("[poly_mech] Planet atmosphere effect id={}, step={}", atmosphereEffect.getId(), STEP_COUNT);
@@ -149,7 +153,8 @@ public final class SpaceAtmosphereRenderer {
         if (blitToMain != null) { blitToMain.close(); blitToMain = null; }
     }
 
-    private void bindAtmosphereUniforms(EffectInstance effect, Matrix4f view, Matrix4f proj, int depthTextureId) {
+    private void bindAtmosphereUniforms(EffectInstance effect, Matrix4f view, Matrix4f proj,
+                                        int mcDepthTextureId, int skyDepthTextureId) {
         Matrix4f invProj = new Matrix4f(proj).invert();
         Matrix4f invView = new Matrix4f(view).invert();
         var iProj = effect.getUniform("iProjMat");
@@ -161,9 +166,18 @@ public final class SpaceAtmosphereRenderer {
         var stepCount = effect.getUniform("StepCount");
         if (stepCount != null) stepCount.set(STEP_COUNT);
         var useMcDepth = effect.getUniform("useMinecraftDepth");
+        // 保持 0：视图位置由 **SpaceDepthSampler（太空底）** 重建 —— 那是"星球表面在哪"的正解；
+        // 混进 MC 深度反而会算出一个跨投影的假距离。世界的遮挡不靠这一项，而是靠 fsh 开头
+        // "mainDepth < 1.0 ⇒ 直接输出 0" 那条判据（2026-09-30 重定为**投影无关**的写法：
+        // SpaceRenderer 在星球层画完、留完太空底之后把主深度清回了 1.0，
+        // 所以主深度里只剩 MC 世界几何体。此前那条 "mainDepth < skyDepth" 是拿两套投影的
+        // 深度比大小，临界距离只有 2.80 格 —— 比这远的物理体全都挡不住，正是那个 bug 的根因）。
         if (useMcDepth != null) useMcDepth.set(0);
 
-        effect.setSampler("DepthSampler", () -> depthTextureId);
-        effect.setSampler("SpaceDepthSampler", () -> depthTextureId);
+        effect.setSampler("DepthSampler", () -> mcDepthTextureId);
+        // ★ SpaceDepthSampler 必须绑 AFTER_SKY 的太空底（不能与 DepthSampler 同一张纹理）：
+        //   下面 ScreenToWorld 要用它重建星球表面位置。曾经这里也传 mcDepthTextureId，
+        //   于是"太空表面深度"其实是"世界画完之后的深度"，重建出的世界坐标是错的。
+        effect.setSampler("SpaceDepthSampler", () -> skyDepthTextureId);
     }
 }

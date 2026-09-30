@@ -336,15 +336,18 @@ public final class PhysicsBodyTracker {
      *
      * @return 目标物理体 id；世界该格已被占用、原生层不可用或超限时返回 -1
      */
-    public static long placeBlockAt(ServerLevel level, BlockPos pos, int stateId) {
-        if (!PhysicsNatives.isAvailable()) {
-            return -1;
-        }
-        // 世界该格必须为空：物理体与真实方块不重叠，避免以后 drop 回世界时打架
-        if (!level.getBlockState(pos).isAir()) {
-            return -1;
-        }
-        // ① 找面相邻（曼哈顿距离 1）的现有物理体，并进去
+    /**
+     * 该格是否与某个物理体<b>面相邻</b>（曼哈顿距离 1）—— 给"太空里放方块"的前置判据用。
+     *
+     * <p>与 {@link #placeBlockAt} 的 ① 段共用同一次扫描（{@link #findAdjacentBody}），
+     * 不另写一份：本项目在"同一概念两份实现"上吃过亏（§29.3）。</p>
+     */
+    public static boolean hasAdjacentBody(ServerLevel level, BlockPos pos) {
+        return findAdjacentBody(level, pos) != null;
+    }
+
+    /** 找与该格面相邻的那个物理体（没有返回 null）。 */
+    private static Map.Entry<Long, TrackedBody> findAdjacentBody(ServerLevel level, BlockPos pos) {
         for (Map.Entry<Long, TrackedBody> entry : BODIES.entrySet()) {
             TrackedBody tracked = entry.getValue();
             if (tracked.level != level) {
@@ -358,12 +361,29 @@ public final class PhysicsBodyTracker {
                         + Math.abs(wy - pos.getY())
                         + Math.abs(wz - pos.getZ());
                 if (manhattan == 1) {
-                    int dx = pos.getX() - tracked.origin.getX();
-                    int dy = pos.getY() - tracked.origin.getY();
-                    int dz = pos.getZ() - tracked.origin.getZ();
-                    return placeBlock(entry.getKey(), dx, dy, dz, stateId) ? entry.getKey() : -1;
+                    return entry;
                 }
             }
+        }
+        return null;
+    }
+
+    public static long placeBlockAt(ServerLevel level, BlockPos pos, int stateId) {
+        if (!PhysicsNatives.isAvailable()) {
+            return -1;
+        }
+        // 世界该格必须为空：物理体与真实方块不重叠，避免以后 drop 回世界时打架
+        if (!level.getBlockState(pos).isAir()) {
+            return -1;
+        }
+        // ① 找面相邻（曼哈顿距离 1）的现有物理体，并进去
+        Map.Entry<Long, TrackedBody> adjacent = findAdjacentBody(level, pos);
+        if (adjacent != null) {
+            TrackedBody tracked = adjacent.getValue();
+            int dx = pos.getX() - tracked.origin.getX();
+            int dy = pos.getY() - tracked.origin.getY();
+            int dz = pos.getZ() - tracked.origin.getZ();
+            return placeBlock(adjacent.getKey(), dx, dy, dz, stateId) ? adjacent.getKey() : -1;
         }
         // ② 没有相邻体 → 以这一块新建刚体（原点 = 该格，局部坐标 (0,0,0)）
         long world = PhysicsWorldManager.world(level);
@@ -848,26 +868,27 @@ public final class PhysicsBodyTracker {
                 continue;
             }
 
-            // 旧 ZOOM 尺度迁移（缺口1）：太空维度翻恒等（见 docs/mps-clone-plan.md §31.7）之前
-            // 存下来的刚体坐标是 ÷10000 的旧尺度。判据与玩家迁移**共用同一个函数**
-            // （SpaceScaleMigration.looksLikeLegacyScale），否则会出现"人搬了、船没搬"——
-            // 那比完全不搬更糟（§30.14）。搬完立刻回写存档，只迁一次。
+            // 跨约定尺度迁移（缺口1；2026-09-27 改成**双向**，见 SpaceScaleMigration 的类注释）：
+            // 判据与玩家迁移**共用同一个函数**（SpaceScaleMigration.staleScaleDirection），
+            // 否则会出现"人搬了、船没搬"—— 那比完全不搬更糟（§30.14）。搬完立刻回写存档，只迁一次。
             double ex = entry.x();
             double ey = entry.y();
             double ez = entry.z();
-            if (SpaceScaleMigration.looksLikeLegacyScale(level, ex, ez)) {
-                ex *= SpaceWorld.ZOOM;
-                ey *= SpaceWorld.ZOOM;
-                ez *= SpaceWorld.ZOOM;
+            int scaleDir = SpaceScaleMigration.staleScaleDirection(level, ex, ey, ez);
+            if (scaleDir != 0) {
+                double f = scaleDir > 0 ? SpaceWorld.ZOOM : 1.0 / SpaceWorld.ZOOM;
+                ex *= f;
+                ey *= f;
+                ez *= f;
                 saved.put(new PhysicsBodySavedData.Entry(entry.id(), entry.dimension(),
                         ex, ey, ez, entry.qx(), entry.qy(), entry.qz(), entry.qw(),
                         entry.vx(), entry.vy(), entry.vz(), entry.avx(), entry.avy(), entry.avz(),
                         entry.membership(), entry.filter(), entry.slot(), entry.blocks()));
-                LOGGER.warn("[坐标迁移] 物理体 {} 在太空维度检测到 ZOOM 尺度旧坐标 ({}, {}, {})（最近天体 {}）⇒ ×{} 搬到 ({}, {}, {})",
+                LOGGER.warn("[坐标迁移] 物理体 {} 在太空维度检测到跨约定坐标 ({}, {}, {})（最近天体 {}）⇒ {} {} 搬到 ({}, {}, {})",
                         entry.id(), entry.x(), entry.y(), entry.z(),
                         String.format(java.util.Locale.ROOT, "%.3e",
                                 SpaceScaleMigration.nearestBodyDistance(entry.x(), entry.z())),
-                        (long) SpaceWorld.ZOOM, ex, ey, ez);
+                        scaleDir > 0 ? "×" : "÷", (long) SpaceWorld.ZOOM, ex, ey, ez);
             }
             List<PhysicsBodySyncPacket.BlockEntry> blocks = new ArrayList<>();
             List<Long> cells = new ArrayList<>();
@@ -1347,6 +1368,17 @@ public final class PhysicsBodyTracker {
     public static double[] positionOf(long id) {
         TrackedBody tracked = BODIES.get(id);
         return tracked == null ? null : new double[]{tracked.x, tracked.y, tracked.z};
+    }
+
+    /**
+     * 体的旋转四元数 {@code [x, y, z, w]}；体不存在返回 {@code null}。
+     *
+     * <p>牵引枪用它把"体局部抓点"转成世界点（光束端点每 2 tick 重算 ⇒ 船转、光束跟着转），
+     * 也用它在服务端把射线变到体局部求交。</p>
+     */
+    public static double[] rotationOf(long id) {
+        TrackedBody tracked = BODIES.get(id);
+        return tracked == null ? null : new double[]{tracked.qx, tracked.qy, tracked.qz, tracked.qw};
     }
 
     public static boolean isNear(long id, ServerPlayer player, double range) {

@@ -4575,6 +4575,8 @@
   "item.poly_mech.phosphoric_acid_bucket": "磷酸桶",
   "item.poly_mech.phosphorus_plasma_bucket": "磷等离子体桶",
   "item.poly_mech.phthalic_acid_bucket": "邻苯二甲酸桶",
+  "item.poly_mech.physgun": "牵引枪（抓住并拖拽物理体）",
+  "item.poly_mech.physics_assembler": "物理体装配器（方块 → 可推刚体）",
   "item.poly_mech.pitchblende_crushed": "粉碎沥青铀矿",
   "item.poly_mech.pitchblende_purified": "洗净沥青铀矿",
   "item.poly_mech.platinum_bolt": "铂螺栓",

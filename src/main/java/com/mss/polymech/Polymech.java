@@ -340,6 +340,15 @@ public class Polymech {
                 com.mss.polymech.network.SyncPhysicsBodyAckPacket.STREAM_CODEC,
                 com.mss.polymech.network.SyncPhysicsBodyAckPacket::handle
         );
+        // 牵引枪光束（服务端 -> 客户端附近的人）：照参考的 PhysicsStaffBeamPacket。
+        // 它**不只是**"让别人看见你的光束"：客户端自己那次解析求交落空时（服务端 Rapier 命中、
+        // 客户端镜子体没命中），只有这条广播能告诉客户端"确实抓住了、抓点在哪儿" ——
+        // 第一版"抓住了却没有线"就是这么来的。注册点只此一处。
+        registrar.playToClient(
+                com.mss.polymech.network.PhysgunBeamPacket.TYPE,
+                com.mss.polymech.network.PhysgunBeamPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysgunBeamPacket::handle
+        );
         // 物理体上的挖掘进度（服务端 -> 客户端）：生存模式按硬度挖，进度由服务端算，
         // 客户端拿它画裂纹（照 space 0.1.3 的 SyncPhysicalBlockBreakProgress）
         registrar.playToClient(

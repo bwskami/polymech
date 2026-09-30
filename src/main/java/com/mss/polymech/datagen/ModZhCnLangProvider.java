@@ -785,6 +785,7 @@ public class ModZhCnLangProvider extends LanguageProvider {
         add(ModBlocks.COKE_OVEN_BRICK.get(), "焦炉砖");
         add(ModBlocks.FLUID_TANK.get(), "流体储罐");
         add(ModItems.TELEPORTER.get(), "星际传送器");
+        add(ModItems.PHYSGUN.get(), "牵引枪（抓住并拖拽物理体）");
         add(ModItems.SPACE_HELMET.get(), "太空头盔");
         add(ModBlocks.MERCURY_STONE.get(), "水星地表岩");
         add(ModBlocks.VENUS_STONE.get(), "金星地表岩");

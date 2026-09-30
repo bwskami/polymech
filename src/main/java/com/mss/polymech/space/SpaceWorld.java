@@ -113,15 +113,18 @@ public final class SpaceWorld {
      * 而换约定会让**所有以格为单位的数值**整体变 10⁴ 倍（§30.5 的清单）。有一个开关，
      * 就能"同一份代码、两种模式"逐项对照，出问题一键切回 —— 这比改回去再编译一遍可靠得多。</p>
      *
-     * <p><b>2026-09 轮 10：已按用户选择（方案 b）翻为 true</b> —— 太空维度方块坐标 = 宇宙坐标
-     * （1 格 = 1 米）。可达性随之改由**维度跃迁**承担（传送路径两侧都走本咽喉，
-     * 所以目标自动变成天体的真实坐标，无需手改传送）。要回退：把下面这个初值改回 false 重新编译，
-     * 或运行时调 {@link #setIdentityMode(boolean)}。</p>
+     * <p><b>2026-09-27（S2）：已按"最像 space"规则翻为 {@code false}</b> —— 太空维度 <b>1 格 = 10000 米</b>，
+     * 照抄 space <b>0.0.6</b> 的 {@code position_zoom: 10000}（取证见 {@code docs/mps-clone-plan.md} §31.29）。
+     * 理由：恒等约定下地球方块坐标 1.53e10 远超 BlockPos 的 26 位上限 3.36e7 ⇒ 太空维度**永远没有区块**
+     * （每次升空都打"目标在深空，跳过区块预加载"）；缩放后地球 1.53e6 格、半径 637 格、
+     * 地月 38,400 格 ⇒ 太空第一次成为一个"能待、能飞"的方块空间。
+     * 要回退：把下面初值改回 {@code true} 重新编译，或运行时调 {@link #setIdentityMode(boolean)}
+     * —— 存档坐标由 {@code SpaceScaleMigration} 双向迁移（判据离线可验）。</p>
      *
      * <p><b>注意它只管"缩放"这一半</b>：方块口径的 Y 仍然压平（§30.1 的 12 位硬约束，单独一步），
      * "太空里看到真实倾角"靠的是**渲染口径** `renderPos`（真实三维），不是让方块口径不压平。</p>
      */
-    private static volatile boolean identityMode = true;
+    private static volatile boolean identityMode = false;
 
     public static boolean identityMode() {
         return identityMode;
@@ -164,6 +167,23 @@ public final class SpaceWorld {
      *       届时改为盯 {@code renderPos} 口径的校验和。</li>
      * </ol>
      */
+    /**
+     * 静态 blockPos 校验和的**闸门**（只跟 {@link RealAstroData} 的静态位置表有关，与坐标约定无关）。
+     *
+     * <p><b>它为什么会从 {@code -5410990681030} 变成现在这个值</b>（离线核对，别猜）：
+     * 提交 {@code a23ac6e}（"天体太空"）改了<b>卫星轨道参数化</b> —— 相位/轴向互换
+     * （{@code cos,sin} → {@code sin,cos}）并加入轨道倾角分量
+     * （{@code parent.posY() - orbitMeters * sinE * cos(phaseRad)}）
+     * ⇒ <b>多颗卫星位置同时变</b>，校验和随之漂到 {@code -5411703720350}（Δ = -713,039,320）。
+     * 证据：`native/jni-smoketest/SpaceMappingProbe.java` 第 7 节 —— 这个 Δ 既**不是单颗**天体
+     * 的贡献、也**不是两颗之差**，与"多颗同时改过"一致。<b>2026-09-27 重新定基线。</b></p>
+     *
+     * <p><b>规矩</b>：这个数一变，先查是"数据表被有意改了"还是"换算被改坏了"；
+     * 有意改就带日期 + 提交号重新定基线，**不要让它继续静默漂**（§31.23 的教训：
+     * 只打印不比较的判据，看起来永远是"没有 FAIL"）。</p>
+     */
+    public static final long STATIC_CHECKSUM_GATE = -5411703720350L;
+
     public static String coordinateSelfCheck() {
         double maxRel = 0.0;
         for (double sample : new double[]{0.0, 1.0, -1.0, 1234.5, -9876.54321, 3.0e7, -3.0e7, 1.2345e9}) {
@@ -195,11 +215,15 @@ public final class SpaceWorld {
                     + 2L * (long) Math.floor(live[1] / 10.0 + 0.5)
                     + 3L * (long) Math.floor(live[2] / 10.0 + 0.5);
         }
+        boolean gateOk = sumStatic == STATIC_CHECKSUM_GATE;
         return String.format(java.util.Locale.ROOT,
-                "约定=%s | 往返最大相对误差=%.3e | 静态blockPos校验和=%d（闸门，权威值 -5410990681030，与坐标约定无关）"
+                "约定=%s | 往返最大相对误差=%.3e | 静态blockPos校验和=%d（闸门=%d ⇒ %s）"
                         + " | 实时blockPos校验和=%d（随 kelvin 积分漂移，仅参考） | 大气数=%d",
-                identityMode ? "恒等(1格=1米)" : "历史(1格=" + (long) ZOOM + "米)",
-                maxRel, sumStatic, sumLive, RealAstroData.BODIES.size());
+                identityMode ? "恒等(1格=1米)" : "缩放(1格=" + (long) ZOOM + "米)",
+                maxRel, sumStatic, STATIC_CHECKSUM_GATE,
+                gateOk ? "PASS" : "★FAIL(静态位置表被改过？Δ=" + (sumStatic - STATIC_CHECKSUM_GATE)
+                        + "；有意改就带日期+提交号重定基线，见 §31.29)",
+                sumLive, RealAstroData.BODIES.size());
     }
 
     /**

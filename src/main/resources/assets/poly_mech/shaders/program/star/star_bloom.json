@@ -15,9 +15,6 @@
     },
     {
       "name": "DepthSampler"
-    },
-    {
-      "name": "SkyDepthSampler"
     }
   ],
   "uniforms": [

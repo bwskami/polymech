@@ -86,12 +86,16 @@ public final class CelestialBodyDataBuffer {
                 double starRelX = star.posX() - camRealX;
                 double starRelY = star.posY() - camRealY;
                 double starRelZ = star.posZ() - camRealZ;
-                putVec3(buffer, starRelX, starRelY, starRelZ);
+                // ★ 距离压缩（2026-09-27 接通）：Pos/半径走**压缩帧**（与网格、与 spaceProj 的 far=FAR×2 一致），
+                //   RealPos 保持**真实** —— 离线实测（native/jni-smoketest/RenderCompressionTest 第 ⑤ 节）：
+                //   光照方向误差 半压 0.003° vs 全压 4.34°，所以这一处**有意不照抄** space 的全压。
+                double starZoom = zoomOf(starRelX, starRelY, starRelZ, star.radius());
+                putVec3(buffer, starRelX * starZoom, starRelY * starZoom, starRelZ * starZoom);
                 putVec3(buffer, starRelX, starRelY, starRelZ);
                 float[] starColor = star.visual().baseColor();
                 if (starColor == null) starColor = new float[]{1.0F, 1.0F, 1.0F};
                 putVec4(buffer, starColor[0], starColor[1], starColor[2], 1.0F);
-                buffer.putFloat((float) star.radius());
+                buffer.putFloat((float) (star.radius() * starZoom));
                 putPaddingFloats(buffer, 3);
             } else {
                 putStarPadding(buffer);
@@ -110,15 +114,19 @@ public final class CelestialBodyDataBuffer {
                 double relX = planet.posX() - camRealX;
                 double relY = planet.posY() - camRealY;
                 double relZ = planet.posZ() - camRealZ;
-                buffer.putFloat((float) relX);
-                buffer.putFloat((float) relY);
-                buffer.putFloat((float) relZ);
+                // ★ 与恒星同理：Pos / R / AtmosphericHeight 是**网格帧**（shader 用它们做球面求交、
+                //   法线、壳厚积分 —— 见 planet_atmosphere.fsh:104,152,161,162），必须随网格一起压缩；
+                //   而 RealPos 与 RealAtmosphericHeight 是**物理量**（光照方向、光学厚度归一化），保持真实。
+                double planetZoom = zoomOf(relX, relY, relZ, planet.radius());
+                buffer.putFloat((float) (relX * planetZoom));
+                buffer.putFloat((float) (relY * planetZoom));
+                buffer.putFloat((float) (relZ * planetZoom));
                 buffer.putFloat(atmo.gravity); // std140: vec3 Pos + float g 共 16 字节
                 buffer.putFloat((float) relX);
                 buffer.putFloat((float) relY);
                 buffer.putFloat((float) relZ);
-                buffer.putFloat((float) planet.radius()); // std140: vec3 RealPos + float R 共 16 字节
-                buffer.putFloat((float) atmo.renderHeight);
+                buffer.putFloat((float) (planet.radius() * planetZoom)); // std140: vec3 RealPos + float R 共 16 字节
+                buffer.putFloat((float) (atmo.renderHeight * planetZoom));
                 buffer.putFloat((float) atmo.realHeight);
                 buffer.putFloat(atmo.temperature);
                 buffer.putFloat(atmo.molarMass);
@@ -162,8 +170,20 @@ public final class CelestialBodyDataBuffer {
         }
     }
 
-    private static void putVec3(ByteBuffer buffer, double x, double y, double z) {
-        buffer.putFloat((float) x);
+    /**
+     * 本帧该天体在 UBO 里应当用的压缩比例（{@code active=false} 时恒为 1.0 ⇒ 与启用前**逐位等价**）。
+     *
+     * <p>只压"网格帧"的量（Pos / 半径 / 大气壳厚度）；{@code RealPos} 与真实大气高度保持米。</p>
+     */
+    private static double zoomOf(double relX, double relY, double relZ, double radius) {
+        if (!com.mss.polymech.client.space.RenderCompression.active) {
+            return 1.0;
+        }
+        double dist = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
+        return com.mss.polymech.client.space.RenderCompression.zoomFor(dist, radius);
+    }
+
+    private static void putVec3(ByteBuffer buffer, double x, double y, double z) {        buffer.putFloat((float) x);
         buffer.putFloat((float) y);
         buffer.putFloat((float) z);
         buffer.putFloat(0.0F);

@@ -177,6 +177,15 @@ public class ModItemModelsProvider extends ItemModelProvider {
                 continue;
             }
 
+            // 牵引枪（2026-09-27）：v1 复用**原版贴图**，不新增美术资源；
+            // 判据是"有模型、不是紫黑格"，等有美术再换回 modLoc("item/<name>")。
+            if ("physgun".equals(path)) {
+                withExistingParent(path, "item/handheld")
+                        .texture("layer0",
+                                net.minecraft.resources.ResourceLocation.withDefaultNamespace("item/blaze_rod"));
+                continue;
+            }
+
             // 情况2: 普通物品 → 使用 basicItem（需要独立纹理）
             if (isNormalItem(path)) {
                 basicItem(item);
