@@ -91,12 +91,12 @@ import java.util.UUID;
  * <h2>三个关键设计（别改）</h2>
  * <ul>
  *   <li><b>脏块攒批</b>（{@link #dirtyChunks} + {@link #tick()}）：
- *       刷一个 64³ 子块很贵，而红石/活塞一 tick 可能改上百格。
+ *       刷一个 16³ 子块很贵，而红石/活塞一 tick 可能改上百格。
  *       所以只记"哪些子块脏了"，每 tick 统一 flushing；
  *       且 flush 后还要判断"这块地皮是不是全空了"→ 空则整体删除
  *       （这是"拆光一艘船它会自己消失"的实现）。</li>
- *   <li><b>{@link #packDirtyKey} 的位布局</b>：{@code slot<<8 | chunkX<<2 | chunkY<<1 | chunkZ}。
- *       子块坐标只可能是 0/1（2×2×2），所以各占 1 位；槽位占高位。
+ *   <li><b>{@link #packDirtyKey} 的位布局</b>：{@code slot<<9 | (cx&7)<<6 | (cy&7)<<3 | (cz&7)}。
+ *       子块坐标是 0..7（8×8×8），各占 {@link #CHUNK_BITS} 位、且都要掩码；槽位占高位。
  *       这不是省内存，而是让 {@link #tick} 能<b>无分支地</b>拆回四元组。</li>
  *   <li><b>交互用服务端自己的射线</b>（{@link #handleInteraction} 里重新 cast）：
  *       客户端报的命中点可伪造，而"玩家看向哪"服务端本来就有。</li>
@@ -125,7 +125,24 @@ public final class ProjectionManager {
     public static ServerLevel projectionLevel;
     private static int nextSlot;
     private static final Map<PhysicalBody, Projection> projectionMap = new HashMap<>();
-    /** 待回写客户端的 64³ 子块（键见 {@link #packDirtyKey}）。 */
+    /** 待回写客户端的 16³ 子块（键见 {@link #packDirtyKey}）。 */
+    /**
+     * 脏块键里"每个子块坐标占几位"。
+     *
+     * <p>子块数 8 ⇒ 每个坐标需要 3 位（{@code CHUNK_BITS*3 = 9}）。
+     * space 0.3.0 原文把上界写死成 {@code 7}（= 子块数−1）；这里由
+     * {@link PhysicalBody#CHUNK_COUNT} 推出来，改粒度时不会漏改这一处。</p>
+     *
+     * <p><b>⚠ 位宽变了就必须同时给三个坐标加 {@link #CHUNK_MASK} 掩码</b>
+     * （0.1.3 是 1 位/坐标、没掩码；0.3.0 是 3 位/坐标、必须掩码）：
+     * 不掩码的话坐标值 2..7 会溢出到相邻字段 ⇒ 标脏标到别的子块上，
+     * 表现是"改了方块但客户端那块不更新"，而且不报错。</p>
+     */
+    private static final int CHUNK_BITS = Math.max(1,
+            32 - Integer.numberOfLeadingZeros(Math.max(1, PhysicalBody.CHUNK_COUNT - 1)));
+    /** 单个子块坐标的掩码（{@code 2^CHUNK_BITS - 1}）。 */
+    private static final int CHUNK_MASK = (1 << CHUNK_BITS) - 1;
+
     private static final Set<Long> dirtyChunks = new HashSet<>();
     /** 每个玩家当前的挖掘进度（生存模式按硬度挖）。 */
     private static final Map<UUID, BreakProgress> breakProgress = new HashMap<>();
@@ -611,15 +628,18 @@ public final class ProjectionManager {
     }
 
     /**
-     * 脏块键：{@code slot<<8 | chunkX<<2 | chunkY<<1 | chunkZ}。
-     * 子块坐标只可能是 0/1，各占 1 位（见类注释）。
+     * 脏块键：{@code slot<<9 | (cx&7)<<6 | (cy&7)<<3 | (cz&7)}（space 0.3.0 的位布局）。
+     * 子块坐标是 0..7，各占 {@link #CHUNK_BITS} 位。
      */
     private static long packDirtyKey(int slot, int chunkX, int chunkY, int chunkZ) {
-        return (long) slot << 8 | (long) (chunkX << 2) | (long) (chunkY << 1) | (long) chunkZ;
+        return (long) slot << CHUNK_BITS * 3
+                | (long) (chunkX & CHUNK_MASK) << CHUNK_BITS * 2
+                | (long) (chunkY & CHUNK_MASK) << CHUNK_BITS
+                | (long) (chunkZ & CHUNK_MASK);
     }
 
     /**
-     * 某个地皮位置被改动 → 标脏所属 64³ 子块。
+     * 某个地皮位置被改动 → 标脏所属 16³ 子块。
      *
      * <p>除了自己那一格，还要检查<b>六个邻居</b>：改动会跨子块边界影响相邻子块
      * （比如放在边界上的红石元件连到隔壁子块的机器）。
@@ -641,9 +661,9 @@ public final class ProjectionManager {
         if (offsetX < 0 || offsetX >= 128 || offsetY < 0 || offsetY >= 128 || offsetZ < 0 || offsetZ >= 128) {
             return;
         }
-        int chunkX = offsetX / 64;
-        int chunkY = offsetY / 64;
-        int chunkZ = offsetZ / 64;
+        int chunkX = offsetX / 16;
+        int chunkY = offsetY / 16;
+        int chunkZ = offsetZ / 16;
         dirtyChunks.add(packDirtyKey(slot, chunkX, chunkY, chunkZ));
 
         for (Direction dir : Direction.values()) {
@@ -652,9 +672,9 @@ public final class ProjectionManager {
             int nY = neighbor.getY() - start.getY();
             int nZ = neighbor.getZ() - start.getZ();
             if (nX >= 0 && nX < 128 && nY >= 0 && nY < 128 && nZ >= 0 && nZ < 128) {
-                int nChunkX = nX / 64;
-                int nChunkY = nY / 64;
-                int nChunkZ = nZ / 64;
+                int nChunkX = nX / 16;
+                int nChunkY = nY / 16;
+                int nChunkZ = nZ / 16;
                 if ((nChunkX != chunkX || nChunkY != chunkY || nChunkZ != chunkZ)
                         && projectionLevel != null
                         && projectionLevel.getBlockEntity(neighbor) != null) {
@@ -681,10 +701,10 @@ public final class ProjectionManager {
         Set<PhysicalBody> touched = new HashSet<>();
 
         for (long key : flushing) {
-            int slot = (int) (key >> 8);
-            int chunkX = (int) (key >> 2 & 1L);
-            int chunkY = (int) (key >> 1 & 1L);
-            int chunkZ = (int) (key & 1L);
+            int slot = (int) (key >> CHUNK_BITS * 3);
+            int chunkX = (int) (key >> CHUNK_BITS * 2 & CHUNK_MASK);
+            int chunkY = (int) (key >> CHUNK_BITS & CHUNK_MASK);
+            int chunkZ = (int) (key & CHUNK_MASK);
             PhysicalBody physicalBody = getPhysicalBody(slot);
             if (physicalBody == null) {
                 continue;
@@ -763,7 +783,7 @@ public final class ProjectionManager {
 
         Projection projection = projectionMap.remove(physicalBody);
         if (projection != null) {
-            dirtyChunks.removeIf(key -> key >>> 8 == (long) projection.getSlot());
+            dirtyChunks.removeIf(key -> key >>> CHUNK_BITS * 3 == (long) projection.getSlot());
             if (clearProjection && projectionLevel != null) {
                 BlockPos start = projection.getStart();
                 int last = 127;
@@ -774,31 +794,29 @@ public final class ProjectionManager {
         return true;
     }
 
-    /** 把 2×2×2 个子块全部推一遍（创建/读档后用）。 */
+    /** 把全部 {@code 8×8×8} 个子块推一遍（创建/读档后用）。 */
     public static void uploadAllChunks(PhysicalBody physicalBody, Projection projection) {
-        int chunkCount = 2;
-        for (int x = 0; x < chunkCount; x++) {
-            for (int y = 0; y < chunkCount; y++) {
-                for (int z = 0; z < chunkCount; z++) {
-                    uploadChunk(physicalBody, projection, x, y, z);
-                }
-            }
+        for (int i = 0; i < PhysicalBody.CHUNK_TOTAL; i++) {
+            uploadChunk(physicalBody, projection,
+                    i >> CHUNK_BITS * 2, i >> CHUNK_BITS & CHUNK_MASK, i & CHUNK_MASK);
         }
     }
 
     /**
-     * 推一个 64³ 子块给该维度的所有玩家：状态包 + 方块实体包。
+     * 推一个 16³ 子块给该维度的所有玩家：状态包 + 方块实体包。
      *
-     * <p>{@code chunkOffset = 1} 把地皮子块坐标 0/1 映射成<b>体的局部子块</b> −1/0
-     * ——即"体的中心在子块边界上"，所以 2×2×2 正好覆盖 ±64。
-     * 两个包都发给"该维度全部玩家"而不是按距离筛：
+     * <p>{@code chunkOffset = 4}（= {@code CHUNK_COUNT/2}）把地皮子块坐标 0..7 映射成
+     * <b>体的局部子块</b> −4..3 ——即"体的中心在子块边界上"，所以 8×8×8 正好覆盖 ±64。
+     * 0.1.3 是 2 个子块、偏移 1；粒度改成 16 后必须同步改成 4，否则整块体素会平移 48 格。</p>
+     *
+     * <p>两个包都发给"该维度全部玩家"而不是按距离筛：
      * 体可能在深空（没有区块/玩家列表），按距离筛会漏发。</p>
      */
     private static void uploadChunk(PhysicalBody physicalBody, Projection projection,
                                     int chunkX, int chunkY, int chunkZ) {
         List<SyncPhysicalBodyBlockEntity.Entry> blockEntityEntries =
                 readChunk(physicalBody, projection, chunkX, chunkY, chunkZ);
-        int chunkOffset = 1;
+        int chunkOffset = PhysicalBody.CHUNK_COUNT / 2;
         int centeredX = chunkX - chunkOffset;
         int centeredY = chunkY - chunkOffset;
         int centeredZ = chunkZ - chunkOffset;
@@ -818,7 +836,7 @@ public final class ProjectionManager {
         }
     }
 
-    /** 读档/创建后：把整个地皮读回体的方块网格（2×2×2 个子块）。 */
+    /** 读档/创建后：把整个地皮读回体的方块网格（8×8×8 个子块）。 */
     public static void readProjectionData(ServerPhysicalBody physicalBody) {
         Projection projection = physicalBody.getProjection();
         int chunkCount = 2;
@@ -832,7 +850,7 @@ public final class ProjectionManager {
     }
 
     /**
-     * 把一个 64³ 子块从地皮读进体的方块网格，并把方块实体搬进体、收集它们的 NBT。
+     * 把一个 16³ 子块从地皮读进体的方块网格，并把方块实体搬进体、收集它们的 NBT。
      *
      * <p>{@code Block.getId} 存的是<b>状态 id</b>（全局调色板），
      * 体内部用 {@code int[][][]} 保存就是为了这个：紧凑且能直接进网络包。</p>
@@ -846,34 +864,36 @@ public final class ProjectionManager {
     private static List<SyncPhysicalBodyBlockEntity.Entry> readChunk(
             PhysicalBody physicalBody, Projection projection, int chunkX, int chunkY, int chunkZ) {
         BlockPos start = projection.getStart();
-        int[][][] data = new int[64][64][64];
-        int baseX = start.getX() + chunkX * 64;
-        int baseY = start.getY() + chunkY * 64;
-        int baseZ = start.getZ() + chunkZ * 64;
+        // 子块边长 / 局部空间半宽：都从常量取，改粒度时不会漏改（半宽是 MAX_WIDTH/2，与边长无关）。
+        final int cw = PhysicalBody.CHUNK_WIDTH;
+        int[][][] data = new int[cw][cw][cw];
+        int baseX = start.getX() + chunkX * cw;
+        int baseY = start.getY() + chunkY * cw;
+        int baseZ = start.getZ() + chunkZ * cw;
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
 
-        for (int x = 0; x < 64; x++) {
-            for (int y = 0; y < 64; y++) {
-                for (int z = 0; z < 64; z++) {
+        for (int x = 0; x < cw; x++) {
+            for (int y = 0; y < cw; y++) {
+                for (int z = 0; z < cw; z++) {
                     cursor.set(baseX + x, baseY + y, baseZ + z);
                     data[x][y][z] = Block.getId(projectionLevel.getBlockState(cursor));
                 }
             }
         }
 
-        int chunkOffset = 1;
+        int chunkOffset = PhysicalBody.CHUNK_COUNT / 2;
         int centeredX = chunkX - chunkOffset;
         int centeredY = chunkY - chunkOffset;
         int centeredZ = chunkZ - chunkOffset;
         physicalBody.setBlockStateChunk(centeredX, centeredY, centeredZ, data);
 
-        int half = 64;
+        int half = PhysicalBody.MAX_WIDTH / 2;
         int originX = start.getX() + half;
         int originY = start.getY() + half;
         int originZ = start.getZ() + half;
-        int lastX = baseX + 64 - 1;
-        int lastY = baseY + 64 - 1;
-        int lastZ = baseZ + 64 - 1;
+        int lastX = baseX + cw - 1;
+        int lastY = baseY + cw - 1;
+        int lastZ = baseZ + cw - 1;
         physicalBody.clearBlockEntities(
                 new BlockPos(baseX - originX, baseY - originY, baseZ - originZ),
                 new BlockPos(lastX - originX, lastY - originY, lastZ - originZ));

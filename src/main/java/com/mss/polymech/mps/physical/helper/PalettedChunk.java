@@ -9,26 +9,30 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 64³ 方块容器 —— <b>与 {@code org.polaris2023.mps.physical.helper.PalettedChunk} 同形的公开 API</b>
- * 的自有实现（clean-room；见 {@code docs/mps-clone-plan.md}）。
+ * 16³ 方块容器 —— <b>与 {@code org.polaris2023.mps.collision.physical.helper.PalettedChunk}
+ * 同形的公开 API</b> 的自有实现（clean-room；见 {@code docs/mps-clone-plan.md}）。
  *
- * <p>它是物理体的"方块快照"单元：{@code PhysicalBody} 用 2×2×2 个本对象装一个 128³ 的体，
+ * <p>它是物理体的"方块快照"单元：{@code PhysicalBody} 用 8×8×8 个本对象装一个 128³ 的体，
  * {@code PhysicalChunk}（地形）也用它表达空间占用。方块 id 用原版全局调色板
  * （{@link Block#stateById(int)}），{@code 0} = 空气。</p>
  *
+ * <p><b>★ 2026-09-30 按 space 0.3.0 把边长由 64 改为 16</b>（对齐原版 section 粒度）。
+ * 边长同时决定 {@link #SIZE} 与 {@link #index} 的位移量，三者必须一起改 ——
+ * {@code PhysicalBody.voxelBounds} 是 {@link #index} 的逆运算，也要跟着改。</p>
+ *
  * <p><b>与本项目取舍有关的一处实现差异（不影响行为）</b>：MPS 内部做了 16 位以内调色板打包、
- * 超出后退化成 {@code int[]}；这里直接用一个 {@code int[262144]}（1 MB/块）+ 调色板缓存，
+ * 超出后退化成 {@code int[]}；这里直接用一个 {@code int[SIZE]}（16³ 时 16 KB/块）+ 调色板缓存，
  * 语义（{@code get}/{@code set}/{@code toInt3}/{@code colliderArray}/AABB）逐一对齐，
- * 只是内存换实现简单 —— 与 MPS 自己的 direct 退化分支同量级（其 16 位打包为 512 KB）。</p>
+ * 只是内存换实现简单 —— 与 MPS 自己的 direct 退化分支同量级（其 16 位打包为 8 KB）。</p>
  *
  * @see PhysicalChunk
  */
 public class PalettedChunk {
 
     /** 边长（方块）。 */
-    public static final int WIDTH = 64;
-    /** 单元数（64³）。 */
-    public static final int SIZE = 262144;
+    public static final int WIDTH = 16;
+    /** 单元数（16³）。 */
+    public static final int SIZE = 4096;
 
     /** "这个方块 id 有没有碰撞形状"的缓存（原版 id 是全局的，缓存跨实例共享）。 */
     private static final Map<Integer, Boolean> COLLISION_CACHE = new ConcurrentHashMap<>();
@@ -49,9 +53,15 @@ public class PalettedChunk {
         }
     }
 
-    /** 格索引：{@code x + (z << 6) + (y << 12)}（与 MPS 相同，保证 {@code colliderArray()} 的遍历序一致）。 */
+    /**
+     * 格索引：{@code x + (z << 4) + (y << 8)}（与 MPS 相同，保证 {@code colliderArray()} 的遍历序一致）。
+     *
+     * <p>位移量由边长决定：边长 64 时是 {@code <<6 / <<12}，边长 16 时是 {@code <<4 / <<8}。
+     * <b>改边长必须同时改这里</b>，否则 {@code colliderArray()} 的顺序会与
+     * {@code PhysicalBody.voxelBounds} 的解读不一致 ⇒ 碰撞盒整体错位（且不报错）。</p>
+     */
     public static int index(int x, int y, int z) {
-        return x + (z << 6) + (y << 12);
+        return x + (z << 4) + (y << 8);
     }
 
     /**

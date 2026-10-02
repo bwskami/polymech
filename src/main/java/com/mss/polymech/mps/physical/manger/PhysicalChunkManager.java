@@ -39,10 +39,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h2>为什么是这个形态（照 space 0.1.3，逐条都有理由）</h2>
  * <ol>
- *   <li><b>两级区块表（up / old）</b>：{@code up_physicalChunks} 是"现在挂着碰撞体"的，
- *       {@code old_physicalChunks} 是"刚被移出、缓存留着"的。移出时不销毁 {@link PhysicalChunk}
- *       而是搬到 old —— 关注点来回移动时（玩家反复跨越边界）能立刻复用，不必重新扫 16³×N 个方块。
- *       <b>只有 old 里也没人再用时才是真的白留内存</b>，这是速度换内存的正常取舍。</li>
+ *   <li><b>★ 2026-09-30 按 space 0.3.0 删掉「old 缓存表」</b>：0.1.3 有
+ *       {@code up_physicalChunks} + {@code old_physicalChunks} 两级表，移出的 {@link PhysicalChunk}
+ *       搬到 old 留着复用。问题是 old <b>只增不减</b>（没有任何地方清理它），
+ *       玩家一路飞过去就留下一条永不释放的地形缓存 ⇒ <b>真实的无界内存泄漏</b>。
+ *       0.3.0 的做法是移除即丢弃、需要时重建。{@code orderedChunks}（移除顺序/迟滞）<b>保留不变</b>。</li>
  *   <li><b>增删都按 CHUNK_ORDER（x 再 z）排序</b>：一批新增/移除的顺序稳定，帧与帧之间不会
  *       因为 {@code HashSet} 的迭代顺序不同而忽快忽慢（那种抖动很难查）。</li>
  *   <li><b>移除顺序按"离新增区块的最近距离"排</b>（{@link #removalDistance}）：正在被关注点接近的
@@ -73,8 +74,6 @@ public class PhysicalChunkManager {
 
     /** 当前挂着碰撞体的区块。 */
     protected final Map<ChunkPos, PhysicalChunk> up_physicalChunks = new ConcurrentHashMap<>();
-    /** 刚被移出、缓存留着的区块（复用用）。 */
-    protected final Map<ChunkPos, PhysicalChunk> old_physicalChunks = new ConcurrentHashMap<>();
 
     private static final Comparator<ChunkPos> CHUNK_ORDER = (a, b) -> {
         int c = Integer.compare(a.x, b.x);
@@ -218,10 +217,8 @@ public class PhysicalChunkManager {
         List<ChunkPos> adds = new ArrayList<>(addChunks);
         adds.sort(CHUNK_ORDER);
         for (ChunkPos chunkPos : adds) {
-            PhysicalChunk chunk = this.old_physicalChunks.remove(chunkPos); // 缓存复用
-            if (chunk == null) {
-                chunk = new PhysicalChunk(chunkPos);
-            }
+            // 0.3.0：不再查 old 缓存复用，直接新建（见类注释第 1 条）。
+            PhysicalChunk chunk = new PhysicalChunk(chunkPos);
             this.rebuildColliderIfNeeded(chunk, chunkPos);
             this.up_physicalChunks.put(chunkPos, chunk);
             this.orderedChunks.put(chunkPos, chunk);
@@ -234,7 +231,6 @@ public class PhysicalChunkManager {
             PhysicalChunk chunk = this.up_physicalChunks.remove(chunkPos);
             if (chunk != null) {
                 this.deactivateChunk(chunk);
-                this.old_physicalChunks.put(chunkPos, chunk);
                 this.orderedChunks.remove(chunkPos);
             }
         }

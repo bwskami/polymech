@@ -185,7 +185,53 @@ $contracts = @(
        why = 'useMinecraftDepth 必须为 1（space 的取值）：ScreenToWorld 取"世界与天体里更近的那个表面"' },
     @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceDepthFarMixin.java';
        must = 'return (float) (RenderCompression.FAR * 2.0);';
-       why = '两套投影必须"对表"：MC 主投影的 far 要等于天体投影的 near，否则 1-mainDepth 与 spaceDepth 不可比' }
+       why = '两套投影必须"对表"：MC 主投影的 far 要等于天体投影的 near，否则 1-mainDepth 与 spaceDepth 不可比' },
+
+    # ── 子块粒度 64³→16³（第 2 项）：探针里复刻的公式必须与实际实现一致 ──────────
+    # SubChunkGranularityProbe 离线跑（不加载 MC 类），所以它只能复刻这几个公式；
+    # 这里把"复刻 == 实现"钉住 —— 缺一条，探针就可能一直在验证一个已经不存在的东西。
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\helper\PalettedChunk.java';
+       must = 'return x + (z << 4) + (y << 8);';
+       why = 'PalettedChunk.index 的位移必须与边长 16 匹配（探针 D 组复刻的就是这一行）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'int lx = i & 15;';
+       why = 'voxelBounds 必须用 index 的逆位移（&15 / >>4&15 / >>8）；漏改会让碰撞盒整体错位且不报错' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'int lz = (i >> 4) & 15;';
+       why = 'voxelBounds 的 z 位移（与 index 的 <<4 互逆）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'int ly = i >> 8;';
+       why = 'voxelBounds 的 y 位移（与 index 的 <<8 互逆）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'int baseX = cx * CHUNK_WIDTH - MAX_WIDTH / 2;';
+       why = '★ 投影偏移必须是 -MAX_WIDTH/2（-64），不是 -CHUNK_WIDTH（-16）：后者只覆盖 [-16,112)，静默错位 48 格' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'public static final int CHUNK_COUNT = 8;';
+       why = '子块数 8（探针 A 组与 ProjectionManager 的位宽都依赖它）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'public static final int CHUNK_TOTAL = 512;';
+       why = '子块总数 512（数组长度 / 上传循环上界）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\manger\ProjectionManager.java';
+       must = '32 - Integer.numberOfLeadingZeros(Math.max(1, PhysicalBody.CHUNK_COUNT - 1))';
+       why = '脏块键位宽必须由子块数推出（8 ⇒ 3 位）；探针 F 组复刻的就是这个式子' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\manger\ProjectionManager.java';
+       must = 'private static final int CHUNK_MASK = (1 << CHUNK_BITS) - 1;';
+       why = '★ 3 位/坐标必须配掩码：不掩码时坐标 2..7 会溢出到相邻字段 ⇒ 标脏标到别的子块（不报错，只是不更新）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\manger\ProjectionManager.java';
+       must = 'int chunkOffset = PhysicalBody.CHUNK_COUNT / 2;';
+       why = '上传/读取的居中偏移必须是 CHUNK_COUNT/2（=4）：0.1.3 是 1，粒度改了不同步改就整体平移 48 格' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\network\packet\SyncPhysicalBodyBlockEntity.java';
+       must = 'int width = PhysicalBody.CHUNK_WIDTH;';
+       why = '方块实体清理宽度必须跟粒度（写死 64 会清错区域：拆掉的箱子还留着 / 清掉隔壁子块的箱子）' }
+)
+
+# ── 「不得存在」型契约 ───────────────────────────────────────────────────────
+# 有些改动是**删除**（比如删掉一个无界缓存），"缺少某个片段"才是对的。
+# 这类用 mustNot：命中即失败。
+$absentContracts = @(
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\manger\PhysicalChunkManager.java';
+       mustNot = 'old_physicalChunks = new ConcurrentHashMap<>()';
+       why = '★ old 缓存表只增不减 ⇒ 真实的无界内存泄漏；space 0.3.0 已删除，不得回归' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan
@@ -202,6 +248,24 @@ foreach ($ct in $contracts) {
     } else {
         Write-Host ("[MISS] {0,-44} 缺契约片段 —— {1}" -f (Split-Path $ct.file -Leaf), $ct.why) -ForegroundColor Red
         $miss++
+    }
+}
+
+Write-Host ""
+Write-Host '--- 「不得存在」契约（删除类改动，命中即失败）---' -ForegroundColor Cyan
+foreach ($ac in $absentContracts) {
+    $p = Join-Path $root $ac.file
+    if (-not (Test-Path $p)) {
+        Write-Host ("[MISS] {0,-44} 文件不存在 —— {1}" -f (Split-Path $ac.file -Leaf), $ac.why) -ForegroundColor Red
+        $miss++
+        continue
+    }
+    $text = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
+    if ($text.Contains($ac.mustNot)) {
+        Write-Host ("[MISS] {0,-44} 不该出现却出现了 —— {1}" -f (Split-Path $ac.file -Leaf), $ac.why) -ForegroundColor Red
+        $miss++
+    } else {
+        Write-Host ("[ OK ] {0,-44} {1}" -f (Split-Path $ac.file -Leaf), $ac.why) -ForegroundColor Green
     }
 }
 

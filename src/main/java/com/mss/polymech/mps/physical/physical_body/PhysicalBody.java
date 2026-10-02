@@ -28,19 +28,20 @@ import java.util.UUID;
  * 的自有实现（clean-room；见 {@code docs/mps-clone-plan.md}）。
  *
  * <h2>职责</h2>
- * 一个"会动的结构"的方块快照 + 它的刚体。方块不存在于世界里，只存在这里（128³ = 2×2×2 个
- * {@link PalettedChunk}），碰撞由每个 64³ 子块一份体素碰撞体提供。
+ * 一个"会动的结构"的方块快照 + 它的刚体。方块不存在于世界里，只存在这里（128³ = 8×8×8 个
+ * {@link PalettedChunk}），碰撞由每个 16³ 子块一份体素碰撞体提供。
  *
- * <h2>为什么是这个形态（照 space 0.1.3，别改）</h2>
+ * <h2>为什么是这个形态（照 space，别改）</h2>
  * <ul>
  *   <li><b>坐标是"中心在原点"的 -64..63</b>：{@code setBlockState} 一律 {@code +64}，
- *       子块索引 {@code 0/1}；碰撞体平移量因此是 {@code chunk*64 - 64}。
+ *       子块索引 {@code 0..7}；碰撞体平移量因此是 {@code chunk*16 - 64}
+ *       （偏移量是 {@code MAX_WIDTH/2}，<b>不是</b>子块边长 —— 见 {@link #updateProjectionAABB} 的警告）。
  *       这样可以只靠"刚体原点 + 旋转"把任意方块映射到世界，不需要额外基准点。</li>
  *   <li><b>方块改动分两条路</b>：{@link #setBlockState} 立刻重建该子块碰撞体
  *       （单格放置要马上有碰撞）；{@link #setBlockStateDeferred} 只打脏标记，
  *       由 {@link #flushBlockStateUpdates} 批量重建 —— 批量导入/同步时避免每格一次重建。</li>
- *   <li><b>每个子块一份碰撞体</b>（不是整体一份）：单格改动只需重建那 64³；
- *       拆成 8 份也让 Rapier 的宽相位更省。</li>
+ *   <li><b>每个子块一份碰撞体</b>（不是整体一份）：单格改动只需重建那 16³；
+ *       拆成 512 份也让 Rapier 的宽相位更省。</li>
  *   <li>{@link #upChunk} 在<b>换碰撞体之前</b>先从世界摘掉旧的、换好再加新的 ——
  *       顺序颠倒会让新旧两份碰撞体短暂共存（重叠区的解算冲量会炸）。</li>
  * </ul>
@@ -57,17 +58,25 @@ public class PhysicalBody {
     public static final int MAX_WIDTH = 128;
     /** 最大方块数（128³）。 */
     public static final int MAX_SIZE = 2097152;
-    /** 子块边长。 */
-    public static final int CHUNK_WIDTH = 64;
-    /** 子块方块数（64³）。 */
-    public static final int CHUNK_SIZE = 262144;
-    /** 每轴子块数。 */
-    private static final int CHUNK_COUNT = 2;
-    /** 子块总数（2×2×2）。 */
-    private static final int CHUNK_TOTAL = 8;
+    /**
+     * 子块边长。
+     *
+     * <p><b>★ 2026-09-30 按 space 0.3.0 由 64 改为 16</b>（对齐原版 section 粒度）。
+     * 这一改是**全局耦合**的：它同时决定子块数（{@link #CHUNK_COUNT}）、
+     * 子块数组长度（{@link #CHUNK_TOTAL}）、{@code PalettedChunk} 的边长/单元数/索引位移、
+     * {@code ProjectionManager} 的脏块位布局与上传循环、以及网络包里"清理宽度"。
+     * <b>任何一处漏改都是静默错位</b>（不报错、只是方块出现在错误的地方）。</p>
+     */
+    public static final int CHUNK_WIDTH = 16;
+    /** 子块方块数（16³）。 */
+    public static final int CHUNK_SIZE = 4096;
+    /** 每轴子块数（{@code MAX_WIDTH / CHUNK_WIDTH}）。 */
+    public static final int CHUNK_COUNT = 8;
+    /** 子块总数（8×8×8）。 */
+    public static final int CHUNK_TOTAL = 512;
 
     protected UUID uuid;
-    /** 8 个 64³ 方块快照；{@code null} = 全空气。 */
+    /** {@link #CHUNK_TOTAL} 个 {@link #CHUNK_WIDTH}³ 方块快照；{@code null} = 全空气。 */
     protected final PalettedChunk[] chunks;
     /** 哪些子块的"渲染缓存"需要重烘（客户端用）。 */
     protected boolean[][][] blocks_render_update;
@@ -87,6 +96,12 @@ public class PhysicalBody {
     /** 把 {@link #projectionAABB} 用当前位姿/缩放变换到世界空间的结果。 */
     public final DoubleAABB worldAABB = new DoubleAABB();
 
+    /**
+     * 子块线性索引：{@code cx*8*8 + cy*8 + cz}（与 space 0.3.0 逐字同值）。
+     *
+     * <p>space 0.3.0 里把 8 硬编码进表达式；这里保留 {@link #CHUNK_COUNT} 具名写法
+     * ——两者数值完全相同，但改粒度时不会漏改这一处。</p>
+     */
     public static int chunkIndex(int chunkX, int chunkY, int chunkZ) {
         return chunkX * CHUNK_COUNT * CHUNK_COUNT + chunkY * CHUNK_COUNT + chunkZ;
     }
@@ -282,21 +297,35 @@ public class PhysicalBody {
         }
     }
 
-    /** 体素数组的包围盒（索引约定与 {@link PalettedChunk#index} 一致）。 */
+    /**
+     * 体素数组的包围盒（索引约定与 {@link PalettedChunk#index} 一致）。
+     *
+     * <p>⚠ 这里的位移量是 {@code PalettedChunk.index} 的**逆运算**，必须跟着子块边长一起改：
+     * 边长 64 时是 {@code &63 / >>6 / >>12}，边长 16 时是 {@code &15 / >>4 / >>8}。
+     * 漏改不会报错 —— 只会把包围盒算成完全不相干的区域。</p>
+     */
     private static boolean voxelBounds(boolean[] colliderData, IntAABB out) {
         out.setEmpty();
         for (int i = 0; i < colliderData.length; i++) {
             if (colliderData[i]) {
-                int lx = i & 63;
-                int lz = (i >> 6) & 63;
-                int ly = i >> 12;
+                int lx = i & 15;
+                int lz = (i >> 4) & 15;
+                int ly = i >> 8;
                 out.union(lx, ly, lz);
             }
         }
         return out.maxX >= 0;
     }
 
-    /** 从 8 个子块的包围盒合成"体素在局部空间里的整体包围盒"。 */
+    /**
+     * 从 {@link #CHUNK_TOTAL} 个子块的包围盒合成"体素在局部空间里的整体包围盒"。
+     *
+     * <p><b>⚠ 这里是最容易改错的一处</b>：偏移量是 {@code -MAX_WIDTH/2 = -64}（局部空间以体心为原点），
+     * <b>不是</b> {@code -CHUNK_WIDTH}。0.1.3 里 {@code CHUNK_WIDTH == 64} 恰好与 {@code MAX_WIDTH/2} 同值，
+     * 所以旧写法 {@code cx*CHUNK_WIDTH - CHUNK_WIDTH} 看不出问题；
+     * 一旦把边长改成 16 而照抄这个写法，偏移就变成 −16 ⇒ <b>整体错位 48 格</b>。
+     * space 0.3.0 的原文就是 {@code cx * 16 - 64}（见 {@code PhysicalBody.updateProjectionAABB}）。</p>
+     */
     public void updateProjectionAABB() {
         this.projectionAABB.setEmpty();
         IntAABB bounds = new IntAABB();
@@ -305,9 +334,9 @@ public class PhysicalBody {
                 for (int cz = 0; cz < CHUNK_COUNT; cz++) {
                     PalettedChunk chunk = this.chunks[chunkIndex(cx, cy, cz)];
                     if (chunk != null && voxelBounds(chunk.colliderArray(), bounds)) {
-                        int baseX = cx * CHUNK_WIDTH - CHUNK_WIDTH;
-                        int baseY = cy * CHUNK_WIDTH - CHUNK_WIDTH;
-                        int baseZ = cz * CHUNK_WIDTH - CHUNK_WIDTH;
+                        int baseX = cx * CHUNK_WIDTH - MAX_WIDTH / 2;
+                        int baseY = cy * CHUNK_WIDTH - MAX_WIDTH / 2;
+                        int baseZ = cz * CHUNK_WIDTH - MAX_WIDTH / 2;
                         this.projectionAABB.union(baseX + bounds.minX, baseY + bounds.minY, baseZ + bounds.minZ);
                         this.projectionAABB.union(baseX + bounds.maxX, baseY + bounds.maxY, baseZ + bounds.maxZ);
                     }
@@ -423,7 +452,7 @@ public class PhysicalBody {
         return updatedChunks;
     }
 
-    /** 整块替换缓存（初始同步/存档恢复）：{@code int[2][2][2][64][64][64]}。 */
+    /** 整块替换缓存（初始同步/存档恢复）：{@code int[8][8][8][16][16][16]}（维度由常量决定）。 */
     public void replaceBlockStateCache(int[][][][][][] blockStateCache) {
         if (blockStateCache == null || blockStateCache.length != CHUNK_COUNT) {
             throw invalidCacheSize();
@@ -459,8 +488,16 @@ public class PhysicalBody {
         }
     }
 
+    /**
+     * 缓存尺寸不对时的异常。
+     *
+     * <p>尺寸串由常量拼出来，<b>不写死</b> —— 旧版这里硬编码 {@code int[2][2][2][64][64][64]}，
+     * 改粒度时极易漏改，于是报错信息会指向一个早就不存在的形状（比不报错更误导）。</p>
+     */
     private static IllegalArgumentException invalidCacheSize() {
-        return new IllegalArgumentException("PhysicalBody cache must be int[2][2][2][64][64][64]");
+        return new IllegalArgumentException("PhysicalBody cache must be int["
+                + CHUNK_COUNT + "][" + CHUNK_COUNT + "][" + CHUNK_COUNT + "]["
+                + CHUNK_WIDTH + "][" + CHUNK_WIDTH + "][" + CHUNK_WIDTH + "]");
     }
 
     /** 区域填充（按子块切分，整子块直接用填充构造省一遍逐格写）。 */

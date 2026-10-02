@@ -25,7 +25,7 @@ import java.util.UUID;
  * 的自有实现（clean-room；见 {@code docs/mps-clone-plan.md}）。
  *
  * <h2>职责</h2>
- * 把一个 64³ 子块里的<b>方块实体</b>（NBT）发给客户端，让箱子/机器在船上是"真的"。
+ * 把一个 16³ 子块里的<b>方块实体</b>（NBT）发给客户端，让箱子/机器在船上是"真的"。
  *
  * <h2>为什么要单独一个包（照 space 0.1.3）</h2>
  * {@code SyncPhysicalBodyBlockUpdate} 只发<b>方块状态调色板</b>（{@code int[][][]} id），
@@ -36,9 +36,9 @@ import java.util.UUID;
  * 再按本包放方块实体。所以本包必须<b>后</b>处理。</p>
  *
  * <h2>为什么用 {@code byte} 写区块坐标</h2>
- * 物理体的方块网格只有 2×2×2 个 64³ 子块（{@code chunkOffset = 1}，取值 −1/0），
+ * 物理体的方块网格只有 8×8×8 个 16³ 子块（{@code chunkOffset = 4}，取值 −4..3），
  * 一个 byte 绰绰有余。这不是省字节，而是<b>把取值范围写进协议</b>：读出来只可能是小的
- * 有符号值，客户端 {@code pos * 64} 之后仍然落在局部坐标范围内。
+ * 有符号值，客户端 {@code pos * 16} 之后仍然落在局部坐标范围内。
  *
  * <p>方块实体的局部坐标直接发 {@link BlockPos}（已经是相对投影原点换算过的局部值），
  * 不在这里再做换算 —— 换算统一由 {@code ProjectionManager#readChunk} 负责。</p>
@@ -84,9 +84,11 @@ public record SyncPhysicalBodyBlockEntity(UUID uuid, Vector3i pos, List<Entry> e
             if (physicalBody == null) {
                 return;
             }
-            // 先清掉这个 64³ 子块里旧的方块实体，再按收到的 NBT 全部重建：
+            // 先清掉这个 16³ 子块里旧的方块实体，再按收到的 NBT 全部重建：
             // 服务端发的是"这个子块的完整现状"，增量式更新会留下已经拆掉的箱子
-            int width = 64;
+            // 宽度取自常量（0.1.3 是 64，0.3.0 起是 16）—— 写死会让清理区域与方块网格对不上，
+            // 表现是"拆掉的箱子还留着"或"清掉了隔壁子块的箱子"，且不报错。
+            int width = PhysicalBody.CHUNK_WIDTH;
             BlockPos localMin = new BlockPos(packet.pos.x * width, packet.pos.y * width, packet.pos.z * width);
             BlockPos localMax = localMin.offset(width - 1, width - 1, width - 1);
             physicalBody.clearBlockEntities(localMin, localMax);
