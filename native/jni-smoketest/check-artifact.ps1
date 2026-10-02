@@ -343,7 +343,7 @@ $contracts = @(
        why = '★ 右键再按一次 ⇒ 松手（开关，照参考 onItemUsed 的 START_DRAG && DRAGGING 分支）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
        must = 'if (button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {';
-       why = '★ 鼠标层只拦右键（左键 LOCK 是下一步）' },
+       why = '★ 右键走"开关"、左键走 LOCK，两者都已在鼠标层处理；这一条钉住"除了左右键别的都不抢"' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
        must = 'if (beam != null && !beam.released()) {';
        why = '★ 开关判据必须用 released 而不是 isGrabbed —— 后者在淡出期间仍为 true（要等强度衰减到 0 才回收），拿它当判据会让"松手后立刻想再抓"被当成又一次松手' },

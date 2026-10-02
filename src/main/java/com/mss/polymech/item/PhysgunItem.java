@@ -50,9 +50,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <tr><th>输入</th><th>行为</th></tr>
  *   <tr><td>右键按下</td><td><b>开关</b>：没抓着 ⇒ {@code START_DRAG}（服务端射线抓取）；
  *       正抓着 ⇒ {@code STOP_DRAG}（松手）</td></tr>
- *   <tr><td>左键按下</td><td>{@code LOCK}（钉住 / 解锁）—— <b>尚未实现</b>，见 {@code docs/physgun-rotation.md}
- *       第 9 节；需要先给原生层补约束 API（Rust 侧 {@code impulse_joints} 已有且已参与 step，
- *       只是没暴露 FFI）。{@link #canAttackBlock} 已经先把"左键顺手挖方块"挡掉了</td></tr>
+ *   <tr><td>左键按下</td><td>{@code LOCK}（钉住 / 解锁）—— 给体加一个**原生固定约束**（把"世界"那个锚
+ *       显式建出来，照参考的 {@code addConstraint(null, ...)}），并持久化到 NBT。
+ *       见 {@link PhysgunLocks} 与 {@code docs/physgun-rotation.md} 第 11 节</td></tr>
  *   <tr><td>TAB 按住 + 移动鼠标</td><td>转动物体（相机冻结），灵敏度 0.35</td></tr>
  *   <tr><td>滚轮</td><td>改持握距离，钳在 {@code [2.0, 128.0]}</td></tr>
  * </table>

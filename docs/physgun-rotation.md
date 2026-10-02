@@ -126,11 +126,11 @@ private double clampDistance(final double distance) { return Math.clamp(distance
 | 输入 | 参考的行为 | 取证位置 | 我们 |
 |---|---|---|---|
 | **右键**（按下） | `START_DRAG`：开始拖；**已拖着时再按一次 ⇒ `stopDragging()`** ⇒ **是开关，不是长按** | `PhysicsStaffMouseHandler.onUse`（`action == GLFW_PRESS`）+ `onItemUsed` 里 `START_DRAG && state == DRAGGING` 分支 | ✅ 已对齐（见 §十） |
-| **左键**（按下） | `onItemPunched()` ⇒ `LOCK`：服务端 `toggleLock(uuid)` 给体挂一个物理 handle **把它钉住**；再按一次解锁。**可持久化**（`saveLocks`/`loadLocks` 存 NBT） | `onItemPunched`（:110）、`PhysicsStaffServerHandler.toggleLock`（:151） | ❌ **未实现**（我们没有"锁"这个概念） |
+| **左键**（按下） | `onItemPunched()` ⇒ `LOCK`：服务端 `toggleLock(uuid)` 给体挂一个物理 handle **把它钉住**；再按一次解锁。**可持久化**（`saveLocks`/`loadLocks` 存 NBT） | `onItemPunched`（:110）、`PhysicsStaffServerHandler.toggleLock`（:151） | ✅ 已对齐（见 §十一） |
 | **TAB**（按住） | `ROTATE_MODE` ⇒ 进入旋转模式：鼠标移动转物体、**相机冻结** | `SimKeys.ROTATE_MODE("rotate_mode", GLFW.GLFW_KEY_TAB, "Physics Staff Rotate Mode")`（`index/SimKeys.java:14`） | ✅ 已对齐（**默认 TAB**） |
 | **鼠标移动**（旋转模式下） | `rotateLocalY(yaw×0.35)` + `premul(AxisAngle(−pitch×0.35, 世界侧向轴))` | `onMouseMove`（:551-573） | ✅ 逐字一致 |
 | **滚轮** | 改持握距离：`+ deltaY × 0.6 × clamp(√(d/10),1,5) × (疾跑?4:1)`，钳 `[2.0, RANGE]` | `onScroll`（:576-591）、`clampDistance`（:113） | ✅ 逐字一致 |
-| 抓取射程 | `PhysicsStaffItem.RANGE = 128.0f`（同时是距离钳位上限） | `PhysicsStaffItem.java:10` | ⚠️ 我们 `RANGE = 64.0`（**既有**常量，也是射线射程）—— 未对齐，见下 |
+| 抓取射程 | `PhysicsStaffItem.RANGE = 128.0f`（同时是距离钳位上限） | `PhysicsStaffItem.java:10` | ✅ 已对齐（见 §十二） |
 
 **⚠️ TAB 与原版玩家列表冲突（参考同样存在，不是我们的 bug）**：
 原版 `Options.keyPlayerList` 默认就是 TAB。参考用的是普通 `KeyMapping`（`new KeyMapping(...)`，
@@ -545,3 +545,22 @@ private static FixedConstraintHandle addConstraint(container, subLevel) {
    我在这里踩过一次（连 `NativeSmokeTest` 也一样，它的注释本来也要求"先编译"）。
 5. 走原生 DLL 的步骤要临时把 `$ErrorActionPreference` 改成 `Continue`：JVM 的
    Native-access 警告走 stderr，`Stop` 会把它当终止错误。
+
+---
+
+## 十二、射程与左键语义（1/3 已落地）
+
+第 1 项，最简单、无架构改动的那一条，但两处都**照参考逐字**：
+
+1. **`RANGE` 64.0 → 128.0**，照 `PhysicsStaffItem.RANGE = 128.0f`
+   （`simulated/common/.../content/physics_staff/PhysicsStaffItem.java:10`）。
+   这个常量客户端与服务端**共用**（`PhysgunTarget.find` / `PhysgunBeamRenderer` /
+   `BodyRaycast.nearest` / 滚轮距离上限 / `applyDrag` 钳位），所以改一处两端一致 ——
+   不存在"客户端 128、服务端 64"这种半吊子状态。
+   副作用（有意）：能抓能推的距离翻倍；actionbar 的「（N 格内）」文案自动跟着变。
+
+2. **`canAttackBlock(...) { return false; }`**，照 `PhysicsStaffItem.canAttackBlock`。
+   理由：左键在参考里是 **LOCK**（见 §十一），不拦的话每次锁一下都会顺手把准星前的方块挖掉。
+   这是**服务端**那道；客户端还有一道（`MouseHandlerMixin` 把左键吃掉，见 §十）。
+
+契约：`check-artifact.ps1` 里两条（`RANGE = 128.0` 的值、`canAttackBlock` 的签名）。
