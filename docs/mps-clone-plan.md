@@ -3548,7 +3548,12 @@ $b = [System.IO.File]::ReadAllBytes($p); ($b[0..2] | % { $_.ToString('X2') }) -j
 1. **线太细**：`RenderType.lines()` 是 1px 线；GMod/机械动力的光束是**有厚度的发光条**（用四边形带 billboard 或 `lightning` 类通道）；
 2. **别人的牵引枪看不见**：现在只画本地玩家 ⇒ 需要服务端把"谁抓着哪个体"广播（`PhysgunGrabPacket`），
    顺带能消掉"客户端镜子体滞后导致光束指向另一个体"的极端情况；
-3. **抓住时的旋转控制**（GMod 用滚轮+按键转物体）：现在只能靠弹簧自然摆动；
+3. **抓住时的旋转控制**：现在只能靠弹簧自然摆动。
+   → **2026-10-01 已开始，见 `docs/physgun-rotation.md`（本项的权威记录）**：
+   参考（Simulated-Project 的 physics_staff）用的是**每物理 tick 给约束 6 个轴设马达**（角 PD 伺服），
+   **不是** setPose；而且**滚轮是调持握距离、不是旋转**（本节原来"滚轮+按键转物体"的说法是转述，与参考不符，以参考为准）。
+   核心（`PhysgunRotation` + `PhysicsBodyTracker.applyTorqueImpulse` + 31 条离线判据）已提交 `a2e3805`；
+   **接线（按键/鼠标/网络包/服务端应用/滚轮）未做**，计划见该文档 §六。
 4. **手感**：现在 Kp=8/Kd=4（1–2 秒收敛、略软）；想更"焊住"就调 Kp/Kd（离线探针可直接扫参，先看收敛与超调）。
 
 1. **误删 datagen 产物**：我用 `Remove-Item src\generated\resources\data\poly_mech\* -Recurse` 想删"装配器相关产物"，
