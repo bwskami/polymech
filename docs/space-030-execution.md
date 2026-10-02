@@ -10,9 +10,11 @@
 | 3 | `CelestialWorld` 映射矩阵改为正反严格互逆 | 小（+18/−4 行） | ✅ **完成**（`757cd1b`） |
 | 4 | `Planet` 新增 `cloudBottom`/`cloudTop` | 小（+6 处） | ✅ **完成** |
 | 2 | 体素粒度 64³→16³（物理/投影/渲染/网络四层） | 大（机械） | ✅ **完成** |
-| 1 | 玩家物理切到 0.3.0 模型（原版驱动 + 扫掠 AABB） | 大（架构） | ⬜ 待做 |
+| 1 | 玩家物理切到 0.3.0 模型（原版驱动 + 扫掠 AABB） | 大（架构） | ⏸ **暂缓**（用户 2026-09-30 决定；依据见 §2.5） |
 
 用户 2026-09-30：「可以，这四件事你都可以做」= 四项全部批准。
+其中**第 1 项**在侦察出范围问题后由用户改为暂缓（「那先不做这一项吧」，依据见 §2.5）——
+**3/4/2 三项已全部完成并提交**，第 1 项是唯一未做的，且**已侦察清楚、将来不必重做侦察**。
 
 ## 二、★ 第 1 项的关键侦察：0.3.0 的玩家到底怎么动
 
@@ -93,6 +95,51 @@ if (self instanceof LocalPlayer player && SpaceViewRotation.isActive(player)) {
 - 新增能力：太空自由视角（鼠标 ×0.15）+ 相机相对 6DOF 输入 + 靠近星球自动对齐地面。
 - 风险点：`PhysicalEntityCollision` 的 15 轴 SAT 与我们的体素读取接口必须接对；
   以及"玩家在太空怎么获得推进"在生存下变成"零重力飘"——**这可能改变我们现有的太空玩法手感**，要重点实机验。
+
+### 2.5 ⏸ 第 1 项**暂缓**（用户 2026-09-30 决定），以及做这个决定所依据的发现
+
+侦察到 2.4 之后又发现一件**改变范围判断**的事，据此用户决定暂缓：
+
+> **space 0.3.0 里没有任何"姿态/身体倾斜/手部角度/颈部锥"功能。**
+> 对 `decompiled-space\0.3.0` 全树 grep：`superman|prone`、`BodyTilt|bodyQuat|tilt`、
+> `handAngle`、`neck`、`rollAssist|LevelAssist`、`bodyCenterOffset`、`headLocalEuler`
+> —— **全部 0 命中**。0.3.0 的 `org/deep_space_studio/space/client/` 下与朝向有关的
+> 只有 `SpaceViewRotation.java` 一个文件。
+
+对照我们的 `com.mss.polymech.space.SpacePlayerData`（~700 行）：它**是 `SpaceViewRotation` 的超集**，
+额外提供
+
+| 我们的能力 | 0.3.0 有吗 | 依赖它的文件 |
+|---|---|---|
+| 颈部锥模型（头先转、转不动推身体） | ❌ | `SpaceTurnMixin` |
+| 超人俯卧姿态（`SUPERMAN_PRONE_PITCH_DEG`） | ❌ | `SpaceBodyTiltMixin`、`SupermanDimensionsMixin` |
+| 身体倾斜渲染（`bodyQuat`） | ❌ | `SpaceBodyTiltMixin` |
+| 第一人称手部角度（`advanceHandAngles`） | ❌ | `SpaceFirstPersonHandMixin` |
+| 滚转回正（`LevelAssist`） | ❌ | `LevelAssist`、`SpaceTravelMixin` |
+| 身体旋转支点（`bodyCenterOffset`） | ❌ | `SpaceCameraMixin`、`ClientPhysics` |
+| 头部件命中箱（`HEAD_BOX_*`） | ❌ | `mixin\space\MixinEntity` |
+| 朝向网络同步（`SpaceRotationPayload`） | 部分（0.3.0 走 vanilla yaw/pitch） | `SpaceRotationSync`、`Polymech` |
+
+`SpacePlayerData` 共被 **17 个文件、74 处**引用，其中包含渲染栈与网络层。
+
+**所以"完整对齐 0.3.0 玩家模型"≠"换个物理引擎"，而是"删掉我们已有的姿态/渲染特性"**：
+0.3.0 的玩家只有一个自由视角四元数 + 鼠标缩放 + 贴地面对齐 + yaw/pitch 回写。
+照抄它会回退我们已做的东西，并且要改写 17 个文件 —— 其中好几个正是前几轮刚稳定下来的渲染项。
+
+**用户的决定：「那先不做这一项吧」。** 因此第 1 项**暂缓**，不是放弃：
+
+- 已侦察清楚的部分全部保留在本节与 §二，**将来要做时不需要重新侦察**。
+- 将来若要继续，建议先明确**范围**：
+  - **A（窄）**：只换移动/碰撞层 —— 保留 `SpacePlayerData`（它是超集，且它的 `turn()`
+    已经在做 `SpaceViewRotation.syncEntity` 的同一件事：把朝向写回 vanilla yaw/pitch），
+    只移植 `PhysicalEntityCollision`/`PhysicalEntityCollider` + `Entity.collide` RETURN 钩子
+    + `MixinEntityMoveRelative`/`MixinPlayerFlight`（把朝向来源从 `SpaceViewRotation.orientation()`
+    换成我们的 `SpacePlayerData` 基向量），删掉 Rapier 玩家刚体链。**不丢任何特性。**
+  - **B（全）**：连 `SpaceViewRotation` 一起换掉，等于删掉上表 7 项能力并改写 17 个文件。
+- **不要**在没定范围前动手：`SpacePlayerData` 是渲染栈的支点，动它等于同时动相机/模型/命中箱。
+
+**当前 Rapier 玩家物理仍然可用且已验证**（第 3/4/2 项都是在它之上做的），
+所以暂缓**不影响**已完成的三项。
 
 ## 三、第 2 项：体素粒度 64³→16³ ✅ 完成
 
