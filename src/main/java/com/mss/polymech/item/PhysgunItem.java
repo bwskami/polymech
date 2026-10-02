@@ -8,6 +8,7 @@ import com.mss.polymech.physics.BodyRaycast;
 import com.mss.polymech.physics.PhysicsBodyTracker;
 import com.mss.polymech.physics.PhysgunRotation;
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -21,6 +22,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.joml.Quaterniond;
@@ -62,8 +64,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PhysgunItem extends Item {
 
-    /** 射线能抓到多远（格）。 */
-    public static final double RANGE = 64.0;
+    /**
+     * 射线能抓到多远（格），同时是滚轮持握距离的上限。
+     *
+     * <p><b>照抄参考</b>：{@code PhysicsStaffItem.RANGE = 128.0f}
+     * （`simulated/common/.../content/physics_staff/PhysicsStaffItem.java:10`）。
+     * 客户端与服务端共用这一个常量（{@code PhysgunTarget.find} / {@code PhysgunBeamRenderer} /
+     * {@code BodyRaycast.nearest}），所以改一处两端一致。</p>
+     */
+    public static final double RANGE = 128.0;
     /** 枪口的近似前伸量（格）：服务端算光束起点用；第一人称的精确枪口在客户端渲染器里。 */
     public static final double MUZZLE_FORWARD = 0.35;
 
@@ -110,6 +119,19 @@ public class PhysgunItem extends Item {
     @Override
     public int getUseDuration(ItemStack stack, LivingEntity entity) {
         return 72000;
+    }
+
+    /**
+     * <b>照抄参考</b>：拿着牵引枪时左键<b>不破坏方块</b>
+     * （{@code PhysicsStaffItem.canAttackBlock(...) { return false; }}）。
+     *
+     * <p>理由：左键在参考里是 <b>LOCK</b>（钉住/解锁抓着的体）。若不拦，玩家每次锁一下都会顺手
+     * 把准星前的方块挖掉。客户端那一层已经会把左键吃掉（不让原版收到），这里是<b>服务端</b>的第二道
+     * —— 客户端可被绕过，所以权威侧也必须拒绝。</p>
+     */
+    @Override
+    public boolean canAttackBlock(BlockState state, Level level, BlockPos pos, Player player) {
+        return false;
     }
 
     @Override

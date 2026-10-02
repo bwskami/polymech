@@ -320,7 +320,15 @@ $contracts = @(
        why = '距离钳位照参考 clampDistance = clamp(d, 2.0, RANGE)（下限 2.0 逐字一致）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
        must = 'Math.max(1.0, Math.min(5.0, Math.sqrt(current / 10.0))) * (sprint ? 4.0 : 1.0)';
-       why = '滚轮灵敏度照参考：clamp(√(d/10), 1, 5) × (疾跑 ? 4 : 1) —— 三个数都是参考的，别"顺手调手感"' }
+       why = '滚轮灵敏度照参考：clamp(√(d/10), 1, 5) × (疾跑 ? 4 : 1) —— 三个数都是参考的，别"顺手调手感"' },
+
+    # ── 操作方式完全对齐：射程与左键语义（用户"一切都按照他的来"）──────────────
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'public static final double RANGE = 128.0;';
+       why = '★ 射程照参考 PhysicsStaffItem.RANGE = 128.0f（客户端与服务端共用这一个常量，改一处两端一致）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'public boolean canAttackBlock(BlockState state, Level level, BlockPos pos, Player player) {';
+       why = '★ 照参考：拿枪时左键不破坏方块（左键是 LOCK，不拦就会每次锁一下顺手挖掉准星前的方块）；这是服务端第二道，客户端那层也会吃掉左键' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
