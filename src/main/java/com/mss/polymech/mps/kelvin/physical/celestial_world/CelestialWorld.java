@@ -107,7 +107,15 @@ public class CelestialWorld {
         double dz = z - this.pos_shadow.center.y();
         double cos = Math.cos(this.pos_shadow.rotate);
         double sin = Math.sin(this.pos_shadow.rotate);
-        double x0 = dx * cos + dz * sin;
+        // ★ 2026-09-30 按 space 0.3.0 修正**矩阵形式**（只改形式，不改轴约定）：
+        //   正向必须是**真旋转** [[c,-s],[s,c]]，不能是 0.1.3 的对称阵 [[c,s],[s,c]]。
+        //   对称阵的逆是 1/(c²−s²)·[[c,-s],[-s,c]]，与下面的反向阵**不互逆**
+        //   ⇒ rotate≠0 时往返误差最高 200%（MappingRoundTripProbe 实测；判据已进离线回归第 14 步）。
+        //   我们的数据包现在 15 个世界 rotate 全是 0（退化成单位阵，所以以前看不出问题），
+        //   但 pos_shadow_rotate 是**真实存在且会被读**的数据包字段（SpaceModDataPackManger → 网络同步）。
+        //   ⚠ 轴约定（经度←世界 X、纬度←世界 Z，且都取负）是用户拍板的"天空与 MC 罗盘对应"硬需求，
+        //     0.3.0 并没有改这一点，**必须保留**。
+        double x0 = dx * cos - dz * sin;
         double z0 = dx * sin + dz * cos;
         // ★ 2026-09-23 符号订正（判据实测：世界东·物理东 = -1.0000 ⇒ 只差 180°）：
         //   物理东 = 极轴 × 上方向，在 lon=0 处指向 **−Z** ⇒ **经度增大的方向是"西"**，
@@ -184,11 +192,15 @@ public class CelestialWorld {
         double z0 = -latitude / (Math.PI / 2) * this.pos_shadow.longitude_length;
         double cos = Math.cos(this.pos_shadow.rotate);
         double sin = Math.sin(this.pos_shadow.rotate);
+        // ★ 与上面正向**严格互逆**（space 0.3.0 的形式）：正向是 R=[[c,-s],[s,c]]，
+        //   这里用 R⁻¹=[[c,s],[-s,c]]。旧写法 [[c,-s],[s,c]] 只是 R 的转置，不是对称正向阵的逆。
+        double dx = x0 * cos + z0 * sin;
+        double dz = -x0 * sin + z0 * cos;
         return new Vector3d(
-                x0 * cos - z0 * sin + this.pos_shadow.center.x(),
+                dx + this.pos_shadow.center.x(),
                 this.MinY + (r - this.celestialBody.getRadius())
                         / this.celestialBody.getCarmenLineHeight() * this.Height,
-                x0 * sin + z0 * cos + this.pos_shadow.center.y());
+                dz + this.pos_shadow.center.y());
     }
 
     // ==================== 姿态 ====================
