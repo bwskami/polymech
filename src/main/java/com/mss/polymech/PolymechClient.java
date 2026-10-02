@@ -97,6 +97,8 @@ public class PolymechClient {
         event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CANCEL_KEY);
         event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CYCLE_MODE_KEY);
         event.register(com.mss.polymech.client.BlueprintInputHandler.BLUEPRINT_CYCLE_AXIS_KEY);
+        // 牵引枪旋转模式（按住 + 移动鼠标 = 转被抓的物体）—— 照参考的 SimKeys.ROTATE_MODE
+        event.register(com.mss.polymech.client.physics.PhysgunInputHandler.ROTATE_MODE_KEY);
     }
 
     /** 注册太空姿态仪为 NeoForge GUI 分层（Mekanism 同款 LayeredDraw.Layer 写法）。 */

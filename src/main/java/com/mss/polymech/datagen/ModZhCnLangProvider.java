@@ -643,6 +643,8 @@ public class ModZhCnLangProvider extends LanguageProvider {
         // 科技树
         add("key.poly_mech.tech_tree", "科技树");
         add("key.poly_mech.space_nav", "宇宙导航星图（太空）");
+        // 牵引枪旋转模式（按住 + 移动鼠标 = 转被抓的物体）
+        add("key.poly_mech.physgun_rotate", "牵引枪：旋转被抓物体");
 
         add("techtree.poly_mech.tech_steam", "蒸汽动力");
         add("techtree.poly_mech.tech_steam.desc", "点燃煤炭，驱动你的第一台蒸汽机器。");

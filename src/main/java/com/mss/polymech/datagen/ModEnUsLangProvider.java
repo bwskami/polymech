@@ -28,6 +28,8 @@ public class ModEnUsLangProvider extends LanguageProvider {
         // Tech Tree
         add("key.poly_mech.tech_tree", "Tech Tree");
         add("key.poly_mech.space_nav", "Space Nav Map (space)");
+        // 牵引枪旋转模式（按住 + 移动鼠标 = 转被抓的物体）
+        add("key.poly_mech.physgun_rotate", "Physgun: Rotate Held Object");
 
         add("techtree.poly_mech.tech_steam", "Steam Power");
         add("techtree.poly_mech.tech_steam.desc", "Light coal to drive your first steam machines.");

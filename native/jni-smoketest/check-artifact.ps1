@@ -244,7 +244,52 @@ $contracts = @(
        why = '★ 旋转的唯一写入路径：必须是"力矩冲量"而不是 setRotation（参考也是让引擎的马达驱动，写朝向会和求解器抢权威）' },
     @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
        must = 'PhysgunRotation.estimateInertia(mass, tracked.blocks.size())';
-       why = '惯量由"总质量 × 方块数"估（原生层没有惯量读取接口，只能估；只用于增益归一化）' }
+       why = '惯量由"总质量 × 方块数"估（原生层没有惯量读取接口，只能估；只用于增益归一化）' },
+
+    # ── 牵引枪旋转控制的**接线**（2026-10-01 第 2 步）──────────────────────────
+    # 核心数学已在上面钉住；这一段钉的是"输入 → 网络 → 服务端执行"这条链没断。
+    @{ file = 'src\main\java\com\mss\polymech\mixin\MouseHandlerMixin.java';
+       must = 'target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"';
+       why = '★ 注入点：已用 javap 在 neoforge-21.1.228-merged.jar 的 MouseHandler.turnPlayer 字节码里确认这条 invokevirtual 存在（序号无关的 WrapWithCondition）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\MouseHandlerMixin.java';
+       must = 'return !PhysgunInputHandler.onMouseMove(yaw, pitch)';
+       why = '旋转模式下吃掉视角转动（相机冻结，鼠标只转物体）—— 参考用 ci.cancel()，等价' },
+    @{ file = 'src\main\resources\poly_mech.mixins.json';
+       must = '"MouseHandlerMixin"';
+       why = '★ mixin 必须注册进 client 段，否则整条旋转输入链静默失效（不报错、就是不转）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'player.calculateViewVector(0.0F, player.getYRot() - 90.0F)';
+       why = '俯仰要绕"世界侧向轴"（玩家右手边），照参考逐字：calculateViewVector(0, yRot - 90)' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'q.rotateLocalY(';
+       why = '偏航绕**物体自身** Y（参考的 orientation.rotateLocalY）；写成 rotateY 就变成绕世界 Y，物体会"歪着转"' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'q.premul(new Quaterniond(new AxisAngle4d(';
+       why = '俯仰用 premul 施加在**世界系**（参考逐字）；用 mul 会变成绕物体自身的侧向轴，两者在物体已倾斜时完全不同' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'event.setCanceled(true)';
+       why = '滚轮改持握距离时必须吃掉这次滚动，否则会顺手切快捷栏（参考也是 cancel）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'Math.sqrt(current / 10.0)';
+       why = '滚轮灵敏度随距离按 √(d/10) 放大（钳 [1,5]，疾跑 ×4）—— 照参考，远距离才挪得动' },
+    @{ file = 'src\main\java\com\mss\polymech\Polymech.java';
+       must = 'com.mss.polymech.network.PhysgunDragPacket::handle';
+       why = '★ 拖拽包必须注册成 playToServer，否则客户端发了没人收（服务端永远不做角伺服）' },
+    @{ file = 'src\main\java\com\mss\polymech\PolymechClient.java';
+       must = 'PhysgunInputHandler.ROTATE_MODE_KEY';
+       why = '★ 按键必须注册，否则 ROTATE_MODE_KEY.isDown() 恒假 ⇒ 永远进不了旋转模式' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'PhysicsBodyTracker.applyTorqueImpulse(grab.bodyId(), spin.x, spin.y, spin.z)';
+       why = '★ 服务端真的施加了角伺服的力矩冲量（只在 onUseTick 里、每 tick 一次，与线性那半同节奏）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'PhysgunRotation.errorAxisAngle(current, grab.orientation())';
+       why = '角误差由 PhysgunRotation（纯函数、有离线判据）算，服务端不另写一份' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'grab.bodyId() != packet.bodyId()';
+       why = '★ 服务端校验：客户端可改包，必须再查一遍"这个玩家确实抓着这个体"' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'q.lengthSquared() < 1.0e-12';
+       why = '★ 拒绝退化四元数：NaN/零朝向喂进角伺服会让刚体角速度变 NaN，整个体就废了' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

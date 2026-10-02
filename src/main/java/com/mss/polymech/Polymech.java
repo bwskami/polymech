@@ -349,6 +349,14 @@ public class Polymech {
                 com.mss.polymech.network.PhysgunBeamPacket.STREAM_CODEC,
                 com.mss.polymech.network.PhysgunBeamPacket::handle
         );
+        // 牵引枪拖拽指令（客户端 -> 服务端）：目标朝向 + 持握距离，照参考的 PhysicsStaffDragPacket。
+        // 旋转的输入只在客户端（鼠标），所以必须由客户端把"想转到哪个朝向"发上来，
+        // 服务端每 tick 用角伺服去实现（见 PhysgunItem.onUseTick / PhysgunRotation）。
+        registrar.playToServer(
+                com.mss.polymech.network.PhysgunDragPacket.TYPE,
+                com.mss.polymech.network.PhysgunDragPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysgunDragPacket::handle
+        );
         // 物理体上的挖掘进度（服务端 -> 客户端）：生存模式按硬度挖，进度由服务端算，
         // 客户端拿它画裂纹（照 space 0.1.3 的 SyncPhysicalBlockBreakProgress）
         registrar.playToClient(

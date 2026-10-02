@@ -3553,7 +3553,8 @@ $b = [System.IO.File]::ReadAllBytes($p); ($b[0..2] | % { $_.ToString('X2') }) -j
    参考（Simulated-Project 的 physics_staff）用的是**每物理 tick 给约束 6 个轴设马达**（角 PD 伺服），
    **不是** setPose；而且**滚轮是调持握距离、不是旋转**（本节原来"滚轮+按键转物体"的说法是转述，与参考不符，以参考为准）。
    核心（`PhysgunRotation` + `PhysicsBodyTracker.applyTorqueImpulse` + 31 条离线判据）已提交 `a2e3805`；
-   **接线（按键/鼠标/网络包/服务端应用/滚轮）未做**，计划见该文档 §六。
+   **接线（按键左Alt/鼠标/网络包/服务端应用/滚轮）也已落地**（见该文档 §5.2），
+   含 7 行**程序判定的实机判据表**（松手时服务端算残角并打 PASS/FAIL）—— 待用户实机验收。
 4. **手感**：现在 Kp=8/Kd=4（1–2 秒收敛、略软）；想更"焊住"就调 Kp/Kd（离线探针可直接扫参，先看收敛与超调）。
 
 1. **误删 datagen 产物**：我用 `Remove-Item src\generated\resources\data\poly_mech\* -Recurse` 想删"装配器相关产物"，

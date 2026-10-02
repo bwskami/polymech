@@ -226,7 +226,9 @@ return mass * s * s / 6.0;
 
 ---
 
-## 五、已落地（`a2e3805`，2026-10-01）
+## 五、已落地
+
+### 5.1 核心（`a2e3805`，2026-10-01）
 
 | 文件 | 内容 |
 |---|---|
@@ -236,10 +238,29 @@ return mass * s * s / 6.0;
 | `native/jni-smoketest/run-offline-checks.ps1` | 新增**第 16 步**；`N/15` → `N/16`；表头加第 12 块 |
 | `native/jni-smoketest/check-artifact.ps1` | 新增 **6 条源码契约**（惯量公式两边同形 ×2、双重覆盖、限幅、扭矩写入路径、惯量来源） |
 
-**验证**：`.\gradlew compileJava --console=plain` BUILD SUCCESSFUL；
-`.\native\jni-smoketest\run-offline-checks.ps1` **16/16 步、exit 0**；角伺服 31/31。
+### 5.2 接线（本提交，2026-10-01）
 
-### 5.1 ★ 探针抓到的一个"判据期望写错"（记下来避免重复）
+| 文件 | 内容 |
+|---|---|
+| `client/physics/PhysgunInputHandler.java`（新） | 按键 `ROTATE_MODE_KEY`（默认**左 Alt**）+ `onMouseMove`（偏航绕体自身 Y / 俯仰绕世界侧向轴）+ `onScroll`（改持握距离）+ 每 tick 发拖拽包。灵敏度照参考：旋转 `0.35`、滚轮 `0.6`、距离钳 `[2, RANGE]`、滚轮灵敏度 `√(d/10)` 钳 `[1,5]` 且疾跑 ×4 |
+| `mixin/MouseHandlerMixin.java`（新） | `@WrapWithCondition` 包住 `LocalPlayer.turn(DD)V` ⇒ 旋转模式下**相机冻结**（参考用 `ci.cancel()`，等价）。选它而不是参考的 `@Local(ordinal=…)`：1.21.1 的 `turnPlayer` 已经被 NeoForge 改过（开头多了 `ClientHooks.getTurnPlayerValues`），序号是脆的；`WrapWithCondition` 直接拿 `(player, yaw, pitch)` 参数，且 `pitch` 已含反转 Y 符号 |
+| `network/PhysgunDragPacket.java`（新） | 客户端 → 服务端：`(bodyId, holdDistance, qx, qy, qz, qw)`。发**绝对朝向**（照参考，丢包自愈）；`playToServer` 注册在 `Polymech.registerPayloads` |
+| `client/physics/PhysgunClientState.java` | `Beam` 增加目标朝向 + 距离 + 脏标记；`clientDistance` 让"客户端正在驱动的距离"不被服务端回声覆盖（否则滚轮会回弹）；`release` 清掉旋转会话（下次抓重新从体当前朝向起步） |
+| `item/PhysgunItem.java` | `Grab` 增加 `orientation`（null = 还没转过 ⇒ 不做角伺服）；新增 `applyDrag`（**服务端校验**：确实抓着这个体 / 归一化 / 拒绝退化四元数 / 距离钳位）；`onUseTick` 在线性弹簧之后追加角伺服；新增松手时的**旋转判据**（程序判定 PASS/FAIL） |
+| `PolymechClient` / `poly_mech.mixins.json` / 两个 lang provider | 按键注册 / mixin 注册（client 段）/ 按键名中英文 |
+
+**验证**：`.\gradlew compileJava --console=plain` BUILD SUCCESSFUL；
+`.\native\jni-smoketest\run-offline-checks.ps1` **16/16 步、exit 0**；角伺服 31/31；`check-artifact.ps1` 新增 **15 条接线契约**全 OK。
+
+**★ 注入点用字节码验过**（不靠"读代码觉得对"）：`javap -p -c` 打
+`build/moddev/artifacts/neoforge-21.1.228-merged.jar` 的 `net.minecraft.client.MouseHandler`，
+`turnPlayer(double)` 里确实有
+`invokevirtual net/minecraft/client/player/LocalPlayer.turn:(DD)V`；
+`Options.keySprint`、`InputEvent.MouseScrollingEvent.getScrollDeltaY()` 也都在。
+（mixin 配置是 `required: true`，所以万一注入点没了客户端会**启动失败**而不是静默失效 ——
+上面那条 javap 检查就是为了在提交前拦住这种情况。）
+
+### 5.3 ★ 探针抓到的一个"判据期望写错"（记下来避免重复）
 
 第一版 A 组写的是"目标取 `-q90` ⇒ 残角应为 0"。**这是错的**：
 `-q90` 与 `q90` 是**同一个旋转**，它离单位元本来就是 90°。
@@ -255,49 +276,33 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 
 ---
 
-## 六、下一步（未落地 —— 接线）
+## 六、实机判据表（用户验收用）
 
-核心是纯数学，**目前没有任何用户可见的变化**。要让功能真的可用，还差这一整条链：
+前提：进游戏，拿牵引枪（`item.poly_mech.physgun`），对着一个**已知的**物理体（太空里放几个方块造一个最容易看清）。
 
-### 6.1 客户端输入
+| # | 操作（绝对、可复现） | 程序判定（服务端打聊天栏） | 期望 |
+|---|---|---|---|
+| 1 | 右键抓住任意物理体，**按住左 Alt**，鼠标**横向**移动 | 松手时 `[牵引枪·旋转判据] 松手残角 X°（阈值 5°）⇒ PASS/FAIL` | 物体绕**自身 Y** 转（偏航）；`PASS` |
+| 2 | 同上，但鼠标**纵向**移动 | 同上 | 物体绕**世界侧向轴**翻转（俯仰）；`PASS` |
+| 3 | 按住左 Alt 的同时移动鼠标 | 观察**相机** | 相机**不动**（旋转模式下鼠标被物体吃掉）；松开 Alt 后视角恢复跟手 |
+| 4 | 抓住物体，**滚轮上/下**滚 | 松手时的 `持握 X.XX 格` | 物体被推远/拉近；数值随滚动**单调**变化并钳在 `[2, 64]` |
+| 5 | 不按 Alt，直接移动鼠标 | —— | 相机正常转动（不该被吃掉） |
+| 6 | 抓住物体转到一个明显角度，**松手** | 判据行 | 物体**保持**该朝向，不再被拉回（伺服只在抓着时施力） |
+| 7 | 松手后再抓同一个体、按住 Alt 移动鼠标 | —— | 从**当前**朝向继续转，**不跳**（`release` 清了旋转会话，重新按体当前朝向起步） |
 
-1. **按键**：新增 key mapping `ROTATE_MODE`（对应参考的 `SimKeys.ROTATE_MODE`），
-   注册到现有的按键注册处；`isRotating()` 的等价条件是
-   `拿着牵引枪 && 有抓取会话 && ROTATE_MODE.isPressed()`。
-2. **鼠标移动**：在客户端鼠标移动钩子里（参考用 `MouseHandlerMixin` + `InteractCallback`；
-   我们已有 `BlueprintInputHandler.onMouseScroll` 这类先例可参照），
-   按 §2.2 的公式更新客户端 `dragOrientation`：
-   `rotateLocalY(toRadians(yaw) * 0.35)` + `premul(AxisAngle(-toRadians(pitch) * 0.35, 世界侧向轴))`，
-   其中 `世界侧向轴 = player.calculateViewVector(0, yRot - 90)`。
-3. **滚轮**：按 §2.2 改 `holdDistance`，钳在 `[2.0, RANGE]`，
-   灵敏度 `0.6 × clamp(√(d/10), 1, 5) × (疾跑 ? 4 : 1)`。
+判据 1/2/6/7 都是**程序判定**（服务端算"目标朝向 vs 实际朝向的最短弧残角"，绝对量，
+与相机朝向无关）。阈值 `RESIDUAL_PASS_DEG = 5°`：离线 C 组实测 2% 整定 2 秒内到 1.475°，
+所以 5° 既容得下"刚转完就松手"，又远小于"完全没转"（那是几十度）。
 
-### 6.2 网络（新增客户端 → 服务端包）
+**已知会在实机上看到的非缺陷现象**：
+- 抓着**很轻**的体（方块数少）快速甩鼠标时可能过冲一点点再回来 —— 那是 PD 的 2% 整定过程（ζ≈0.71 略欠阻尼）。
+- 旋转判据只在**松手**时打一行；抓着不放时不打（否则每 tick 刷屏）。
 
-参照 `PhysicsStaffDragPacket`，新增 `PhysgunDragPacket(bodyId, holdDistance, orientation)`，
-拖拽期间按 tick 发送。**注意**：我们现有 `PhysgunBeamPacket` 是**服务端 → 客户端广播**
-（`PhysgunItem.release` 里 `PacketDistributor.sendToPlayersNear`），方向相反，不能复用。
+---
 
-### 6.3 服务端应用
+## 七、之后仍开放的牵引枪缺口
 
-1. `PhysgunItem.Grab` 增加 `targetOrientation` 字段（参考的 `DragSession.orientation` 对应物），
-   由 `PhysgunDragPacket` 更新。
-2. `PhysgunItem` 的每 tick 施力处，**在线性弹簧之后**追加角伺服：
-   `errorAxisAngle(当前朝向, 目标朝向)` → `angularAccel(…, 当前角速度)` →
-   `torqueFor(inertiaOf(id), …)` → `torqueImpulse(…)` → `applyTorqueImpulse(id, …)`。
-   当前角速度取 `motionOf(id)[3..5]`；当前朝向取 `rotationOf(id)`。
-3. 校验：目标朝向必须是**单位四元数**（客户端可能被改包）；`inertiaOf` 返回 `-1` 时跳过角伺服。
-
-### 6.4 必须补的验收
-
-- 离线：`PhysgunRotationProbe` 已有；接线后要补"从包字段到扭矩调用"的链路判据
-  （至少 `check-artifact.ps1` 契约：包字段数、`Grab` 字段、服务端确实调用了 `applyTorqueImpulse`）。
-- 实机判据表（**绝对坐标、程序判定 PASS/FAIL、不许用相机相对**）：
-  抓住一个已知体 → 按住旋转键 → 鼠标横移 → 断言该体的 `rotationOf` 绕**自身 Y** 转过预期角；
-  竖移 → 断言绕**世界侧向轴**转；滚轮 → 断言 `holdDistance` 单调变化且钳在 `[2, 64]`；
-  松手 → 断言朝向**保持**（不再被伺服拉回）。
-
-### 6.5 之后仍开放的牵引枪缺口（来自 `mps-clone-plan.md` 3547–3552）
+（来自 `mps-clone-plan.md` 3547–3552，与本项独立）
 
 - 光束是 1px `RenderType.lines()`（GMod 是粗四边形）；
 - 别的玩家看不见你的光束（需要服务端广播"谁抓住了什么"）；
@@ -306,7 +311,7 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 
 ---
 
-## 七、验证约定（本项专用）
+## 八、验证约定（本项专用）
 
 1. `.\gradlew compileJava --console=plain` 必须打印 `BUILD SUCCESSFUL`。
 2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **16/16 步、exit 0**（本项加了第 16 步）。

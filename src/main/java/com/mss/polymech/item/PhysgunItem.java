@@ -2,9 +2,11 @@ package com.mss.polymech.item;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.network.PhysgunBeamPacket;
+import com.mss.polymech.network.PhysgunDragPacket;
 import com.mss.polymech.network.PhysicsBodySyncPacket;
 import com.mss.polymech.physics.BodyRaycast;
 import com.mss.polymech.physics.PhysicsBodyTracker;
+import com.mss.polymech.physics.PhysgunRotation;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -68,6 +70,15 @@ public class PhysgunItem extends Item {
     private static final SoundEvent SOUND_GRAB = SoundEvents.CONDUIT_ACTIVATE;
     private static final SoundEvent SOUND_RELEASE = SoundEvents.CONDUIT_DEACTIVATE;
 
+    /**
+     * 旋转判据的残角阈值（度）：松手时"目标朝向 vs 实际朝向"小于它才算 PASS。
+     *
+     * <p>取 5°：角伺服在 2% 整定判据下 2 秒内收敛到约 1.5°（见
+     * {@code PhysgunRotationProbe} 的 C 组），5° 留了足够余量给"刚转完就松手"的情况，
+     * 又远小于"完全没转"（那会是几十度）。</p>
+     */
+    public static final double RESIDUAL_PASS_DEG = 5.0;
+
     /** 抓住状态：只在服务端记（物理体是服务端权威）。 */
     private static final Map<UUID, Grab> GRABS = new ConcurrentHashMap<>();
 
@@ -78,9 +89,17 @@ public class PhysgunItem extends Item {
      * @param anchorX/Y/Z 抓点在<b>体局部</b>空间的坐标。服务端每
      *                    {@link PhysgunBeamPacket#BROADCAST_INTERVAL_TICKS} tick 用它重算世界端点，
      *                    所以船转起来时光束跟着转，而不是钉在世界某点。
+     * @param orientation <b>目标朝向</b>（旋转控制的指令）；{@code null} = 玩家还没转过
+     *                    ⇒ 不做角伺服，物体保持原来的自由摆动。由 {@link PhysgunDragPacket} 更新。
      */
     private record Grab(long bodyId, double holdDistance,
-                        double anchorX, double anchorY, double anchorZ) {
+                        double anchorX, double anchorY, double anchorZ,
+                        Quaterniond orientation) {
+
+        /** 换成"带新朝向/新距离"的一份（record 不可变，所以是替换而不是改字段）。 */
+        Grab withDrag(double hold, Quaterniond q) {
+            return new Grab(bodyId, hold, anchorX, anchorY, anchorZ, q);
+        }
     }
 
     public PhysgunItem(Properties properties) {
@@ -132,7 +151,9 @@ public class PhysgunItem extends Item {
         }
 
         double hold = Math.max(2.0, Math.min(RANGE, hit.distance()));
-        Grab grab = new Grab(hit.id(), hold, hit.localX(), hit.localY(), hit.localZ());
+        // 目标朝向给 null：玩家还没转过 ⇒ 不做角伺服（物体照旧自由摆动）。
+        // 第一次转动时客户端会从镜子体的当前朝向起步再发上来，所以不会跳。
+        Grab grab = new Grab(hit.id(), hold, hit.localX(), hit.localY(), hit.localZ(), null);
         GRABS.put(sp.getUUID(), grab);
         sp.startUsingItem(hand);
         broadcast(sp, grab);                // 立刻发一次：客户端不用等 2 tick 才有光束
@@ -182,6 +203,26 @@ public class PhysgunItem extends Item {
         double dt = com.mss.polymech.physics.PhysgunSpring.FORCE_DURATION;
         PhysicsBodyTracker.applyImpulse(grab.bodyId(), force.x * dt, force.y * dt, force.z * dt);
 
+        // ---- 角伺服（旋转控制）：与上面那半逐项对称，只是量纲从"加速度"换成"角加速度" ----
+        // 参考在 PhysicsStaffServerHandler.physicsTick 里给约束的 3 个角轴设马达
+        // （目标角 0 + 刚度/阻尼），由引擎驱动 —— 不是 setRotation。我们用力矩冲量做同一件事，
+        // 数学全在 PhysgunRotation（纯函数），离线判据见 native/jni-smoketest/PhysgunRotationProbe。
+        if (grab.orientation() != null) {
+            double[] rot = PhysicsBodyTracker.rotationOf(grab.bodyId());
+            double inertia = PhysicsBodyTracker.inertiaOf(grab.bodyId());
+            if (rot != null && inertia > 0.0) {
+                Quaterniond current = new Quaterniond(rot[0], rot[1], rot[2], rot[3]);
+                double[] axisAngle = PhysgunRotation.errorAxisAngle(current, grab.orientation());
+                Vector3d angVel = motion == null
+                        ? new Vector3d()
+                        : new Vector3d(motion[3], motion[4], motion[5]);
+                Vector3d alpha = PhysgunRotation.angularAccel(axisAngle, angVel);
+                Vector3d torque = PhysgunRotation.torqueFor(inertia, alpha);
+                Vector3d spin = PhysgunRotation.torqueImpulse(torque);
+                PhysicsBodyTracker.applyTorqueImpulse(grab.bodyId(), spin.x, spin.y, spin.z);
+            }
+        }
+
         // 光束端点按 2 tick 的节奏重算（抓点跟着刚体姿态走）
         if (sp.tickCount % PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS == 0) {
             broadcast(sp, grab);
@@ -197,10 +238,12 @@ public class PhysgunItem extends Item {
             return;
         }
         if (living instanceof ServerPlayer sp) {
-            if (GRABS.remove(sp.getUUID()) != null) {
+            Grab grab = GRABS.remove(sp.getUUID());
+            if (grab != null) {
                 broadcastReleased(sp);
                 play(sp, SOUND_RELEASE, 0.55F, 1.2F);
                 tell(sp, "已松开", ChatFormatting.GRAY);
+                reportRotationVerdict(sp, grab);
             }
         }
     }
@@ -208,6 +251,58 @@ public class PhysgunItem extends Item {
     /** 服务端退出时清理（避免 UUID 泄漏）。 */
     public static void forget(UUID playerId) {
         GRABS.remove(playerId);
+    }
+
+    /**
+     * 拖拽指令（服务端，来自 {@link PhysgunDragPacket}）：更新目标朝向与持握距离。
+     *
+     * <p><b>这里是旋转控制的唯一入口</b>，而且必须校验：客户端可以改包，所以
+     * "这个玩家确实抓着这个体"这一条要在这里再查一遍（服务端抓取状态才是权威）。
+     * 距离钳在 {@code [2, RANGE]}（与客户端同一个区间），四元数归一化并拒绝非有限值
+     * —— 一个 NaN 朝向喂给角伺服会让刚体的角速度变成 NaN，整个体就废了。</p>
+     */
+    public static void applyDrag(ServerPlayer sp, PhysgunDragPacket packet) {
+        Grab grab = GRABS.get(sp.getUUID());
+        if (grab == null || grab.bodyId() != packet.bodyId()) {
+            // 没抓着 / 抓的不是这个体 ⇒ 静默忽略（改包 / 竞态下的旧包）
+            return;
+        }
+        Quaterniond q = new Quaterniond(packet.qx(), packet.qy(), packet.qz(), packet.qw());
+        if (!q.isFinite() || q.lengthSquared() < 1.0e-12) {
+            return;
+        }
+        q.normalize();
+        double hold = Math.max(2.0, Math.min(RANGE, packet.holdDistance()));
+        GRABS.put(sp.getUUID(), grab.withDrag(hold, q));
+    }
+
+    /**
+     * 松手时的<b>旋转判据</b>（程序判定 PASS/FAIL，实机验收用）。
+     *
+     * <p>判据本身是<b>绝对量</b>：目标朝向与实际朝向之间的最短弧残角（度），与相机朝向无关
+     * —— 这是本项目"判据不许相机相对"那条规矩的直接落实。</p>
+     *
+     * <p>为什么松手时判：角伺服只在抓着的时候施力，所以松手那一刻的残角就是
+     * "伺服到底有没有把体转到指令朝向"的最终答案。玩家没转过（{@code orientation == null}）
+     * 就不打这一行 —— 否则每次抓一下都刷一条无意义的 PASS。</p>
+     */
+    private static void reportRotationVerdict(ServerPlayer sp, Grab grab) {
+        if (grab.orientation() == null) {
+            return;
+        }
+        double[] rot = PhysicsBodyTracker.rotationOf(grab.bodyId());
+        if (rot == null) {
+            tell(sp, "[牵引枪·旋转判据] 读不到体朝向 ⇒ 无法判定", ChatFormatting.YELLOW);
+            return;
+        }
+        Quaterniond current = new Quaterniond(rot[0], rot[1], rot[2], rot[3]);
+        double residualDeg = Math.toDegrees(
+                PhysgunRotation.errorAxisAngle(current, grab.orientation())[3]);
+        boolean pass = residualDeg <= RESIDUAL_PASS_DEG;
+        tell(sp, String.format(java.util.Locale.ROOT,
+                        "[牵引枪·旋转判据] 松手残角 %.2f°（阈值 %.0f°）⇒ %s；持握 %.2f 格",
+                        residualDeg, RESIDUAL_PASS_DEG, pass ? "PASS" : "FAIL", grab.holdDistance()),
+                pass ? ChatFormatting.GREEN : ChatFormatting.RED);
     }
 
     // ==================== 求交 / 广播（都在 tracker 这张表上） ====================

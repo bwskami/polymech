@@ -1,6 +1,7 @@
 package com.mss.polymech.client.physics;
 
 import com.mss.polymech.physics.PhysgunBeamShape;
+import org.joml.Quaterniond;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -63,6 +64,29 @@ public final class PhysgunClientState {
         private final double[] tipVel = new double[3];
         private boolean hasTip;
 
+        /**
+         * <b>目标朝向</b>（客户端编辑、服务端执行）—— 牵引枪的旋转控制。
+         *
+         * <p>{@link #hasOrientation} 为 false 表示"还没开始转"：这时<b>不发</b>拖拽包，
+         * 服务端也不做角伺服（{@code Grab.orientation == null}），物体保持原来的自由摆动。
+         * 第一次旋转时才从镜子体的当前朝向起步（见 {@code PhysgunInputHandler.ensureOrientation}），
+         * 这样"抓住 → 按旋转键 → 动鼠标"不会让物体先跳一下。</p>
+         */
+        private final Quaterniond orientation = new Quaterniond();
+        private boolean hasOrientation;
+        /** 有未发送的拖拽变化（朝向或距离）⇒ 客户端 tick 时发一包。 */
+        private boolean dragDirty;
+        /**
+         * 持握距离是否由<b>本客户端</b>驱动（滚轮改过）。
+         *
+         * <p>服务端的权威包每 {@code BROADCAST_INTERVAL_TICKS} tick 带一次距离回声，
+         * 而客户端滚轮可以在这个窗口里改好几次 —— 若回声无条件覆盖，滚轮就会"回弹"
+         * （而且回弹的不只是光束：服务端的目标点也跟着来回跳）。所以一旦本地驱动过距离，
+         * 就不再接受回声，直到松手。服务端那边仍然会把距离钳在 {@code [2, RANGE]}，
+         * 客户端钳的是同一个区间，两边不会分裂。</p>
+         */
+        private boolean clientDistance;
+
         Beam(UUID playerId, long bodyId, double holdDistance) {
             this.playerId = playerId;
             this.bodyId = bodyId;
@@ -79,6 +103,48 @@ public final class PhysgunClientState {
 
         public double holdDistance() {
             return holdDistance;
+        }
+
+        // ==================== 旋转控制（目标朝向 + 持握距离） ====================
+
+        /** 目标朝向（只在 {@link #hasOrientation()} 为 true 时有意义）。<b>可以改</b>它。 */
+        public Quaterniond orientation() {
+            return orientation;
+        }
+
+        public boolean hasOrientation() {
+            return hasOrientation;
+        }
+
+        /** 设定目标朝向（首次会顺带把"已开始转"置真并标脏）。 */
+        public void setOrientation(Quaterniond q) {
+            orientation.set(q);
+            hasOrientation = true;
+            dragDirty = true;
+        }
+
+        /** 鼠标转过之后调：标脏，让客户端 tick 发包。 */
+        public void markOrientationDirty() {
+            dragDirty = true;
+        }
+
+        /** 滚轮改过距离之后调：标脏。 */
+        public void markDragDirty() {
+            dragDirty = true;
+        }
+
+        public boolean dragDirty() {
+            return dragDirty;
+        }
+
+        public void clearDragDirty() {
+            dragDirty = false;
+        }
+
+        /** 滚轮改距离（调用方负责钳位）。 */
+        public void setHoldDistance(double distance) {
+            this.holdDistance = distance;
+            this.clientDistance = true;
         }
 
         public double intensity() {
@@ -224,6 +290,11 @@ public final class PhysgunClientState {
         Beam beam = BEAMS.get(player);
         if (beam != null) {
             beam.released = true;
+            // 清掉"旋转会话"：下次抓（哪怕是同一个体）要重新从体的当前朝向起步，
+            // 否则松手期间物体自由转动之后，再按旋转键会拿旧朝向当基准 ⇒ 啪地跳一下。
+            beam.hasOrientation = false;
+            beam.dragDirty = false;
+            beam.clientDistance = false;
         }
     }
 
@@ -285,7 +356,10 @@ public final class PhysgunClientState {
             return beam;
         }
         beam.bodyId = bodyId > 0L ? bodyId : beam.bodyId;
-        beam.holdDistance = holdDistance > 0.0 ? holdDistance : beam.holdDistance;
+        // 距离：本地驱动过就听本地的（见 clientDistance 的注释），否则听服务端回声
+        if (!beam.clientDistance && holdDistance > 0.0) {
+            beam.holdDistance = holdDistance;
+        }
         beam.released = false;
         return beam;
     }
