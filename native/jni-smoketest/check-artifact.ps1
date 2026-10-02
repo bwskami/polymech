@@ -222,7 +222,29 @@ $contracts = @(
        why = '上传/读取的居中偏移必须是 CHUNK_COUNT/2（=4）：0.1.3 是 1，粒度改了不同步改就整体平移 48 格' },
     @{ file = 'src\main\java\com\mss\polymech\mps\network\packet\SyncPhysicalBodyBlockEntity.java';
        must = 'int width = PhysicalBody.CHUNK_WIDTH;';
-       why = '方块实体清理宽度必须跟粒度（写死 64 会清错区域：拆掉的箱子还留着 / 清掉隔壁子块的箱子）' }
+       why = '方块实体清理宽度必须跟粒度（写死 64 会清错区域：拆掉的箱子还留着 / 清掉隔壁子块的箱子）' },
+
+    # ── 牵引枪角伺服（2026-10-01「抓住时的旋转控制」）─────────────────────────
+    # 离线探针 PhysgunRotationProbe 复刻了"角加速度 → 乘惯量 → 力矩冲量"这条链，
+    # 但探针里调用的是真实类，所以这里只需钉"实现里的关键片段没被改掉"。
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysgunRotation.java';
+       must = 'mass * s * s / 6.0';
+       why = '★ 惯量估计必须与建体公式同形（下面那条钉住另一半）——两边不一致则"补的质量惯量"与"伺服以为的惯量"对不上' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyMass.java';
+       must = 'extra * s * s / 6.0';
+       why = '★ 建体时的附加惯量公式（与 PhysgunRotation.estimateInertia 是同一套近似，改一处必须改两处）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysgunRotation.java';
+       must = 'err.set(-err.x, -err.y, -err.z, -err.w)';
+       why = '★ 四元数双重覆盖：q 与 -q 是同一旋转，不逐分量取反就会走"长弧"（物体朝反方向绕一大圈）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysgunRotation.java';
+       must = 'acc.mul(MAX_ANG_ACCEL / len)';
+       why = '角加速度限幅（θ=π 时未限幅是 25.13 rad/s²；没有它抓一个反过来的体会被拧成陀螺）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'NativePhysics.bodyApplyTorqueImpulse(world, tracked.body, tx, ty, tz)';
+       why = '★ 旋转的唯一写入路径：必须是"力矩冲量"而不是 setRotation（参考也是让引擎的马达驱动，写朝向会和求解器抢权威）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'PhysgunRotation.estimateInertia(mass, tracked.blocks.size())';
+       why = '惯量由"总质量 × 方块数"估（原生层没有惯量读取接口，只能估；只用于增益归一化）' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

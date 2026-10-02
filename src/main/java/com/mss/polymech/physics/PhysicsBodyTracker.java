@@ -1333,6 +1333,30 @@ public final class PhysicsBodyTracker {
     }
 
     /**
+     * 对刚体施加<b>力矩冲量</b>（N·m·s）—— 角伺服的唯一写入路径（牵引枪的旋转控制用）。
+     *
+     * <p>与 {@link #applyImpulse} 逐字同形：都是"拿 world + body 句柄直接打原生"，
+     * 因为 tracker 持有的是原生 body 句柄而不是 MPS 的 {@code RigidBody} 包装。
+     * 角度量的单位是<b>弧度</b>（原生层与 Rapier 一致）。</p>
+     *
+     * <p><b>为什么是"力矩冲量"而不是"设朝向"</b>：见 {@link com.mss.polymech.physics.PhysgunRotation}
+     * 的类注释 —— 参考也是让物理引擎的马达去驱动，不是 setPose；直接写朝向会和求解器抢权威
+     * （本项目在位置上有过同样的教训）。</p>
+     */
+    public static boolean applyTorqueImpulse(long id, double tx, double ty, double tz) {
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null) {
+            return false;
+        }
+        long world = PhysicsWorldManager.world(tracked.level);
+        boolean ok = world > 0 && NativePhysics.bodyApplyTorqueImpulse(world, tracked.body, tx, ty, tz);
+        LOGGER.debug("[PolyMech] 转动物理体 {}: 力矩冲量=({}, {}, {}) 冻结={} 结果={}",
+                id, String.format("%.2f", tx), String.format("%.2f", ty), String.format("%.2f", tz),
+                tracked.frozen, ok);
+        return ok;
+    }
+
+    /**
      * 取刚体最近一次同步到的运动状态 {@code [vx,vy,vz, avx,avy,avz]}；不存在返回 null。
      *
      * <p>调用方<b>不要改这个数组</b>（它是内部记账用的，改了下一次存档就写错了）。</p>
@@ -1357,6 +1381,26 @@ public final class PhysicsBodyTracker {
             return -1.0;
         }
         return NativePhysics.bodyGetMass(world, tracked.body);
+    }
+
+    /**
+     * 估该刚体的<b>转动惯量</b>（kg·m²）—— 角伺服的增益归一化用；不存在返回 -1。
+     *
+     * <p>公式取自 {@link PhysgunRotation#estimateInertia}
+     * （与建体时 {@link PhysicsBodyMass#apply} 的 {@code m·s²/6} 同一套近似）。
+     * 原生层<b>没有</b>惯量读取接口，所以这里只能估 —— 它只用于把角增益换算成力矩，
+     * 是量级估计，不参与存档或碰撞解算，估偏一点只影响"转得快慢"，不会让物理失真。</p>
+     */
+    public static double inertiaOf(long id) {
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null) {
+            return -1.0;
+        }
+        double mass = massOf(id);
+        if (mass <= 0.0) {
+            return -1.0;
+        }
+        return PhysgunRotation.estimateInertia(mass, tracked.blocks.size());
     }
 
     /**
