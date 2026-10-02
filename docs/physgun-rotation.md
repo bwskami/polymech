@@ -125,7 +125,7 @@ private double clampDistance(final double distance) { return Math.clamp(distance
 
 | 输入 | 参考的行为 | 取证位置 | 我们 |
 |---|---|---|---|
-| **右键**（按下） | `START_DRAG`：开始拖；**已拖着时再按一次 ⇒ `stopDragging()`** ⇒ **是开关，不是长按** | `PhysicsStaffMouseHandler.onUse`（`action == GLFW_PRESS`）+ `onItemUsed` 里 `START_DRAG && state == DRAGGING` 分支 | ⚠️ **长按**（`use`/`onUseTick`/`releaseUsing`）—— 未对齐 |
+| **右键**（按下） | `START_DRAG`：开始拖；**已拖着时再按一次 ⇒ `stopDragging()`** ⇒ **是开关，不是长按** | `PhysicsStaffMouseHandler.onUse`（`action == GLFW_PRESS`）+ `onItemUsed` 里 `START_DRAG && state == DRAGGING` 分支 | ✅ 已对齐（见 §十） |
 | **左键**（按下） | `onItemPunched()` ⇒ `LOCK`：服务端 `toggleLock(uuid)` 给体挂一个物理 handle **把它钉住**；再按一次解锁。**可持久化**（`saveLocks`/`loadLocks` 存 NBT） | `onItemPunched`（:110）、`PhysicsStaffServerHandler.toggleLock`（:151） | ❌ **未实现**（我们没有"锁"这个概念） |
 | **TAB**（按住） | `ROTATE_MODE` ⇒ 进入旋转模式：鼠标移动转物体、**相机冻结** | `SimKeys.ROTATE_MODE("rotate_mode", GLFW.GLFW_KEY_TAB, "Physics Staff Rotate Mode")`（`index/SimKeys.java:14`） | ✅ 已对齐（**默认 TAB**） |
 | **鼠标移动**（旋转模式下） | `rotateLocalY(yaw×0.35)` + `premul(AxisAngle(−pitch×0.35, 世界侧向轴))` | `onMouseMove`（:551-573） | ✅ 逐字一致 |
@@ -368,3 +368,76 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 | 抓取射程 `RANGE` | `128.0f` | 我们的 `64.0` 是**既有**常量，**同时**是射线射程与距离钳位上限 —— 改成 128 会让抓取距离翻倍（是玩法参数，不只是按键） | 等用户确认是否要 128 |
 
 **没有一项被静默改掉**：上面每一条要么已对齐（TAB/鼠标/滚轮），要么在本节明确挂着等决定。
+
+---
+
+## 十、右键从"长按"改成"开关"（2/3 已落地）
+
+用户拍板"一切都按照他的来"，所以原先挂在 §九 的两项也照做。本节记第 2 项：**右键改开关**。
+
+### 10.1 参考的架构（这是关键，不是"换个判断"）
+
+参考的做法不是"把 onUseTick 改一改"，而是**整条输入链换掉**：
+
+1. `MouseHandlerMixin` 注入 `MouseHandler.onPress`，拿枪时**把点击 cancel 掉**
+   ⇒ 原版**从不**收到这次右键 ⇒ **从不进入**"使用中"状态；
+2. 同时（`onPress`）注入 `turnPlayer`（旋转）与 `onScroll`（调距）；
+3. 客户端把离散事件打包成 `PhysicsStaffActionPacket(action, subLevel, location)` 发服务端；
+4. 服务端 `PhysicsStaffServerHandler` 维护 `draggingSessions`，**施力在 `physicsTick` 里按表推进**，
+   与"原版使用状态"完全无关。
+
+**所以"开关"是这套架构的必然结果，而不是一个可选的小改**：既然原版不进入使用状态，
+就不存在"松开"这个事件，只能由"再按一次"来结束。
+
+### 10.2 我们怎么落地的（逐项对照）
+
+| 参考 | 我们 | 说明 |
+|---|---|---|
+| `MouseHandlerMixin` 注入 `onPress`（`getOverlay()` 那句，`ordinal=0`） | `@Inject(method="onPress", at=@At("HEAD"), cancellable=true)` | 行为等价，**不依赖指令序号**（那条 `getOverlay` 在 1.21.1 里确实存在，已 `javap` 核过，但它在方法中段，`ordinal=0` 会随上游改动**静默**挪位）。"开着界面/覆盖层时别抢点击"的意图改在 `PhysgunInputHandler.onMousePress` 里用 `mc.screen` / `mc.getOverlay()` 判断 |
+| `PhysicsStaffActionPacket(action, subLevel, location)` | `PhysgunActionPacket(action, bodyId)` | 同样拆"离散事件"与"连续量"两类包；`bodyId` 只作参考，服务端**不信任**它 |
+| `PhysicsStaffAction` 枚举（`START_DRAG`/`STOP_DRAG`/`LOCK`） | `PhysgunAction`（目前 `START_DRAG`/`STOP_DRAG`） | `LOCK` 随第 3 项（左键）一起加 —— 不提交半成品 |
+| `PhysicsStaffServerHandler.drag/stopDragging` + `physicsTick` 施力 | `PhysgunItem.applyAction` + `serverTick`/`tickGrab` | 施力**离开** `onUseTick`，改由 `PhysicsTickEvent.Post` → `PhysgunItem.serverTick(server)` 按 `GRABS` 表推进 |
+| `use()`/`onUseTick`/`releaseUsing` 一概不存在（物品只有 `canAttackBlock`） | **删掉** `use`/`onUseTick`/`releaseUsing`/`getUseDuration` | 用 `mustNot` 契约钉住不许回归（回来会导致**双份施力**） |
+| 不再持枪 ⇒ 松手（`holdingStaff == false ⇒ state = PASSIVE`） | `onClientTick` 里同样处理 | 没有这一步，改成开关后切快捷栏会**永远拖着**（原版以前靠 `releaseUsing` 兜底） |
+
+**两处有意偏离**（都已写进代码注释与契约）：
+
+1. **`START_DRAG` 是显式事件，参考是隐式的**。参考的客户端自己选中子级、把目标 UUID 塞进拖拽包，
+   服务端 `drag(...)` 首次收到就建会话（**它不自己射线**）。我们不能这样：本项目服务端射线才是权威
+   （客户端/服务端体注册表曾经不一致），而且客户端镜像没同步上时本地求交必然落空
+   —— 那条教训（**打不中也要让服务端去抓**）原来写在 `use()` 里，现在原样搬到 `onMousePress`。
+2. **服务端校验失败只拒绝，不踢人**。参考的 `validateWorthyness` 会
+   `disconnect("Invalid packet")`；我们只静默拒绝 —— 因为存在**合法竞态**
+   （按下右键后立刻切走快捷栏，包到达时手里已经不是枪了），踢人会误伤。
+   服务端本来就不信任包里的任何数值（抓谁由服务端射线决定），拒绝已经足够。
+
+### 10.3 一个必须记下的坑：开关判据不能用 `isGrabbed`
+
+`PhysgunClientState.isGrabbed()` = `beam != null && !beam.finished()`，
+而 `finished()` 要等**强度衰减到 0** 才为真 —— 也就是说**松手后的淡出期间 `isGrabbed` 仍为 true**。
+拿它当"现在是不是拖着"的判据，会让"松手后立刻想再抓"被当成**又一次松手**（手感上表现为"点了没反应"）。
+判据必须用 `released()`（`release()` 立刻置真，`ensure`/`applyServerEndpoints` 置假）。
+已用契约钉住：`if (beam != null && !beam.released()) {`。
+
+### 10.4 实机判据表（绝对坐标；程序判定 PASS/FAIL）
+
+| # | 操作 | 判据（可观察、与相机无关） | 期望 |
+|---|---|---|---|
+| T1 | 拿枪，右键**点一下**（短促按下再松开），松开后不动 | 聊天栏出现「已抓住 物理体 #N」；光束**持续存在**（不会随松手消失） | PASS = 松手后 5 秒光束仍在，物体被拉到准星前方并停住 |
+| T2 | 承 T1，**再点一下**右键 | 聊天栏出现「已松开」；光束在约 0.5 秒内淡出消失；物体停在原地不再被牵引 | PASS = 淡出后物体速度逐渐归零（不再有持续拉力） |
+| T3 | 承 T2，**立刻**（淡出还没结束，<0.5 秒）再点一下右键 | 重新抓住同一个/准星所指的体，聊天栏再次出现「已抓住」 | PASS = 能立刻再抓（这正是 §10.3 那个坑的判据；判据错的话这一下会被吃掉） |
+| T4 | 抓着时**把枪切走**（滚轮换到别的物品栏） | 光束淡出、物体松手；聊天栏出现「已松开」 | PASS = 不再持续牵引（没有这一步会永远拖着） |
+| T5 | 拿着枪对**方块**点右键 | 方块**不被放置**、容器**不被打开**（点击被吃掉） | PASS = 什么都没发生（照参考；原版使用状态从不进入） |
+| T6 | 拿着枪对**方块**长按左键 | 方块**不被破坏** | PASS = 方块完好（客户端那层吃掉 + 服务端 `canAttackBlock=false` 两道） |
+| T7 | 抓着时**退出游戏再进** | 不会残留牵引（`GRABS` 是服务端内存表；`forget(uuid)` 在玩家离开时清理） | PASS = 重进后没有任何物体被凭空牵引 |
+| T8 | 抓着时**下线/掉线**（多人） | 服务端 `serverTick` 解析不到玩家 ⇒ 自动放手 | PASS = 聊天栏/物理上都没有残留牵引 |
+
+### 10.5 验证约定（本项）
+
+1. `.\gradlew compileJava --console=plain` 必须 `BUILD SUCCESSFUL`。
+2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **17/17 步、exit 0**。
+3. **删掉的原版钩子必须留在 `mustNot` 契约里**：`onUseTick(` / `releaseUsing(` / `getUseDuration(`
+   —— 它们回来会造成双份施力（`serverTick` + `onUseTick` 各一次），且**不报错**。
+4. ⚠️ 产物自检的 `marks` 不许写 `START_DRAG`/`STOP_DRAG`：`switch` 里的枚举常量名会被 `javac`
+   放进合成的 `$SwitchMap` 类，`PhysgunItem.class` 里**没有**这两个字符串（写进去必假 MISS，
+   我这次就栽了一下）。枚举值的钉住用**源码契约**（`case START_DRAG -> startDrag(sp);`）。

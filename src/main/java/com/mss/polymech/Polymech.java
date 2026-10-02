@@ -351,11 +351,19 @@ public class Polymech {
         );
         // 牵引枪拖拽指令（客户端 -> 服务端）：目标朝向 + 持握距离，照参考的 PhysicsStaffDragPacket。
         // 旋转的输入只在客户端（鼠标），所以必须由客户端把"想转到哪个朝向"发上来，
-        // 服务端每 tick 用角伺服去实现（见 PhysgunItem.onUseTick / PhysgunRotation）。
+        // 服务端每 tick 用角伺服去实现（见 PhysgunItem.tickGrab / PhysgunRotation）。
         registrar.playToServer(
                 com.mss.polymech.network.PhysgunDragPacket.TYPE,
                 com.mss.polymech.network.PhysgunDragPacket.STREAM_CODEC,
                 com.mss.polymech.network.PhysgunDragPacket::handle
+        );
+        // 牵引枪的**离散动作**（客户端 -> 服务端）：右键按下（开始拖）/ 再按一次（松手）。
+        // 照参考的 PhysicsStaffActionPacket —— 右键是开关而不是长按，所以施力不再挂在
+        // 原版 onUseTick 上，改由 PhysgunItem.serverTick 按 GRABS 表推进。
+        registrar.playToServer(
+                com.mss.polymech.network.PhysgunActionPacket.TYPE,
+                com.mss.polymech.network.PhysgunActionPacket.STREAM_CODEC,
+                com.mss.polymech.network.PhysgunActionPacket::handle
         );
         // 物理体上的挖掘进度（服务端 -> 客户端）：生存模式按硬度挖，进度由服务端算，
         // 客户端拿它画裂纹（照 space 0.1.3 的 SyncPhysicalBlockBreakProgress）

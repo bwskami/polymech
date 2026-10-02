@@ -17,14 +17,18 @@ import java.util.UUID;
  * <h2>为什么必须有这个包（它不只是"给别人看"）</h2>
  * 第一版的实机症状是"抓住了、但是完全没有线"。根因在客户端：
  * <ul>
- *   <li>客户端在 {@code use()} 里<b>自己</b>用解析求交（{@code PhysgunTarget}）找目标，
- *       找不到就 {@code return success}（不 {@code startUsingItem}）⇒ 渲染器判据
- *       {@code player.isUsingItem()} 为假 ⇒ 一根线都不画；</li>
- *   <li>而服务端那一刻走的是 Rapier 射线（{@code PhysicalRaycast}），<b>它命中了</b>，
+ *   <li>客户端<b>自己</b>用解析求交（{@code PhysgunTarget}）找目标，找不到就什么都不做
+ *       ⇒ 客户端这边一根线都不画；</li>
+ *   <li>而服务端那一刻走的是自己的射线，<b>它命中了</b>，
  *       于是聊天栏显示"已抓住"—— 两边对"抓没抓到"的判据根本不是同一套。</li>
  * </ul>
  * 所以抓取结果必须<b>由服务端权威地回给客户端</b>：客户端据此建光束，
  * 别人的枪也因此看得见。这同时消掉了"客户端镜子体与服务端不一致 ⇒ 光束指向另一个体"的一整类错。
+ *
+ * <p>⚠️ 这段注释原来还提到 {@code startUsingItem} / {@code isUsingItem()} —— 那是右键还是
+ * <b>长按</b>（挂原版"使用中"状态）时的旧设计。现在照参考改成了<b>开关</b>，原版使用状态
+ * 根本不会进入（客户端在鼠标层就把右键 cancel 了），渲染器判据也早已换成
+ * {@code PhysgunClientState}（见 {@code PhysgunBeamRenderer}）。</p>
  *
  * <h2>为什么发世界端点，而不是"体 id + 局部抓点"</h2>
  * 后者要点数少，但服务端的 {@code PhysicalBody} 用的是 UUID，客户端

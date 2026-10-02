@@ -26,11 +26,12 @@ import java.util.UUID;
  * 代价是每 2 tick 一个小包，而端点用上一帧→这一帧插值补平（{@link #renderEnd}）。
  *
  * <h2>本地预测 vs 服务端权威</h2>
- * 开火瞬间客户端先自己算一条（{@link #grab}），让光束立刻出现；
+ * 按下右键瞬间客户端先自己算一条（{@link #grab}），让光束立刻出现；
  * 一旦服务端的包到达（{@link #applyServer}），就<b>永久改由服务端驱动</b>直到松手。
  * 这条"预测先顶上、权威到达后接管"的做法，正是为了修掉第一版的实机症状：
- * 客户端自己的求交落空（服务端 Rapier 命中、客户端镜子体没命中）⇒
- * 连 {@code startUsingItem} 都没调 ⇒ <b>抓住了却完全没有光束</b>。
+ * 客户端自己的求交落空（服务端 Rapier 命中、客户端镜子体没命中）⇒ 客户端这边什么都没有
+ * ⇒ <b>抓住了却完全没有光束</b>。所以"打不中也要把 START_DRAG 发上去"是必须的
+ * （见 {@code PhysgunInputHandler.onMousePress}）。
  */
 public final class PhysgunClientState {
 

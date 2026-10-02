@@ -54,9 +54,10 @@ $checks = @(
        marks = @('原版日月已隐藏');
        why = '只掐原版日月的 mixin（且证明 mixin 类确实被编译进产物）' },
     @{ cls = 'com\mss\polymech\item\PhysgunItem.class';
-       marks = @('已抓住', 'onUseTick', 'PhysgunSpring', 'PhysgunClientState', 'PhysgunBeamPacket',
-                 'BodyRaycast', 'PhysicsBodyTracker', 'nearestBodyInfo');
-       why = '牵引枪（抓取 + 弹簧拖拽 + 光束广播 + 音效）—— 2026-09-29 起在 PhysicsBodyTracker 上求交' },
+       marks = @('已抓住', 'serverTick', 'tickGrab', 'applyAction', 'startDrag', 'stopDrag',
+                 'PhysgunActionPacket', 'PhysgunSpring', 'PhysgunBeamPacket', 'BodyRaycast',
+                 'PhysicsBodyTracker', 'nearestBodyInfo');
+       why = '牵引枪（抓取 + 弹簧拖拽 + 光束广播 + 音效）—— 2026-09-29 起在 PhysicsBodyTracker 上求交；2026-10-01 起右键是开关（serverTick 驱动施力，不再是 onUseTick）。⚠️ 别把 START_DRAG/STOP_DRAG 写进 marks：switch 里的枚举常量名会被 javac 放进合成的 $SwitchMap 类，本类里没有这两个字符串（写进去必假 MISS）' },
     @{ cls = 'com\mss\polymech\physics\BodyRaycast.class';
        marks = @('INFLATE', 'nearest', 'toLocalPoint');
        why = '服务端体求交（与客户端同一套 RayBox 数学；离线判据第 12 步）' },
@@ -280,7 +281,7 @@ $contracts = @(
        why = '★ 按键必须注册，否则 ROTATE_MODE_KEY.isDown() 恒假 ⇒ 永远进不了旋转模式' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        must = 'PhysicsBodyTracker.applyTorqueImpulse(grab.bodyId(), spin.x, spin.y, spin.z)';
-       why = '★ 服务端真的施加了角伺服的力矩冲量（只在 onUseTick 里、每 tick 一次，与线性那半同节奏）' },
+       why = '★ 服务端真的施加了角伺服的力矩冲量（在 tickGrab 里、每 tick 一次，与线性那半同节奏）' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        must = 'PhysgunRotation.errorAxisAngle(current, grab.orientation())';
        why = '角误差由 PhysgunRotation（纯函数、有离线判据）算，服务端不另写一份' },
@@ -328,7 +329,39 @@ $contracts = @(
        why = '★ 射程照参考 PhysicsStaffItem.RANGE = 128.0f（客户端与服务端共用这一个常量，改一处两端一致）' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        must = 'public boolean canAttackBlock(BlockState state, Level level, BlockPos pos, Player player) {';
-       why = '★ 照参考：拿枪时左键不破坏方块（左键是 LOCK，不拦就会每次锁一下顺手挖掉准星前的方块）；这是服务端第二道，客户端那层也会吃掉左键' }
+       why = '★ 照参考：拿枪时左键不破坏方块（左键是 LOCK，不拦就会每次锁一下顺手挖掉准星前的方块）；这是服务端第二道，客户端那层也会吃掉左键' },
+
+    # ── 操作方式对齐（2/3）：右键从"长按"改成"开关"（照参考的 PRESS + toggle）──────────
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'public static void serverTick(MinecraftServer server)';
+       why = '★ 施力必须由服务端自己按 GRABS 表推进 —— 参考不用原版"使用中"状态（它在鼠标层就 cancel 了右键），所以施力不能挂在 onUseTick 上' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'case START_DRAG -> startDrag(sp);';
+       why = '★ 右键按下 ⇒ 开始拖（服务端射线决定抓谁，不信任包里的 bodyId）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'case STOP_DRAG -> {';
+       why = '★ 右键再按一次 ⇒ 松手（开关，照参考 onItemUsed 的 START_DRAG && DRAGGING 分支）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'if (button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {';
+       why = '★ 鼠标层只拦右键（左键 LOCK 是下一步）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'if (beam != null && !beam.released()) {';
+       why = '★ 开关判据必须用 released 而不是 isGrabbed —— 后者在淡出期间仍为 true（要等强度衰减到 0 才回收），拿它当判据会让"松手后立刻想再抓"被当成又一次松手' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\MouseHandlerMixin.java';
+       must = '@Inject(method = "onPress", at = @At("HEAD"), cancellable = true)';
+       why = '★ 照参考在鼠标层吃掉点击（原版从此不进入"使用中"）—— 这是"开关"能成立的前提' },
+    @{ file = 'src\main\java\com\mss\polymech\network\PhysgunAction.java';
+       must = 'return id >= 0 && id < all.length ? all[id] : STOP_DRAG;';
+       why = '★ 越界动作 id 回退成 STOP_DRAG：失败方向必须无害（误当 START_DRAG 会让服务端凭空去抓东西）' },
+    @{ file = 'src\main\java\com\mss\polymech\Polymech.java';
+       must = 'com.mss.polymech.network.PhysgunActionPacket.TYPE';
+       why = '★ 动作包必须真的注册（没注册 = 客户端点了没反应，且是静默的）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'if (!isHolding(sp)) {';
+       why = '★ 服务端校验：动作包是客户端来的，必须再查一遍"手里确实拿着牵引枪"（照参考 validateWorthyness；但我们不踢人，只拒绝）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'PhysgunAction.START_DRAG, hit == null ? 0L : hit.bodyId()';
+       why = '★ 客户端**打不中也要**发 START_DRAG：客户端镜像没同步上时本地求交必然落空，而服务端射线可能命中 —— 不发就永远抓不上（这是 2026-09-29 那次的教训，别"优化"成打不中就不发）' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -340,7 +373,16 @@ $absentContracts = @(
        why = '★ old 缓存表只增不减 ⇒ 真实的无界内存泄漏；space 0.3.0 已删除，不得回归' },
     @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
        mustNot = 'tracked.origin.getX() + e.dx()';
-       why = '★ 轴对齐映射（origin + 局部，不含刚体旋转）不得回归：体转过/挪过之后它指的世界格是错的（探针实测同场景偏差 11 格，新映射 ≤1 格）' }
+       why = '★ 轴对齐映射（origin + 局部，不含刚体旋转）不得回归：体转过/挪过之后它指的世界格是错的（探针实测同场景偏差 11 格，新映射 ≤1 格）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       mustNot = 'public void onUseTick(';
+       why = '★ 原版"使用中"钩子不得回归：右键已改成开关（照参考），原版根本不进入使用状态；若这个钩子回来，施力会**双份**（serverTick + onUseTick 各一次）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       mustNot = 'public void releaseUsing(';
+       why = '★ 同上一一：松手现在由 STOP_DRAG 动作驱动，不再靠原版松开使用' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       mustNot = 'public int getUseDuration(';
+       why = '★ 不再需要"使用时长"：原版不会进入使用状态（留着会让后来者以为右键仍是长按）' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

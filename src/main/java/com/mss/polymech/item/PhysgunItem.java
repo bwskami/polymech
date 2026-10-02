@@ -1,6 +1,7 @@
 package com.mss.polymech.item;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.network.PhysgunActionPacket;
 import com.mss.polymech.network.PhysgunBeamPacket;
 import com.mss.polymech.network.PhysgunDragPacket;
 import com.mss.polymech.network.PhysicsBodySyncPacket;
@@ -10,6 +11,7 @@ import com.mss.polymech.physics.PhysgunRotation;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -36,6 +38,27 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 牵引枪（GMod 式"抓取 + 拖拽"）。
+ *
+ * <h2>操作方式（2026-10-01 起：完全照 Create Aeronautics）</h2>
+ * 用户拍板"牵引枪的操作方式以机械动力航空学为准""一切都按照他的来"，参考是
+ * {@code C:\Users\34573\Desktop\Simulated-Project-main}（{@code mod_name=Create Aeronautics}）。
+ * 四条输入与参考逐字对齐：
+ * <table border="1">
+ *   <caption>输入表</caption>
+ *   <tr><th>输入</th><th>行为</th></tr>
+ *   <tr><td>右键按下</td><td><b>开关</b>：没抓着 ⇒ {@code START_DRAG}（服务端射线抓取）；
+ *       正抓着 ⇒ {@code STOP_DRAG}（松手）</td></tr>
+ *   <tr><td>左键按下</td><td>{@code LOCK}（钉住 / 解锁）—— <b>尚未实现</b>，见 {@code docs/physgun-rotation.md}
+ *       第 9 节；需要先给原生层补约束 API（Rust 侧 {@code impulse_joints} 已有且已参与 step，
+ *       只是没暴露 FFI）。{@link #canAttackBlock} 已经先把"左键顺手挖方块"挡掉了</td></tr>
+ *   <tr><td>TAB 按住 + 移动鼠标</td><td>转动物体（相机冻结），灵敏度 0.35</td></tr>
+ *   <tr><td>滚轮</td><td>改持握距离，钳在 {@code [2.0, 128.0]}</td></tr>
+ * </table>
+ * <b>关键后果</b>：原版"使用中"状态<b>不再被使用</b> —— 客户端在
+ * {@code MouseHandler.onPress} 那一层就把点击 cancel 了（见 {@code MouseHandlerMixin}），
+ * 所以 {@code use()} / {@code onUseTick} / {@code releaseUsing} 这些钩子<b>已经删掉</b>，
+ * 施力改由 {@link #serverTick} 按 {@link #GRABS} 表推进。抓取的建立与结束分别由
+ * {@code START_DRAG} / {@code STOP_DRAG} 两个动作包驱动（照参考的 {@code PhysicsStaffActionPacket}）。
  *
  * <h2>它作用在哪张表上（2026-09-29 修正；用户报"点一下只有一瞬间的射线、无法长按"的根因）</h2>
  * 原来这里查的是 MPS 层的 {@code ServerPhysicalWorld} / {@code PhysicalRaycast}，
@@ -115,12 +138,6 @@ public class PhysgunItem extends Item {
         super(properties);
     }
 
-    /** 只要按着就一直是"使用中"（72000 tick = 1 小时，够用）。 */
-    @Override
-    public int getUseDuration(ItemStack stack, LivingEntity entity) {
-        return 72000;
-    }
-
     /**
      * <b>照抄参考</b>：拿着牵引枪时左键<b>不破坏方块</b>
      * （{@code PhysicsStaffItem.canAttackBlock(...) { return false; }}）。
@@ -134,42 +151,61 @@ public class PhysgunItem extends Item {
         return false;
     }
 
-    @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (level.isClientSide) {
-            // 客户端：先自己算一次（解析求交，不依赖客户端碰撞体），让光束**立刻**出现；
-            // 服务端权威包到达后接管（PhysgunClientState.serverDriven）。
-            // ⚠️ 必须有 startUsingItem + consume：
-            //    1) 原版只有 consumesAction() 才会 startUsingItem，而渲染器的判据是 isUsingItem()；
-            //    2) **打不中也要**：客户端镜像没同步上时就是打不中，而服务端可能抓住了。
-            com.mss.polymech.client.physics.PhysgunTarget.Hit clientHit =
-                    com.mss.polymech.client.physics.PhysgunTarget.find(RANGE);
-            player.startUsingItem(hand);
-            if (clientHit != null) {
-                Vec3 eye = player.getEyePosition(1.0F);
-                Vec3 look = player.getViewVector(1.0F);
-                Vec3 hitPoint = eye.add(look.scale(clientHit.distance()));
-                com.mss.polymech.client.physics.PhysgunClientState.grab(player.getUUID(),
-                        clientHit.bodyId(), Math.max(2.0, Math.min(RANGE, clientHit.distance())),
-                        eye.x + look.x * MUZZLE_FORWARD, eye.y + look.y * MUZZLE_FORWARD,
-                        eye.z + look.z * MUZZLE_FORWARD,
-                        hitPoint.x, hitPoint.y, hitPoint.z);
-            }
-            return InteractionResultHolder.consume(stack);
-        }
-        if (!(player instanceof ServerPlayer sp) || !(level instanceof ServerLevel serverLevel)) {
-            return InteractionResultHolder.pass(stack);
-        }
+    // ==================== 输入 → 动作（照参考：右键是开关，不是长按） ====================
 
+    /**
+     * 拿着牵引枪（任一只手）—— 照参考的 {@code PhysicsStaffItem.isHolding}。
+     *
+     * <p>服务端校验用：{@link PhysgunActionPacket} 是客户端来的，不能信任。</p>
+     */
+    public static boolean isHolding(Player player) {
+        return player.getMainHandItem().getItem() instanceof PhysgunItem
+                || player.getOffhandItem().getItem() instanceof PhysgunItem;
+    }
+
+    /**
+     * 服务端动作入口（来自 {@link PhysgunActionPacket}）—— 照参考的
+     * {@code PhysicsStaffActionPacket.handle}。
+     *
+     * <p><b>校验</b>：照参考的 {@code validateWorthyness}，没拿着牵引枪就不认。区别是参考会
+     * {@code disconnect("Invalid packet")} 直接踢人，我们只静默拒绝 —— 存在<b>合法竞态</b>
+     * （按下右键后立刻切走快捷栏，包到达时手里已经不是枪了），踢人会误伤。见包注释。</p>
+     */
+    public static void applyAction(ServerPlayer sp, PhysgunActionPacket packet) {
+        if (!isHolding(sp)) {
+            return;
+        }
+        switch (packet.action()) {
+            case START_DRAG -> startDrag(sp);
+            case STOP_DRAG -> {
+                Grab grab = GRABS.get(sp.getUUID());
+                if (grab != null) {
+                    stopDrag(sp, grab);
+                }
+            }
+        }
+    }
+
+    /**
+     * 开始拖 —— <b>服务端自己射线</b>决定抓谁（不信任包里的 {@code bodyId}）。
+     *
+     * <p>参考的 {@code startDraggingSubLevel} 是客户端选目标、服务端照着建会话（拖拽包带
+     * 目标 UUID，{@code drag(...)} 首次收到就建）；我们反过来，因为服务端射线才是权威 ——
+     * 见 {@link PhysgunAction} 的类注释。</p>
+     */
+    private static void startDrag(ServerPlayer sp) {
+        if (GRABS.containsKey(sp.getUUID())) {
+            return;                         // 已经抓着 ⇒ 重复的 START（丢包重发 / 改包），忽略
+        }
+        ServerLevel serverLevel = sp.serverLevel();
         Vec3 eye = sp.getEyePosition();
         Vec3 look = sp.getLookAngle();
         BodyRaycast.Hit hit = raycast(serverLevel, eye, look);
         if (hit == null) {
             tell(sp, "准星没指到物理体（" + (int) RANGE + " 格内）"
                     + nearestBodyInfo(serverLevel, eye), ChatFormatting.YELLOW);
-            broadcastReleased(sp);          // 客户端可能已经起了本地预测，得让它收回去
-            return InteractionResultHolder.fail(stack);
+            broadcastReleased(sp);          // 客户端已经起了本地预测，得让它收回去
+            return;
         }
 
         double hold = Math.max(2.0, Math.min(RANGE, hit.distance()));
@@ -177,29 +213,48 @@ public class PhysgunItem extends Item {
         // 第一次转动时客户端会从镜子体的当前朝向起步再发上来，所以不会跳。
         Grab grab = new Grab(hit.id(), hold, hit.localX(), hit.localY(), hit.localZ(), null);
         GRABS.put(sp.getUUID(), grab);
-        sp.startUsingItem(hand);
         broadcast(sp, grab);                // 立刻发一次：客户端不用等 2 tick 才有光束
         play(sp, SOUND_GRAB, 0.7F, 1.35F);
         tell(sp, String.format(java.util.Locale.ROOT,
-                "已抓住 物理体 #%d（质量 %.0f kg，保持 %.1f 格）—— 松开取消",
+                "已抓住 物理体 #%d（质量 %.0f kg，保持 %.1f 格）—— 再按一次右键松手",
                 hit.id(), PhysicsBodyTracker.massOf(hit.id()), hold), ChatFormatting.AQUA);
-        return InteractionResultHolder.consume(stack);
+    }
+
+    /** 松手 —— 原来挂在 {@code releaseUsing} 上，现在由 {@code STOP_DRAG} 动作驱动。 */
+    private static void stopDrag(ServerPlayer sp, Grab grab) {
+        GRABS.remove(sp.getUUID());
+        broadcastReleased(sp);
+        play(sp, SOUND_RELEASE, 0.55F, 1.2F);
+        tell(sp, "已松开", ChatFormatting.GRAY);
+        reportRotationVerdict(sp, grab);
     }
 
     /**
-     * 每个 MC tick 调一次（服务端）：把抓住的刚体往"准星前方 holdDistance"处拉。
+     * 每个服务端 tick：把每个"抓着东西"的玩家的刚体往"准星前方 holdDistance"处拉。
+     *
+     * <p>原来这活儿挂在 {@code onUseTick}（原版"使用中"状态）上 —— 参考<b>不用</b>原版使用状态
+     * （它在客户端鼠标层就把右键 cancel 掉了），所以施力改成服务端自己按 {@link #GRABS} 推进。
+     * 见 {@link PhysgunActionPacket} 的类注释。</p>
      *
      * <p>只施力、不写位置 —— 见类注释。目标点每 tick 跟着视线走，所以可以一边走一边拖。</p>
      */
-    @Override
-    public void onUseTick(Level level, LivingEntity living, ItemStack stack, int remainingUseDuration) {
-        if (level.isClientSide || !(living instanceof ServerPlayer sp)) {
+    public static void serverTick(MinecraftServer server) {
+        if (GRABS.isEmpty()) {
             return;
         }
-        Grab grab = GRABS.get(sp.getUUID());
-        if (grab == null) {
-            return;
+        // GRABS 是 ConcurrentHashMap：tickGrab 里可能 remove（体没了），边遍历边删是安全的
+        for (Map.Entry<UUID, Grab> entry : GRABS.entrySet()) {
+            ServerPlayer sp = server.getPlayerList().getPlayer(entry.getKey());
+            if (sp == null) {
+                GRABS.remove(entry.getKey());   // 下线了 ⇒ 放手（否则冲量一直施在没人管的体上）
+                continue;
+            }
+            tickGrab(sp, entry.getValue());
         }
+    }
+
+    /** 单个抓取的每 tick 施力：线性弹簧 + 角伺服。 */
+    private static void tickGrab(ServerPlayer sp, Grab grab) {
         double[] pos = PhysicsBodyTracker.positionOf(grab.bodyId());
         double mass = PhysicsBodyTracker.massOf(grab.bodyId());
         if (pos == null || !(mass > 0.0)) {
@@ -248,25 +303,6 @@ public class PhysgunItem extends Item {
         // 光束端点按 2 tick 的节奏重算（抓点跟着刚体姿态走）
         if (sp.tickCount % PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS == 0) {
             broadcast(sp, grab);
-        }
-    }
-
-    /** 松开右键 / 换手 / 死亡 ⇒ 放手（客户端同时把光束转入淡出，否则它会留在原地）。 */
-    @Override
-    public void releaseUsing(ItemStack stack, Level level, LivingEntity living, int timeLeft) {
-        if (level.isClientSide()) {
-            // 不直接删：标记 released，让强度曲线把它收掉（照参考的 intensity 衰减）
-            com.mss.polymech.client.physics.PhysgunClientState.release(living.getUUID());
-            return;
-        }
-        if (living instanceof ServerPlayer sp) {
-            Grab grab = GRABS.remove(sp.getUUID());
-            if (grab != null) {
-                broadcastReleased(sp);
-                play(sp, SOUND_RELEASE, 0.55F, 1.2F);
-                tell(sp, "已松开", ChatFormatting.GRAY);
-                reportRotationVerdict(sp, grab);
-            }
         }
     }
 

@@ -6,6 +6,8 @@ import net.minecraft.client.MouseHandler;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * 牵引枪<b>旋转模式</b>下冻结相机：把鼠标移动让给物体，而不是转视角。
@@ -70,5 +72,32 @@ public class MouseHandlerMixin {
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
     private boolean polymech$physgunRotate(LocalPlayer player, double yaw, double pitch) {
         return !PhysgunInputHandler.onMouseMove(yaw, pitch);
+    }
+
+    /**
+     * <b>把鼠标点击吃掉</b>（照参考的 {@code PhysicsStaffMouseHandler.onUse/onAttack}）：
+     * 拿枪时右键不再进入原版"使用中"、左键不再攻击 —— 于是"抓 / 松 / 锁"完全由我们的包驱动。
+     * 这是"右键从长按改成开关"的前提（见 {@code PhysgunActionPacket} 的类注释）。
+     *
+     * <h2>为什么注入 {@code HEAD}，而不是照参考的 {@code getOverlay()} 那一句</h2>
+     * 参考注入在 {@code onPress} 里<b>第一条</b> {@code Minecraft.getOverlay()} 调用之前：
+     * <pre>
+     *   &#64;At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;getOverlay()...", ordinal = 0)
+     * </pre>
+     * 那条指令在 1.21.1 里确实存在（已用 {@code javap} 核过 {@code onPress} 的字节码），
+     * 但它位于方法<b>中段</b>，而 {@code ordinal = 0} 靠数指令定位 —— 上游一旦在它前面插一句
+     * 就会<b>静默</b>挪位（本项目吃过"判据写错却看起来通过"的亏，所以宁可选不会静默错的写法）。
+     * 这里注入 {@code HEAD}，把参考靠注入点位置表达的意图（"开着界面/覆盖层时别抢点击"）
+     * 自己在 {@link PhysgunInputHandler#onMousePress} 里用 {@code mc.screen} /
+     * {@code mc.getOverlay()} 判断 —— <b>行为等价，且不依赖指令序号</b>。
+     *
+     * @return 已消费 ⇒ cancel，原版看不到这次点击
+     */
+    @Inject(method = "onPress", at = @At("HEAD"), cancellable = true)
+    private void polymech$physgunPress(long windowPointer, int button, int action, int modifiers,
+                                       CallbackInfo ci) {
+        if (PhysgunInputHandler.onMousePress(button, action)) {
+            ci.cancel();
+        }
     }
 }

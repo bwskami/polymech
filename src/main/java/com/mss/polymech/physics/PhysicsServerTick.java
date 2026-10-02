@@ -27,6 +27,9 @@ public final class PhysicsServerTick {
         ProjectionManager.tick();
         // 挖掘进度超时清理：松手时没有包，只能靠服务端自己发现"停手了"并广播清裂纹
         PhysicsBodyInteraction.tick(event.getServer());
+        // 牵引枪：施力原来挂在原版 onUseTick（长按）上，参考是"开关"+服务端自己推进，
+        // 所以这里每 tick 按 GRABS 表施力（见 PhysgunItem.serverTick 的注释）。
+        com.mss.polymech.item.PhysgunItem.serverTick(event.getServer());
     }
 
     @SubscribeEvent

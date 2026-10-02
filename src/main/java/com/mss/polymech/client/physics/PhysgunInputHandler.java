@@ -2,6 +2,8 @@ package com.mss.polymech.client.physics;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.item.PhysgunItem;
+import com.mss.polymech.network.PhysgunAction;
+import com.mss.polymech.network.PhysgunActionPacket;
 import com.mss.polymech.network.PhysgunDragPacket;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
@@ -18,6 +20,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.joml.AxisAngle4d;
 import org.joml.Quaterniond;
 import org.lwjgl.glfw.GLFW;
+
+import java.util.UUID;
 
 /**
  * 牵引枪的<b>旋转控制输入</b>（客户端）—— 照参考 {@code PhysicsStaffClientHandler}。
@@ -85,13 +89,80 @@ public final class PhysgunInputHandler {
     private PhysgunInputHandler() {
     }
 
+    /** 拿着牵引枪（任一只手）。 */
+    private static boolean isHolding(LocalPlayer player) {
+        return player.getMainHandItem().getItem() instanceof PhysgunItem
+                || player.getOffhandItem().getItem() instanceof PhysgunItem;
+    }
+
     /** 拿着牵引枪（任一只手）并且确实抓着东西。 */
     private static boolean isHoldingGrabbing(LocalPlayer player) {
-        if (!(player.getMainHandItem().getItem() instanceof PhysgunItem)
-                && !(player.getOffhandItem().getItem() instanceof PhysgunItem)) {
+        return isHolding(player) && PhysgunClientState.isGrabbed(player.getUUID());
+    }
+
+    /**
+     * 鼠标按下（由 {@code MouseHandlerMixin} 注入 {@code MouseHandler.onPress} 调过来）。
+     *
+     * <p><b>照参考的 {@code PhysicsStaffMouseHandler.onUse/onAttack}</b>：拿枪时把点击
+     * <b>吃掉</b>（调用方 cancel 掉原版的 {@code onPress}），于是原版<b>从不进入</b>"使用中"状态。
+     * 这正是"右键从长按改成开关"的前提 —— 见 {@link PhysgunActionPacket} 的类注释。</p>
+     *
+     * <p>右键是<b>开关</b>（照参考 {@code onItemUsed}：{@code START_DRAG && state == DRAGGING}
+     * ⇒ {@code stopDragging()}）：按一次开始拖，再按一次松手。</p>
+     *
+     * @return true = 已消费 ⇒ 调用方必须 cancel 掉原版处理
+     */
+    public static boolean onMousePress(int button, int action) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        // 开着界面 / 有覆盖层时不抢点击（参考的注入点也在 getOverlay() 检查附近）
+        if (player == null || mc.screen != null || mc.getOverlay() != null) {
             return false;
         }
-        return PhysgunClientState.isGrabbed(player.getUUID());
+        if (!isHolding(player)) {
+            return false;
+        }
+        // 只抢"按下"：松开不抢。原版没收到按下，单独收到松开是无害的（参考也只 cancel PRESS）。
+        if (action != GLFW.GLFW_PRESS) {
+            return false;
+        }
+        if (button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false;                   // 左键（LOCK）是下一步的事
+        }
+
+        UUID id = player.getUUID();
+        // ★ 开关：**正在**拖着（而不是"正在淡出"）⇒ 再按一次松手。
+        //   判据必须用 released 而不是 isGrabbed：后者在淡出期间仍为 true
+        //   （要等强度衰减到 0 才回收，见 PhysgunClientState.finished），
+        //   拿它当判据会让"松手后立刻想再抓"被当成又一次松手。
+        PhysgunClientState.Beam beam = PhysgunClientState.beam(id);
+        if (beam != null && !beam.released()) {
+            PacketDistributor.sendToServer(new PhysgunActionPacket(
+                    PhysgunAction.STOP_DRAG, beam.bodyId()));
+            // 不直接删：标记 released，让强度曲线把它收掉（照参考的 intensity 衰减）
+            PhysgunClientState.release(id);
+            return true;
+        }
+
+        // 本地先算一次（解析求交，不依赖客户端碰撞体），让光束**立刻**出现；
+        // 服务端权威包到达后接管（PhysgunClientState.serverDriven）。
+        PhysgunTarget.Hit hit = PhysgunTarget.find(PhysgunItem.RANGE);
+        if (hit != null) {
+            Vec3 eye = player.getEyePosition(1.0F);
+            Vec3 look = player.getViewVector(1.0F);
+            Vec3 hitPoint = eye.add(look.scale(hit.distance()));
+            PhysgunClientState.grab(id, hit.bodyId(),
+                    Math.max(MIN_DISTANCE, Math.min(PhysgunItem.RANGE, hit.distance())),
+                    eye.x + look.x * PhysgunItem.MUZZLE_FORWARD,
+                    eye.y + look.y * PhysgunItem.MUZZLE_FORWARD,
+                    eye.z + look.z * PhysgunItem.MUZZLE_FORWARD,
+                    hitPoint.x, hitPoint.y, hitPoint.z);
+        }
+        // ★ 打不中也要发：客户端镜像没同步上时就是打不中，而服务端可能抓得住 ——
+        //   这条教训原来写在 use() 里，现在搬到这里。服务端自己射线，不信这个 bodyId。
+        PacketDistributor.sendToServer(new PhysgunActionPacket(
+                PhysgunAction.START_DRAG, hit == null ? 0L : hit.bodyId()));
+        return true;
     }
 
     /** 参考的 {@code isRotating()}。 */
@@ -172,6 +243,18 @@ public final class PhysgunInputHandler {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null) {
+            return;
+        }
+        // ★ 照参考：不再拿着枪（切走了 / 丢掉了 / 换成别的）⇒ 松手。
+        //   参考在 PhysicsStaffClientHandler.tick 里做同一件事
+        //   （holdingStaff == false ⇒ state = PASSIVE, dragSession = null）。
+        //   没有这一步，改成"开关"之后切快捷栏会永远拖着 —— 原版以前靠 releaseUsing 兜底。
+        UUID self = player.getUUID();
+        PhysgunClientState.Beam held = PhysgunClientState.beam(self);
+        if (held != null && !held.released() && !isHolding(player)) {
+            PacketDistributor.sendToServer(new PhysgunActionPacket(
+                    PhysgunAction.STOP_DRAG, held.bodyId()));
+            PhysgunClientState.release(self);
             return;
         }
         PhysgunClientState.Beam beam = PhysgunClientState.beam(player.getUUID());
