@@ -289,7 +289,27 @@ $contracts = @(
        why = '★ 服务端校验：客户端可改包，必须再查一遍"这个玩家确实抓着这个体"' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        must = 'q.lengthSquared() < 1.0e-12';
-       why = '★ 拒绝退化四元数：NaN/零朝向喂进角伺服会让刚体角速度变 NaN，整个体就废了' }
+       why = '★ 拒绝退化四元数：NaN/零朝向喂进角伺服会让刚体角速度变 NaN，整个体就废了' },
+
+    # ── 缺口 (2)：体局部格 ⇄ 世界格的映射必须含刚体旋转（2026-10-01）────────────
+    @{ file = 'src\main\java\com\mss\polymech\physics\RayBox.java';
+       must = 'out[0] = (int) Math.floor(local.x);';
+       why = '★ "块占 [x, x+1)" 最小角约定：世界格 → 局部格必须 floor（把整数当块心会差半格，本项目栽过）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\RayBox.java';
+       must = 'new Vector3d(x, y, z).sub(bodyPos)';
+       why = '世界→局部 = R⁻¹·(p − 体位置)（toLocalCell 与客户端拾取共用这一条）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'RayBox.toLocalCell(bodyPos, rot, pos.getX(), pos.getY(), pos.getZ(), cell)';
+       why = '★ 邻接判定改在**体局部空间**算（含旋转），不再用 origin + 局部' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'Math.abs(e.dx() - cell[0])';
+       why = '★ 曼哈顿判据改在局部空间比：局部空间里方块永远是轴对齐整数格，判据在那里才良定义' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'placeBlock(adjacent.getKey(), localCell[0], localCell[1], localCell[2], stateId)';
+       why = '★ 放方块的局部格由 findAdjacentBody 在局部空间算好返回（原来用 pos − origin 反算，旋转/平移后都错）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'RayBox.toWorldCenter(new Vector3d(tracked.x, tracked.y, tracked.z)';
+       why = 'localToWorld 与 toLocalCell 共用同一对映射（单一来源；本项目在"同一概念两份实现"上吃过亏）' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -298,7 +318,10 @@ $contracts = @(
 $absentContracts = @(
     @{ file = 'src\main\java\com\mss\polymech\mps\physical\manger\PhysicalChunkManager.java';
        mustNot = 'old_physicalChunks = new ConcurrentHashMap<>()';
-       why = '★ old 缓存表只增不减 ⇒ 真实的无界内存泄漏；space 0.3.0 已删除，不得回归' }
+       why = '★ old 缓存表只增不减 ⇒ 真实的无界内存泄漏；space 0.3.0 已删除，不得回归' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       mustNot = 'tracked.origin.getX() + e.dx()';
+       why = '★ 轴对齐映射（origin + 局部，不含刚体旋转）不得回归：体转过/挪过之后它指的世界格是错的（探针实测同场景偏差 11 格，新映射 ≤1 格）' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

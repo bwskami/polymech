@@ -46,6 +46,39 @@ public final class RayBox {
     }
 
     /**
+     * 世界点 → 体局部<b>格</b>坐标（含旋转）—— {@link #toWorldCenter} 的逆。
+     *
+     * <p>约定与 {@code PhysicsBodyTracker} 一致：<b>块占 {@code [x, x+1)}（最小角约定）</b>，
+     * 所以"世界格 {@code pos} 落在哪个局部格"就是"把 {@code pos} 的<b>中心</b>变换到局部后逐轴
+     * {@code floor}"。传格的最小角（{@code pos} 本身）会差半格 —— 这正是本项目在
+     * {@code RayBox.blockBounds} 上修过的那个错（见那里的注释）。</p>
+     *
+     * <p>写成 {@code int[] out} 而不是返回对象：调用点在每 tick / 每次放方块的循环里，
+     * 避免为每个候选体分配一个数组。</p>
+     */
+    public static void toLocalCell(Vector3d bodyPos, Quaterniond bodyRotation,
+                                   double wx, double wy, double wz, int[] out) {
+        Vector3d local = toLocalPoint(bodyPos, bodyRotation, wx + 0.5, wy + 0.5, wz + 0.5);
+        out[0] = (int) Math.floor(local.x);
+        out[1] = (int) Math.floor(local.y);
+        out[2] = (int) Math.floor(local.z);
+    }
+
+    /**
+     * 体局部<b>格</b>坐标 → 该格在世界空间的<b>中心</b>（含旋转）—— {@link #toLocalCell} 的逆。
+     *
+     * <p>{@code worldCenter = bodyPos + R·(local + 0.5)}。
+     * {@code PhysicsBodyTracker.localToWorld} 用的就是这一条；提出来是为了让"服务端放方块"
+     * 与"客户端拾取"共用<b>同一个</b>映射（本项目在"同一概念两份实现"上吃过亏）。</p>
+     */
+    public static Vector3d toWorldCenter(Vector3d bodyPos, Quaterniond bodyRotation,
+                                         int dx, int dy, int dz) {
+        Vector3d v = new Vector3d(dx + 0.5, dy + 0.5, dz + 0.5);
+        new Quaterniond(bodyRotation).transform(v);
+        return v.add(bodyPos);
+    }
+
+    /**
      * 射线与 AABB 求交（slab 法）。
      *
      * @param origin 射线起点（局部空间）

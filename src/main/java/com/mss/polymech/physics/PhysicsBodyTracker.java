@@ -343,24 +343,53 @@ public final class PhysicsBodyTracker {
      * 不另写一份：本项目在"同一概念两份实现"上吃过亏（§29.3）。</p>
      */
     public static boolean hasAdjacentBody(ServerLevel level, BlockPos pos) {
-        return findAdjacentBody(level, pos) != null;
+        return findAdjacentBody(level, pos, null) != null;
     }
 
-    /** 找与该格面相邻的那个物理体（没有返回 null）。 */
-    private static Map.Entry<Long, TrackedBody> findAdjacentBody(ServerLevel level, BlockPos pos) {
+    /**
+     * 找与该格面相邻的那个物理体，并返回"该格落在它哪个<b>局部</b>格"（没有返回 null）。
+     *
+     * <h2>★ 2026-10-01 修的缺陷（本方法原来不含刚体旋转）</h2>
+     * 原来这里是逐块算 {@code tracked.origin + e.dx()} 再比曼哈顿距离 —— 那是<b>轴对齐</b>映射，
+     * 两个后果：
+     * <ol>
+     *   <li><b>体转过之后全错</b>：{@code origin} 是建体时区域的<b>最小角</b>，而体一旦被牵引枪
+     *       转过（或只是被推着平移过），方块的真实世界位置就不再是 {@code origin + 局部}。
+     *       症状是"在转过/挪过的体旁边放方块，要么吸不上去、要么吸到错误的格子"。</li>
+     *   <li>反算局部格也是同一处错（见 {@link #placeBlockAt} 的 ①）。</li>
+     * </ol>
+     * 现在改成<b>把世界格变换到每个体的局部空间</b>再判相邻 —— 与客户端拾取
+     * （{@code RayBox.toLocalPoint}）和 {@link #localToWorld} <b>共用同一对映射</b>
+     * （{@link RayBox#toLocalCell} / {@link RayBox#toWorldCenter}），
+     * 于是"旋转"天然被算进去，而且"体平移过"也一并修好（不再依赖冻结的 {@code origin}）。
+     *
+     * <p>判据仍然是曼哈顿距离 1，只是改在<b>局部空间</b>判 —— 局部空间里方块永远是轴对齐的
+     * 整数格，所以这个判据在那里才是良定义的。</p>
+     *
+     * @param localOut 输出参数：命中时写入"该世界格对应的局部格"（长度 ≥ 3）
+     * @return 命中的体（{@code Map.Entry} 的 key 是体 id），没有返回 null
+     */
+    private static Map.Entry<Long, TrackedBody> findAdjacentBody(ServerLevel level, BlockPos pos,
+                                                                 int[] localOut) {
+        int[] cell = new int[3];
         for (Map.Entry<Long, TrackedBody> entry : BODIES.entrySet()) {
             TrackedBody tracked = entry.getValue();
             if (tracked.level != level) {
                 continue;
             }
+            Vector3d bodyPos = new Vector3d(tracked.x, tracked.y, tracked.z);
+            Quaterniond rot = new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw);
+            RayBox.toLocalCell(bodyPos, rot, pos.getX(), pos.getY(), pos.getZ(), cell);
             for (PhysicsBodySyncPacket.BlockEntry e : tracked.blocks) {
-                int wx = tracked.origin.getX() + e.dx();
-                int wy = tracked.origin.getY() + e.dy();
-                int wz = tracked.origin.getZ() + e.dz();
-                int manhattan = Math.abs(wx - pos.getX())
-                        + Math.abs(wy - pos.getY())
-                        + Math.abs(wz - pos.getZ());
+                int manhattan = Math.abs(e.dx() - cell[0])
+                        + Math.abs(e.dy() - cell[1])
+                        + Math.abs(e.dz() - cell[2]);
                 if (manhattan == 1) {
+                    if (localOut != null) {
+                        localOut[0] = cell[0];
+                        localOut[1] = cell[1];
+                        localOut[2] = cell[2];
+                    }
                     return entry;
                 }
             }
@@ -376,14 +405,14 @@ public final class PhysicsBodyTracker {
         if (!level.getBlockState(pos).isAir()) {
             return -1;
         }
-        // ① 找面相邻（曼哈顿距离 1）的现有物理体，并进去
-        Map.Entry<Long, TrackedBody> adjacent = findAdjacentBody(level, pos);
+        // ① 找面相邻（局部空间里曼哈顿距离 1）的现有物理体，并进去。
+        // ★ 局部格由 findAdjacentBody 在"体局部空间"里算好返回（含旋转），
+        //   不再用 pos - origin —— 那个反算在体被转过/挪过之后是错的（见 findAdjacentBody 的注释）。
+        int[] localCell = new int[3];
+        Map.Entry<Long, TrackedBody> adjacent = findAdjacentBody(level, pos, localCell);
         if (adjacent != null) {
-            TrackedBody tracked = adjacent.getValue();
-            int dx = pos.getX() - tracked.origin.getX();
-            int dy = pos.getY() - tracked.origin.getY();
-            int dz = pos.getZ() - tracked.origin.getZ();
-            return placeBlock(adjacent.getKey(), dx, dy, dz, stateId) ? adjacent.getKey() : -1;
+            return placeBlock(adjacent.getKey(), localCell[0], localCell[1], localCell[2], stateId)
+                    ? adjacent.getKey() : -1;
         }
         // ② 没有相邻体 → 以这一块新建刚体（原点 = 该格，局部坐标 (0,0,0)）
         long world = PhysicsWorldManager.world(level);
@@ -1129,10 +1158,10 @@ public final class PhysicsBodyTracker {
         if (tracked == null) {
             return null;
         }
-        Quaterniond rotation = new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw).normalize();
-        Vector3d v = new Vector3d(dx + 0.5, dy + 0.5, dz + 0.5);
-        rotation.transform(v);
-        return new double[]{tracked.x + v.x, tracked.y + v.y, tracked.z + v.z};
+        // 与"世界格 → 局部格"共用 RayBox 里那一对映射（单一来源）
+        Vector3d c = RayBox.toWorldCenter(new Vector3d(tracked.x, tracked.y, tracked.z),
+                new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw), dx, dy, dz);
+        return new double[]{c.x, c.y, c.z};
     }
 
     /**
