@@ -9,7 +9,12 @@
 decompiled-space/
   0.1.0/     ← space 0.1.0（minecraft [1.21.1]，neoforge [21.1.223,)）
   0.1.3/     ← space 0.1.3（minecraft [1.21.1]，neoforge [21.1.223,)）
+  0.3.0/     ← space 0.3.0（minecraft [1.21.1]，neoforge [21.1.223,)）★ **当前基准**（2026-09-30 起）
 ```
+
+> **⚠ 基准已切换到 0.3.0**（用户 2026-09-30 指令："之后的参考都已最新版为准"）。
+> 引用任何行为/参数前**先查 0.3.0**；0.1.3/0.1.0 只作历史对照。
+> 两者的包名**整体改过**（见下节"0.3.0 的结构变化"），照老路径找不到类时先看那张映射表。
 
 每个版本目录下都是反编译后的完整 jar 内容：
 `org/`（类）、`assets/`、`data/`、`META-INF/`、`natives/`，以及四个 mixin 配置
@@ -66,10 +71,81 @@ fracture fragments/joints）、以及 `rayon` 并行。也就是说：**继续�
 
 ## 当前参考点
 
-| 版本 | .java 类数 | 备注 |
+| 版本 | 顶层类数 | 备注 |
 |---|---|---|
 | 0.1.0 | 263 | 早期对照版本（MPS 物理 / Kelvin 天体 / Sunshine 渲染 三套） |
-| 0.1.3 | 316 | 当前最新；新增内容尚未系统对照 |
+| 0.1.3 | 316 | 上一代基准；与 0.1.0 差 53 个类 |
+| **0.3.0** | **345**（含内部类 465） | ★ **当前基准**。与 0.1.3 同名保留 228 / 纯新增 117 / 消失 88 —— 大部分"消失"其实是**改包名** |
+
+## 0.3.0 的结构变化（2026-09-30 加入，逐类比对过）
+
+### 一、包名整体重构（"消失的 88 个类"里绝大多数是这个）
+
+| 0.1.3 | 0.3.0 | 说明 |
+|---|---|---|
+| `org.polaris2023.mps.**` | `org.polaris2023.mps.**collision**.**` | 物理层整体下沉一层：`mps.network.packet` → `mps.collision.network.packet`、`mps.physical.*` → `mps.collision.physical.*`、`mps.rapier.helper` → `mps.collision.rapier.helper`、`mps.mixin` → `mps.collision.mixin` |
+| `org.cn_grass_block.**kelvin**.**` | `org.polaris2023.mps.**orbit**.**` | **kelvin 整包改名并换命名空间**：`kelvin.physical.celestial_body.variant` → `mps.orbit.physical.celestial_body.variant`、`kelvin.network.packet` → `mps.orbit.network.packet` |
+| `org.cn_grass_block.sunshine.mixin.**renderer**` | `…sunshine.mixin.**render**` | 渲染 mixin 包改名（13 → 14 个类） |
+
+配套证据：**`space.kelvin.mixins.json`（22 条）在 0.3.0 整体消失**，而
+`space.mixins.json`（82 条）与 `space.mps.mixins.json`（32 条）**条数完全没变**、
+`space.sunshine.mixins.json` 从 62 → **72**。所以 kelvin 那 22 条不是"搬进别的配置"，而是**真的没了**
+（kelvin → orbit 之后可能改用非 mixin 机制；要用到时再单独查）。
+
+### 二、0.3.0 对我们已有结论的**确认**（重要：说明对齐方向没走偏）
+
+| 我们的结论 | 0.3.0 的证据 |
+|---|---|
+| 太空维度 `getDepthFar()` → `farCompressionDistance × 2` | `sunshine/mixin/render/MixinGameRenderer.java:55` 仍是 `(float)(SpaceRenderer.farCompressionDistance * 2.0)` —— **×2 不是 ×4** |
+| `nearCompressionDistance = 16384` / `farCompressionDistance = 262144` | `sunshine/render/SpaceRenderer.java:60-61` 逐字相同 |
+| 天体画进**独立** `spaceRenderTarget`，后处理拿它的深度当 `SpaceDepthSampler` | `SpaceRenderer.java:341/377/402/435/469/506` 全是 `effect.setSampler("SpaceDepthSampler", spaceRenderTarget::getDepthTextureId)` |
+| **反向 Z**：天体投影 near 取巨大、far 取 0.05 | 新增的 `gui/FastSpaceRenderer.java:266`：`setPerspective(toRadians(70), aspect, 528688.0F, 0.05F)`；`SpaceRenderer` 里 `_clearDepth(0.0)` + `_depthFunc(518=GEQUAL)` 全套一致 |
+| `Meteoroid` 用 `getDepthFar() * 0.5` 当压缩远界 | `mps/orbit/physical/celestial_body/variant/Meteoroid.java:102` 仍是 `getDepthFar() * 0.5` ⇒ 我们那个"副作用"是**照原意**，不是 bug |
+
+> ⚠ 一个数字上的小出入：`FastSpaceRenderer` 硬编码 `528688.0F`，而 `farCompressionDistance × 2 = 524288`。
+> 两者差 4400。**不影响我们的实现**（我们取 `FAR × 2` 且与 mixin 同源，镜像精确），
+> 但引用时别把 528688 当成"官方常量"——它只出现在这一个 FastSpaceRenderer 里。
+
+### 三、0.3.0 新增的东西（按"对我们有没有用"排序）
+
+**渲染/调试（最可能直接借鉴）**
+- `sunshine/render/helper/ThreadStepTimings` + `ThreadStepChartRenderer` + `ThreadStepChartOverlay`
+  —— **物理线程每步耗时的图表 overlay**。我们查过多次"卡帧/不丝滑"，这个是现成的诊断手段。
+- `sunshine/render/helper/SpaceShader`（着色器集中注册）、`SpaceRenderTargets.ensure(...)`（target 复用）、
+  `FastPostPass` + `gui/FastSpaceRenderer`（一条"快"渲染路径）、`TransmittanceTarget`（大气透过率 LUT）、
+  `GeometryShaderSupport` / `GeometryShaderAccessor`（**他们用了几何着色器**）。
+- 新增 8 个渲染 mixin：`MixinFrustum`（改视锥剔除！）、`MixinPostPass`、`MixinPostChain`、
+  `MixinShaderInstance`、`MixinProgramManager`、`MixinRenderTarget`、`MixinFogRenderer`、
+  `MixinItemInHandRenderer`、`MixinMinecraft`。
+- 新天体类型：`ClientBlackHole`（黑洞）、`ClientAircraft`（飞行器）、`ClientMeteoroid`；
+  新 UBO：`MeteoroidDataUBO`、`PlanetEngineFireDataUBO`；`CloudTextureArray`；`DynamicStructureRender`。
+- `mixin/client/render/MixinTelescopeFov` + `MixinTelescopeHandRenderer` —— **望远镜**（改 FOV + 手部渲染）。
+
+**玩法系统（新的，我们完全没有）**
+- `game/radio/**` —— 无线电：`DopplerCalculator`、`AttenuationCalculator`、`BlockAttenuation`、
+  `RadioTransceiver`/`Transmitter`/`Receiver`、`RadioNetwork`。
+- `game/logistics/**` —— `DataNetwork`/`EnergyNetwork`/`DataStorage`/`EnergyStorage`（管道式网络）。
+- `game/rocket/**` —— `RocketAssemblyService`、`RocketCableNetworkBridge`。
+- `game/display/aeronix/**` —— 游戏内 **UI 应用框架**（`AeroNixApp`/`Apps`/`Icons`/`OsRuntime`/`Theme`/`Widgets`）
+  + `DisplayTreeCodec`；另有 `space/sui/**`（SUI 控件）与 `space/remote/MsnCloudMapDownloader`。
+- `block/blocks/machine/propulsion/**` —— 就是我们下一步要做的**推进器**（见下）。
+- `command/SpaceModCommand` 新增 `addForce <body> <dir> <magnitude> <duration>` 调试命令
+  —— 我们要做 I2 时可以照它加一条"手动加力"的验证命令。
+
+### 四、I2（推进器）在 0.3.0 里的确切形态
+
+```java
+// org/deep_space_studio/space/block/block_entities/machine/propulsion/ChemicalThrusterBlockEntity.java
+private double magnitude = 1000.0;                                     // :17
+Direction facing = this.getBlockState().getValue(ChemicalThrusterBlock.FACING);  // :34
+body.addForce(new RigidBody.Force(new Vector3d(worldDir).normalize(this.magnitude), 0.05)); // :40
+```
+- 方块：`ChemicalThrusterBlock` / `HallThrusterBlock`（`EntityBlock`，`Properties.strength(2.0F, 5.0F).sound(METAL).noOcclusion()`）。
+- 注册：`SpaceModBlocks` / `SpaceModBlockEntities`（id `chemical_thruster` / `hall_thruster`）。
+- 霍尔版有 **FE 能量能力**（`SpaceModBlockEntitiesCapabilities` 注册 `EnergyStorage`）+ 专用渲染器
+  （`HallThrusterBlockEntityRenderer` 用 `SpaceShader.HallThrusterRender` 画焰流，按 `LIT` 状态与 `FACING` 定向）。
+- **离线标定已完成**（本项目 `ThrustCalibrationProbe`，回归第 8 项）：a = F/m 误差 0.4%。
+
 
 ## 已知差异（边对照边记，避免重复结论）
 
