@@ -44,6 +44,9 @@ $checks = @(
     @{ cls = 'com\mss\polymech\client\space\CelestialBodyDataBuffer.class';
        marks = @('zoomOf');
        why = 'UBO 压缩接线（④）' },
+    @{ cls = 'com\mss\polymech\mps\kelvin\physical\celestial_body\variant\Planet.class';
+       marks = @('setCloudBottom', 'getCloudBottom', 'setCloudTop', 'getCloudTop', 'getCloudThickness');
+       why = '云层底面/顶面字段（space 0.3.0 第 4 项）确实编进了产物；顺序由下面的顺序契约钉' },
     @{ cls = 'com\mss\polymech\mps\kelvin\event\PhysicalBodySpaceEvent.class';
        marks = @('toGame', 'toSpace', 'toMc');
        why = '物理↔天体桥的三处边界换算（S2）' },
@@ -198,6 +201,64 @@ foreach ($ct in $contracts) {
         Write-Host ("[ OK ] {0,-44} {1}" -f (Split-Path $ct.file -Leaf), $ct.why) -ForegroundColor Green
     } else {
         Write-Host ("[MISS] {0,-44} 缺契约片段 —— {1}" -f (Split-Path $ct.file -Leaf), $ct.why) -ForegroundColor Red
+        $miss++
+    }
+}
+
+# ── 顺序契约 ─────────────────────────────────────────────────────────────────
+# 线格式的**字段顺序**在 .class 常量池里看不见（顺序不是字符串），所以只能回到源码
+# 按 IndexOf 位置比较。跨版本互发会整段错位，正是这里要钉住的东西。
+# 用 IndexOf 链式递增而不是"多行字面子串"：后者会被 CRLF/LF 差异误判。
+$orderContracts = @(
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\variant\Planet.java';
+       chain = @('buffer.writeDouble(this.cloudHeight);',
+                 'buffer.writeDouble(this.cloudBottom);',
+                 'buffer.writeDouble(this.cloudTop);',
+                 'buffer.writeDouble(this.ringInsideHeight);');
+       why = 'Planet.encode 云字段顺序须与 space 0.3.0 一致（cloudHeight→cloudBottom→cloudTop→ringInsideHeight）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\variant\Planet.java';
+       chain = @('double cloudHeight = buffer.readDouble();',
+                 'double cloudBottom = buffer.readDouble();',
+                 'double cloudTop = buffer.readDouble();',
+                 'double ringInsideHeight = buffer.readDouble();');
+       why = 'Planet.decode 必须与 encode 同序（顺序错 ⇒ 解出来的环/云数据全乱）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\variant\Planet.java';
+       chain = @('planet.setCloudHeight(cloudHeight);',
+                 'planet.setCloudBottom(cloudBottom);',
+                 'planet.setCloudTop(cloudTop);',
+                 'planet.setRingInsideHeight(ringInsideHeight);');
+       why = 'decode 里四个 setter 都要在（读了不 set ⇒ 字段恒为 0，静默错）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\space\util\manger\SpaceModDataPackManger.java';
+       chain = @('planet.setCloudHeight(cloud_data.get("height").getAsDouble());',
+                 'cloud_data.has("bottom")',
+                 'cloud_data.has("top")',
+                 'planet.setCloudBottom(cloudBottom);',
+                 'planet.setCloudTop(cloudTop);');
+       why = '数据包 bottom/top 回退到 getCloudHeight() ⇒ setCloudHeight 必须在前（顺序反了会读到 0）' }
+)
+Write-Host ""
+Write-Host '--- 线格式顺序契约（IndexOf 链式递增）---' -ForegroundColor Cyan
+foreach ($oc in $orderContracts) {
+    $p = Join-Path $root $oc.file
+    if (-not (Test-Path $p)) {
+        Write-Host ("[MISS] {0,-44} 文件不存在 —— {1}" -f (Split-Path $oc.file -Leaf), $oc.why) -ForegroundColor Red
+        $miss++
+        continue
+    }
+    $text = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
+    $pos = -1
+    $ok = $true
+    $bad = ''
+    foreach ($m in $oc.chain) {
+        $i = $text.IndexOf($m)
+        if ($i -lt 0) { $ok = $false; $bad = "缺片段: $m"; break }
+        if ($i -le $pos) { $ok = $false; $bad = "顺序错(位置 $i <= $pos): $m"; break }
+        $pos = $i
+    }
+    if ($ok) {
+        Write-Host ("[ OK ] {0,-44} {1}" -f (Split-Path $oc.file -Leaf), $oc.why) -ForegroundColor Green
+    } else {
+        Write-Host ("[MISS] {0,-44} {1} —— {2}" -f (Split-Path $oc.file -Leaf), $oc.why, $bad) -ForegroundColor Red
         $miss++
     }
 }

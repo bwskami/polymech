@@ -47,6 +47,23 @@ public class Planet extends CelestialBody {
     private double atmosphericSeaLevelDensity = 0.0;
     private double carmenLineHeight = 0.0;
     private double cloudHeight = 0.0;
+    /**
+     * 云层底面 / 顶面高度（space 0.3.0 新增，见 {@code docs/space-030-execution.md} 第 4 项）。
+     *
+     * <p><b>数据包</b>：{@code cloud} 段的可选 {@code bottom} / {@code top}，
+     * 缺省回退到 {@code height}（与 0.3.0 的 {@code SpaceModDataPackManger} 逐行同形）。</p>
+     *
+     * <p><b>⚠ 目前只到数据层</b>：本项目的 {@code cloudHeight} 也是"只存不读"
+     * （全库只有 encode/decode/getter/setter，没有任何渲染消费），所以这两个字段同样暂时没人读。
+     * 0.3.0 里它们由 {@code CelestialBodyDataUBO} 写进一个 vec4
+     * （{@code cloudBottom, cloudTop, max(cloudTop−cloudBottom, 0), 0}）供体积云阶段使用 ——
+     * 那属于"体积云从死代码变成完整阶段"那个渲染大工程，本项**不含**。</p>
+     *
+     * <p><b>⚠ 线格式不兼容</b>：这两个字段插在 {@code cloudHeight} 与 {@code ringInsideHeight}
+     * <b>之间</b>（与 0.3.0 同位置），所以跨版本互发必然错位。</p>
+     */
+    private double cloudBottom = 0.0;
+    private double cloudTop = 0.0;
     private double ringInsideHeight = 0.0;
     private double ringOutsideHeight = 0.0;
     private final Quaterniond ringRotate = new Quaterniond();
@@ -126,6 +143,8 @@ public class Planet extends CelestialBody {
         buffer.writeDouble(this.atmosphericSeaLevelDensity);
         buffer.writeDouble(this.carmenLineHeight);
         buffer.writeDouble(this.cloudHeight);
+        buffer.writeDouble(this.cloudBottom);
+        buffer.writeDouble(this.cloudTop);
         buffer.writeDouble(this.ringInsideHeight);
         buffer.writeDouble(this.ringOutsideHeight);
         buffer.writeDouble(this.ringRotate.x());
@@ -157,6 +176,8 @@ public class Planet extends CelestialBody {
         double atmosphericSeaLevelDensity = buffer.readDouble();
         double carmenLineHeight = buffer.readDouble();
         double cloudHeight = buffer.readDouble();
+        double cloudBottom = buffer.readDouble();
+        double cloudTop = buffer.readDouble();
         double ringInsideHeight = buffer.readDouble();
         double ringOutsideHeight = buffer.readDouble();
         Quaterniond ringRotate = new Quaterniond(buffer.readDouble(), buffer.readDouble(),
@@ -185,6 +206,8 @@ public class Planet extends CelestialBody {
         planet.setAtmosphericSeaLevelDensity(atmosphericSeaLevelDensity);
         planet.setCarmenLineHeight(carmenLineHeight);
         planet.setCloudHeight(cloudHeight);
+        planet.setCloudBottom(cloudBottom);
+        planet.setCloudTop(cloudTop);
         planet.setRingInsideHeight(ringInsideHeight);
         planet.setRingOutsideHeight(ringOutsideHeight);
         planet.getRingRotate().set(ringRotate);
@@ -327,6 +350,32 @@ public class Planet extends CelestialBody {
 
     public double getCloudHeight() {
         return this.cloudHeight;
+    }
+
+    public void setCloudBottom(double cloudBottom) {
+        this.cloudBottom = cloudBottom;
+    }
+
+    public double getCloudBottom() {
+        return this.cloudBottom;
+    }
+
+    public void setCloudTop(double cloudTop) {
+        this.cloudTop = cloudTop;
+    }
+
+    public double getCloudTop() {
+        return this.cloudTop;
+    }
+
+    /**
+     * 云层厚度 = {@code max(cloudTop − cloudBottom, 0)}（与 0.3.0 的 {@code CelestialBodyDataUBO} 同式）。
+     *
+     * <p>放在模型层而不是 UBO 层，是因为"厚度不允许为负"是数据本身的约束，
+     * 不该由每个消费者各自 clamp 一遍。</p>
+     */
+    public double getCloudThickness() {
+        return Math.max(this.cloudTop - this.cloudBottom, 0.0);
     }
 
     public void setRingInsideHeight(double ringInsideHeight) {

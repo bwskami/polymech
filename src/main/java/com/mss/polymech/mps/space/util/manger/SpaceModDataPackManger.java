@@ -272,6 +272,14 @@ public class SpaceModDataPackManger {
                     if (jsonObject.has("cloud")) {
                         JsonObject cloud_data = jsonObject.getAsJsonObject("cloud");
                         planet.setCloudHeight(cloud_data.get("height").getAsDouble());
+                        // space 0.3.0 新增：可选 bottom / top，缺省回退到 height。
+                        // 注意顺序 —— 回退读的是 planet.getCloudHeight()，所以必须先 setCloudHeight。
+                        double cloudBottom = cloud_data.has("bottom")
+                                ? cloud_data.get("bottom").getAsDouble() : planet.getCloudHeight();
+                        double cloudTop = cloud_data.has("top")
+                                ? cloud_data.get("top").getAsDouble() : planet.getCloudHeight();
+                        planet.setCloudBottom(cloudBottom);
+                        planet.setCloudTop(cloudTop);
                         planet.setPlanetCloud(ResourceLocation.parse(cloud_data.get("texture").getAsString()));
                     }
 
