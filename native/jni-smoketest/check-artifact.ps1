@@ -309,7 +309,18 @@ $contracts = @(
        why = '★ 放方块的局部格由 findAdjacentBody 在局部空间算好返回（原来用 pos − origin 反算，旋转/平移后都错）' },
     @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
        must = 'RayBox.toWorldCenter(new Vector3d(tracked.x, tracked.y, tracked.z)';
-       why = 'localToWorld 与 toLocalCell 共用同一对映射（单一来源；本项目在"同一概念两份实现"上吃过亏）' }
+       why = 'localToWorld 与 toLocalCell 共用同一对映射（单一来源；本项目在"同一概念两份实现"上吃过亏）' },
+
+    # ── 操作方式对齐 Create Aeronautics（用户 2026-10-01 拍板）──────────────────
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'GLFW.GLFW_KEY_TAB';
+       why = '★ 旋转模式默认键必须照参考 SimKeys.ROTATE_MODE = GLFW_KEY_TAB（用户拍板"操作方式以机械动力航空学为准"）；当初自行挑的左 Alt 属未取证猜测，不得回归' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'Math.max(MIN_DISTANCE, Math.min(PhysgunItem.RANGE, next))';
+       why = '距离钳位照参考 clampDistance = clamp(d, 2.0, RANGE)（下限 2.0 逐字一致）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'Math.max(1.0, Math.min(5.0, Math.sqrt(current / 10.0))) * (sprint ? 4.0 : 1.0)';
+       why = '滚轮灵敏度照参考：clamp(√(d/10), 1, 5) × (疾跑 ? 4 : 1) —— 三个数都是参考的，别"顺手调手感"' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

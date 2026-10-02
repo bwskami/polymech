@@ -116,6 +116,33 @@ private double clampDistance(final double distance) { return Math.clamp(distance
 注意：**滚轮不是旋转，是调持握距离**（钳在 `[2.0, RANGE]`，灵敏度随距离按 `√(d/10)` 放大、上限 ×5，疾跑 ×4）。
 `mps-clone-plan.md` 里"GMod 用滚轮+按键转物体"的说法是**转述**，与参考实现不一致 —— 以参考为准。
 
+### 2.2.1 ★ 参考的**完整操作方式**（逐字取证；用户 2026-10-01 拍板"以机械动力航空学为准"）
+
+先把参考是谁钉死：`C:\Users\34573\Desktop\Simulated-Project-main` =
+**Create Aeronautics**（`aeronautics/gradle.properties`: `mod_name=Create Aeronautics`、
+`mod_id=aeronautics`；`aeronautics-bundled`: `group=dev.simulated_team.simulated`）
+—— 就是"机械动力：航空学"。用户说"以航空学为准"= 以这个参考为准。
+
+| 输入 | 参考的行为 | 取证位置 | 我们 |
+|---|---|---|---|
+| **右键**（按下） | `START_DRAG`：开始拖；**已拖着时再按一次 ⇒ `stopDragging()`** ⇒ **是开关，不是长按** | `PhysicsStaffMouseHandler.onUse`（`action == GLFW_PRESS`）+ `onItemUsed` 里 `START_DRAG && state == DRAGGING` 分支 | ⚠️ **长按**（`use`/`onUseTick`/`releaseUsing`）—— 未对齐 |
+| **左键**（按下） | `onItemPunched()` ⇒ `LOCK`：服务端 `toggleLock(uuid)` 给体挂一个物理 handle **把它钉住**；再按一次解锁。**可持久化**（`saveLocks`/`loadLocks` 存 NBT） | `onItemPunched`（:110）、`PhysicsStaffServerHandler.toggleLock`（:151） | ❌ **未实现**（我们没有"锁"这个概念） |
+| **TAB**（按住） | `ROTATE_MODE` ⇒ 进入旋转模式：鼠标移动转物体、**相机冻结** | `SimKeys.ROTATE_MODE("rotate_mode", GLFW.GLFW_KEY_TAB, "Physics Staff Rotate Mode")`（`index/SimKeys.java:14`） | ✅ 已对齐（**默认 TAB**） |
+| **鼠标移动**（旋转模式下） | `rotateLocalY(yaw×0.35)` + `premul(AxisAngle(−pitch×0.35, 世界侧向轴))` | `onMouseMove`（:551-573） | ✅ 逐字一致 |
+| **滚轮** | 改持握距离：`+ deltaY × 0.6 × clamp(√(d/10),1,5) × (疾跑?4:1)`，钳 `[2.0, RANGE]` | `onScroll`（:576-591）、`clampDistance`（:113） | ✅ 逐字一致 |
+| 抓取射程 | `PhysicsStaffItem.RANGE = 128.0f`（同时是距离钳位上限） | `PhysicsStaffItem.java:10` | ⚠️ 我们 `RANGE = 64.0`（**既有**常量，也是射线射程）—— 未对齐，见下 |
+
+**⚠️ TAB 与原版玩家列表冲突（参考同样存在，不是我们的 bug）**：
+原版 `Options.keyPlayerList` 默认就是 TAB。参考用的是普通 `KeyMapping`（`new KeyMapping(...)`，
+只有 `conflictSafe=true` 时才用 `ConflictSafeKeyMapping`，而 `ROTATE_MODE` 没开），
+且它的 `KeyboardHandlerMixin` 只拦**鼠标**键（`InteractCallback.filterInteract` 只路由
+attack/middle/use），**不拦键盘键** ⇒ 参考按住 TAB 时**也会**弹出玩家列表。
+我们照抄这个默认值，玩家可在"按键绑定"里改任一个。
+
+**关于"左键 LOCK"与"右键开关"这两项未对齐**：它们是**功能/生命周期**层面的差异，不只是按键映射
+（LOCK 要新增"钉住并持久化"的服务端语义；开关要改抓取的生命周期）。已向用户报告并等其决定，
+没有擅自实现 —— 见 §九。
+
 ### 2.3 网络：客户端把朝向随拖拽包发上去
 
 ```java
@@ -242,7 +269,7 @@ return mass * s * s / 6.0;
 
 | 文件 | 内容 |
 |---|---|
-| `client/physics/PhysgunInputHandler.java`（新） | 按键 `ROTATE_MODE_KEY`（默认**左 Alt**）+ `onMouseMove`（偏航绕体自身 Y / 俯仰绕世界侧向轴）+ `onScroll`（改持握距离）+ 每 tick 发拖拽包。灵敏度照参考：旋转 `0.35`、滚轮 `0.6`、距离钳 `[2, RANGE]`、滚轮灵敏度 `√(d/10)` 钳 `[1,5]` 且疾跑 ×4 |
+| `client/physics/PhysgunInputHandler.java`（新） | 按键 `ROTATE_MODE_KEY`（默认 **TAB**，照参考 `SimKeys.ROTATE_MODE`）+ `onMouseMove`（偏航绕体自身 Y / 俯仰绕世界侧向轴）+ `onScroll`（改持握距离）+ 每 tick 发拖拽包。灵敏度照参考：旋转 `0.35`、滚轮 `0.6`、距离钳 `[2, RANGE]`、滚轮灵敏度 `√(d/10)` 钳 `[1,5]` 且疾跑 ×4 |
 | `mixin/MouseHandlerMixin.java`（新） | `@WrapWithCondition` 包住 `LocalPlayer.turn(DD)V` ⇒ 旋转模式下**相机冻结**（参考用 `ci.cancel()`，等价）。选它而不是参考的 `@Local(ordinal=…)`：1.21.1 的 `turnPlayer` 已经被 NeoForge 改过（开头多了 `ClientHooks.getTurnPlayerValues`），序号是脆的；`WrapWithCondition` 直接拿 `(player, yaw, pitch)` 参数，且 `pitch` 已含反转 Y 符号 |
 | `network/PhysgunDragPacket.java`（新） | 客户端 → 服务端：`(bodyId, holdDistance, qx, qy, qz, qw)`。发**绝对朝向**（照参考，丢包自愈）；`playToServer` 注册在 `Polymech.registerPayloads` |
 | `client/physics/PhysgunClientState.java` | `Beam` 增加目标朝向 + 距离 + 脏标记；`clientDistance` 让"客户端正在驱动的距离"不被服务端回声覆盖（否则滚轮会回弹）；`release` 清掉旋转会话（下次抓重新从体当前朝向起步） |
@@ -282,13 +309,13 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 
 | # | 操作（绝对、可复现） | 程序判定（服务端打聊天栏） | 期望 |
 |---|---|---|---|
-| 1 | 右键抓住任意物理体，**按住左 Alt**，鼠标**横向**移动 | 松手时 `[牵引枪·旋转判据] 松手残角 X°（阈值 5°）⇒ PASS/FAIL` | 物体绕**自身 Y** 转（偏航）；`PASS` |
+| 1 | 右键抓住任意物理体，**按住 TAB**，鼠标**横向**移动 | 松手时 `[牵引枪·旋转判据] 松手残角 X°（阈值 5°）⇒ PASS/FAIL` | 物体绕**自身 Y** 转（偏航）；`PASS` |
 | 2 | 同上，但鼠标**纵向**移动 | 同上 | 物体绕**世界侧向轴**翻转（俯仰）；`PASS` |
-| 3 | 按住左 Alt 的同时移动鼠标 | 观察**相机** | 相机**不动**（旋转模式下鼠标被物体吃掉）；松开 Alt 后视角恢复跟手 |
+| 3 | 按住 TAB 的同时移动鼠标 | 观察**相机** | 相机**不动**（旋转模式下鼠标被物体吃掉）；松开 TAB 后视角恢复跟手 |
 | 4 | 抓住物体，**滚轮上/下**滚 | 松手时的 `持握 X.XX 格` | 物体被推远/拉近；数值随滚动**单调**变化并钳在 `[2, 64]` |
-| 5 | 不按 Alt，直接移动鼠标 | —— | 相机正常转动（不该被吃掉） |
+| 5 | 不按 TAB，直接移动鼠标 | —— | 相机正常转动（不该被吃掉） |
 | 6 | 抓住物体转到一个明显角度，**松手** | 判据行 | 物体**保持**该朝向，不再被拉回（伺服只在抓着时施力） |
-| 7 | 松手后再抓同一个体、按住 Alt 移动鼠标 | —— | 从**当前**朝向继续转，**不跳**（`release` 清了旋转会话，重新按体当前朝向起步） |
+| 7 | 松手后再抓同一个体、按住 TAB 移动鼠标 | —— | 从**当前**朝向继续转，**不跳**（`release` 清了旋转会话，重新按体当前朝向起步） |
 
 判据 1/2/6/7 都是**程序判定**（服务端算"目标朝向 vs 实际朝向的最短弧残角"，绝对量，
 与相机朝向无关）。阈值 `RESIDUAL_PASS_DEG = 5°`：离线 C 组实测 2% 整定 2 秒内到 1.475°，
@@ -314,7 +341,8 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 ## 八、验证约定（本项专用）
 
 1. `.\gradlew compileJava --console=plain` 必须打印 `BUILD SUCCESSFUL`。
-2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **16/16 步、exit 0**（本项加了第 16 步）。
+2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **17/17 步、exit 0**（本项加了第 16 步；
+   第 17 步是体局部格映射，见 `docs/body-local-mapping.md`）。
 3. 改了 `PhysgunRotation` 的公式 ⇒ 必须同步 `check-artifact.ps1` 的契约与探针的复刻。
 4. `run-offline-checks.ps1` 需**双** BOM（`EF BB BF EF BB BF`）、
    `check-artifact.ps1` 需**单** BOM（`EF BB BF`）—— `edit`/`write` 工具会剥 BOM，改完要用
@@ -322,3 +350,21 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 5. 本 shell 是 **Windows PowerShell 5.1**（没有 `pwsh`）：`& 'native\jni-smoketest\run-offline-checks.ps1'`。
 6. 任何用户可见的变化必须配**实机判据表**（绝对坐标，程序判定 PASS/FAIL，禁止相机相对）。
 7. 助手不启动客户端；实机由用户验。
+8. **操作方式的任何默认值都必须去参考里取证**，不许自行挑"更顺手"的键
+   （本项栽过一次：`ROTATE_MODE` 我猜了左 Alt，参考其实是 TAB）。`check-artifact.ps1` 已有契约钉住 TAB。
+
+---
+
+## 九、待用户决定：两项未对齐的操作方式
+
+用户 2026-10-01 拍板"牵引枪的操作方式以机械动力航空学为准"。审计后**按键映射层面已全部对齐**
+（TAB + 鼠标转 + 滚轮调距，灵敏度逐字一致）；剩下两项是**功能/生命周期**层面的差异，
+已报告、**未擅自实现**（避免在用户还没实机验证过当前版本时就动核心生命周期）：
+
+| 项 | 参考行为 | 为什么不是"改一行" | 建议 |
+|---|---|---|---|
+| **右键 = 开关** | 按一次开始拖，**再按一次松手**（`onItemUsed` 的 `START_DRAG && DRAGGING ⇒ stopDragging`） | 我们整个服务端施力挂在 `onUseTick`（长按语义）上。改成开关要把施力从 `onUseTick` 挪到"由 `GRABS` 表驱动的服务端 tick"，是**抓取生命周期的重构** | 先让用户实机验证当前长按版；要改再改 |
+| **左键 = LOCK** | 给体挂物理 handle 钉住，再按解锁，**可持久化**（存 NBT） | 这是**新功能**：需要服务端"钉住"语义 + 持久化 + 包 + 音效。我们已有的 `TrackedBody.frozen` 绑着 `shouldUnfreeze`（附近有玩家就自动解冻），**不能**直接复用 | 作为独立功能立项 |
+| 抓取射程 `RANGE` | `128.0f` | 我们的 `64.0` 是**既有**常量，**同时**是射线射程与距离钳位上限 —— 改成 128 会让抓取距离翻倍（是玩法参数，不只是按键） | 等用户确认是否要 128 |
+
+**没有一项被静默改掉**：上面每一条要么已对齐（TAB/鼠标/滚轮），要么在本节明确挂着等决定。

@@ -57,14 +57,21 @@ public final class PhysgunInputHandler {
     /**
      * 旋转模式键（按住 + 移动鼠标 = 转物体）。对应参考的 {@code SimKeys.ROTATE_MODE}。
      *
-     * <p>默认左 Alt：原版与本项目其它按键都没占它，且它天然是"按住型"修饰键。
-     * 玩家可在"按键绑定 → 杂项"里改。</p>
+     * <p><b>默认 TAB —— 照抄参考</b>：{@code SimKeys.ROTATE_MODE("rotate_mode", GLFW.GLFW_KEY_TAB, ...)}
+     * （`simulated/common/.../index/SimKeys.java:14`）。用户拍板"牵引枪的操作方式以机械动力航空学为准"，
+     * 所以这里不自行挑选更"顺手"的键。</p>
+     *
+     * <p>⚠️ <b>已知冲突（参考同样存在，不是我们的 bug）</b>：原版 {@code Options.keyPlayerList}
+     * 默认也是 TAB（玩家列表），而参考用的是普通 {@code KeyMapping}、没做冲突处理 ——
+     * 所以按住 TAB 会<b>同时</b>显示玩家列表并进入旋转模式。玩家可在"按键绑定"里改任一个。
+     * （参考那个 {@code KeyboardHandlerMixin} 只拦鼠标键（{@code filterInteract} 只路由
+     * attack/middle/use），<b>不</b>拦键盘键，所以它也没有压制玩家列表。）</p>
      */
     public static final KeyMapping ROTATE_MODE_KEY = new KeyMapping(
             "key.poly_mech.physgun_rotate",
             KeyConflictContext.IN_GAME,
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_LEFT_ALT,
+            GLFW.GLFW_KEY_TAB,
             "key.categories.misc"
     );
 
