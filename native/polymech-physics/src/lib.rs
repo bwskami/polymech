@@ -46,7 +46,12 @@ use std::sync::{Mutex, OnceLock};
 ///
 /// Java 侧用 `PhysicsNatives.MIN_ABI_TIER1` 逐项把关；`EXPECTED_ABI` 仍是**最低要求**，
 /// 所以"Java 已更新、dll 还没重编"时物理层照常跑，只是 Tier 1 功能降级。
-pub const ABI_VERSION: jint = 9;
+///
+/// 10：**固定约束**（牵引枪的 LOCK）—— `worldAddFixedConstraint` / `worldRemoveConstraint`。
+///    Java 侧用 `PhysicsNatives.MIN_ABI_CONSTRAINT` 把关；低于它时"钉住"降级为不可用
+///    （牵引枪其余功能照常跑）。见 `constraint_map` 的注释：Rapier 不支持"关节锚在世界"，
+///    所以原生侧自己建一个 FIXED 锚体来表达那个 `null`。
+pub const ABI_VERSION: jint = 10;
 
 /// 世界内刚体数量上限（防御非法输入）。
 const MAX_BODIES_PER_WORLD: usize = 65_536;
@@ -70,6 +75,16 @@ struct PhysicsWorld {
     colliders: ColliderSet,
     impulse_joints: ImpulseJointSet,
     multibody_joints: MultibodyJointSet,
+    /// Java 侧约束 id → (所属 Java 刚体 id, 锚体句柄, 关节句柄)。用于"钉住"（牵引枪的 LOCK）。
+    ///
+    /// **为什么需要锚体**：参考的 LOCK 是
+    /// `pipeline.addConstraint(null, subLevel, FixedConstraintConfiguration)` —— 关节一端写 `null`
+    /// 表示"锚在世界"。但 **Rapier 0.34 不支持隐式地面**：约束构建器是
+    /// `&bodies[joint.body1]` **直接索引**（`rapier-src/.../solver/joint_constraint/joint_constraint_builder.rs:46`），
+    /// 传 `RigidBodyHandle::invalid()` 会 panic（`Coarena::get` 返回 `Option`，没有默认值兜底）。
+    /// 所以这里把"世界"这个锚**显式建出来**：一个 FIXED 刚体。
+    /// 这**不是**换机制 —— 仍然是"固定约束"，只是补上了我们引擎缺的那个隐式地面体。
+    constraint_map: HashMap<i64, (i64, RigidBodyHandle, ImpulseJointHandle)>,
     ccd: CCDSolver,
     /// Java 侧 id → Rapier 句柄
     body_map: HashMap<i64, RigidBodyHandle>,
@@ -118,6 +133,7 @@ impl PhysicsWorld {
             colliders: ColliderSet::new(),
             impulse_joints: ImpulseJointSet::new(),
             multibody_joints: MultibodyJointSet::new(),
+            constraint_map: HashMap::new(),
             ccd: CCDSolver::new(),
             body_map: HashMap::new(),
             collider_map: HashMap::new(),
@@ -369,9 +385,105 @@ pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_bodyDestroy(
             // 必须同步清掉 Java 侧 id 映射：留着的话 id 会指向已被回收的 Rapier 句柄，
             // 而 Rapier 会复用句柄槽位 —— 后续按 id 改材质就改到了别人的碰撞体上。
             w.collider_map.retain(|_, (owner, _)| *owner != body_id as i64);
+            // 挂在它身上的固定约束（LOCK）也必须连**锚体**一起清掉。
+            // Rapier 会在刚体被删时自动摘掉关节，但锚体是原生层自己建的普通刚体，
+            // 不主动删就会永远留在 RigidBodySet 里 —— 既不报错也不可见，纯粹是泄漏。
+            let orphaned: Vec<i64> = w
+                .constraint_map
+                .iter()
+                .filter(|(_, (owner, _, _))| *owner == body_id as i64)
+                .map(|(id, _)| *id)
+                .collect();
+            for id in orphaned {
+                if let Some((_, anchor, _)) = w.constraint_map.remove(&id) {
+                    w.bodies.remove(
+                        anchor,
+                        &mut w.islands,
+                        &mut w.colliders,
+                        &mut w.impulse_joints,
+                        &mut w.multibody_joints,
+                        true,
+                    );
+                }
+            }
             true
         }
         None => false,
+    });
+    ok(removed.unwrap_or(false))
+}
+
+/// 给刚体加一个**固定约束**：把它钉死在**当前位姿**上（牵引枪的 LOCK，照参考的 `LOCK` 动作）。
+///
+/// 返回 Java 侧的约束 id（`> 0`）；失败返回负值：
+/// - `-1`：世界不存在 / 刚体不存在 / 读不到它的位姿；
+/// - `-2`：该刚体**已经有**约束了（拒绝重复加 —— 重复加会各建一个锚体，是泄漏）。
+///
+/// 锚体建在目标体当前位姿上，关节两个局部帧都用单位帧（`FixedJoint::new()` 锁全部 6 轴）
+/// ⇒ 约束的语义就是"保持现状不动"，不需要任何帧换算。
+/// 解锁走 [`Java_com_mss_polymech_physics_NativePhysics_worldRemoveConstraint`]，会把关节与锚体一起删。
+#[no_mangle]
+pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_worldAddFixedConstraint(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    body_id: jlong,
+) -> jlong {
+    let result = with_world(handle, |w| {
+        if w.constraint_map
+            .values()
+            .any(|(owner, _, _)| *owner == body_id as i64)
+        {
+            return -2;
+        }
+        let body_handle = match w.body_map.get(&(body_id as i64)) {
+            Some(h) => *h,
+            None => return -1,
+        };
+        let pose = match w.bodies.get(body_handle) {
+            Some(b) => *b.position(),
+            None => return -1,
+        };
+        let anchor = w
+            .bodies
+            .insert(RigidBodyBuilder::fixed().pose(pose).build());
+        // ⚠️ 锚体**不**登记进 body_map：它是原生层的内部物 —— 不能出现在
+        //    worldBodyCount（Java 可见的那个计数）+1 里，也不能被别人按 id 操作。
+        let joint = w
+            .impulse_joints
+            .insert(anchor, body_handle, FixedJoint::new(), true);
+        let id = w.alloc_id();
+        w.constraint_map.insert(id, (body_id as i64, anchor, joint));
+        id
+    });
+    result.unwrap_or(-1)
+}
+
+/// 解除一个固定约束（关节 + 锚体一起删）。返回是否真的删掉了。
+#[no_mangle]
+pub extern "system" fn Java_com_mss_polymech_physics_NativePhysics_worldRemoveConstraint(
+    _env: JNIEnv,
+    _class: JClass,
+    handle: jlong,
+    constraint_id: jlong,
+) -> jboolean {
+    let removed = with_world(handle, |w| {
+        let (_, anchor, joint) = match w.constraint_map.remove(&(constraint_id as i64)) {
+            Some(v) => v,
+            None => return false,
+        };
+        // 先显式摘关节，再删锚体：顺序反过来的话，删锚体时 Rapier 会顺带摘掉关节，
+        // 我们再 remove 一次就是一次无效调用（不崩，但语义上不干净）。
+        w.impulse_joints.remove(joint, true);
+        w.bodies.remove(
+            anchor,
+            &mut w.islands,
+            &mut w.colliders,
+            &mut w.impulse_joints,
+            &mut w.multibody_joints,
+            true,
+        );
+        true
     });
     ok(removed.unwrap_or(false))
 }

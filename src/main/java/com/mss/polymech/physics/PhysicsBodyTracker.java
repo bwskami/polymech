@@ -1346,6 +1346,54 @@ public final class PhysicsBodyTracker {
         return tracked == null ? null : tracked.level;
     }
 
+    /** 这个 id 是否还在一张表上（牵引枪的 LOCK 惰性重建要用它判断"体回来了没"）。 */
+    public static boolean isTracked(long id) {
+        return BODIES.containsKey(id);
+    }
+
+    // ==================== 固定约束（牵引枪的"钉住"） ====================
+
+    /**
+     * 给体加一个<b>固定约束</b>把它钉住（照参考的 {@code addConstraint}）。
+     *
+     * <p>原生侧会在体<b>当前位姿</b>上建一个 FIXED 锚体、用单位局部帧连一个全锁的关节
+     * —— 等价于参考那个 {@code addConstraint(null, subLevel, FixedConstraintConfiguration(
+     * logicalPose().position(), ..., orientation()))}。为什么 Rapier 需要显式锚体，
+     * 见 {@link PhysgunLocks} 的类注释。</p>
+     *
+     * @return 原生约束 id（{@code > 0}）；失败返回负值
+     */
+    public static long addFixedConstraint(long id) {
+        if (!PhysicsNatives.hasFixedConstraints()) {
+            // 原生库太旧（没重编）⇒ 降级：钉不住。**不抛异常**，照本项目"逐项降级"的约定。
+            LOGGER.warn("[PolyMech] 原生库没有约束 API（ABI < {}），牵引枪的\"钉住\"不可用",
+                    PhysicsNatives.MIN_ABI_CONSTRAINT);
+            return -1L;
+        }
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null) {
+            return -1L;
+        }
+        long world = PhysicsWorldManager.world(tracked.level);
+        if (world <= 0) {
+            return -1L;
+        }
+        return NativePhysics.worldAddFixedConstraint(world, tracked.body);
+    }
+
+    /** 解除 {@link #addFixedConstraint} 建的约束（连同原生侧的锚体一起删）。 */
+    public static boolean removeConstraint(long id, long constraintId) {
+        if (!PhysicsNatives.hasFixedConstraints() || constraintId <= 0L) {
+            return false;
+        }
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null) {
+            return false;
+        }
+        long world = PhysicsWorldManager.world(tracked.level);
+        return world > 0 && NativePhysics.worldRemoveConstraint(world, constraintId);
+    }
+
     /** 对刚体施加冲量（质量感知：同样冲量下轻物飞得远、重物几乎不动）。 */
     public static boolean applyImpulse(long id, double ix, double iy, double iz) {
         TrackedBody tracked = BODIES.get(id);

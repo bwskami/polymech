@@ -361,7 +361,42 @@ $contracts = @(
        why = '★ 服务端校验：动作包是客户端来的，必须再查一遍"手里确实拿着牵引枪"（照参考 validateWorthyness；但我们不踢人，只拒绝）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
        must = 'PhysgunAction.START_DRAG, hit == null ? 0L : hit.bodyId()';
-       why = '★ 客户端**打不中也要**发 START_DRAG：客户端镜像没同步上时本地求交必然落空，而服务端射线可能命中 —— 不发就永远抓不上（这是 2026-09-29 那次的教训，别"优化"成打不中就不发）' }
+       why = '★ 客户端**打不中也要**发 START_DRAG：客户端镜像没同步上时本地求交必然落空，而服务端射线可能命中 —— 不发就永远抓不上（这是 2026-09-29 那次的教训，别"优化"成打不中就不发）' },
+
+    # ── 操作方式对齐（3/3）：左键 = LOCK（原生固定约束 + 持久化）────────────────────
+    @{ file = 'native\polymech-physics\src\lib.rs';
+       must = 'constraint_map: HashMap<i64, (i64, RigidBodyHandle, ImpulseJointHandle)>';
+       why = '★ 约束表的值必须带**所属体 id**：删体时要靠它找回锚体 —— 锚体泄漏既不报错也不可见（E2 判据抓的就是它）' },
+    @{ file = 'native\polymech-physics\src\lib.rs';
+       must = 'pub const ABI_VERSION: jint = 10;';
+       why = '★ ABI 10 = 固定约束。Java 侧用 MIN_ABI_CONSTRAINT 逐项降级，dll 旧了也不停整个物理层' },
+    @{ file = 'native\polymech-physics\src\lib.rs';
+       must = 'RigidBodyBuilder::fixed().pose(pose).build()';
+       why = '★ 锚体必须建在体**当前位姿**上（关节两个局部帧才可以用单位帧）—— 就是参考 addConstraint 里那三个 logicalPose() 参数' },
+    @{ file = 'native\polymech-physics\src\lib.rs';
+       must = 'FixedJoint::new()';
+       why = '★ 用 FixedJoint（锁全部 6 轴）而不是自己拼 GenericJoint —— 照参考的 FixedConstraint 语义' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsNatives.java';
+       must = 'public static final int MIN_ABI_CONSTRAINT = 10;';
+       why = '★ 逐项降级用的最低 ABI' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysgunLocks.java';
+       must = 'locks.put(bodyId, PhysicsBodyTracker.addFixedConstraint(bodyId));';
+       why = '★ 钉住必须真的下到原生约束（不是 Java 侧记个"锁了"的标志）—— 本项目禁止"殊途同归"' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'PhysgunLocks.get(sp.server).removeLock(grab.bodyId());';
+       why = '★ 照参考 drag(...) 里的 removeLock：**拖着的体必须自动解锁**，否则约束与弹簧力互相顶、物体会抖' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysgunLocks.java';
+       must = 'tag.putLongArray(KEY_IDS, ids);';
+       why = '★ LOCK 必须持久化（照参考 save/loadLocks）。用 long[] 避开 1.21.1 ListTag 那批 getLong(i) 被移除带来的版本差异' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysgunLocks.java';
+       must = 'entry.setValue(PhysicsBodyTracker.addFixedConstraint(bodyId));';
+       why = '★ 读档后惰性重建（照参考 applyLockIfNeeded）：约束句柄是原生运行时句柄，重启必然失效' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'case LOCK -> toggleLock(sp);';
+       why = '★ 左键动作要真的接上（没接 = 左键点了没反应，且静默）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {';
+       why = '★ 客户端左键要发 LOCK（照参考 onItemPunched），并且吃掉这次点击' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

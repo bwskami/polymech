@@ -7,6 +7,8 @@ import com.mss.polymech.network.PhysgunDragPacket;
 import com.mss.polymech.network.PhysicsBodySyncPacket;
 import com.mss.polymech.physics.BodyRaycast;
 import com.mss.polymech.physics.PhysicsBodyTracker;
+import com.mss.polymech.physics.PhysicsNatives;
+import com.mss.polymech.physics.PhysgunLocks;
 import com.mss.polymech.physics.PhysgunRotation;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -183,6 +185,38 @@ public class PhysgunItem extends Item {
                     stopDrag(sp, grab);
                 }
             }
+            case LOCK -> toggleLock(sp);
+        }
+    }
+
+    /**
+     * 左键 = 钉住 / 解锁 —— 照参考的 {@code onItemPunched()} → {@code LOCK} → {@code toggleLock(uuid)}。
+     *
+     * <p>钉的是<b>当前抓着的那个体</b>（参考的 {@code LOCK} 分支就是从拖拽会话里取的子级），
+     * 所以没抓着时左键什么也不做。</p>
+     */
+    private static void toggleLock(ServerPlayer sp) {
+        Grab grab = GRABS.get(sp.getUUID());
+        if (grab == null) {
+            tell(sp, "左键 = 钉住/解锁，但你现在没抓着东西", ChatFormatting.GRAY);
+            return;
+        }
+        if (!PhysicsNatives.hasFixedConstraints()) {
+            tell(sp, "[牵引枪·钉住] 原生库缺少约束 API（ABI < "
+                    + PhysicsNatives.MIN_ABI_CONSTRAINT + "）⇒ 不可用", ChatFormatting.RED);
+            return;
+        }
+        PhysgunLocks locks = PhysgunLocks.get(sp.server);
+        boolean nowLocked = locks.toggle(grab.bodyId());
+        if (nowLocked) {
+            play(sp, SOUND_GRAB, 1.0F, 0.7F);
+            tell(sp, String.format(java.util.Locale.ROOT,
+                    "已钉住 物理体 #%d—— 再按左键解锁；拖它也会自动解锁",
+                    grab.bodyId()), ChatFormatting.GOLD);
+        } else {
+            play(sp, SOUND_RELEASE, 1.0F, 0.7F);
+            tell(sp, String.format(java.util.Locale.ROOT,
+                    "已解锁 物理体 #%d", grab.bodyId()), ChatFormatting.YELLOW);
         }
     }
 
@@ -255,6 +289,13 @@ public class PhysgunItem extends Item {
 
     /** 单个抓取的每 tick 施力：线性弹簧 + 角伺服。 */
     private static void tickGrab(ServerPlayer sp, Grab grab) {
+        // ★ 照参考 drag(...) 里的 `this.removeLock(subLevel)`：**拖着的东西必须是自由的**。
+        //   参考的拖拽包每 tick 都发，所以它那条 removeLock 也每 tick 都跑 —— 效果就是
+        //   "拖着的体不可能保持被钉住"（哪怕你刚按左键锁了它，下一个 tick 就被解掉）。
+        //   我们把这句话放在每 tick 的施力里，语义与它一致：约束和弹簧力不能同时作用，
+        //   否则两者互相顶，物体会抖。
+        PhysgunLocks.get(sp.server).removeLock(grab.bodyId());
+
         double[] pos = PhysicsBodyTracker.positionOf(grab.bodyId());
         double mass = PhysicsBodyTracker.massOf(grab.bodyId());
         if (pos == null || !(mass > 0.0)) {

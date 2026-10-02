@@ -441,3 +441,107 @@ error(q90, -q90) == 0                        // 双重覆盖：残角 0，不是
 4. ⚠️ 产物自检的 `marks` 不许写 `START_DRAG`/`STOP_DRAG`：`switch` 里的枚举常量名会被 `javac`
    放进合成的 `$SwitchMap` 类，`PhysgunItem.class` 里**没有**这两个字符串（写进去必假 MISS，
    我这次就栽了一下）。枚举值的钉住用**源码契约**（`case START_DRAG -> startDrag(sp);`）。
+
+---
+
+## 十一、左键 = 钉住/解锁（LOCK）（3/3 已落地）
+
+第 3 项，也是三项里唯一**动了原生层**的一项。
+
+### 11.1 参考的机制（逐字取证）
+
+```java
+private void toggleLock(final UUID uuid) {
+    final ServerSubLevel subLevel = (ServerSubLevel) container.getSubLevel(uuid);
+    if (subLevel == null) return;
+    final Lock existingLock = this.locks.get(uuid);
+    if (existingLock != null) { this.locks.remove(uuid); existingLock.remove(); this.setLocksDirty(); return; }
+    this.locks.put(uuid, new Lock(uuid, addConstraint(container, subLevel)));
+    this.setLocksDirty();
+}
+private static FixedConstraintHandle addConstraint(container, subLevel) {
+    return container.physicsSystem().getPipeline().addConstraint(null, subLevel,
+            new FixedConstraintConfiguration(subLevel.logicalPose().position(),
+                                             subLevel.logicalPose().rotationPoint(),
+                                             subLevel.logicalPose().orientation()));
+}
+```
+
+四条**必须一起对齐**的行为（少一条就不算对齐）：
+
+| 参考 | 含义 | 我们 |
+|---|---|---|
+| `toggleLock` | 再按一次解锁 | `PhysgunLocks.toggle(bodyId)` |
+| `drag(...)` 开头 `removeLock(subLevel)` | **拖着的体自动解锁**（约束与弹簧力不能同时作用，否则互相顶、物体抖） | `PhysgunItem.tickGrab` 开头 `removeLock` |
+| `save`/`loadLocks` | 持久化；读回来 `handle = null` | `PhysgunLocks.save/load`，读回记 `PENDING` |
+| `applyLockIfNeeded` | 惰性重建（句柄是运行时句柄，重启必然失效） | `PhysgunLocks.applyPending()`，每服务端 tick 调 |
+
+### 11.2 ★ 原生缺口：Rapier 没有那个 `null`
+
+参考的 `addConstraint(null, ...)` 里第一个参数是 **`null` = 锚在世界**。Rapier 0.34 **没有**这个隐式地面：
+
+- `dynamics/solver/joint_constraint/joint_constraint_builder.rs:46` 是 `let rb1 = &bodies[joint.body1];`
+  —— **直接索引**刚体集合；
+- 而 `Coarena::get` 返回 `Option`、**没有**默认值兜底 ⇒ 传 `RigidBodyHandle::invalid()` 会 **panic**；
+- `ImpulseJointSet::insert` 的文档里也**没有**任何关于 invalid 句柄的说明（0.34 的签名只接受两个真句柄）。
+
+所以按项目规矩**补原生**（而不是在 Java 侧找个"效果一样"的写法）：
+`worldAddFixedConstraint` 把"世界"这个锚**显式建出来** ——
+
+```
+在体当前位姿建一个 FIXED 锚体  →  用 FixedJoint::new()（锁全部 6 轴、两个局部帧都是单位帧）连它和体
+```
+
+锚体建在**体当前位姿**上，是让"两个局部帧都用单位帧"成立的关键 —— 这正是参考那三个
+`logicalPose()` 参数在做的事。锚体**不登记**进 `body_map`，所以 `worldBodyCount()`
+（只数 Java 可见的体）不会虚增。
+
+**为什么不用 `bodySetBodyType(FIXED)`**：那是**殊途同归** —— 效果像（体不动了），但它改的是体的
+*类型*（质量无穷、退出正常求解路径），解锁时还得记住原来的类型。参考用的是**约束**，我们也用约束。
+
+### 11.3 离线判据（第 18 步 `ConstraintProbe`，20/20）
+
+这是本项目里少见的"依赖引擎内部语义"的改动，所以判据刻意做重：
+
+| 组 | 判据 | 实测 |
+|---|---|---|
+| **A 对照组** | **不加**约束时必须自由落体 1 秒 ≈ 4.9 格 | Δy=4.9122 ✓（★ 没有它，"钉住了"可能只是"物理没在跑"） |
+| B | 加约束后 100 步**一动不动**；刚体集 +1（锚体真的建出来了）；Java 可见体数不变 | 总位移 2.487e-13 ✓；1→2 ✓；1→1 ✓ |
+| C | 解锁后恢复自由落体 0.5 秒 ≈ 1.225 格；刚体集回到原值（锚体真的删了） | Δy=1.2311 ✓；2→1 ✓ |
+| D | 重复加返回 **-2** 且**不建第二个锚体** | 返回 -2 ✓；2→2 ✓ |
+| E | 删掉被钉住的体 ⇒ 刚体集 **-2**（体 + 锚体都回收） | 2→0（裸世界 1）✓ |
+| F | 退化输入（世界 0 / 不存在的体 / 不存在的约束）只返回失败，不崩 | 4/4 ✓ |
+
+★ B/C/E 用 `worldGetRigidBodySetSize()`（Rapier 原始刚体集，**含**锚体）而不是
+`worldBodyCount()` —— **锚体泄漏是"不报错、不可见"的那类错**，只有这个计数抓得住。
+
+### 11.4 实机判据表（绝对坐标；程序判定 PASS/FAIL）
+
+| # | 操作 | 判据 | 期望 |
+|---|---|---|---|
+| L1 | 抓一个物体（右键），按**左键** | 聊天栏「已钉住 物理体 #N」 | PASS = 松手后物体**停在原地不掉不飘**（把它拖到半空再松手最能看出来） |
+| L2 | 承 L1，再按**左键** | 聊天栏「已解锁 物理体 #N」 | PASS = 物体立刻恢复自由落体 |
+| L3 | 承 L1（已钉住），**右键去拖它** | 自动解锁（约束与弹簧力不能同时作用） | PASS = 能正常拖动、**不抖**；聊天栏的锁状态随之失效 |
+| L4 | 钉住后**退出游戏再进** | 读档后锁仍在 | PASS = 物体仍然停在原地（`applyLockIfNeeded` 的实机判据） |
+| L5 | 钉住后**打掉/拆掉**那个物体 | 锚体必须一起回收 | PASS = 不崩、无残留（原生 E 组离线已证；实机只看不崩） |
+| L6 | 按住左键连续点 | 每次都是 toggle | PASS = 钉住/解锁交替，不重复叠加约束 |
+
+### 11.5 遗留（已如实记录，未做）
+
+参考还会广播 `PhysicsStaffLocksPacket` 让**客户端**知道谁被钉住了。查过它的**唯一**用途：
+`PhysicsStaffClientHandler` 用它**选音效**（已锁 ⇒ `STAFF_UNLOCK`，否则 `STAFF_LOCK`/`STAFF_IGNITE`），
+**没有**任何视觉指示。我们的音效目前还是原版 conduit 占位音，所以这一步先不做这个包 ——
+它换的只是两个占位音之间的选择。真正该做的是**自造音效资产**（已在遗留清单里）。
+
+### 11.6 验证约定（本项）
+
+1. `.\gradlew compileJava --console=plain` 必须 `BUILD SUCCESSFUL`。
+2. 改了原生层 ⇒ 必须 `.\gradlew copyNativePhysics` 重编，且 **DLL 必须一起提交**
+   （`src/main/resources/natives/windows_amd64/polymech_physics.dll`）。
+3. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **18/18 步、exit 0**。
+4. ⚠️ **第 18 步必须"先 javac 编译、再用 -cp 跑"，不能用源码模式**（`java Xxx.java`）：
+   源码模式用的是另一套类加载器，`System.load` 与 `-cp` 上的 `NativePhysics` 不在同一个加载器里
+   ⇒ JNI 符号绑不上，报 `UnsatisfiedLinkError: 'int ...NativePhysics.abiVersion()'`。
+   我在这里踩过一次（连 `NativeSmokeTest` 也一样，它的注释本来也要求"先编译"）。
+5. 走原生 DLL 的步骤要临时把 `$ErrorActionPreference` 改成 `Continue`：JVM 的
+   Native-access 警告走 stderr，`Stop` 会把它当终止错误。

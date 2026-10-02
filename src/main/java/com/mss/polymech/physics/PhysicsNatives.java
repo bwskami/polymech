@@ -119,6 +119,20 @@ public final class PhysicsNatives {
         return available && loadedAbi >= MIN_ABI_COSMOS;
     }
 
+    /**
+     * <b>固定约束</b>（{@code worldAddFixedConstraint} / {@code worldRemoveConstraint}）
+     * 需要的最低 ABI —— 牵引枪的"钉住"（LOCK）。
+     *
+     * <p>低于它时"钉住"不可用，牵引枪其余功能（抓 / 拖 / 转 / 调距）照常 ——
+     * 这是本项目"新增原生能力一律逐项降级、绝不因为 dll 旧就停掉整个物理层"的约定。</p>
+     */
+    public static final int MIN_ABI_CONSTRAINT = 10;
+
+    /** 原生层是否提供固定约束（需要 ABI ≥ {@link #MIN_ABI_CONSTRAINT}）。 */
+    public static boolean hasFixedConstraints() {
+        return available && loadedAbi >= MIN_ABI_CONSTRAINT;
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger("PolyMech/Physics");
     private static final String LIB_BASE_NAME = "polymech_physics";
 

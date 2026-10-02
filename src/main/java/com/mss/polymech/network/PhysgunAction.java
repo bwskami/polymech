@@ -32,7 +32,15 @@ public enum PhysgunAction {
     START_DRAG,
 
     /** 右键再按一次（或不再持枪）⇒ 松手。 */
-    STOP_DRAG;
+    STOP_DRAG,
+
+    /**
+     * 左键按下 ⇒ 钉住 / 解锁当前抓着的体（照参考的 {@code LOCK} + {@code toggleLock}）。
+     *
+     * <p>实现是给体加一个<b>原生固定约束</b>（把"世界"这个锚显式建出来）——
+     * 见 {@code PhysgunLocks} 的类注释与原生侧 {@code worldAddFixedConstraint}。</p>
+     */
+    LOCK;
 
     /**
      * 编解码。

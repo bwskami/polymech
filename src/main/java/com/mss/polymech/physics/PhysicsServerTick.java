@@ -30,6 +30,9 @@ public final class PhysicsServerTick {
         // 牵引枪：施力原来挂在原版 onUseTick（长按）上，参考是"开关"+服务端自己推进，
         // 所以这里每 tick 按 GRABS 表施力（见 PhysgunItem.serverTick 的注释）。
         com.mss.polymech.item.PhysgunItem.serverTick(event.getServer());
+        // 牵引枪的"钉住"（LOCK）：读档后条目只有体 id、没有原生约束句柄，
+        // 靠这里惰性重建（照参考的 applyLockIfNeeded）。表空时只花一次 isEmpty()。
+        PhysgunLocks.get(event.getServer()).applyPending();
     }
 
     @SubscribeEvent

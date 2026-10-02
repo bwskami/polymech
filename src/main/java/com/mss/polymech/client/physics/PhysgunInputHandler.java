@@ -126,11 +126,19 @@ public final class PhysgunInputHandler {
         if (action != GLFW.GLFW_PRESS) {
             return false;
         }
-        if (button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            return false;                   // 左键（LOCK）是下一步的事
-        }
-
         UUID id = player.getUUID();
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            // ★ 左键 = 钉住 / 解锁（照参考 onItemPunched → PhysicsStaffAction.LOCK）。
+            //   照参考**无条件吃掉**：拿枪时左键不再是"攻击"（服务端 canAttackBlock=false
+            //   是第二道）。没抓着时服务端会回一句提示，所以这里不用先判断。
+            PhysgunClientState.Beam held = PhysgunClientState.beam(id);
+            PacketDistributor.sendToServer(new PhysgunActionPacket(
+                    PhysgunAction.LOCK, held == null ? 0L : held.bodyId()));
+            return true;
+        }
+        if (button != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return false;
+        }
         // ★ 开关：**正在**拖着（而不是"正在淡出"）⇒ 再按一次松手。
         //   判据必须用 released 而不是 isGrabbed：后者在淡出期间仍为 true
         //   （要等强度衰减到 0 才回收，见 PhysgunClientState.finished），

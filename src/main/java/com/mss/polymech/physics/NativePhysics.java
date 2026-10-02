@@ -384,6 +384,28 @@ public final class NativePhysics {
     /** 从世界移除刚体（带唤醒开关，ABI 7）—— 对应 MPS 的 {@code worldRemoveRigidBody}。 */
     public static native boolean worldRemoveRigidBody(long world, long body, boolean wake);
 
+    // ==================== 固定约束（ABI 10，牵引枪的"钉住"/LOCK） ====================
+    //
+    // 对应参考的 `pipeline.addConstraint(null, subLevel, FixedConstraintConfiguration(...))`
+    // —— 关节一端写 `null` = 锚在世界。**Rapier 0.34 没有这个隐式地面**：
+    // 约束构建器是 `&bodies[joint.body1]` 直接索引（rapier-src 的
+    // dynamics/solver/joint_constraint/joint_constraint_builder.rs:46），传
+    // `RigidBodyHandle::invalid()` 会 panic（`Coarena::get` 返回 `Option`，无默认值兜底）。
+    // 所以原生侧把"世界"这个锚**显式建出来**：一个 FIXED 刚体，建在体当前位姿上，
+    // 关节两个局部帧都用单位帧 ⇒ 语义就是参考那个"钉在当前位姿"。
+    // 这不是换机制，是补上我们引擎缺的那块。
+
+    /**
+     * 给刚体加一个固定约束，把它钉在<b>当前位姿</b>上（ABI 10）。
+     *
+     * @return 原生约束 id（{@code > 0}）；{@code -1} = 世界/刚体不存在或读不到位姿；
+     *         {@code -2} = 该刚体已经有约束了（拒绝重复加 —— 重复加会各建一个锚体，是泄漏）
+     */
+    public static native long worldAddFixedConstraint(long world, long body);
+
+    /** 解除 {@link #worldAddFixedConstraint} 建的约束（关节 + 锚体一起删）。 */
+    public static native boolean worldRemoveConstraint(long world, long constraintId);
+
     // ==================== cosmos（ABI 9，kelvin 的天体 N 体引力） ====================
     //
     // 契约**由 kelvin 的调用点反推**（不是猜）：SpaceWorld.java:134/153/273/275/282/188/203。
