@@ -446,7 +446,13 @@ $contracts = @(
        why = '★ 天体姿态也要走通用件的时间戳 slerp（原来是自己那份 histR + locate）' },
     @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
        must = 'return this.posSamples.sampleIntervalSeconds();';
-       why = '★ 诊断读数（sampleIntervalSeconds/sampleHistorySeconds，SpaceRenderer 用它打"太空顺滑"）也必须委托，否则收口只收了一半' }
+       why = '★ 诊断读数（sampleIntervalSeconds/sampleHistorySeconds，SpaceRenderer 用它打"太空顺滑"）也必须委托，否则收口只收了一半' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
+       must = '@Inject(method = "setup", at = @At("TAIL"))';
+       why = '★★ 注入点必须在 setup 的 **TAIL**：Camera.setup 里 setRotation 被调三次（offset 79/170/269），最后一次是 2 参版 = setRotation(yRot, xRot, 0f) ⇒ 会把我们的 roll 硬置 0。旧注入点（ordinal=0 之后）正好被它覆盖 ⇒ 相机不滚、输入基底滚 ⇒ **滚到 ±180 时左右键反向**（用户 2026-10-03 报）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
+       must = 'this.setRotation(yaw + 180.0F, -pitch, (float) -roll);';
+       why = '★ 正面视角（thirdPersonReverse）要照抄原版那条分支自己翻一次，且 roll **取反** —— 这个符号由 RollInputBasisProbe 的 B 组程序判定（可区分的 45 个姿态里只有 -roll 成立，+roll 0/45），不是推出来的' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -473,7 +479,10 @@ $absentContracts = @(
        why = '★ 天体那份**私有的**时间戳插值实现不得回归（已改为委托 TimedSamples）——两份实现必然漂移，本项目硬规矩' },
     @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
        mustNot = 'private final Vector3d[] histP';
-       why = '★ 同上：私有快照环（histT/histP/histR）不得回归' }
+       why = '★ 同上：私有快照环（histT/histP/histR）不得回归' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
+       mustNot = 'target = "Lnet/minecraft/client/Camera;setRotation(FFF)V"';
+       why = '★★ 那个注入点（ordinal=0 的 INVOKE）不得回归：它落在 Camera.setup 的**第一次** setRotation 之后，会被后面两次覆盖，其中最后那次把 roll 置 0 —— 相机不滚而输入基底滚，滚到 ±180 就是左右反' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

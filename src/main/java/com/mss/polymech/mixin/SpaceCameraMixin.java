@@ -93,13 +93,7 @@ public abstract class SpaceCameraMixin {
     /**
      * 在 vanilla 第一次 setRotation 之后，用向量计算的正确值再调一次 setRotation 覆盖。
      */
-    @Inject(
-            method = "setup",
-            at = @At(value = "INVOKE",
-                    target = "Lnet/minecraft/client/Camera;setRotation(FFF)V",
-                    ordinal = 0,
-                    shift = At.Shift.AFTER)
-    )
+    @Inject(method = "setup", at = @At("TAIL"))
     private void polymech$vectorCamera(BlockGetter level, Entity entity, boolean detached,
             boolean thirdPersonReverse, float partialTick, CallbackInfo ci) {
         if (!(entity instanceof Player)) return;
@@ -149,10 +143,30 @@ public abstract class SpaceCameraMixin {
         data.setLastRoll(roll);
 
         // ── 覆盖相机旋转：只写"头（视线）真正的朝向" ──
-        // 正面视角的翻转**交给原版**：Camera.setup 末尾会自己 setRotation(yRot+180, -xRot)
-        // 把镜头翻到人物正面。我们如果在这里也翻一次，两次翻转会互相抵消 ——
-        // 表现就是"第二人称和第三人称都是后背视角"。
-        this.setRotation(yaw, pitch, (float) roll);
+        //
+        // ★ 必须注入在 setup 的 **TAIL**（2026-10-03 修）：
+        //   原来注在 `setRotation(FFF)` 的 ordinal=0 之后，看着对，其实被覆盖了 ——
+        //   javap 数过 `Camera.setup` 里 setRotation 被调**三次**：
+        //       offset  79: setRotation(FFF)   ← 我们原来注在这一次之后
+        //       offset 170: setRotation(FFF)   ← 覆盖
+        //       offset 269: setRotation(FF)    ← 再覆盖，而 2 参版内部是 `setRotation(yRot, xRot, 0f)`
+        //   ⇒ **roll 被硬置 0**：相机根本不滚，而输入基底（SpaceInputRotationMixin）照滚 ⇒
+        //     滚转越大错得越多，滚到 ±180 时"按 A"去的方向正好是画面的右边 ——
+        //     正是用户报的"滚转-180 的时候左右键方向是反的"。
+        //   探针 `RollInputBasisProbe` 已把"输入基底 vs 相机基底"钉住（120 个姿态全一致），
+        //   那说明两边公式没问题、问题就在**谁最后落盘**。
+        //
+        // ── 正面视角：照抄原版那条分支，roll 取反 ──
+        // 原版对 `thirdPersonReverse`（F5 反向 = 看人物正面）会用 `(yRot+180, -xRot)`。
+        // 现在我们是最后写的人，必须自己把这一步做掉**一次**（以前靠原版做，因为我们写在它前面）。
+        // roll 的符号**不是推出来的**：`RollInputBasisProbe` 的 B 组把不变量
+        // "相机上 = 头的上（不变）、相机左 = −头的左（取反）" 对 120 个姿态跑了一遍，
+        // 在能区分 +roll/-roll 的 45 个姿态里**只有 -roll 成立（45/45，+roll 0/45）** ⇒ 取反。
+        if (thirdPersonReverse) {
+            this.setRotation(yaw + 180.0F, -pitch, (float) -roll);
+        } else {
+            this.setRotation(yaw, pitch, (float) roll);
+        }
     }
 
     /**
