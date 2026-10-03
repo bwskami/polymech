@@ -396,7 +396,33 @@ $contracts = @(
        why = '★ 左键动作要真的接上（没接 = 左键点了没反应，且静默）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
        must = 'if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {';
-       why = '★ 客户端左键要发 LOCK（照参考 onItemPunched），并且吃掉这次点击' }
+       why = '★ 客户端左键要发 LOCK（照参考 onItemPunched），并且吃掉这次点击' },
+
+    # ── 通用方法：带时间戳的插值（根治"线抽抽、框也抽抽"）──────────────────────
+    @{ file = 'src\main\java\com\mss\polymech\util\TimedSamples.java';
+       must = 'public boolean evaluate(double[] out)';
+       why = '★ 通用件本体：所有"按拍同步、按帧渲染"的量都该走它，而不是各写一份 lerp(prev,cur,partialTick)' },
+    @{ file = 'src\main\java\com\mss\polymech\util\TimedSamples.java';
+       must = 'if (target >= times[newest]) {';
+       why = '★ 越过最新样本必须**夹住**（保持那一拍），绝不外推 —— 外推会在丢包时把物体甩到屏幕外' },
+    @{ file = 'src\main\java\com\mss\polymech\util\TimedSamples.java';
+       must = 'slerp(values[a], values[b], w, out);';
+       why = '★ 四元数必须 slerp 且取最短弧（分量线性插值在四元数上是错的；短弧不做会绕一大圈）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunClientState.java';
+       must = 'if (!endSamples.evaluate(out)) {';
+       why = '★ 光束端点必须走时间戳插值 —— 框的中心就是同一个 renderEnd 的输出，所以这一处同时修掉"线抽"和"框抽"' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunClientState.java';
+       must = '2.0 * PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS / 20.0';
+       why = '★★ 渲染延迟必须**由发包间隔推出**（≥2 拍）。写死 0.10 而采样是每 2 tick(0.1s) ⇒ 延迟刚好 1 拍 ⇒ 网络稍抖就越过最新样本被夹住 ⇒ 又开始抽（这正是天空那边 0.10 不能照抄的原因）' },
+    @{ file = 'src\main\java\com\mss\polymech\network\PhysgunBeamPacket.java';
+       must = 'public static final int BROADCAST_INTERVAL_TICKS = 1;';
+       why = '★ 每 tick 发包（20Hz）：① 采样越稀每拍跳变越大；② 它决定渲染延迟（见上一条契约）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       must = 'OWN_BEAM_METER.sample(E[0], E[1], E[2]);';
+       why = '★ 丝滑判据的输入必须是 E（线框共同来源）—— 量它就等于线、框两处一起量' },
+    @{ file = 'src\main\java\com\mss\polymech\util\FrameJitterMeter.java';
+       must = 'if (mean <= 1.0e-6) {';
+       why = '★ 位移均值≈0（物体本来就没动）必须判"不可判"，不能判 PASS —— 那会变成一条永远通过的假判据（本项目栽过"死判据"）' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

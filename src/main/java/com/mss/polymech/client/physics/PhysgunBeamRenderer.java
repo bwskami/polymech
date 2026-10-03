@@ -7,6 +7,7 @@ import com.mss.polymech.item.ModItems;
 import com.mss.polymech.item.PhysgunItem;
 import com.mss.polymech.physics.PhysgunBeamShape;
 import com.mss.polymech.physics.RayBox;
+import com.mss.polymech.util.FrameJitterMeter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
@@ -113,6 +114,20 @@ public final class PhysgunBeamRenderer {
     private static final double[] CTRL = new double[3];
     /** 插值后的"虚拟竿尖"。 */
     private static final double[] TIP = new double[3];
+
+    /**
+     * <b>丝滑判据</b>：自己那条光束终点的每帧位移抖动（通用件，见 {@link FrameJitterMeter}）。
+     *
+     * <p>为什么要有它：用户反复报过"线抽抽、框也抽抽"。肉眼看"好像不抽了"不是判据 ——
+     * 本项目的实机判据必须程序判定 PASS/FAIL。窗口 120 帧（约 1.2 秒）攒够后，
+     * <b>松手那一刻</b>把这一段的统计打一行出来（照 {@code [牵引枪·旋转判据]} 的做法，
+     * 不刷屏）。口径与天空那条"太空顺滑"完全一致，避免同一种毛病两套说法。</p>
+     */
+    private static final FrameJitterMeter OWN_BEAM_METER =
+            new FrameJitterMeter("[牵引枪·丝滑判据]", 120);
+    /** 本段是否喂过样本（决定松手时要不要打读数）。 */
+    private static boolean meterArmed;
+
     private static final Vector3d TMP = new Vector3d();
     private static final Quaterniond ROT = new Quaterniond();
     private static final Vector3d POS = new Vector3d();
@@ -196,9 +211,23 @@ public final class PhysgunBeamRenderer {
                 if (owner.equals(player.getUUID())) {
                     // 自己的光束：起点用枪口近似，第一人称才像是从枪口出来的
                     muzzle(player, partialTick, S);
+                    // ★ 丝滑判据的输入：终点是"线"和"框"共同的来源，量它就等于两处一起量
+                    OWN_BEAM_METER.sample(E[0], E[1], E[2]);
+                    meterArmed = true;
                 }
                 drawBeam(beam, mat, S, E, TIP, b, partialTick, alpha);
                 drawAnchor(beam, mat, E, alpha);
+            }
+            // ★ 丝滑判据的读出：自己那条光束松手/消失时打一行（程序判定 PASS/FAIL）
+            PhysgunClientState.Beam ownBeam = PhysgunClientState.beam(player.getUUID());
+            if (meterArmed && (ownBeam == null || ownBeam.released())) {
+                meterArmed = false;
+                String verdict = OWN_BEAM_METER.verdict();
+                OWN_BEAM_METER.reset();
+                if (verdict != null) {
+                    player.displayClientMessage(
+                            net.minecraft.network.chat.Component.literal(verdict), false);
+                }
             }
             if (gone != null) {
                 for (UUID id : gone) {

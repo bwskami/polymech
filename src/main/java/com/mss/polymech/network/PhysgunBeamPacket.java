@@ -43,8 +43,20 @@ public record PhysgunBeamPacket(UUID playerId,
                                 double endX, double endY, double endZ,
                                 double holdDistance, boolean released) implements CustomPacketPayload {
 
-    /** 端点重算/广播的间隔（tick）：20Hz 的端点 + 客户端插值已经看不出阶梯。 */
-    public static final int BROADCAST_INTERVAL_TICKS = 2;
+    /**
+     * 端点重算/广播的间隔（tick）——<b>1 = 每 tick（20Hz）</b>。
+     *
+     * <p>原来是 2（10Hz）。改成 1 有两个原因，都与"抽抽"直接相关：</p>
+     * <ol>
+     *   <li><b>采样越稀，每拍跳变越大</b>：时间戳插值消掉的是"相位错位造成的跳变"，
+     *       但样本之间仍然是折线；采样间隔越长，折线的拐点越明显；</li>
+     *   <li><b>它决定渲染延迟</b>：延迟必须 ≥ 2 × 发包间隔（见
+     *       {@code PhysgunClientState.INTERP_DELAY_SECONDS}，那里就是从本常量推出来的）。
+     *       间隔 0.1s ⇒ 延迟 0.2s，光束末端会比物体明显拖后；间隔 0.05s ⇒ 延迟 0.1s，
+     *       与天空那条线（{@code CelestialBody.INTERP_DELAY_SECONDS = 0.10}）取的是同一个数。</li>
+     * </ol>
+     */
+    public static final int BROADCAST_INTERVAL_TICKS = 1;
 
     /** 广播半径（格）：比抓取距离 64 大一圈，让"远处看着别人拖船"也能看见光束。 */
     public static final double BROADCAST_RANGE = 128.0;

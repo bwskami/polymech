@@ -473,6 +473,8 @@ public class ModCommands {
                                         .executes(ctx -> physicsLockRot(ctx.getSource(),
                                                 LongArgumentType.getLong(ctx, "id"),
                                                 com.mojang.brigadier.arguments.BoolArgumentType.getBool(ctx, "locked"))))))
+                .then(Commands.literal("locks")
+                        .executes(ctx -> physicsLocks(ctx.getSource())))
                 .then(Commands.literal("collisiongroups")
                         .then(Commands.argument("id", LongArgumentType.longArg(1))
                                 .executes(ctx -> physicsCollisionGroupsQuery(ctx.getSource(),
@@ -674,6 +676,32 @@ public class ModCommands {
         source.sendSuccess(() -> Component.literal("物理体 " + id + " 旋转"
                 + (locked ? "已冻结" : "已解锁")), true);
         return 1;
+    }
+
+    /**
+     * /polymech physics locks：列出牵引枪"钉住"（LOCK）的全部条目。
+     *
+     * <p>为什么需要这条命令：LOCK 的判据之一是**持久化**（退出再进，锁要还在）。
+     * 那是"重启前 vs 重启后"的对比，靠眼睛看"物体好像没动"根本判不了 ——
+     * 这条命令把**绝对坐标**打出来，两次读数一对就完事（约束 id 为 0 = 待重建）。</p>
+     */
+    private static int physicsLocks(CommandSourceStack source) {
+        var server = source.getServer();
+        var locks = com.mss.polymech.physics.PhysgunLocks.get(server);
+        var list = locks.snapshot();
+        if (list.isEmpty()) {
+            source.sendSuccess(() -> Component.literal("当前没有钉住的物理体"), false);
+            return 1;
+        }
+        source.sendSuccess(() -> Component.literal("已钉住 " + list.size() + " 个体："), false);
+        for (var s : list) {
+            source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
+                    "  #%d  约束=%s  位置=(%.2f, %.2f, %.2f)  速度=%.3f m/s",
+                    s.bodyId(),
+                    s.constraint() > 0L ? String.valueOf(s.constraint()) : "0(待重建)",
+                    s.x(), s.y(), s.z(), s.speed())), false);
+        }
+        return list.size();
     }
 
     /** /polymech physics drop <id>：把物理体按当前姿态放回世界。 */

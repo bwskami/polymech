@@ -2,11 +2,15 @@ package com.mss.polymech.physics;
 
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.ChatFormatting;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.saveddata.SavedData;
 
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 牵引枪的<b>钉住（LOCK）</b>—— 照参考 {@code PhysicsStaffServerHandler} 里 {@code locks} 那一套。
@@ -69,6 +73,114 @@ public final class PhysgunLocks extends SavedData {
 
     /** 体 id → 原生约束 id；{@link #PENDING} 表示"还没重建"。 */
     private final Map<Long, Long> locks = new LinkedHashMap<>();
+
+    // ==================== 锁定判据（程序判定 PASS/FAIL，实机验收用） ====================
+
+    /**
+     * 钉住后多少 tick 量一次漂移。
+     *
+     * <p>取 40（2 秒）：约束是硬约束，漂移在**几个 tick 内**就该归零；
+     * 2 秒足够覆盖"松手瞬间还带着残余速度"的情况，又不至于让玩家等太久。</p>
+     */
+    public static final int VERIFY_TICKS = 40;
+
+    /** 漂移阈值（格）：离线探针里 100 步漂移是 2.5e-13，这里给 0.01 留足余量（含碰撞/接触求解）。 */
+    public static final double DRIFT_PASS = 0.01;
+
+    /** 待量的判据（**不持久化** —— 它只是"下一次验收用的一次性读数"）。 */
+    private final Map<Long, Check> checks = new LinkedHashMap<>();
+
+    private record Check(UUID playerId, double x, double y, double z, long startTick) {
+    }
+
+    /**
+     * 钉住成功后调：在体当前位置打一个"锚点"，{@link #VERIFY_TICKS} tick 后自动量漂移并打 PASS/FAIL。
+     *
+     * <p>为什么必须由程序判：LOCK 的实机表现是"物体不动"，而**没锁的物体也可能本来就不动**
+     * （正躺在地上）。光靠眼睛看，"锁定生效"与"它本来就没动"分不开。这条判据把
+     * 约束到底建没建出来（{@code 约束 id}）、漂移多少（绝对格数）、当前速度都打出来 ——
+     * 因果则由下一步"解锁后它掉下去"（L2）来闭合。</p>
+     */
+    public void armLockVerdict(ServerPlayer sp, long bodyId) {
+        double[] pos = PhysicsBodyTracker.positionOf(bodyId);
+        if (pos == null) {
+            return;
+        }
+        checks.put(bodyId, new Check(sp.getUUID(), pos[0], pos[1], pos[2],
+                sp.server.overworld().getGameTime()));
+    }
+
+    /** 每服务端 tick：惰性重建 + 到点量漂移。 */
+    public void tick(net.minecraft.server.MinecraftServer server) {
+        applyPending();
+        if (checks.isEmpty()) {
+            return;
+        }
+        long now = server.overworld().getGameTime();
+        Iterator<Map.Entry<Long, Check>> it = checks.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<Long, Check> entry = it.next();
+            Check check = entry.getValue();
+            if (now - check.startTick() < VERIFY_TICKS) {
+                continue;
+            }
+            it.remove();
+            long bodyId = entry.getKey();
+            ServerPlayer sp = server.getPlayerList().getPlayer(check.playerId());
+            if (sp == null) {
+                continue;                   // 玩家下线了 ⇒ 这条读数没人看，丢掉
+            }
+            double[] pos = PhysicsBodyTracker.positionOf(bodyId);
+            if (pos == null) {
+                tell(sp, String.format(java.util.Locale.ROOT,
+                        "[牵引枪·锁定判据] 物理体 #%d 已不存在 ⇒ 无法判定", bodyId), ChatFormatting.YELLOW);
+                continue;
+            }
+            double dx = pos[0] - check.x();
+            double dy = pos[1] - check.y();
+            double dz = pos[2] - check.z();
+            double drift = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            double[] motion = PhysicsBodyTracker.motionOf(bodyId);
+            double speed = motion == null ? Double.NaN
+                    : Math.sqrt(motion[0] * motion[0] + motion[1] * motion[1] + motion[2] * motion[2]);
+            boolean constraintLive = isLocked(bodyId);
+            boolean pass = constraintLive && drift <= DRIFT_PASS;
+            tell(sp, String.format(java.util.Locale.ROOT,
+                            "[牵引枪·锁定判据] %d tick(%.1f 秒) 漂移 %.4f 格（阈值 %.2f）⇒ %s；"
+                                    + "约束=%s，当前速度 %.3f m/s",
+                            VERIFY_TICKS, VERIFY_TICKS / 20.0, drift, DRIFT_PASS,
+                            pass ? "PASS" : "FAIL",
+                            constraintLive ? "已生效" : "★未生效(约束 id=" + locks.get(bodyId) + ")", speed),
+                    pass ? ChatFormatting.GREEN : ChatFormatting.RED);
+        }
+    }
+
+    /** 一条读数（命令输出用）：锁定状态 + 当前位置/速度。 */
+    public record Snapshot(long bodyId, long constraint, double x, double y, double z, double speed) {
+    }
+
+    /** 给 `/polymech physics locks` 用的只读快照（绝对坐标，不用相机相对量）。 */
+    public java.util.List<Snapshot> snapshot() {
+        java.util.List<Snapshot> out = new java.util.ArrayList<>();
+        for (Map.Entry<Long, Long> entry : locks.entrySet()) {
+            long bodyId = entry.getKey();
+            double[] pos = PhysicsBodyTracker.positionOf(bodyId);
+            double[] motion = PhysicsBodyTracker.motionOf(bodyId);
+            double speed = motion == null ? Double.NaN
+                    : Math.sqrt(motion[0] * motion[0] + motion[1] * motion[1] + motion[2] * motion[2]);
+            out.add(new Snapshot(bodyId, entry.getValue(),
+                    pos == null ? Double.NaN : pos[0],
+                    pos == null ? Double.NaN : pos[1],
+                    pos == null ? Double.NaN : pos[2],
+                    speed));
+        }
+        return out;
+    }
+
+    private static void tell(ServerPlayer sp, String message, ChatFormatting color) {
+        sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(message)
+                .withStyle(color));
+    }
 
     public static PhysgunLocks get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(FACTORY, NAME);

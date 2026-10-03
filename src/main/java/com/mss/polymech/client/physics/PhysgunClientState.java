@@ -1,6 +1,8 @@
 package com.mss.polymech.client.physics;
 
+import com.mss.polymech.network.PhysgunBeamPacket;
 import com.mss.polymech.physics.PhysgunBeamShape;
+import com.mss.polymech.util.TimedSamples;
 import org.joml.Quaterniond;
 
 import java.util.Collection;
@@ -64,6 +66,19 @@ public final class PhysgunClientState {
         private final double[] tipPrev = new double[3];
         private final double[] tipVel = new double[3];
         private boolean hasTip;
+
+        /**
+         * 起点 / 终点 / 竿尖的<b>带时间戳快照环</b>（通用件，见 {@link TimedSamples}）。
+         *
+         * <p>这就是"线抽抽、框也抽抽"的根治处。老写法是
+         * {@code lerp(prevEnd, end, partialTick)}，它默认"包的到达与 tick 边界对齐"；
+         * 而包是每 tick 到的、帧在任意相位渲染 ⇒ 每 tick 凭空跳一整个采样间隔。
+         * 框的中心正是同一个 {@code renderEnd} 的输出，所以线和框<b>必然一起抽</b>
+         * —— 这也是为什么以前分开修两边都修不好。</p>
+         */
+        private final TimedSamples startSamples = new TimedSamples(3, 64, INTERP_DELAY_SECONDS);
+        private final TimedSamples endSamples = new TimedSamples(3, 64, INTERP_DELAY_SECONDS);
+        private final TimedSamples tipSamples = new TimedSamples(3, 64, INTERP_DELAY_SECONDS);
 
         /**
          * <b>目标朝向</b>（客户端编辑、服务端执行）—— 牵引枪的旋转控制。
@@ -177,14 +192,23 @@ public final class PhysgunClientState {
             return Math.sqrt(dx * dx + dy * dy + dz * dz);
         }
 
-        /** 插值后的起点（相机相对交给渲染器去减，这里给世界坐标）。 */
+        /**
+         * 插值后的起点（相机相对交给渲染器去减，这里给世界坐标）。
+         *
+         * <p>优先走<b>时间戳插值</b>（见 {@link TimedSamples}）；样本不足（刚抓上、还没攒够两拍）
+         * 时退回旧的"两拍 lerp"—— 那样最多抽一两拍，而不是因为样本没攒够就整条光束不动。</p>
+         */
         public void renderStart(float partialTick, double[] out) {
-            lerp(prevStart, start, partialTick, out);
+            if (!startSamples.evaluate(out)) {
+                lerp(prevStart, start, partialTick, out);
+            }
         }
 
         /** 插值后的终点：两个包之间只有 20Hz 的信息，所以要按帧补平。 */
         public void renderEnd(float partialTick, double[] out) {
-            lerp(prevEnd, end, partialTick, out);
+            if (!endSamples.evaluate(out)) {
+                lerp(prevEnd, end, partialTick, out);
+            }
         }
 
         /** 插值后的"虚拟竿尖"：渲染时用它算受力弯曲（见 {@link PhysgunBeamShape#control}）。 */
@@ -193,7 +217,9 @@ public final class PhysgunClientState {
                 renderEnd(partialTick, out);
                 return;
             }
-            lerp(tipPrev, tip, partialTick, out);
+            if (!tipSamples.evaluate(out)) {
+                lerp(tipPrev, tip, partialTick, out);
+            }
         }
 
         void setEndpoints(double sx, double sy, double sz, double ex, double ey, double ez) {
@@ -216,6 +242,10 @@ public final class PhysgunClientState {
             end[1] = ey;
             end[2] = ez;
             hasEndpoints = true;
+            // ★ 打时间戳：这就是"通用方法"的入口 —— 谁写端点谁就记一拍。
+            //   两个 setter（本地预测 / 服务端权威）都汇到这里，所以不会漏。
+            startSamples.push(start[0], start[1], start[2]);
+            endSamples.push(end[0], end[1], end[2]);
         }
 
         /** 本地预测（只在服务端权威到达前有效）。 */
@@ -247,6 +277,8 @@ public final class PhysgunClientState {
                 copy(tip, tipPrev);
                 PhysgunBeamShape.lagStep(tip, tipVel, end,
                         PhysgunBeamShape.LAG_K, PhysgunBeamShape.LAG_D, TICK_SECONDS, LAG_SUBSTEPS);
+                // 竿尖也是"按 tick 走、按帧渲染"的量 ⇒ 同样要打时间戳
+                tipSamples.push(tip[0], tip[1], tip[2]);
             }
             intensity = PhysgunBeamShape.intensityStep(intensity, released);
         }
@@ -260,6 +292,19 @@ public final class PhysgunClientState {
     private static final double TICK_SECONDS = 0.05;
     /** 弹簧积分的子步数：ω·dt = 12.6×0.05 = 0.63，再分 4 步就很准且稳。 */
     private static final int LAG_SUBSTEPS = 4;
+
+    /**
+     * 渲染延迟（秒）——<b>由发包间隔推出，不写死</b>。
+     *
+     * <p>时间戳插值要求"渲染时刻永远被相邻两拍包住"，所以延迟必须
+     * {@code ≥ 2 × 发包间隔}。把这个关系写成式子而不是注释，是因为这里正好是最容易出错的地方：
+     * 照抄天空那个 0.10 s 而忘了牵引枪的发包间隔比天空稀，就会得到"延迟刚好等于一个间隔"
+     * ⇒ 稍有网络抖动就越过最新样本、被夹住不动 ⇒ <b>又开始抽</b>。</p>
+     *
+     * <p>⚠️ 改了 {@link PhysgunBeamPacket#BROADCAST_INTERVAL_TICKS}，这里自动跟着变。</p>
+     */
+    private static final double INTERP_DELAY_SECONDS =
+            2.0 * PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS / 20.0;
 
     // ==================== 写入（客户端主线程） ====================
 

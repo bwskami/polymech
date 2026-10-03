@@ -213,6 +213,8 @@ public class PhysgunItem extends Item {
             tell(sp, String.format(java.util.Locale.ROOT,
                     "已钉住 物理体 #%d—— 再按左键解锁；拖它也会自动解锁",
                     grab.bodyId()), ChatFormatting.GOLD);
+            // 2 秒后自动打一条程序判定的读数（约束到底生效没、漂移多少）
+            locks.armLockVerdict(sp, grab.bodyId());
         } else {
             play(sp, SOUND_RELEASE, 1.0F, 0.7F);
             tell(sp, String.format(java.util.Locale.ROOT,
