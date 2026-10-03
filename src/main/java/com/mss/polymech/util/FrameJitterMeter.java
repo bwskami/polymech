@@ -88,21 +88,35 @@ public final class FrameJitterMeter {
     }
 
     /**
-     * 结论：一行可读读数 + 程序判定的 PASS/FAIL。
+     * 一次窗口的数值结论。
+     *
+     * @param frames     参与统计的帧数
+     * @param mean       每帧位移均值（格）
+     * @param max        每帧位移最大值
+     * @param min        每帧位移最小值
+     * @param jitter     {@code max / mean}；{@code decidable == false} 时为 {@code NaN}
+     * @param stalls     跳变帧数（位移 &lt; 5% 均值）
+     * @param decidable  位移均值是否大到"能判"（见 {@link #verdict()} 的说明）
+     * @param pass       程序判定结论；{@code decidable == false} 时恒为 false
+     */
+    public record Stats(int frames, double mean, double max, double min, double jitter,
+                        int stalls, boolean decidable, boolean pass) {
+    }
+
+    /**
+     * 数值结论（<b>给离线探针用</b>：探针要断言数字，不该去解析"给人看的字符串"）。
      *
      * @return 未攒够窗口时返回 null（**不要**拿半个窗口下结论）
      */
-    public String verdict() {
+    public Stats stats() {
         if (!ready()) {
             return null;
         }
         double sum = 0.0;
         double max = 0.0;
         double min = Double.MAX_VALUE;
-        int stalls = 0;
-        int moving = 0;
         for (int i = 0; i < filled; i++) {
-            double d = Math.sqrt(dx[i] * dx[i] + dy[i] * dy[i] + dz[i] * dz[i]);
+            double d = len(i);
             sum += d;
             if (d > max) {
                 max = d;
@@ -112,30 +126,45 @@ public final class FrameJitterMeter {
             }
         }
         double mean = sum / filled;
-        for (int i = 0; i < filled; i++) {
-            double d = Math.sqrt(dx[i] * dx[i] + dy[i] * dy[i] + dz[i] * dz[i]);
-            if (mean > 1.0e-9) {
-                if (d < mean * STALL_FRACTION) {
+        // 均值≈0 ⇒ 物体根本没动（例如抓着一个躺着不动的体）：这时**不能**判 PASS，
+        // 因为"没动"与"动得丝滑"是两件事，判 PASS 就是一条永远通过的假判据。
+        boolean decidable = mean > 1.0e-6;
+        int stalls = 0;
+        if (decidable) {
+            for (int i = 0; i < filled; i++) {
+                if (len(i) < mean * STALL_FRACTION) {
                     stalls++;
-                }
-                if (d > mean) {
-                    moving++;
                 }
             }
         }
-        // 均值≈0 ⇒ 物体根本没动（例如抓着一个躺着不动的体）：这时**不能**判 PASS，
-        // 因为"没动"与"动得丝滑"是两件事，判 PASS 就是一条假判据。
-        if (mean <= 1.0e-6) {
+        double jitter = decidable ? max / mean : Double.NaN;
+        boolean pass = decidable && stalls == 0 && jitter <= JITTER_PASS;
+        return new Stats(filled, mean, max, min, jitter, stalls, decidable, pass);
+    }
+
+    private double len(int i) {
+        return Math.sqrt(dx[i] * dx[i] + dy[i] * dy[i] + dz[i] * dz[i]);
+    }
+
+    /**
+     * 结论：一行可读读数 + 程序判定的 PASS/FAIL。
+     *
+     * @return 未攒够窗口时返回 null；攒够但"物体本来就没动"时返回一行<b>不可判</b>说明
+     */
+    public String verdict() {
+        Stats s = stats();
+        if (s == null) {
+            return null;
+        }
+        if (!s.decidable()) {
             return String.format(java.util.Locale.ROOT,
                     "%s 静默样本：窗口内位移均值 %.3e 格（物体本来就没动）⇒ 不可判；"
-                            + "请抓着物体移动/转动后再看", label, mean);
+                            + "请抓着物体移动/转动后再看", label, s.mean());
         }
-        double jitter = max / mean;
-        boolean pass = stalls == 0 && jitter <= JITTER_PASS;
         return String.format(java.util.Locale.ROOT,
                 "%s %d 帧：每帧位移 均=%.4f 最大=%.4f 最小=%.4f 格；抖动(最大/均)=%.2f（阈值 %.2f）；"
                         + "跳变帧=%d/%d ⇒ %s",
-                label, filled, mean, max, min, jitter, JITTER_PASS, stalls, filled,
-                pass ? "PASS" : "FAIL");
+                label, s.frames(), s.mean(), s.max(), s.min(), s.jitter(), JITTER_PASS,
+                s.stalls(), s.frames(), s.pass() ? "PASS" : "FAIL");
     }
 }

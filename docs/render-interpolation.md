@@ -121,24 +121,38 @@ public static final int BROADCAST_INTERVAL_TICKS = 1;   // 原 2
 | S4 | 抓着物体**转它**（TAB + 鼠标） | 线跟着转、框**不跳格** | PASS = 框始终套在同一格上，不来回蹦 |
 | S5 | 抓一个**静止**的物体不动，然后松手 | 读数应说"静默样本…不可判" | PASS = **不出现 PASS**（这条验的是判据本身不是死的） |
 
-### 4.3 离线：待补（本项尚未完成的部分，如实记录）
+### 4.3 离线：第 19 步 `InterpSmoothnessProbe`（6/6，已落地）
 
-`run-offline-checks.ps1` 的第 3 步 `InterpProbe` 已经在测"旧两拍 lerp vs 新时间戳插值"，
-但它是**自带一份复刻逻辑**的纯 Java 探针，**没有**调 `TimedSamples` 本体。
-按本项目规矩（探针里复刻的公式必须由 `check-artifact` 契约钉住真实现），
-应当再加一步**直接调 `TimedSamples`** 的探针，含对照组：
+**调的是生产代码本体**（`TimedSamples` / `FrameJitterMeter`），不是复刻一份公式 ——
+本项目栽过"探针复刻的契约与真实现不一致"。时钟由 `TimedSamples` 的**可注入构造器**给定，
+所以"任意相位"是**确定性**的（靠 `Thread.sleep` 造相位不行：Windows 粒度约 15ms，而一个 tick 才 50ms）。
 
-- A 组（对照组）：`INTERVAL = 2` tick + 固定相位 ⇒ 旧 lerp 每 tick 跳 Δ（判据必须能 FAIL）；
-- B 组：同样节奏 + **任意相位** ⇒ 旧 lerp 照跳；
-- C 组：同样节奏 + 任意相位 ⇒ `TimedSamples` 的每帧位移抖动 ≈ 1.0、跳变帧 = 0；
-- D 组：丢包（一拍不来）⇒ `TimedSamples` **夹住**而不是外推。
+仿真：200fps 渲染 + 20Hz 采样（= 改完后的 `BROADCAST_INTERVAL_TICKS = 1`）+ 延迟 2 个采样周期 + 匀速 8 格/秒。
 
-**这一项还没做**，已在目标里挂着，不会静默丢掉。
+| 组 | 场景 | 实测 | 结论 |
+|---|---|---|---|
+| **A** | **固定相位**（交换正好在 tick 边界）+ 旧 lerp | 均=0.0400 最大=0.0400 抖动=**1.00** | PASS —— 证明**量具本身能给出 PASS** |
+| **B** | ★ **任意相位**（半个采样周期）+ 旧 lerp | 均=0.1120 最小=0.0400 最大=0.4400 抖动=**3.93** | **如期 FAIL** —— 判据不是死的，这就是"抽抽"的量化 |
+| **C** | 同样的任意相位 + `TimedSamples` | 均=0.0400 最大=0.0400 抖动=**1.00** | PASS —— 修好了 |
+| **D** | 连续丢 4 拍 + `TimedSamples` | 最大越界 **0.000000e+00** 格；丢包后仍在插值 | PASS —— **夹住，不外推**，也没被冻死 |
+
+★ **没有 A 与 B，C 的 PASS 就是死判据**：A 证明量具能通过、B 证明量具能失败。
+
+**B 组暴露的"抽"是锯齿，不是停顿**：每帧位移最小 0.04（= 一帧的真实位移）、最大 0.44（≈ 11 帧的量）。
+机理是旧写法在交换那一刻**倒退**到新一拍的值（本次探针里那一段的 partial 从 0.9 掉回 0），
+所以 `跳变帧`（位移 < 5% 均值）为 0 而 `抖动`=3.93 —— **判这个毛病要看抖动，不是看跳变帧**；
+`跳变帧` 抓的是另一种失效（夹住后冻死）。
+
+⚠️ **本探针第一版把自己判 FAIL 过一次，原因是判据写错**：用 `simTime % samplePeriod` 算 `partialTick`，
+浮点取模在 tick 边界给出 `0.0499999` 而不是 `0`，于是 `partialTick≈1` 下一帧又跳回 `0.1`，
+**凭空造出一个倒退跳变**（A 组因此冤枉地抖动 4.15）。改成整数帧运算后 A 组 = 1.00。
+教训与 §5.3（`-q90`）、`BodyLocalMappingProbe` C 组同源：**期望写错时先怀疑判据，不要先怀疑代码**。
+已用契约钉住那个整数写法。
 
 ## 五、验证约定
 
 1. `.\gradlew compileJava --console=plain` 必须 `BUILD SUCCESSFUL`。
-2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **18/18 步、exit 0**。
+2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **19/19 步、exit 0**。
 3. **任何**"按拍同步、按帧渲染"的新量都必须走 `TimedSamples`，不许再写
    `lerp(prev, cur, partialTick)` —— 契约钉住了 `PhysgunClientState` 里那一处；
    新增同类渲染量时请照抄它的接法（谁写数据谁 `push`，读的时候 `evaluate`）。

@@ -421,8 +421,14 @@ $contracts = @(
        must = 'OWN_BEAM_METER.sample(E[0], E[1], E[2]);';
        why = '★ 丝滑判据的输入必须是 E（线框共同来源）—— 量它就等于线、框两处一起量' },
     @{ file = 'src\main\java\com\mss\polymech\util\FrameJitterMeter.java';
-       must = 'if (mean <= 1.0e-6) {';
-       why = '★ 位移均值≈0（物体本来就没动）必须判"不可判"，不能判 PASS —— 那会变成一条永远通过的假判据（本项目栽过"死判据"）' }
+       must = 'boolean decidable = mean > 1.0e-6;';
+       why = '★ 位移均值≈0（物体本来就没动）必须判"不可判"，不能判 PASS —— 那会变成一条永远通过的假判据（本项目栽过"死判据"）' },
+    @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
+       must = 'double partial = (frame % framesPerSample) / (double) framesPerSample;';
+       why = '★★ 旧写法的 partialTick 必须用**整数帧**算，不能写 (simTime % period)/period：浮点取模在 tick 边界给出 0.0499999 而非 0，会凭空造出倒退跳变 —— 本探针第一版就是这么把自己判 FAIL 的（判据写错，不是代码错）' },
+    @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
+       must = 'new TimedSamples(3, 64, 2.0 * samplePeriod(), () -> clock[0])';
+       why = '★ 探针必须调**真实现**（并用可注入时钟保证相位确定性），不许在这里复刻一份插值公式' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

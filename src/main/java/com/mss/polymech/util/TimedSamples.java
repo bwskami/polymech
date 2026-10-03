@@ -1,5 +1,7 @@
 package com.mss.polymech.util;
 
+import java.util.function.DoubleSupplier;
+
 /**
  * <b>带时间戳的快照环</b>：把"服务端/上游按某个节奏推过来的量"按时间戳存起来，
  * 渲染时在<b>包住"现在 − 延迟"的相邻两拍</b>之间插值。
@@ -58,6 +60,8 @@ public final class TimedSamples {
     private final int cap;
     /** 渲染延迟（秒）。 */
     private final double delaySeconds;
+    /** 时钟（秒）；生产路径是 {@link #nowSeconds()}，探针注入仿真时间轴。 */
+    private final DoubleSupplier clock;
 
     /** 时间戳（秒，{@link #nowSeconds()} 基准）。 */
     private final double[] times;
@@ -69,7 +73,7 @@ public final class TimedSamples {
     private int next;
 
     public TimedSamples(int dim) {
-        this(dim, 64, DEFAULT_DELAY_SECONDS);
+        this(dim, 64, DEFAULT_DELAY_SECONDS, TimedSamples::nowSeconds);
     }
 
     /**
@@ -78,6 +82,20 @@ public final class TimedSamples {
      * @param delaySeconds 渲染延迟（秒）；必须 {@code ≥ 2 × 采样周期}，见类注释
      */
     public TimedSamples(int dim, int cap, double delaySeconds) {
+        this(dim, cap, delaySeconds, TimedSamples::nowSeconds);
+    }
+
+    /**
+     * 时钟可注入的版本 —— <b>给离线判据用</b>。
+     *
+     * <p>为什么必须有它：这一项的判据里有一条是"<b>交换落在任意相位</b>时旧写法会跳 Δ"，
+     * 而"任意相位"必须是<b>确定性的</b>才叫判据（跑两次结论不同就不是判据）。
+     * 靠 {@code Thread.sleep} 造相位做不到：Windows 上 sleep 的粒度约 15ms，
+     * 而一个 tick 才 50ms，误差能把相位甩掉三分之一。所以把时钟做成依赖，
+     * 探针用一条**仿真时间轴**精确控制"第几帧推样本、第几帧读"。生产路径仍走
+     * {@link #nowSeconds()}（单调钟）。</p>
+     */
+    public TimedSamples(int dim, int cap, double delaySeconds, DoubleSupplier clock) {
         if (dim < 1) {
             throw new IllegalArgumentException("dim 必须 >= 1，实际 " + dim);
         }
@@ -87,11 +105,12 @@ public final class TimedSamples {
         this.dim = dim;
         this.cap = cap;
         this.delaySeconds = delaySeconds;
+        this.clock = clock;
         this.times = new double[cap];
         this.values = new double[cap][dim];
     }
 
-    /** 单调时钟（秒）。 */
+    /** 单调时钟（秒）。生产路径的默认时钟；探针走可注入的那个构造器。 */
     public static double nowSeconds() {
         return System.nanoTime() * 1.0e-9;
     }
@@ -106,7 +125,7 @@ public final class TimedSamples {
         if (value.length != dim) {
             throw new IllegalArgumentException("样本维度不符：期望 " + dim + "，实际 " + value.length);
         }
-        double now = nowSeconds();
+        double now = clock.getAsDouble();
         if (count > 0) {
             int last = (next - 1 + cap) % cap;
             if (now - times[last] < SAME_SAMPLE_EPS_SECONDS) {
@@ -157,7 +176,7 @@ public final class TimedSamples {
         }
         int oldest = (next - count + cap) % cap;
         int newest = (next - 1 + cap) % cap;
-        double target = nowSeconds() - delaySeconds;
+        double target = clock.getAsDouble() - delaySeconds;
 
         // 比最旧还旧 / 比最新还新 ⇒ 夹住（"保持那一拍"，**不外推**：外推会让物体在丢包时飞出去）
         int a;
