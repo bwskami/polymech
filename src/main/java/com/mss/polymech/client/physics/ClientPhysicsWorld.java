@@ -1,6 +1,7 @@
 package com.mss.polymech.client.physics;
 
 import com.mss.polymech.network.PhysicsBodySyncPacket;
+import com.mss.polymech.util.TimedSamples;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -190,6 +191,8 @@ public final class ClientPhysicsWorld {
             this.physQy = nqy;
             this.physQz = nqz;
             this.physQw = nqw;
+            physPosSamples.push(px, py, pz);
+            physRotSamples.push(nqx, nqy, nqz, nqw);
         }
 
         /** 本地预测：移除一个方块（服务端很快会回发权威快照覆盖）。 */
@@ -247,6 +250,8 @@ public final class ClientPhysicsWorld {
             this.qy = nqy;
             this.qz = nqz;
             this.qw = nqw;
+            netPosSamples.push(nx, ny, nz);
+            netRotSamples.push(nqx, nqy, nqz, nqw);
         }
 
         public float qx() {
@@ -292,29 +297,67 @@ public final class ClientPhysicsWorld {
         }
 
 
+        /**
+         * 位姿的<b>带时间戳快照环</b>（通用件 {@link TimedSamples}）—— 四条：
+         * {@code phys*} 是客户端刚体自己的状态、{@code net*} 是服务端同步下来的权威位姿。
+         *
+         * <p>为什么要它们：{@link #renderX} / {@link #renderRotation} 原来是
+         * {@code prev + (cur - prev) * partialTick}，而那个写法**默认"prev ← cur 的交换发生在
+         * tick 边界"**；实际是"按拍更新、按帧渲染"，相位一乱就每次交换凭空跳一整个采样间隔
+         * （用户反复报的"抽抽"就是这个）。见 {@link TimedSamples} 的类注释。</p>
+         *
+         * <p>延迟取 {@link TimedSamples#DEFAULT_DELAY_SECONDS}（0.10 s = 2 个 20Hz 拍）：
+         * 这条链的更新节奏取决于上游（服务端每 tick 广播 / 客户端镜像步进），
+         * 但 0.10 s 对两种节奏都成立 —— 上游更快时是"好几拍"、正好 20Hz 时是"两拍"。</p>
+         */
+        private final TimedSamples physPosSamples = new TimedSamples(3, 32);
+        private final TimedSamples physRotSamples = new TimedSamples(4, 32);
+        private final TimedSamples netPosSamples = new TimedSamples(3, 32);
+        private final TimedSamples netRotSamples = new TimedSamples(4, 32);
+        /** {@link #renderX}/{@link #renderY}/{@link #renderZ} 共用的取值暂存（渲染单线程）。 */
+        private final double[] renderPosScratch = new double[3];
+        /** {@link #renderRotation} 的取值暂存。 */
+        private final double[] renderRotScratch = new double[4];
+
         public double renderX(float partialTick) {
-            if (physValid) {
-                return prevPhysX + (physX - prevPhysX) * partialTick;
-            }
-            return prevX + (x - prevX) * partialTick;
+            return renderPos(partialTick, 0);
         }
 
         public double renderY(float partialTick) {
-            if (physValid) {
-                return prevPhysY + (physY - prevPhysY) * partialTick;
-            }
-            return prevY + (y - prevY) * partialTick;
+            return renderPos(partialTick, 1);
         }
 
         public double renderZ(float partialTick) {
-            if (physValid) {
-                return prevPhysZ + (physZ - prevPhysZ) * partialTick;
+            return renderPos(partialTick, 2);
+        }
+
+        /** 位姿取值：优先时间戳插值；样本不足时退回旧的"两拍 lerp"。 */
+        private double renderPos(float partialTick, int axis) {
+            TimedSamples ring = physValid ? physPosSamples : netPosSamples;
+            if (ring.evaluate(renderPosScratch)) {
+                return renderPosScratch[axis];
             }
-            return prevZ + (z - prevZ) * partialTick;
+            if (physValid) {
+                double p = axis == 0 ? prevPhysX : axis == 1 ? prevPhysY : prevPhysZ;
+                double c = axis == 0 ? physX : axis == 1 ? physY : physZ;
+                return p + (c - p) * partialTick;
+            }
+            double p = axis == 0 ? prevX : axis == 1 ? prevY : prevZ;
+            double c = axis == 0 ? x : axis == 1 ? y : z;
+            return p + (c - p) * partialTick;
         }
 
         /** 返回插值后的四元数（x,y,z,w），写入 out。优先用客户端刚体自己的状态。 */
         public void renderRotation(float partialTick, float[] out) {
+            // 优先时间戳插值（见上面那四条快照环的注释）；样本不足时退回旧的"两拍 lerp"
+            TimedSamples ring = physValid ? physRotSamples : netRotSamples;
+            if (ring.evaluateQuat(renderRotScratch)) {
+                out[0] = (float) renderRotScratch[0];
+                out[1] = (float) renderRotScratch[1];
+                out[2] = (float) renderRotScratch[2];
+                out[3] = (float) renderRotScratch[3];
+                return;
+            }
             float ax;
             float ay;
             float az;

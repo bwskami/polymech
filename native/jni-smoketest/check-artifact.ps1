@@ -428,7 +428,16 @@ $contracts = @(
        why = '★★ 旧写法的 partialTick 必须用**整数帧**算，不能写 (simTime % period)/period：浮点取模在 tick 边界给出 0.0499999 而非 0，会凭空造出倒退跳变 —— 本探针第一版就是这么把自己判 FAIL 的（判据写错，不是代码错）' },
     @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
        must = 'new TimedSamples(3, 64, 2.0 * samplePeriod(), () -> clock[0])';
-       why = '★ 探针必须调**真实现**（并用可注入时钟保证相位确定性），不许在这里复刻一份插值公式' }
+       why = '★ 探针必须调**真实现**（并用可注入时钟保证相位确定性），不许在这里复刻一份插值公式' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
+       must = 'physPosSamples.push(px, py, pz);';
+       why = '★ 客户端刚体自己的位姿也要打时间戳（renderX/renderRotation 的两个分支都是"按拍更新、按帧渲染"）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
+       must = 'netPosSamples.push(nx, ny, nz);';
+       why = '★ 服务端同步下来的权威位姿同样是拍同步量 —— 抓取框/悬停框用的镜子体位姿就在这里' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
+       must = 'if (ring.evaluateQuat(renderRotScratch)) {';
+       why = '★ 姿态必须 slerp（不能分量线性插值）：分量插值在四元数上是错的，转过符号边界时会绕一大圈' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────

@@ -76,6 +76,11 @@ public final class TimedSamples {
         this(dim, 64, DEFAULT_DELAY_SECONDS, TimedSamples::nowSeconds);
     }
 
+    /** 只改容量的版本（延迟仍取 {@link #DEFAULT_DELAY_SECONDS}）。 */
+    public TimedSamples(int dim, int cap) {
+        this(dim, cap, DEFAULT_DELAY_SECONDS, TimedSamples::nowSeconds);
+    }
+
     /**
      * @param dim          每个样本的分量数（位置 3、四元数 4……）
      * @param cap          环容量（条数）

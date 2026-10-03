@@ -88,8 +88,14 @@ public static final int BROADCAST_INTERVAL_TICKS = 1;   // 原 2
 | 光束**起点** | `lerp(prevStart, start, partialTick)` | `startSamples.evaluate` |
 | 光束**终点** ← 线 + 框的共同来源 | `lerp(prevEnd, end, partialTick)` | `endSamples.evaluate` |
 | **虚拟竿尖**（受力弯曲） | `lerp(tipPrev, tip, partialTick)` | `tipSamples.evaluate` |
-| 抓取框/悬停框的体位姿 | `poseOf` → `ClientPhysics.liveTransform` | **本来就平滑**（100Hz 本地刚体状态），无需改 |
+| 抓取框/悬停框的体位姿（**主**路径） | `poseOf` → `ClientPhysics.liveTransform` | **本来就平滑**（100Hz 本地刚体状态），无需改 |
+| 抓取框/悬停框的体位姿（**兜底**路径） | `poseOf` → `ClientBody.renderX/renderRotation(partialTick)` | **已接**：`ClientBody` 加了四条快照环（`phys*` 客户端刚体自己 / `net*` 服务端同步），`renderX/Y/Z` 与 `renderRotation` 都先走时间戳插值、样本不足才退回旧 lerp |
 | 落点标记 | 本地每帧算（眼+视线×距离） | 本来就平滑，无需改 |
+
+> **为什么兜底路径也要接**：`ClientBody.renderX/renderRotation` 的两个分支（`physValid` / 网络）
+> 都是"按拍更新、按帧渲染"，就是同一类。它们不只服务牵引枪 ——
+> `PhysicsBodyRenderer` 画**所有**物理体也走这里，所以这条修的是"所有物理体的渲染平滑度"。
+> 延迟取 0.10 s 对两种上游节奏都成立（上游更快时是"好几拍"、正好 20Hz 时是"两拍"）。
 
 三处都保留**旧的 `lerp` 作为回退**：样本不足（刚抓上，还没攒够两拍）时最多抽一两拍，
 而不是因为样本没攒够就整条光束不动。
