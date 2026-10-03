@@ -155,10 +155,34 @@ public static final int BROADCAST_INTERVAL_TICKS = 1;   // 原 2
 教训与 §5.3（`-q90`）、`BodyLocalMappingProbe` C 组同源：**期望写错时先怀疑判据，不要先怀疑代码**。
 已用契约钉住那个整数写法。
 
-## 五、验证约定
+### 4.4 天体那份私有实现已收口（第 20 步 `CelestialSmoothProbe`）
+
+机制抽出来之后，`CelestialBody` 里那份**私有实现**（`histT/histP/histR` + `locate`）必须改为委托 ——
+否则"同一概念两份实现"迟早漂移（本项目硬规矩）。
+
+但那是**已经验收过的天空那条线**，而此前**没有任何离线探针覆盖它**：改完只能靠人去游戏里
+看天空有没有变卡，那正是用户明确说过不想反复做的事。所以顺序是**先钉住、再重构**：
+
+| | 抖动 | 每帧位移 | 不外推 | 单位四元数 | 转角步长 |
+|---|---|---|---|---|---|
+| **重构前** | 1.00 | 0.1500 | 47.8499 ≤ 50.2500 | 4.44e-16 | 0.00508 |
+| **重构后** | 1.01 | **0.1500** | 47.8495 ≤ 50.2500 | 2.22e-16 | 0.00506 |
+
+差异只在末位，且来自探针用**忙等**推进真实时间（类内部时钟是 `System.nanoTime()`，
+**没有**可注入时钟 ⇒ 不能用 `sleep`：Windows 粒度约 15ms，而一帧才 5ms）。
+**每帧位移 0.1500 完全一致** = 速度没被拉慢/加快，这是"行为没变"最硬的一条。
+
+探针的 5 条判据：① 平滑（抖动 ≤ 1.5 且 跳变帧 = 0）② 每帧位移量级（期待 速度/帧率）
+③ 不外推 ④ 姿态恒为单位四元数 ⑤ 转角步长有界（最短弧没坏）。
+
+**唯一有意保留的语义差异**：原来位置与姿态被绑成**同一拍**（两条环共用一个时间戳），
+现在各一条环、各按自己的节奏插值 —— 姿态更新稀疏时不会再被位置拖着走。语义上更准。
+
+收口后 `TimedSamples` 是全项目**唯一**一份"带时间戳的插值"实现，使用方：
+`PhysgunClientState`（3 条环）、`ClientPhysicsWorld.ClientBody`（4 条环）、`CelestialBody`（2 条环）。
 
 1. `.\gradlew compileJava --console=plain` 必须 `BUILD SUCCESSFUL`。
-2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **19/19 步、exit 0**。
+2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **20/20 步、exit 0**。
 3. **任何**"按拍同步、按帧渲染"的新量都必须走 `TimedSamples`，不许再写
    `lerp(prev, cur, partialTick)` —— 契约钉住了 `PhysgunClientState` 里那一处；
    新增同类渲染量时请照抄它的接法（谁写数据谁 `push`，读的时候 `evaluate`）。

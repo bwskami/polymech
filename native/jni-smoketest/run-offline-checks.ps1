@@ -2,7 +2,7 @@
 #
 #   .\native\jni-smoketest\run-offline-checks.ps1
 #
-# 覆盖十九块**只能离线跑才能确定**的东西：
+# 覆盖二十块**只能离线跑才能确定**的东西：
 #   1) OrbitAcceptanceTest    —— 用生成出来的 object/*.json 反解轨道六要素，与 JPL 对表
 #   2) FrameProbe             —— 姿态帧的 **JOML 语义**（9 参构造是列主序吗？
 #                                setFromNormalized 的方向？invert() 之后到底对不对？）
@@ -29,6 +29,11 @@
 #                                  任意相位旧 lerp 必须抽(3.93) —— 没有 B，"修好了"可能只是量具坏了
 #                                ★ C 同样的任意相位改走 TimedSamples ⇒ 1.00；D 丢包必须夹住不外推
 #                                （2026-10-02；调的是生产代码本体，不是复刻公式）
+#  16) CelestialSmoothProbe  —— 天体渲染插值的**行为特征化**（重构前的安全带）：
+#                                ★ 它存在是为了让"把 CelestialBody 改为委托 TimedSamples"这一步可判 ——
+#                                  重构前先把 抖动/每帧位移/不外推/单位四元数/转角步长 钉住，重构后必须不变
+#                                ★ 不复刻公式：直接 new 真类、按仿真节奏喂、逐帧读 getSmoothPos/Rotate
+#                                （类内时钟是 System.nanoTime ⇒ 只能忙等，不能用 sleep）
 #  12) PhysgunRotationProbe  —— 牵引枪**角伺服**：最短弧 / PD 律 / 收敛 / ★ 惯量补偿
 #                                （2026-10-01「抓住时的旋转控制」；惯量补偿是探针逼出来的结论）
 #
@@ -60,20 +65,20 @@ Write-Host ("joml = " + $joml.FullName)
 
 $failed = 0
 
-Write-Host "`n===== 1/19 轨道验收（object/*.json 对 JPL）=====" -ForegroundColor Cyan
+Write-Host "`n===== 1/20 轨道验收（object/*.json 对 JPL）=====" -ForegroundColor Cyan
 & $java '-Dstdout.encoding=UTF-8' "$root\native\jni-smoketest\OrbitAcceptanceTest.java"
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '轨道验收失败' -ForegroundColor Red }
 
-Write-Host "`n===== 2/19 姿态帧 JOML 语义（FrameProbe）=====" -ForegroundColor Cyan
+Write-Host "`n===== 2/20 姿态帧 JOML 语义（FrameProbe）=====" -ForegroundColor Cyan
 & $java '-Dstdout.encoding=UTF-8' -cp $joml.FullName "$root\native\jni-smoketest\FrameProbe.java" |
     Select-String -Pattern '===|\[FAIL\]|全部通过|有失败' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '姿态帧自检失败' -ForegroundColor Red }
 
-Write-Host "`n===== 3/19 渲染插值对拍（InterpProbe：旧两拍 lerp vs 新时间戳插值）=====" -ForegroundColor Cyan
+Write-Host "`n===== 3/20 渲染插值对拍（InterpProbe：旧两拍 lerp vs 新时间戳插值）=====" -ForegroundColor Cyan
 & $java '-Dstdout.encoding=UTF-8' "$root\native\jni-smoketest\InterpProbe.java"
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '插值对拍失败' -ForegroundColor Red }
 
-Write-Host "`n===== 4/19 地表⇄太空映射 + 迁移判据（SpaceMappingProbe）=====" -ForegroundColor Cyan
+Write-Host "`n===== 4/20 地表⇄太空映射 + 迁移判据（SpaceMappingProbe）=====" -ForegroundColor Cyan
 # 需要我们的类与 NeoForge 合并 jar：classpath 用 gradle 缓存全量 jar 拼成 @argfile（见 §31.29）
 $merged = "$root\build\moddev\artifacts\neoforge-21.1.228-merged.jar"
 $classes = "$root\build\classes\java\main"
@@ -96,20 +101,20 @@ if (-not (Test-Path $classes)) {
     if ($probeRc -ne 0) { $failed++; Write-Host '映射/迁移探针失败' -ForegroundColor Red }
 }
 
-Write-Host "`n===== 5/19 距离压缩（RenderCompressionTest：角直径不变 + UBO 该不该全压）=====" -ForegroundColor Cyan
+Write-Host "`n===== 5/20 距离压缩（RenderCompressionTest：角直径不变 + UBO 该不该全压）=====" -ForegroundColor Cyan
 & $java '-Dstdout.encoding=UTF-8' -cp "$root\build\classes\java\main" "$root\native\jni-smoketest\RenderCompressionTest.java" |
     Select-String -Pattern '\[ OK \]|\[FAIL\]|全部通过|失败|全压|半压|zoom=' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '距离压缩自检失败' -ForegroundColor Red }
 
-Write-Host "`n===== 6/19 探针日志判读器自测（既会 PASS 也会 FAIL = 不是死判据）=====" -ForegroundColor Cyan
+Write-Host "`n===== 6/20 探针日志判读器自测（既会 PASS 也会 FAIL = 不是死判据）=====" -ForegroundColor Cyan
 & "$PSScriptRoot\check-probe-log.ps1" -SelfTest
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '判读器自测失败' -ForegroundColor Red }
 
-Write-Host "`n===== 7/19 产物自检（源码改动真的进了 build\classes 吗）=====" -ForegroundColor Cyan
+Write-Host "`n===== 7/20 产物自检（源码改动真的进了 build\classes 吗）=====" -ForegroundColor Cyan
 & "$PSScriptRoot\check-artifact.ps1"
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '产物自检失败' -ForegroundColor Red }
 
-Write-Host "`n===== 8/19 推进器离线标定（ThrustCalibrationProbe：能飞/能停要多大推力）=====" -ForegroundColor Cyan
+Write-Host "`n===== 8/20 推进器离线标定（ThrustCalibrationProbe：能飞/能停要多大推力）=====" -ForegroundColor Cyan
 $dllDir = "$root\src\main\resources\natives\windows_amd64"
 if (-not (Test-Path $dllDir)) {
     Write-Host '缺原生库目录，跳过（先跑 gradlew copyNativePhysics）' -ForegroundColor Yellow
@@ -127,7 +132,7 @@ if (-not (Test-Path $dllDir)) {
     if ($thrustRc -ne 0) { $failed++; Write-Host '推进器标定失败' -ForegroundColor Red }
 }
 
-Write-Host "`n===== 9/19 牵引枪拖拽数学（PhysgunDragProbe：收敛 / 限幅 / 载荷无关）=====" -ForegroundColor Cyan
+Write-Host "`n===== 9/20 牵引枪拖拽数学（PhysgunDragProbe：收敛 / 限幅 / 载荷无关）=====" -ForegroundColor Cyan
 if (-not (Test-Path $dllDir)) {
     Write-Host '缺原生库目录，跳过' -ForegroundColor Yellow
 } else {
@@ -141,12 +146,12 @@ if (-not (Test-Path $dllDir)) {
     if ($dragRc -ne 0) { $failed++; Write-Host '牵引枪拖拽验收失败' -ForegroundColor Red }
 }
 
-Write-Host "`n===== 10/19 太空建造规则（SpaceBuildRulesProbe：世界→局部 / 地皮边界 / 决策表）=====" -ForegroundColor Cyan
+Write-Host "`n===== 10/20 太空建造规则（SpaceBuildRulesProbe：世界→局部 / 地皮边界 / 决策表）=====" -ForegroundColor Cyan
 & $java '-Dstdout.encoding=UTF-8' -cp "$classes;$($joml.FullName)" "$root\native\jni-smoketest\SpaceBuildRulesProbe.java" |
     Select-String -Pattern '\[ OK \]|\[FAIL\]|规则判据 PASS|有 [0-9]+ 项' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '太空建造规则判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 11/19 牵引枪光束几何（PhysgunBeamShapeProbe：曲线 / 受力弯曲 / 线宽 / 光斑 / 悬停面 / 淡出）=====" -ForegroundColor Cyan
+Write-Host "`n===== 11/20 牵引枪光束几何（PhysgunBeamShapeProbe：曲线 / 受力弯曲 / 线宽 / 光斑 / 悬停面 / 淡出）=====" -ForegroundColor Cyan
 # 纯数学类，连 joml 都不需要：只靠 build\classes\java\main。
 # 它钉住的是"看不像"背后那一层能离线判断的东西：曲线段数、贝塞尔两端咬合与单调推进、
 # 受力弯曲的软弹簧（收敛/稳定/落后量有上限）、相机朝向正交基（相机落在光束轴上必须不出 NaN）、
@@ -155,7 +160,7 @@ Write-Host "`n===== 11/19 牵引枪光束几何（PhysgunBeamShapeProbe：曲线
     Select-String -Pattern '\[ OK \]|\[FAIL\]|光束几何判据 PASS|有 [0-9]+ 项' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '光束几何判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 12/19 服务端体求交（BodyRaycastProbe：准星指着哪个物理体 / 坏数据跳过）=====" -ForegroundColor Cyan
+Write-Host "`n===== 12/20 服务端体求交（BodyRaycastProbe：准星指着哪个物理体 / 坏数据跳过）=====" -ForegroundColor Cyan
 # 2026-09-29：用户报"点一下右键只有一瞬间的射线、无法长按" —— 根因是牵引枪在服务端查了
 # 另一张表（MPS 的 PhysicalWorld，那批体的位姿是 NaN），而玩家看得见的体在 PhysicsBodyTracker。
 # 这一步钉住新实现（与客户端同一套 RayBox 数学），特别是"位姿 NaN 的体必须跳过"。
@@ -163,7 +168,7 @@ Write-Host "`n===== 12/19 服务端体求交（BodyRaycastProbe：准星指着�
     Select-String -Pattern '\[ OK \]|\[FAIL\]|体求交判据 PASS|有 [0-9]+ 项' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '服务端体求交判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 13/19 深度遮挡判据（DepthOcclusionProbe：两套投影能不能比大小 + 反向 Z / 对表）=====" -ForegroundColor Cyan
+Write-Host "`n===== 13/20 深度遮挡判据（DepthOcclusionProbe：两套投影能不能比大小 + 反向 Z / 对表）=====" -ForegroundColor Cyan
 # 2026-09-30：用户第二次报"远处的星球把近处的物理体挡住"。根因是主深度里混了**两套投影**
 # 的深度值（星球走 spaceProj，世界走 MC 主投影），任何"比大小"的遮挡判据都是假的 ——
 # 临界距离只有 2.80 格。这一步把"旧判据必失败、新判据必成立"钉死，顺带记录
@@ -173,7 +178,7 @@ Write-Host "`n===== 13/19 深度遮挡判据（DepthOcclusionProbe：两套投�
     Select-String -Pattern '\[PASS\]|FAIL|通过，失败|PROBE DONE' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '深度遮挡判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 14/19 映射往返可逆性（MappingRoundTripProbe：pos_shadow_rotate 的矩阵对）=====" -ForegroundColor Cyan
+Write-Host "`n===== 14/20 映射往返可逆性（MappingRoundTripProbe：pos_shadow_rotate 的矩阵对）=====" -ForegroundColor Cyan
 # 2026-09-30 把参考基准切到 space 0.3.0 时发现的**潜伏**缺陷：
 # 我们照 0.1.3 抄的"正向对称阵 [[c,s],[s,c]] + 反向旋转阵 [[c,-s],[s,c]]"只在 rotate=0 时互逆
 # （对称阵的逆是 1/(c²-s²)·[[c,-s],[-s,c]]，不是旋转阵）；0.3.0 已把正向改成真旋转、反向改成严格逆。
@@ -184,7 +189,7 @@ Write-Host "`n===== 14/19 映射往返可逆性（MappingRoundTripProbe：pos_sh
     Select-String -Pattern '\[PASS\]|\[FAIL\]|通过，失败' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '映射往返可逆性判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 15/19 子块粒度结构不变量（SubChunkGranularityProbe：64³→16³）=====" -ForegroundColor Cyan
+Write-Host "`n===== 15/20 子块粒度结构不变量（SubChunkGranularityProbe：64³→16³）=====" -ForegroundColor Cyan
 # 2026-09-30 按 space 0.3.0 把物理体子块粒度由 64³ 改成 16³（对齐原版 section 粒度）。
 # 这类"全局耦合常量"编译器完全帮不上忙：每个 64 都是合法 int，全改错了照样 BUILD SUCCESSFUL，
 # 只是方块静默出现在错误的位置。所以这里钉三条**结构性**不变量：
@@ -197,7 +202,7 @@ Write-Host "`n===== 15/19 子块粒度结构不变量（SubChunkGranularityProbe
     Select-String -Pattern '\[PASS\]|\[FAIL\]|通过，失败' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '子块粒度结构不变量判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 16/19 牵引枪角伺服（PhysgunRotationProbe：最短弧 / PD 律 / 收敛 / 惯量补偿）=====" -ForegroundColor Cyan
+Write-Host "`n===== 16/20 牵引枪角伺服（PhysgunRotationProbe：最短弧 / PD 律 / 收敛 / 惯量补偿）=====" -ForegroundColor Cyan
 # 2026-10-01 补"抓住时的旋转控制"（对照 Simulated-Project 的 physics_staff）：
 # 参考在 PhysicsStaffServerHandler.physicsTick 里每个物理 tick 给约束的 6 个轴设马达
 # （角轴目标 0 + 刚度/阻尼 = PD 伺服），**不是** setPose/setRotation。我们线性那半早就是
@@ -211,7 +216,7 @@ Write-Host "`n===== 16/19 牵引枪角伺服（PhysgunRotationProbe：最短弧 
     Select-String -Pattern '\[PASS\]|\[FAIL\]|通过，失败' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '牵引枪角伺服判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 17/19 体局部格⇄世界格映射（BodyLocalMappingProbe：含刚体旋转 / 量化极限）=====" -ForegroundColor Cyan
+Write-Host "`n===== 17/20 体局部格⇄世界格映射（BodyLocalMappingProbe：含刚体旋转 / 量化极限）=====" -ForegroundColor Cyan
 # 2026-10-01 修牵引枪遗留缺口 (2)：PhysicsBodyTracker 原来把局部格换算世界格用的是
 #   world = tracked.origin + (dx,dy,dz)      // 轴对齐，不含旋转
 # 而 origin 是**建体时**区域的最小角、withTransform 从不更新它。两个后果：
@@ -232,7 +237,7 @@ Write-Host "`n===== 17/19 体局部格⇄世界格映射（BodyLocalMappingProbe
     Select-String -Pattern '\[PASS\]|\[FAIL\]|通过，失败' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '体局部格映射判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 18/19 原生固定约束（ConstraintProbe：牵引枪的「钉住」，含对照组）=====" -ForegroundColor Cyan
+Write-Host "`n===== 18/20 原生固定约束（ConstraintProbe：牵引枪的「钉住」，含对照组）=====" -ForegroundColor Cyan
 # 2026-10-02 操作方式对齐 (3/3)：左键 = LOCK。参考的 LOCK 是
 #   pipeline.addConstraint(null, subLevel, FixedConstraintConfiguration(...))
 # —— 关节一端写 null = 锚在世界。但 **Rapier 0.34 没有这个隐式地面**：
@@ -270,7 +275,7 @@ $ErrorActionPreference = $prevEap
 if ($probeJavacRc -ne 0) { $failed++; Write-Host 'ConstraintProbe 编译失败' -ForegroundColor Red }
 if ($probeRc -ne 0) { $failed++; Write-Host '固定约束判据失败' -ForegroundColor Red }
 
-Write-Host "`n===== 19/19 插值丝滑度（InterpSmoothnessProbe：A/B 对照组 + C/D）=====" -ForegroundColor Cyan
+Write-Host "`n===== 19/20 插值丝滑度（InterpSmoothnessProbe：A/B 对照组 + C/D）=====" -ForegroundColor Cyan
 # 2026-10-02：用户反复报"牵引枪的线抽抽、牵引的地方的框也抽抽"，并明确要求
 # "我们不能弄个通用方法来解决这个问题吗" —— 所以先定位到 bug **类**：
 #   lerp(prev, cur, partialTick) 隐含要求"prev ← cur 的交换恰好发生在 tick 边界"。
@@ -301,6 +306,36 @@ $smoothRc = $LASTEXITCODE
 $ErrorActionPreference = $prevEap2
 if ($smoothJavacRc -ne 0) { $failed++; Write-Host 'InterpSmoothnessProbe 编译失败' -ForegroundColor Red }
 if ($smoothRc -ne 0) { $failed++; Write-Host '插值丝滑度判据失败' -ForegroundColor Red }
+
+Write-Host "`n===== 20/20 天体渲染插值特征化（CelestialSmoothProbe：重构前先钉住行为）=====" -ForegroundColor Cyan
+# 2026-10-02：把"带时间戳的快照环 + 渲染延迟"抽成通用件 TimedSamples 之后，
+# CelestialBody 里那份**私有实现**（histT/histP/histR + locate）要改为委托
+# —— 本项目硬规矩：同一概念不许两份实现。但那个类是**已经验收过的天空那条线**，
+# 而此前**没有任何离线探针覆盖它**：改完只能靠人去游戏里看天空有没有变卡，
+# 那正是用户明确说过不想反复做的事。所以先写本探针把当前行为钉住，再重构。
+#
+# 它**不复刻公式**：直接 new 出真的 CelestialBody、按仿真节奏喂 moveToDirect/rotateToDirect、
+# 再逐帧读 getSmoothPos/getSmoothRotate，用生产代码的 FrameJitterMeter 判平滑度。
+# ⚠️ 类内部的时钟是 System.nanoTime()（**没有**可注入时钟）⇒ 只能**忙等**按 200fps 推进真实时间；
+#    不能用 Thread.sleep —— Windows 上 sleep 粒度约 15ms，而一帧才 5ms，节奏会糊掉。
+#    所以本步骤需要**全量 classpath**（本类要加载 MC 的 CompoundTag/FriendlyByteBuf 等），
+#    沿用第 4 步拼好的 $cpJars。
+#
+# 五条判据：① 平滑（抖动 ≤ 1.5 且 跳变帧 = 0）② 每帧位移量级（期待 速度/帧率 = 0.1500）
+#          ③ 不外推（输出永不越过已推样本）④ 姿态恒为单位四元数 ⑤ 转角步长有界（最短弧没坏）
+# 重构前：1.00 · 0.1500 · 47.8499 · 4.44e-16 · 0.00508
+# 重构后：1.01 · 0.1500 · 47.8495 · 2.22e-16 · 0.00506   ← 差异是忙等的实时调度噪声，不是行为变化
+$celestialArgfile = "$root\build\probe-celestial.txt"
+[System.IO.File]::WriteAllLines($celestialArgfile,
+        @('-Dstdout.encoding=UTF-8', '-cp', ($cpJars -join ';'),
+          "$root\native\jni-smoketest\CelestialSmoothProbe.java"), (New-Object System.Text.UTF8Encoding($false)))
+$prevEap3 = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+& $java "@$celestialArgfile" |
+    Select-String -Pattern '\[PASS\]|\[FAIL\]|通过，失败' | ForEach-Object { $_.Line }
+$celestialRc = $LASTEXITCODE
+$ErrorActionPreference = $prevEap3
+if ($celestialRc -ne 0) { $failed++; Write-Host '天体插值特征化判据失败' -ForegroundColor Red }
 
 Write-Host ""
 if ($failed -eq 0) {

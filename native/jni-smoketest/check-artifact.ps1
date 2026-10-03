@@ -437,7 +437,16 @@ $contracts = @(
        why = '★ 服务端同步下来的权威位姿同样是拍同步量 —— 抓取框/悬停框用的镜子体位姿就在这里' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
        must = 'if (ring.evaluateQuat(renderRotScratch)) {';
-       why = '★ 姿态必须 slerp（不能分量线性插值）：分量插值在四元数上是错的，转过符号边界时会绕一大圈' }
+       why = '★ 姿态必须 slerp（不能分量线性插值）：分量插值在四元数上是错的，转过符号边界时会绕一大圈' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
+       must = 'this.posSamples.push(this.pos.x, this.pos.y, this.pos.z);';
+       why = '★ 天体也必须走**同一个**通用件（把机制抽出来的意义就在这）——不许再有一份私有实现' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
+       must = 'if (this.rotSamples.evaluateQuat(this.smoothRot)) {';
+       why = '★ 天体姿态也要走通用件的时间戳 slerp（原来是自己那份 histR + locate）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
+       must = 'return this.posSamples.sampleIntervalSeconds();';
+       why = '★ 诊断读数（sampleIntervalSeconds/sampleHistorySeconds，SpaceRenderer 用它打"太空顺滑"）也必须委托，否则收口只收了一半' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -458,7 +467,13 @@ $absentContracts = @(
        why = '★ 同上一一：松手现在由 STOP_DRAG 动作驱动，不再靠原版松开使用' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        mustNot = 'public int getUseDuration(';
-       why = '★ 不再需要"使用时长"：原版不会进入使用状态（留着会让后来者以为右键仍是长按）' }
+       why = '★ 不再需要"使用时长"：原版不会进入使用状态（留着会让后来者以为右键仍是长按）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
+       mustNot = 'private double locate(double target';
+       why = '★ 天体那份**私有的**时间戳插值实现不得回归（已改为委托 TimedSamples）——两份实现必然漂移，本项目硬规矩' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
+       mustNot = 'private final Vector3d[] histP';
+       why = '★ 同上：私有快照环（histT/histP/histR）不得回归' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

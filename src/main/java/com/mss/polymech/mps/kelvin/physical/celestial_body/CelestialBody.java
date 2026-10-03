@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mss.polymech.mps.kelvin.physical.CelestialBodyForce;
 import com.mss.polymech.mps.kelvin.physical.space_world.SpaceWorld;
+import com.mss.polymech.util.TimedSamples;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.TagParser;
 import net.minecraft.network.FriendlyByteBuf;
@@ -118,100 +119,47 @@ public class CelestialBody {
     private static final int HIST_CAP = 64;
     /** 渲染延迟（秒）：取 2 拍，保证渲染时刻永远被两拍包住。 */
     private static final double INTERP_DELAY_SECONDS = 0.10;
-    /** 同一批（位置+姿态）去重窗口（秒）：moveToDirect/rotateToDirect 是两次调用，算一拍。 */
-    private static final double SAME_SAMPLE_EPS_SECONDS = 0.004;
 
-    /** 快照时间戳（秒，System.nanoTime 基准）。 */
-    private final double[] histT = new double[HIST_CAP];
-    /** 快照位置。 */
-    private final Vector3d[] histP = new Vector3d[HIST_CAP];
-    /** 快照姿态。 */
-    private final Quaterniond[] histR = new Quaterniond[HIST_CAP];
-    /** 已写入的快照条数（到 HIST_CAP 后恒为 HIST_CAP）。 */
-    private int histCount = 0;
-    /** 下一条写入的下标（环形）。 */
-    private int histNext = 0;
-
-    /** 单调时钟（秒）。 */
-    private static double nowSeconds() {
-        return System.nanoTime() * 1.0e-9;
-    }
+    /**
+     * 位置 / 姿态的<b>带时间戳快照环</b> —— 用通用件 {@link TimedSamples}。
+     *
+     * <p><b>2026-10-02：这套机制原来就写在本类里</b>（{@code histT/histP/histR} + {@code locate}）。
+     * 牵引枪那边爆出"线抽抽、框也抽抽"之后把它抽成了通用件，本类随之改为<b>委托</b>，
+     * 消掉"同一概念两份实现"（本项目硬规矩）。上面那段长注释讲的机理一条没变 ——
+     * 变的只是实现从"本类私有"改成"共用一份"。</p>
+     *
+     * <p>去重窗口（原来叫 {@code SAME_SAMPLE_EPS_SECONDS}，4ms）现由 {@link TimedSamples} 内部
+     * 按同一个值处理。差别只有一处：原来位置与姿态被<b>绑成同一拍</b>，现在各一条环、
+     * 各按自己的节奏插值 —— 姿态更新稀疏时不会再被位置拖着走，语义上更准。</p>
+     *
+     * <p>安全网：{@code native/jni-smoketest/CelestialSmoothProbe}（第 20 步）在<b>重构前</b>就把
+     * "抖动 1.00 / 每帧位移 0.1500 / 不外推 / 单位四元数 / 转角步长 0.00508"钉住了，
+     * 重构后必须一模一样。</p>
+     */
+    private final TimedSamples posSamples = new TimedSamples(3, HIST_CAP, INTERP_DELAY_SECONDS);
+    private final TimedSamples rotSamples = new TimedSamples(4, HIST_CAP, INTERP_DELAY_SECONDS);
+    /** {@link #getSmoothPos}/{@link #getSmoothRotate} 的取值暂存（渲染单线程）。 */
+    private final double[] smoothPos = new double[3];
+    private final double[] smoothRot = new double[4];
 
     /**
      * 记一拍快照。位置与姿态是两次调用（{@link #moveToDirect}/{@link #rotateToDirect}），
-     * 落在 {@link #SAME_SAMPLE_EPS_SECONDS} 窗口内视为**同一拍**（就地更新，不新增）。
+     * 各自落进自己的环；同一拍内的重复调用由 {@link TimedSamples} 的 4ms 就地更新处理。
      */
     private void pushSample() {
-        double t = nowSeconds();
-        if (this.histCount > 0) {
-            int last = (this.histNext - 1 + HIST_CAP) % HIST_CAP;
-            if (t - this.histT[last] < SAME_SAMPLE_EPS_SECONDS) {
-                this.histP[last].set(this.pos);
-                this.histR[last].set(this.rotate);
-                return;
-            }
-        }
-        int idx = this.histNext;
-        if (this.histP[idx] == null) {
-            this.histP[idx] = new Vector3d();
-            this.histR[idx] = new Quaterniond();
-        }
-        this.histT[idx] = t;
-        this.histP[idx].set(this.pos);
-        this.histR[idx].set(this.rotate);
-        this.histNext = (idx + 1) % HIST_CAP;
-        if (this.histCount < HIST_CAP) {
-            this.histCount++;
-        }
-    }
-
-    /**
-     * 在快照环里找"包住 {@code target} 时刻"的相邻两拍，返回插值权重
-     * （{@code outA}/{@code outB} 填两拍的下标，返回值 ∈ [0,1]）。
-     * 记不下（样本不足 / target 在窗口外）时返回 {@code NaN}。
-     */
-    private double locate(double target, int[] outA, int[] outB) {
-        if (this.histCount < 2) {
-            return Double.NaN;
-        }
-        int oldest = (this.histNext - this.histCount + HIST_CAP) % HIST_CAP;
-        int newest = (this.histNext - 1 + HIST_CAP) % HIST_CAP;
-        // 比最旧还旧 ⇒ 夹到最旧；比最新还新 ⇒ 夹到最新（"保持上一拍"，而不是外推）
-        if (target <= this.histT[oldest]) {
-            outA[0] = oldest;
-            outB[0] = oldest;
-            return 0.0;
-        }
-        if (target >= this.histT[newest]) {
-            outA[0] = newest;
-            outB[0] = newest;
-            return 0.0;
-        }
-        for (int k = 0; k < this.histCount - 1; k++) {
-            int a = (oldest + k) % HIST_CAP;
-            int b = (oldest + k + 1) % HIST_CAP;
-            if (target >= this.histT[a] && target <= this.histT[b]) {
-                double span = this.histT[b] - this.histT[a];
-                outA[0] = a;
-                outB[0] = b;
-                return span > 1.0e-9 ? (target - this.histT[a]) / span : 0.0;
-            }
-        }
-        return Double.NaN;
+        this.posSamples.push(this.pos.x, this.pos.y, this.pos.z);
+        this.rotSamples.push(this.rotate.x, this.rotate.y, this.rotate.z, this.rotate.w);
     }
 
     /**
      * 渲染插值：<b>上一拍 → 这一拍</b>。
      *
-     * <p>有足够快照时按<b>时间戳</b>插值（渲染时刻 = 现在 − {@link #INTERP_DELAY_SECONDS}），
+     * <p>走通用件的时间戳口径（渲染时刻 = 现在 − {@link #INTERP_DELAY_SECONDS}），
      * 因此交换落在哪个相位都不影响连续性；快照不足时退回 space 的原始两拍 lerp。</p>
      */
     public Vector3d getSmoothPos(float partialTick) {
-        int[] a = new int[1];
-        int[] b = new int[1];
-        double w = locate(nowSeconds() - INTERP_DELAY_SECONDS, a, b);
-        if (!Double.isNaN(w)) {
-            return new Vector3d(this.histP[a[0]]).lerp(this.histP[b[0]], w);
+        if (this.posSamples.evaluate(this.smoothPos)) {
+            return new Vector3d(this.smoothPos[0], this.smoothPos[1], this.smoothPos[2]);
         }
         return new Vector3d(this.old_pos).lerp(this.pos, partialTick);
     }
@@ -222,11 +170,9 @@ public class CelestialBody {
 
     /** 渲染插值：姿态用 slerp（四元数不能线性插值）；时间戳口径与 {@link #getSmoothPos} 一致。 */
     public Quaterniond getSmoothRotate(float partialTick) {
-        int[] a = new int[1];
-        int[] b = new int[1];
-        double w = locate(nowSeconds() - INTERP_DELAY_SECONDS, a, b);
-        if (!Double.isNaN(w)) {
-            return new Quaterniond(this.histR[a[0]]).slerp(this.histR[b[0]], w);
+        if (this.rotSamples.evaluateQuat(this.smoothRot)) {
+            return new Quaterniond(this.smoothRot[0], this.smoothRot[1],
+                    this.smoothRot[2], this.smoothRot[3]);
         }
         return new Quaterniond(this.old_rotate).slerp(this.rotate, partialTick);
     }
@@ -245,22 +191,12 @@ public class CelestialBody {
 
     /** 诊断用：快照环里相邻两拍的时间间隔（秒）；样本不足返回 {@code NaN}。 */
     public double sampleIntervalSeconds() {
-        if (this.histCount < 2) {
-            return Double.NaN;
-        }
-        int newest = (this.histNext - 1 + HIST_CAP) % HIST_CAP;
-        int prev = (this.histNext - 2 + HIST_CAP) % HIST_CAP;
-        return this.histT[newest] - this.histT[prev];
+        return this.posSamples.sampleIntervalSeconds();
     }
 
     /** 诊断用：快照环里的时间跨度（秒）；样本不足返回 {@code NaN}。 */
     public double sampleHistorySeconds() {
-        if (this.histCount < 2) {
-            return Double.NaN;
-        }
-        int oldest = (this.histNext - this.histCount + HIST_CAP) % HIST_CAP;
-        int newest = (this.histNext - 1 + HIST_CAP) % HIST_CAP;
-        return this.histT[newest] - this.histT[oldest];
+        return this.posSamples.historySeconds();
     }
 
     // ==================== 位姿（写：排队 or 直改） ====================
