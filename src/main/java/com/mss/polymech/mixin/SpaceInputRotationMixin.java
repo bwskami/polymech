@@ -92,13 +92,27 @@ public abstract class SpaceInputRotationMixin {
     private void polymech$rotateInputBySpaceBasis(float amount, Vec3 relative, CallbackInfo ci) {
         Entity self = (Entity) (Object) this;
         if (!(self instanceof Player)) return;
-        if (!self.level().dimension().equals(PlanetDimensions.SPACE)) return;
-        // 创造/旁观飞行走原版：W 沿水平朝向、Space/Shift 沿世界竖直 —— 建造测试才顺手。
-        // （自由视角本身不受影响，只是飞行时移动方向按原版算。）
-        if (((Player) self).getAbilities().flying || ((Player) self).isSpectator()) return;
-
         SpacePlayerData data = SpacePlayerData.get(self);
-        if (!data.isInitialized()) return;
+        if (!self.level().dimension().equals(PlanetDimensions.SPACE) || !data.isInitialized()) {
+            // 不在太空 / 还没初始化：走原版。这时原版的 yaw-only 基底是**对的** ——
+            // 因为相机那边也不滚（SpaceCameraMixin 同样只在太空生效）。
+            data.markMovementBasis(false);
+            return;
+        }
+
+        // ★ 2026-10-03：删掉了原来这里的一行
+        //       if (getAbilities().flying || isSpectator()) return;   // 走原版
+        //   —— 那正是"滚转 -180 时左右键方向是反的"的根因：
+        //   相机那侧**不看**是不是飞行、照滚；而移动走回原版（`getInputVector` 只绕 yaw，不含 roll）。
+        //   于是滚到 ±180 时：画面倒了，A/D 却按"没倒"的基座走 ⇒ 按 A 往屏幕右。
+        //   为什么查了三次才找到：离线探针只驱动 **6DOF 那条路**、
+        //   运行时自检只比对 **6DOF 基底 vs 相机** —— 两边都自洽、都 PASS，
+        //   因为**两条判据都没问过"移动这一 tick 到底走了哪条路"**。
+        //   所以现在把它记进数据（markMovementBasis），并在 [姿态自检] 里报出来。
+        //
+        //   原注释说的"建造测试才顺手"只在**水平飞行**时成立，而那时 6DOF 基底与 yaw-only 恰好重合
+        //   （roll=0、pitch=0）⇒ 顺手没有被牺牲，牺牲的只是"滚转/俯仰后仍然按没转的基座走"这个错误行为。
+        data.markMovementBasis(true);
 
         // ── 照抄原版 getInputVector 的"归一化 + 缩放"部分，只换掉旋转 ──
         //   垂直分量一律沿用原版传进来的 relative.y，不做任何自造输入。

@@ -193,10 +193,16 @@ public abstract class SpaceCameraMixin {
         org.joml.Vector3f camUp = new org.joml.Vector3f(cam.getUpVector());
         double dotA = aDir.dot(camLeft);
         double dotU = uDir.dot(camUp);
-        boolean ok = dotA > 0.99 && dotU > 0.99;
+        // ★ 还必须问一句"移动这一 tick 到底走了哪条路"：
+        //   相机与 6DOF 基底一致**并不代表按键就用了它** —— 2026-10-03 那个"滚转后左右反"
+        //   就是栽在这里：创造飞行提前返回、移动走原版 yaw-only，而相机照滚。
+        //   上面两个 dot 当时**双双 PASS**，因为它们只比对"6DOF 基底 vs 相机"。
+        boolean sixDof = data.movementUsedViewFrame();
+        boolean ok = dotA > 0.99 && dotU > 0.99 && sixDof;
         String line = String.format(java.util.Locale.ROOT,
-                "[姿态自检] dot(按A方向, 相机左)=%+.3f dot(屏幕上, 相机上)=%+.3f ⇒ %s",
-                dotA, dotU, ok ? "PASS" : "★FAIL（左右/上下会反）");
+                "[姿态自检] dot(按A方向, 相机左)=%+.3f dot(屏幕上, 相机上)=%+.3f 移动基底=%s ⇒ %s",
+                dotA, dotU, sixDof ? "6DOF" : "★原版(yaw-only，与滚转的相机不一致)",
+                ok ? "PASS" : "★FAIL（左右/上下会反）");
         com.mss.polymech.Polymech.LOGGER.info(line);
         if (!ok) {
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();

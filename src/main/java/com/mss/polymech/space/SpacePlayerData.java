@@ -755,4 +755,28 @@ public final class SpacePlayerData {
         }
         return reference + diff;
     }
+
+    // ==================== 诊断：移动这一 tick 走了哪条基底 ====================
+
+    /**
+     * 本 tick 的移动是否用了 6DOF 参照物（{@link #viewFrame}）。
+     *
+     * <p><b>为什么这需要被记录、被报出来</b>：2026-10-03 用户报"滚转 -180 时左右键反向"，
+     * 查了三次都没找到 —— 因为离线探针只驱动 6DOF 那条路、运行时自检只比对 6DOF 基底与相机，
+     * <b>两条判据都没问过"移动这一 tick 到底走了哪条路"</b>。而 bug 恰恰在那条岔路上：
+     * 当时创造/旁观飞行会提前返回、走原版 {@code getInputVector}（只绕 yaw、不含 roll），
+     * 而相机照滚 ⇒ 画面倒了、A/D 按没倒的基座走。</p>
+     *
+     * <p>把它变成**状态**而不是"读代码才知道"，是为了让这类"同一概念两条路"的错误
+     * 在自检里当场报出来，而不是再靠人推。</p>
+     */
+    private boolean movementUsedViewFrame;
+
+    public void markMovementBasis(boolean sixDof) {
+        this.movementUsedViewFrame = sixDof;
+    }
+
+    public boolean movementUsedViewFrame() {
+        return this.movementUsedViewFrame;
+    }
 }

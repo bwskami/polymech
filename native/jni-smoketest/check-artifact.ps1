@@ -491,7 +491,10 @@ $absentContracts = @(
        why = '★★ 那个注入点（ordinal=0 的 INVOKE）不得回归：它落在 Camera.setup 的**第一次** setRotation 之后，会被后面两次覆盖，其中最后那次把 roll 置 0 —— 相机不滚而输入基底滚，滚到 ±180 就是左右反' },
     @{ file = 'src\main\java\com\mss\polymech\network\PhysgunBeamPacket.java';
        mustNot = 'double endX, double endY, double endZ,';
-       why = '★ 世界端点不得回归：那是**派生量**，发它必然把物体 100Hz 的接触抖动按 20Hz 采样下来（混叠 = 玩家一动就抽）' }
+       why = '★ 世界端点不得回归：那是**派生量**，发它必然把物体 100Hz 的接触抖动按 20Hz 采样下来（混叠 = 玩家一动就抽）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceInputRotationMixin.java';
+       mustNot = 'if (((Player) self).getAbilities().flying || ((Player) self).isSpectator()) return;';
+       why = '★★ 这条"创造/旁观飞行走原版"的提前返回不得回归：它让移动走回原版 yaw-only 基底（**不含 roll**），而相机那侧照滚 ⇒ 滚到 ±180 时画面倒了、A/D 却按没倒的基座走 ⇒ 按 A 往屏幕右（用户 2026-10-03 报"滚转后左右键反向"）。当时离线探针与运行时自检**双双 PASS**，因为两条判据都没问"移动这一 tick 到底走了哪条路"' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan
