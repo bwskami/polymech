@@ -344,23 +344,33 @@ if ($celestialRc -ne 0) { $failed++; Write-Host '天体插值特征化判据失�
 
 Write-Host "`n===== 21/21 输入基底 vs 相机屏幕基底（RollInputBasisProbe：滚转后左右反）=====" -ForegroundColor Cyan
 # 2026-10-03：用户报"我滚转 -180 的时候左右键的方向是反的"。
-# 本步把"输入按 A 去的方向"与"相机实际的屏幕左"对表 —— 左边是 SpacePlayerData 的基底约定
-# （解析构造，约定由下面 check-artifact 的契约钉住），右边是 **MC 的字节码公式**
-# （Camera.setRotation(FFF)：rotationYXZ(π−yaw, −pitch, −roll)，已 javap 核对）。
 #
-# 结论（120 个姿态，含 roll = 0/±30/±90/±179.9/±180）：两边**严格一致**（dot 全 1.0000）
-# ⇒ 公式没问题。所以"滚转后左右反"的根因在**谁最后落盘**：
-#   Camera.setup 里 setRotation 被调三次（offset 79/170/269），而 offset 269 那个 2 参版
-#   内部是 setRotation(yRot, xRot, **0f**) ⇒ 把我们的 roll 硬置 0。旧注入点（ordinal=0 之后）
-#   正好被它覆盖 ⇒ 相机不滚、输入基底滚 ⇒ 滚到 ±180 时左右正好反。
-#   修法：注入点挪到 setup 的 TAIL，并由本探针 B 组判定正面视角下 roll 取反（45/45）。
+# ⚠️ 本步在 2026-10-03 被**重写**过，因为第一版是**死判据**：
+#   它没法 new 真的 SpacePlayerData（那个类当时带静态 DeferredRegister，类初始化要整套 FML 环境），
+#   于是它按约定**复刻**了 initFromVanilla/rollBody/输入映射/相机三元组的公式 ——
+#   **两边都是复刻**，复刻对复刻必然自洽 ⇒ 永远全过。结果：用户说"滚转还是反的"时它仍然全过。
 #
-# ⚠️ 本探针第一版漏抄了 SpaceCameraMixin:142 的前导负号（`-Math.atan2(...)`），
-#    凭空得出"偏差 = 2×roll"的假结论。同类事故第 4 次（-q90 / 浮点取模 / ListTag.getLong）——
-#    判据与真实现不一致时，先怀疑判据。
-& $java '-Dstdout.encoding=UTF-8' -cp $joml.FullName "$root\native\jni-smoketest\RollInputBasisProbe.java" |
-    Select-String -Pattern '\[PASS\]|\[FAIL\]|通过，失败|⇒ 判定|^共 ' | ForEach-Object { $_.Line }
-if ($LASTEXITCODE -ne 0) { $failed++; Write-Host '输入/相机基底一致性判据失败' -ForegroundColor Red }
+# 现在两边都是真实现，这就是先把 SpacePlayerData 拆成纯状态类（注册管道搬去 SpaceAttachments）、
+# 并把相机那侧的 (yaw,pitch,roll) 从 SpaceCameraMixin 搬进 SpacePlayerData.mcRotation 的原因：
+#   输入侧 = data.viewFrame(...)（Mixin 用的那一步）
+#   相机侧 = SpacePlayerData.mcRotation(...) → **真的** net.minecraft.client.Camera
+#            （反射调它 protected 的 setRotation(FFF)，读它渲染用的 getLeft/Up/LookVector）
+# 判据：dot(按A得到的方向, 相机左) ≈ +1、dot(屏幕上, 相机上) ≈ +1、dot(视线, 相机看) ≈ +1。
+# 需要**全量 classpath**（要加载 MC 的 Camera），所以走 @argfile —— 与第 20 步同一套路。
+#
+# ⚠️ 本探针第一版还漏抄过 SpaceCameraMixin 的前导负号（`-Math.atan2(...)`），
+#    凭空得出"偏差 = 2×roll"的假结论。同类事故第 4 次 —— 判据与真实现不一致时，先怀疑判据。
+$rollArgfile = "$root\build\probe-roll.txt"
+[System.IO.File]::WriteAllLines($rollArgfile,
+        @('-Dstdout.encoding=UTF-8', '-cp', ($cpJars -join ';'),
+          "$root\native\jni-smoketest\RollInputBasisProbe.java"), (New-Object System.Text.UTF8Encoding($false)))
+$prevEap4 = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+& $java "@$rollArgfile" |
+    Select-String -Pattern '相机基底来源|姿态 |最坏|⇒|·|通过，失败|===|无法离线' | ForEach-Object { $_.Line }
+$rollRc = $LASTEXITCODE
+$ErrorActionPreference = $prevEap4
+if ($rollRc -ne 0) { $failed++; Write-Host '输入/相机基底一致性判据失败' -ForegroundColor Red }
 
 Write-Host ""
 if ($failed -eq 0) {

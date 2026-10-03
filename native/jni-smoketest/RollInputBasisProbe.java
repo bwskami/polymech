@@ -1,262 +1,129 @@
+import com.mss.polymech.space.SpacePlayerData;
 import org.joml.Quaternionf;
-import org.joml.Vector3d;
 import org.joml.Vector3f;
 
+import java.lang.reflect.Method;
+
 /**
- * <b>输入基底 vs 相机屏幕基底</b>对表 —— 定位"滚转 ±180 时左右键反向"。
+ * <b>输入基底 vs 原版相机屏幕基底</b>对表 —— 定位"滚转 ±180 时左右键反向"。
  *
- * <p>用法：{@code java -cp &lt;classes&gt;;&lt;joml&gt; RollInputBasisProbe}（纯 joml，**不需要 MC**）。</p>
+ * <p>用法：{@code java @&lt;argfile&gt;}（需要**全量 classpath**：要加载真的
+ * {@code net.minecraft.client.Camera}）。</p>
  *
- * <h2>为什么不直接 new SpacePlayerData</h2>
- * 它带静态 {@code DeferredRegister}，类初始化要求整套 FML 加载环境
- * （实测：{@code Not bootstrapped} → bootstrap 后又 {@code LoadingModList.get() is null}），
- * 离线探针进不去。所以这里**按它的约定解析构造**那组基底：
+ * <h2>★ 为什么这一版和第一版完全不同（第一版是**死判据**）</h2>
+ * 第一版没法 {@code new SpacePlayerData}（那个类当时带静态 {@code DeferredRegister}，
+ * 类初始化要整套 FML 环境），于是它**按约定复刻**了 {@code initFromVanilla}/{@code rollBody}/
+ * 输入映射/相机三元组的公式 —— <b>两边都是复刻</b>，复刻对复刻必然自洽，永远 3/3。
+ * 结果就是：用户实机反馈"滚转还是反的"时，探针**仍然全过**。
+ *
+ * <p>现在两边都是真实现：</p>
+ * <ul>
+ *   <li>输入侧：{@code SpacePlayerData.viewFrame(...)} —— 正是 {@code SpaceInputRotationMixin}
+ *       用的那一步（局部 +X = 屏幕左、+Y = 屏幕上、+Z = 视线）；</li>
+ *   <li>相机侧：{@code SpacePlayerData.mcRotation(...)} —— 正是 {@code SpaceCameraMixin}
+ *       交给原版的那三元组；再喂给**真的** {@code net.minecraft.client.Camera}
+ *       （反射调它 protected 的 {@code setRotation(FFF)}），读它渲染时真正用的
+ *       {@code getLeftVector()/getUpVector()/getLookVector()}。</li>
+ * </ul>
+ *
+ * <h2>判据（与"玩家看到什么"直接对应，能 FAIL）</h2>
  * <pre>
- *   facing = (sin(yawRad)·cos(pitch), -sin(pitch), cos(yawRad)·cos(pitch))     // initFromVanilla
- *   left   = Ry(-(yaw+180)) · Rx(-pitch) · (1,0,0)                             // initFromVanilla
- *   roll   : left.rotateAxis(roll, facing)                                     // rollBody
- *   A 的方向 = screenLeft = -left                                              // SpaceInputRotationMixin
- *   竖直方向 = screenUp   = facing × screenLeft
+ *   dot(按 A 得到的世界方向, 相机左) ≈ +1
+ *   dot(按"抬头"得到的方向, 相机上)  ≈ +1
+ *   dot(视线,              相机看)  ≈ +1
  * </pre>
- * ⚠️ 这几条**复刻**由 {@code check-artifact.ps1} 的源码契约钉住（本项目的规矩：探针里复刻的公式
- * 必须钉到真实现），免得哪天 {@code SpacePlayerData} 改了约定而探针还按老的算。
+ * 第一条就是用户报的那条：按 A 必须往**屏幕左**走。后面两条平时看不出来
+ * （走路时竖直输入恒为 0），所以必须单独钉住。
  *
- * <h2>相机那侧不是复刻——是 MC 的字节码</h2>
- * {@code net.minecraft.client.Camera.setRotation(FFF)}（已 {@code javap -c} 核对）：
- * <pre>
- *   this.rotation.rotationYXZ((float)Math.PI - yRot * DEG2RAD, -xRot * DEG2RAD, -roll * DEG2RAD);
- *   this.left = LEFT.rotate(this.rotation, this.left);   // LEFT = (-1,0,0)
- *   this.up   = UP.rotate(this.rotation, this.up);       // UP   = (0,1,0)
- * </pre>
- * {@code yaw/pitch/roll} 由 {@code SpaceCameraMixin:128-155} 从基底算出（同一份复刻）。
- *
- * <h2>判据</h2>
- * 每个姿态都要 {@code dot(输入A方向, 相机左) ≈ +1}（= 按 A 确实是往屏幕左走）与
- * {@code dot(输入竖直, 相机上) ≈ +1}。前者就是用户报的那条；后者平时看不出来（走路时竖直输入恒为 0），
- * 所以必须单独钉住。
+ * <p>{@link SpacePlayerData} 拆分（注册管道搬到 {@code SpaceAttachments}）就是为了让本探针
+ * 能直接驱动真类 —— 见那个类的注释。</p>
  */
 public class RollInputBasisProbe {
 
-    private static final double TORAD = Math.PI / 180.0;
-    private static final double DEG = 180.0 / Math.PI;
-
+    private static int poses;
     private static int passed;
     private static int failed;
+    /** 失败里最坏的一例，方便一眼看出错在哪。 */
+    private static String worst = "";
+    private static double worstDot = 2.0;
 
-    private static void check(boolean ok, String label, String detail) {
-        if (ok) {
-            passed++;
-            System.out.printf("  [PASS] %-44s %s%n", label, detail);
-        } else {
-            failed++;
-            System.out.printf("  [FAIL] %-44s %s%n", label, detail);
+    public static void main(String[] args) throws Exception {
+        double[] yaws = {0, 45, 90, 135, 180, -90, -135};
+        double[] pitches = {-60, -30, 0, 30, 60};
+        double[] rolls = {0, 30, 60, 90, 135, 180, -135, -90, -60, -30};
+
+        Object camera;
+        Method setRotation;
+        Method getLeft;
+        Method getUp;
+        Method getLook;
+        try {
+            Class<?> camClass = Class.forName("net.minecraft.client.Camera");
+            camera = camClass.getDeclaredConstructor().newInstance();
+            setRotation = camClass.getDeclaredMethod("setRotation", float.class, float.class, float.class);
+            setRotation.setAccessible(true);
+            getLeft = camClass.getMethod("getLeftVector");
+            getUp = camClass.getMethod("getUpVector");
+            getLook = camClass.getMethod("getLookVector");
+            System.out.println("相机基底来源：net.minecraft.client.Camera（**真原版类**）");
+        } catch (Throwable t) {
+            System.out.println("★ 无法离线加载 net.minecraft.client.Camera：" + t);
+            System.out.println("  本探针必须拿'玩家真正看到的东西'当基准，否则又是复刻对复刻。");
+            System.out.println("  请用全量 classpath 重跑（见 run-offline-checks.ps1 第 21 步的 @argfile）。");
+            System.exit(2);
+            return;
         }
-    }
 
-    /** 按 SpacePlayerData 的约定构造基底，并施加 roll。 */
-    private static void buildBasis(double yawDeg, double pitchDeg, double rollDeg,
-                                   Vector3d facingOut, Vector3d leftOut) {
-        double pitchRad = pitchDeg * TORAD;
-        double yawRad = -yawDeg * TORAD;
-        facingOut.set(Math.sin(yawRad) * Math.cos(pitchRad), -Math.sin(pitchRad),
-                Math.cos(yawRad) * Math.cos(pitchRad));
-        leftOut.set(1, 0, 0).rotateX(-pitchRad).rotateY(-(yawDeg + 180) * TORAD);
-        // orthonormalize()
-        leftOut.normalize();
-        double d = leftOut.dot(facingOut);
-        leftOut.sub(facingOut.x * d, facingOut.y * d, facingOut.z * d);
-        leftOut.normalize();
-        if (rollDeg != 0.0) {
-            leftOut.rotateAxis(rollDeg * TORAD, facingOut.x, facingOut.y, facingOut.z);
-            leftOut.normalize();
-            double d2 = leftOut.dot(facingOut);
-            leftOut.sub(facingOut.x * d2, facingOut.y * d2, facingOut.z * d2);
-            leftOut.normalize();
-        }
-    }
-
-    /**
-     * 相机侧：SpaceCameraMixin 的 roll 计算 + MC 的 setRotation。
-     *
-     * @return {camLeftX,Y,Z, camUpX,Y,Z, rollDeg}
-     */
-    private static double[] cameraBasis(Vector3d facing, Vector3d left) {
-        double pitch = -Math.asin(Math.max(-1.0, Math.min(1.0, facing.y))) * DEG;
-        double yaw = -Math.atan2(facing.x, facing.z) * DEG;
-
-        // SpaceCameraMixin:133-144
-        Vector3d refLeft = new Vector3d(1, 0, 0);
-        refLeft.rotateX(-pitch * TORAD);
-        refLeft.rotateY(-(yaw + 180) * TORAD);
-        double dd = refLeft.dot(facing);
-        refLeft.sub(facing.x * dd, facing.y * dd, facing.z * dd);
-        if (refLeft.lengthSquared() > 1e-12) {
-            refLeft.normalize();
-        }
-        // ⚠️ 前导负号**不能漏**：SpaceCameraMixin:142 写的是 `-Math.atan2(...)`。
-        //    本探针第一版就是漏了它，凭空造出"偏差 = 2×roll"的假结论。
-        //    （同类事故第 4 次：-q90 / 浮点取模 / getLong / 这个。）
-        double rollDeg = -Math.atan2(left.cross(refLeft, new Vector3d()).dot(facing),
-                left.dot(refLeft)) * DEG;
-        // 注：生产代码随后还会做一次 `polymech$closestAngle(roll, lastRoll)` 的等价角归一。
-        //     那只会给 roll 加减 360k，而 Rz(θ) 是 360° 周期的 ⇒ **不影响相机朝向**，
-        //     故本探针无需复刻（它只影响存下来的 lastRoll 数值）。
-
-        // MC Camera.setRotation(FFF)
-        Quaternionf q = new Quaternionf().rotationYXZ(
-                (float) (Math.PI - yaw * TORAD), (float) (-pitch * TORAD), (float) (-rollDeg * TORAD));
-        Vector3f camLeft = q.transform(new Vector3f(-1.0f, 0.0f, 0.0f));
-        Vector3f camUp = q.transform(new Vector3f(0.0f, 1.0f, 0.0f));
-        return new double[]{camLeft.x, camLeft.y, camLeft.z, camUp.x, camUp.y, camUp.z, rollDeg};
-    }
-
-    /** 直接按 MC 的公式算相机左右/上下（给定 yaw/pitch/roll）。 */
-    private static void mcCam(double yawDeg, double pitchDeg, double rollDeg,
-                              Vector3d leftOut, Vector3d upOut) {
-        Quaternionf q = new Quaternionf().rotationYXZ(
-                (float) (Math.PI - yawDeg * TORAD),
-                (float) (-pitchDeg * TORAD),
-                (float) (-rollDeg * TORAD));
-        Vector3f cl = q.transform(new Vector3f(-1.0f, 0.0f, 0.0f));
-        Vector3f cu = q.transform(new Vector3f(0.0f, 1.0f, 0.0f));
-        leftOut.set(cl.x, cl.y, cl.z);
-        upOut.set(cu.x, cu.y, cu.z);
-    }
-
-    /**
-     * B 组：<b>正面视角</b>（vanilla 在 {@code setup} 末尾会自己
-     * {@code setRotation(yRot+180, -xRot)} 把镜头翻到人物正面）。
-     *
-     * <p>看向背后 = 绕"头的上轴"转 180° ⇒ 不变量是：<b>相机上 = 头的上（不变）、相机左 = −头的左（取反）</b>。
-     * 而"头绕视线滚了 θ"在这个反向视图里应当变成"绕反向视线滚 −θ" —— 但**这个负号我不靠推导定**：
-     * 两个候选 {@code +roll} / {@code -roll} 都算一遍，看哪个满足不变量，由程序给答案。</p>
-     */
-    private static void groupFrontView(double[] yaws, double[] pitches, double[] rolls) {
-        int onlyPlus = 0;
-        int onlyMinus = 0;
-        int both = 0;
-        int neither = 0;
         for (double yaw : yaws) {
             for (double pitch : pitches) {
                 for (double roll : rolls) {
-                    Vector3d facing = new Vector3d();
-                    Vector3d left = new Vector3d();
-                    buildBasis(yaw, pitch, roll, facing, left);
-                    Vector3d screenLeftHead = new Vector3d(left).negate();
-                    Vector3d screenUpHead = new Vector3d(facing).cross(screenLeftHead, new Vector3d()).normalize();
+                    SpacePlayerData data = new SpacePlayerData();
+                    data.initFromVanilla((float) yaw, (float) pitch);
+                    data.rollBody(Math.toRadians(roll));
 
-                    Vector3d camL = new Vector3d();
-                    Vector3d camU = new Vector3d();
-                    double fYaw = yaw + 180.0;
-                    double fPitch = -pitch;
+                    // ── 输入侧：就是 Mixin 用的那一步（真方法）──
+                    Quaternionf frame = data.viewFrame(new Quaternionf());
+                    Vector3f aDir = frame.transform(new Vector3f(1.0F, 0.0F, 0.0F));   // 原版约定 +X = 屏幕左
+                    Vector3f uDir = frame.transform(new Vector3f(0.0F, 1.0F, 0.0F));
+                    Vector3f fDir = frame.transform(new Vector3f(0.0F, 0.0F, 1.0F));
 
-                    mcCam(fYaw, fPitch, roll, camL, camU);
-                    boolean plusOk = camU.dot(screenUpHead) > 0.9999
-                            && camL.dot(new Vector3d(screenLeftHead).negate()) > 0.9999;
-                    mcCam(fYaw, fPitch, -roll, camL, camU);
-                    boolean minusOk = camU.dot(screenUpHead) > 0.9999
-                            && camL.dot(new Vector3d(screenLeftHead).negate()) > 0.9999;
+                    // ── 相机侧：真方法算三元组 → 真 Camera 渲染用的基底 ──
+                    float[] mc = new float[3];
+                    SpacePlayerData.mcRotation(data.facing(), data.left(), 0.0, mc);
+                    setRotation.invoke(camera, mc[0], mc[1], mc[2]);
+                    Vector3f camLeft = (Vector3f) getLeft.invoke(camera);
+                    Vector3f camUp = (Vector3f) getUp.invoke(camera);
+                    Vector3f camLook = (Vector3f) getLook.invoke(camera);
 
-                    if (plusOk && minusOk) {
-                        both++;
-                    } else if (plusOk) {
-                        onlyPlus++;
-                    } else if (minusOk) {
-                        onlyMinus++;
+                    poses++;
+                    double dotA = aDir.dot(camLeft);
+                    double dotU = uDir.dot(camUp);
+                    double dotF = fDir.dot(camLook);
+                    if (dotA > 0.99 && dotU > 0.99 && dotF > 0.99) {
+                        passed++;
                     } else {
-                        neither++;
-                    }
-                }
-            }
-        }
-        System.out.printf(java.util.Locale.ROOT,
-                "%nB 组（正面视角）：只有 +roll 成立 %d 个，只有 -roll 成立 %d 个，两者都成立 %d 个，都不成立 %d 个%n",
-                onlyPlus, onlyMinus, both, neither);
-        // 「两者都成立」的 75 个是 roll=0 / ±180 那类**本来就不区分** +roll 与 -roll 的退化姿态
-        // （两者只差 360k）⇒ 它们不参与判定，只看"能区分的那 45 个"。
-        if (neither == 0 && onlyPlus == 0 && onlyMinus > 0) {
-            System.out.println("  ⇒ 判定：正面视角下 roll 必须**取反**（-roll）");
-        } else if (neither == 0 && onlyMinus == 0 && onlyPlus > 0) {
-            System.out.println("  ⇒ 判定：正面视角下 roll **保持不变**（+roll）");
-        } else {
-            System.out.println("  ⇒ 判定：无法唯一确定（见上面的计数）—— 不许猜，需另行取证");
-        }
-        check(neither == 0 && (onlyPlus == 0 || onlyMinus == 0),
-                "3 正面视角下 roll 的符号可唯一确定（不变量成立）",
-                String.format(java.util.Locale.ROOT, "可区分姿态里：+roll=%d  -roll=%d（都成立=%d = 退化姿态）",
-                        onlyPlus, onlyMinus, both));
-    }
-
-    public static void main(String[] args) {
-        double[] yaws = {0, 90, -90, 180, 37};
-        double[] pitches = {0, 45, -60};
-        double[] rolls = {0, 30, 90, -90, 179.9, -179.9, 180, -180};
-
-        int cases = 0;
-        int leftBad = 0;
-        int upBad = 0;
-        double worstLeft = 1.0;
-        double worstUp = 1.0;
-        String firstLeftFail = null;
-        String firstUpFail = null;
-
-        System.out.println(" yaw  pitch    roll | dot(输入A,相机左) dot(输入竖,相机上)  camRoll");
-        for (double yaw : yaws) {
-            for (double pitch : pitches) {
-                for (double roll : rolls) {
-                    Vector3d facing = new Vector3d();
-                    Vector3d left = new Vector3d();
-                    buildBasis(yaw, pitch, roll, facing, left);
-                    Vector3d inLeft = new Vector3d(left).negate();
-                    Vector3d inUp = new Vector3d(facing).cross(inLeft, new Vector3d()).normalize();
-                    double[] cam = cameraBasis(facing, left);
-
-                    double dl = inLeft.x * cam[0] + inLeft.y * cam[1] + inLeft.z * cam[2];
-                    double du = inUp.x * cam[3] + inUp.y * cam[4] + inUp.z * cam[5];
-                    cases++;
-                    worstLeft = Math.min(worstLeft, dl);
-                    worstUp = Math.min(worstUp, du);
-                    boolean lBad = dl < 0.9999;
-                    boolean uBad = du < 0.9999;
-                    if (lBad) {
-                        leftBad++;
-                        if (firstLeftFail == null) {
-                            firstLeftFail = String.format(java.util.Locale.ROOT,
-                                    "yaw=%.0f pitch=%.0f roll=%.0f ⇒ dot=%.4f", yaw, pitch, roll, dl);
+                        failed++;
+                        double worstHere = Math.min(dotA, Math.min(dotU, dotF));
+                        if (worstHere < worstDot) {
+                            worstDot = worstHere;
+                            worst = String.format(java.util.Locale.ROOT,
+                                    "yaw=%.0f pitch=%.0f roll=%.0f → dot(A,相机左)=%+.3f "
+                                            + "dot(上,相机上)=%+.3f dot(视线,相机看)=%+.3f",
+                                    yaw, pitch, roll, dotA, dotU, dotF);
                         }
-                    }
-                    if (uBad) {
-                        upBad++;
-                        if (firstUpFail == null) {
-                            firstUpFail = String.format(java.util.Locale.ROOT,
-                                    "yaw=%.0f pitch=%.0f roll=%.0f ⇒ dot=%.4f", yaw, pitch, roll, du);
-                        }
-                    }
-                    if (lBad || uBad || Math.abs(roll) >= 179.0) {
-                        System.out.printf(java.util.Locale.ROOT,
-                                "%4.0f %6.0f %7.1f | %15.4f %17.4f %8.1f%s%n",
-                                yaw, pitch, roll, dl, du, cam[6],
-                                (lBad ? "   ← 左右反!" : "") + (uBad ? "   ← 竖直反!" : ""));
                     }
                 }
             }
         }
 
-        System.out.printf(java.util.Locale.ROOT,
-                "%n共 %d 个姿态：左右不一致 %d，竖直不一致 %d；最差点积 左右 %.4f / 竖直 %.4f%n",
-                cases, leftBad, upBad, worstLeft, worstUp);
-
-        check(leftBad == 0, "1 按 A 永远等于相机屏幕左（含任意 roll）",
-                leftBad == 0 ? "全部 " + cases + " 个姿态一致"
-                        : leftBad + "/" + cases + " 不一致，首个：" + firstLeftFail);
-        check(upBad == 0, "2 竖直输入永远等于相机屏幕上",
-                upBad == 0 ? "全部 " + cases + " 个姿态一致"
-                        : upBad + "/" + cases + " 不一致，首个：" + firstUpFail);
-
-        groupFrontView(yaws, pitches, rolls);
-
-        System.out.printf("%n=== RollInputBasisProbe: %d/%d 通过，失败 %d ===%n",
-                passed, passed + failed, failed);
+        System.out.printf(java.util.Locale.ROOT, "姿态 %d 个：PASS %d，FAIL %d%n", poses, passed, failed);
+        if (failed > 0) {
+            System.out.println("最坏一例：" + worst);
+            System.out.println("  ⇒ '按 A 得到的方向'与'相机实际渲染的屏幕左'不一致：");
+            System.out.println("     · dot(A,相机左) ≈ -1 ⇒ 相机不滚而输入滚了（或反之）—— 就是用户报的左右反；");
+            System.out.println("     · dot(上,相机上) ≈ -1 ⇒ 相机上下也翻了（平时看不出来，竖直输入恒为 0）。");
+        }
+        System.out.printf("%n=== RollInputBasisProbe: %d/%d 通过，失败 %d ===%n", passed, poses, failed);
         System.exit(failed == 0 ? 0 : 1);
     }
 }

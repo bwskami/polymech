@@ -134,7 +134,7 @@ public class Polymech {
         ModMenuTypes.register(modEventBus);
         ModRecipeTypes.register(modEventBus);
         ModCreativeModeTabs.register(modEventBus);
-        SpacePlayerData.register(modEventBus);
+        com.mss.polymech.space.SpaceAttachments.register(modEventBus);
         // P2 基础框架：天体数据驱动注册表（poly_mech:celestial_body）
         modEventBus.addListener(com.mss.polymech.space.data.ModCelestialBodies::register);
         

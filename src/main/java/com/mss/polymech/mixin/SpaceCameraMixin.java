@@ -33,6 +33,10 @@ public abstract class SpaceCameraMixin {
     private static final double TORAD = Math.PI / 180.0;
     private static final double TODEG = 180.0 / Math.PI;
 
+    /** {@code polymech$liveBasisCheck} 的节流（毫秒时间戳）；1 秒一行，别刷屏。 */
+    @Unique
+    private static long polymech$lastBasisCheckMs = 0L;
+
     @Shadow
     private Entity entity;
 
@@ -119,27 +123,14 @@ public abstract class SpaceCameraMixin {
         left.sub(facing.x * d, facing.y * d, facing.z * d);
         if (left.lengthSquared() > 1e-12) left.normalize();
 
-        // ── yaw/pitch：从 facing 提取（无歧义）──
-        float pitch = (float) (-Math.asin(Mth.clamp(facing.y, -1, 1)) * TODEG);
-        float yaw = (float) (-Math.atan2(facing.x, facing.z) * TODEG);
-
-        // ── roll：left 相对无 roll 参考系的偏离 ──
-        // 无 roll 时 left 应为：Ry(-(yaw+180)) * Rx(-pitch) 后的 (1,0,0)
-        Vector3d refLeft = new Vector3d(1, 0, 0);
-        refLeft.rotateX(-pitch * TORAD);
-        refLeft.rotateY(-(yaw + 180) * TORAD);
-        // 正交化到与 facing 垂直
-        double dd = refLeft.dot(facing);
-        refLeft.sub(facing.x * dd, facing.y * dd, facing.z * dd);
-        if (refLeft.lengthSquared() > 1e-12) refLeft.normalize();
-
-        double rollRad = -Math.atan2(
-                left.cross(refLeft, new Vector3d()).dot(facing),
-                left.dot(refLeft));
-        double roll = rollRad * TODEG;
-
-        // ── 连续性约束：把 roll 归一到离上帧最近的等价角 ──
-        roll = polymech$closestAngle(roll, data.getLastRoll());
+        // ── yaw/pitch/roll：**唯一实现搬到了 SpacePlayerData.mcRotation**（2026-10-03）──
+        //   原来这一段在这里现算，而输入那侧读 SpacePlayerData.viewFrame ⇒ 两条路各算各的；
+        //   而且探针调不到 mixin 里的私有逻辑，只能复刻 ⇒ 死判据（"滚转还是反的"时它仍然全过）。
+        //   现在相机与输入出自同一份状态、同一个类，且都能被离线探针直接驱动。
+        float[] MC_ROT = new float[3];
+        SpacePlayerData.mcRotation(facing, left, data.getLastRoll(), MC_ROT);
+        float yaw = MC_ROT[0];        float pitch = MC_ROT[1];
+        float roll = MC_ROT[2];
         data.setLastRoll(roll);
 
         // ── 覆盖相机旋转：只写"头（视线）真正的朝向" ──
@@ -166,6 +157,52 @@ public abstract class SpaceCameraMixin {
             this.setRotation(yaw + 180.0F, -pitch, (float) -roll);
         } else {
             this.setRotation(yaw, pitch, (float) roll);
+        }
+
+        // ★ 运行时姿态自检（照本项目"程序判定 PASS/FAIL"的规矩）。
+        //
+        // 为什么必须有它：离线的 RollInputBasisProbe **已经**证明公式一致（350/350，含 roll ±180，
+        // 用的是真 SpacePlayerData + 真 Camera）。但那个探针只在**孤立地驱动 SpacePlayerData** ——
+        // 它证明不了"运行时相机到底吃到了我们的旋转"（例如注入被覆盖、或每帧回正把基底改了半个相位）。
+        // 这一行在 setRotation 之后**立刻**读相机自己的 getLeftVector()/getUpVector()，
+        // 与"按 A 得到的方向 / 屏幕上方向"点积 —— 这是**运行时真值**，能 FAIL。
+        polymech$liveBasisCheck(data);
+    }
+
+    /**
+     * 每 1 秒打一行"输入基底 vs 相机实际基底"的读数；FAIL 时同时进聊天栏（不刷屏）。
+     *
+     * <p>判据：{@code dot(按A方向, 相机左) ≈ +1}、{@code dot(屏幕上, 相机上) ≈ +1}。
+     * 前者就是用户报的"滚转后左右反"；后者平时看不出来（走路时竖直输入恒为 0）。</p>
+     */
+    @Unique
+    private void polymech$liveBasisCheck(SpacePlayerData data) {
+        long now = System.currentTimeMillis();
+        if (now - polymech$lastBasisCheckMs < 1000L) {
+            return;
+        }
+        polymech$lastBasisCheckMs = now;
+
+        org.joml.Quaternionf frame = data.viewFrame(new org.joml.Quaternionf());
+        org.joml.Vector3f aDir = frame.transform(new org.joml.Vector3f(1.0F, 0.0F, 0.0F));
+        org.joml.Vector3f uDir = frame.transform(new org.joml.Vector3f(0.0F, 1.0F, 0.0F));
+        // getLeftVector/getUpVector 是 Camera 上的 public final 方法：转型调用即可，
+        // 不必再加 @Shadow（final 目标的 shadow 声明容易与 Mixin 校验打架）。
+        net.minecraft.client.Camera cam = (net.minecraft.client.Camera) (Object) this;
+        org.joml.Vector3f camLeft = new org.joml.Vector3f(cam.getLeftVector());
+        org.joml.Vector3f camUp = new org.joml.Vector3f(cam.getUpVector());
+        double dotA = aDir.dot(camLeft);
+        double dotU = uDir.dot(camUp);
+        boolean ok = dotA > 0.99 && dotU > 0.99;
+        String line = String.format(java.util.Locale.ROOT,
+                "[姿态自检] dot(按A方向, 相机左)=%+.3f dot(屏幕上, 相机上)=%+.3f ⇒ %s",
+                dotA, dotU, ok ? "PASS" : "★FAIL（左右/上下会反）");
+        com.mss.polymech.Polymech.LOGGER.info(line);
+        if (!ok) {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player != null) {
+                mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(line), false);
+            }
         }
     }
 

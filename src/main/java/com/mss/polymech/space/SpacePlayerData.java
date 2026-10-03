@@ -1,13 +1,7 @@
 package com.mss.polymech.space;
 
-import com.mss.polymech.Polymech;
 import net.minecraft.world.entity.Entity;
-import net.neoforged.neoforge.attachment.AttachmentType;
-import net.neoforged.neoforge.registries.DeferredRegister;
-import net.neoforged.neoforge.registries.NeoForgeRegistries;
 import org.joml.Vector3d;
-
-import java.util.function.Supplier;
 
 /**
  * 太空自由旋转：facing/left 双向量方案。
@@ -17,15 +11,13 @@ import java.util.function.Supplier;
  * 没有欧拉角奇点，roll 通过 facing/left 的相对关系自然表达。
  * yaw/pitch/roll 仅作为"为 vanilla 管线计算的输出"，每帧从向量推导，
  * 并用连续性约束消除符号跳变。</p>
+ *
+ * <p><b>本类是纯状态类</b>（2026-10-03 拆）：FML 的 DataAttachment 注册管道搬到了
+ * {@link SpaceAttachments}。原因见那个类的注释 —— 静态 {@code DeferredRegister} 会让
+ * 类初始化依赖整套 FML 环境，于是离线探针根本 {@code new} 不出真的本类，
+ * 只能复刻公式来验，而"复刻对复刻"必然是死判据。</p>
  */
 public final class SpacePlayerData {
-
-    public static final DeferredRegister<AttachmentType<?>> REGISTRAR =
-            DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, Polymech.MOD_ID);
-
-    public static final Supplier<AttachmentType<SpacePlayerData>> TYPE =
-            REGISTRAR.register("space_rotation", () ->
-                    AttachmentType.<SpacePlayerData>builder(SpacePlayerData::new).build());
 
     /** 视线方向（单位向量）。初始朝 MC 默认方向 +Z */
     private final Vector3d facing = new Vector3d(0, 0, 1);
@@ -708,10 +700,59 @@ public final class SpacePlayerData {
     }
 
     public static SpacePlayerData get(Entity entity) {
-        return entity.getData(TYPE.get());
+        return entity.getData(SpaceAttachments.SPACE_ROTATION.get());
     }
 
-    public static void register(net.neoforged.bus.api.IEventBus bus) {
-        REGISTRAR.register(bus);
+    // ==================== 相机那侧：交给原版 Camera 的 (yaw, pitch, roll) ====================
+    //
+    // 为什么它必须在**本类**里、且是 public static（2026-10-03 从 SpaceCameraMixin 搬来）：
+    //   1) **单一来源**：'玩家看到什么'（相机）与'按键往哪走'（viewFrame）必须出自同一份状态。
+    //      原来相机那侧在 mixin 里现算，输入那侧读 viewFrame —— 两条路各算各的，
+    //      一旦符号/约定有出入就表现为"只有滚转时才左右反"这类极难查的毛病。
+    //   2) **可离线验**：探针调不到 mixin 里的私有逻辑，只能复刻 ⇒ 复刻对复刻必然自洽 ⇒
+    //      **死判据**（用户反馈"滚转还是反的"时那条探针仍然 3/3，就是这么来的）。
+    //      搬到这里之后，探针可以 new 真的本类、拿这里算出的三元组去喂**真的**
+    //      net.minecraft.client.Camera（反射调它的 setRotation），再看它渲染用的
+    //      left/up 与输入方向对不对得上 —— 这才是一条能 FAIL 的判据。
+
+    /**
+     * 由视线基底算出原版 {@code Camera.setRotation(yaw, pitch, roll)} 的三元组。
+     *
+     * @param facing      视线（单位向量）
+     * @param left        头部左（MC 镜像约定，屏幕左 = -left）
+     * @param lastRollDeg 上一帧的 roll（连续性约束；首帧传 0）
+     * @param out         {@code [yaw, pitch, roll]}（度）
+     */
+    public static void mcRotation(Vector3d facing, Vector3d left, double lastRollDeg, float[] out) {
+        double pitchDeg = -Math.asin(Math.max(-1.0, Math.min(1.0, facing.y))) * TODEG;
+        double yawDeg = -Math.atan2(facing.x, facing.z) * TODEG;
+
+        // 无 roll 时 left 应为：Ry(-(yaw+180)) · Rx(-pitch) 后的 (1,0,0)
+        Vector3d refLeft = new Vector3d(1, 0, 0);
+        refLeft.rotateX(-pitchDeg * TORAD);
+        refLeft.rotateY(-(yawDeg + 180) * TORAD);
+        double dd = refLeft.dot(facing);
+        refLeft.sub(facing.x * dd, facing.y * dd, facing.z * dd);
+        if (refLeft.lengthSquared() > 1e-12) {
+            refLeft.normalize();
+        }
+
+        double rollDeg = -Math.atan2(left.cross(refLeft, new Vector3d()).dot(facing),
+                left.dot(refLeft)) * TODEG;
+        out[0] = (float) yawDeg;
+        out[1] = (float) pitchDeg;
+        out[2] = (float) closestAngle(rollDeg, lastRollDeg);
+    }
+
+    /** 把 angle 调整成离 reference 最近的等价角（差值落在 ±180 内）。 */
+    public static double closestAngle(double angle, double reference) {
+        double diff = (angle - reference) % 360.0;
+        if (diff > 180.0) {
+            diff -= 360.0;
+        }
+        if (diff < -180.0) {
+            diff += 360.0;
+        }
+        return reference + diff;
     }
 }
