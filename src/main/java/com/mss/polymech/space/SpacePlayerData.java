@@ -659,6 +659,28 @@ public final class SpacePlayerData {
         rederiveBody();
     }
 
+    /**
+     * <b>玩家的"上下左右虚拟参照物"</b>（用户 2026-10-03 拍板的设计）：一个挂在玩家身上的姿态四元数，
+     * 玩家转它就跟着转；移动、相机、HUD 全部只认它 —— <b>一处定义，处处引用</b>。
+     *
+     * <p>局部轴约定（与原版输入约定逐位对应，所以调用方可以直接
+     * {@code q.transform(inX, inY, inZ)}，不需要任何叉积/符号处理）：</p>
+     * <pre>
+     *   局部 +X = 屏幕左   ← 原版输入 x（leftImpulse，A 键为正）
+     *   局部 +Y = 屏幕上   ← 原版输入 y
+     *   局部 +Z = 视线前方 ← 原版输入 z（forwardImpulse，W 键为正）
+     * </pre>
+     *
+     * <p><b>为什么要有它</b>：以前"屏幕左/屏幕上"是调用方各自用
+     * {@code screenLeft = -left}、{@code screenUp = facing × screenLeft} 现算的，
+     * 而相机那边又走 {@code setRotation(yaw, pitch, roll)} 的欧拉转换 —— <b>两条路各算各的</b>，
+     * 一旦哪边的符号/约定有出入，就表现为"只有滚转时才左右反"这类难查的毛病。
+     * 现在两边读同一个四元数，这种分歧在结构上就不存在了。</p>
+     */
+    public org.joml.Quaternionf viewFrame(org.joml.Quaternionf out) {
+        return basisToQuat(facing, left, out);
+    }
+
     /** 由两个基底向量构造姿态四元数（局部 +Z = 前、+Y = 上、+X = 左）。 */
     private static org.joml.Quaternionf basisToQuat(Vector3d face, Vector3d leftMirror,
                                                     org.joml.Quaternionf out) {

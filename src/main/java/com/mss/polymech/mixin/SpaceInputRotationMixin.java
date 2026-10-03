@@ -114,16 +114,15 @@ public abstract class SpaceInputRotationMixin {
         double inY = scaled.y;
         double inZ = scaled.z;
 
-        Vector3d facing = data.facing();
-        // SpacePlayerData 里的 left 按 MC 镜像约定存：屏幕左 = -left。
-        Vector3d screenLeft = new Vector3d(data.left()).negate();
-        // 屏幕 up = facing × screenLeft；roll 之后自动跟着视角倾斜。
-        Vector3d screenUp = new Vector3d(facing).cross(screenLeft, new Vector3d()).normalize();
-
-        // 输入约定与原版一致：x = 左、y = 上、z = 前
-        double mx = facing.x * inZ + screenLeft.x * inX + screenUp.x * inY;
-        double my = facing.y * inZ + screenLeft.y * inX + screenUp.y * inY;
-        double mz = facing.z * inZ + screenLeft.z * inX + screenUp.z * inY;
+        // ── 位置与方向：只认"玩家身上的上下左右虚拟参照物"（SpacePlayerData.viewFrame）──
+        //   参照物的局部轴与原版输入约定逐位对应（+X=屏幕左、+Y=屏幕上、+Z=视线），
+        //   所以这里就是**一次四元数变换**，不再有 `-left` / `facing × screenLeft` 那类
+        //   各算各的符号处理 —— 相机那边也读同一个参照物，两条路不可能再分歧。
+        org.joml.Vector3f dir = data.viewFrame(new org.joml.Quaternionf())
+                .transform(new org.joml.Vector3f((float) inX, (float) inY, (float) inZ));
+        double mx = dir.x;
+        double my = dir.y;
+        double mz = dir.z;
 
         // 竖直分量与水平分量接受**同一个** f3 阻尼（travel 随后还会给 y 乘 0.98，故这里先除掉），
         // 否则零重力下竖直输入会被积成 50×（见 polymech$equalizeZeroGravityY 的账）。
