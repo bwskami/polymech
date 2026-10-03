@@ -30,17 +30,23 @@ import java.util.UUID;
  * 根本不会进入（客户端在鼠标层就把右键 cancel 了），渲染器判据也早已换成
  * {@code PhysgunClientState}（见 {@code PhysgunBeamRenderer}）。</p>
  *
- * <h2>为什么发世界端点，而不是"体 id + 局部抓点"</h2>
- * 后者要点数少，但服务端的 {@code PhysicalBody} 用的是 UUID，客户端
- * {@code ClientPhysicsWorld} 用的是 {@code PhysicsBodyTracker} 的 long id ——
- * 中间还要过 {@code ProjectionManager} 的槽位。参考选择了直接发世界端点，
- * 这里跟它一致：<b>少一层 id 映射，就少一类"指错体"的错</b>。
- * 端点在服务端每 {@link #BROADCAST_INTERVAL_TICKS} tick 重算一次（抓点跟着刚体姿态走），
- * 客户端用上一帧→这一帧插值补平。
+ * <h2>★ 为什么发的是「体局部抓点」，而不是世界端点（2026-10-03 改）</h2>
+ * 原来这里发的是 {@code startX/Y/Z + endX/Y/Z}（世界坐标），客户端再插值 —— 那是
+ * <b>把派生量当成一等公民</b>，代价是必然的两个：服务端按 tick 采样体位姿 ⇒ 20Hz 的世界点，
+ * 而物体被拖过地面时接触解算抖动是 100Hz 级 ⇒ <b>混叠</b>（玩家一动就抽、不动就好）；
+ * 客户端为消相位跳变又必须付 ≥2 拍的渲染延迟。
+ *
+ * <p>参考实现存的是 {@code dragLocalAnchor}（局部抓点），渲染时用<b>客户端自己的</b>
+ * {@code subLevel.renderPose(pt)} 变换到世界（{@code PhysicsStaffClientHandler:134/239/374-384}）。
+ * 现在照它做：本包只带 {@link BodyLocalAnchor}（概念），世界坐标由客户端每帧现算
+ * —— 混叠与延迟一起消失。见 {@link BodyLocalAnchor} 的类注释。</p>
+ *
+ * <p><b>起点仍发世界坐标</b>：那是"枪口"，属于<b>玩家实体</b>的位姿（客户端本来就有、按帧插值），
+ * 频率低、不随物体运动，不构成混叠；把它也改成派生是另一件事（要和"第一人称枪口"那套对齐）。</p>
  */
 public record PhysgunBeamPacket(UUID playerId,
                                 double startX, double startY, double startZ,
-                                double endX, double endY, double endZ,
+                                long bodyId, double localX, double localY, double localZ,
                                 double holdDistance, boolean released) implements CustomPacketPayload {
 
     /**
@@ -70,6 +76,7 @@ public record PhysgunBeamPacket(UUID playerId,
                 public PhysgunBeamPacket decode(RegistryFriendlyByteBuf buf) {
                     return new PhysgunBeamPacket(buf.readUUID(),
                             buf.readDouble(), buf.readDouble(), buf.readDouble(),
+                            buf.readVarLong(),
                             buf.readDouble(), buf.readDouble(), buf.readDouble(),
                             buf.readDouble(), buf.readBoolean());
                 }
@@ -80,17 +87,18 @@ public record PhysgunBeamPacket(UUID playerId,
                     buf.writeDouble(p.startX);
                     buf.writeDouble(p.startY);
                     buf.writeDouble(p.startZ);
-                    buf.writeDouble(p.endX);
-                    buf.writeDouble(p.endY);
-                    buf.writeDouble(p.endZ);
+                    buf.writeVarLong(p.bodyId);
+                    buf.writeDouble(p.localX);
+                    buf.writeDouble(p.localY);
+                    buf.writeDouble(p.localZ);
                     buf.writeDouble(p.holdDistance);
                     buf.writeBoolean(p.released);
                 }
             };
 
-    /** 松手包：端点无意义，明确压成 0（读的人不用去猜上一包的端点还算不算数）。 */
+    /** 松手包：抓点无意义，明确压成 0（读的人不用去猜上一包的抓点还算不算数）。 */
     public static PhysgunBeamPacket released(UUID playerId) {
-        return new PhysgunBeamPacket(playerId, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, true);
+        return new PhysgunBeamPacket(playerId, 0.0, 0.0, 0.0, 0L, 0.0, 0.0, 0.0, 0.0, true);
     }
 
     @Override

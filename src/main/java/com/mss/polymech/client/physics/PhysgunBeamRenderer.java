@@ -206,7 +206,11 @@ public final class PhysgunBeamRenderer {
                     continue;
                 }
                 b.renderStart(partialTick, S);
-                b.renderEnd(partialTick, E);
+                if (!b.renderEnd(partialTick, E)) {
+                    // 客户端还没有这个体（权威包先到、体还没同步）⇒ 这一帧不画它，
+                    // 而不是拿上一次的旧世界点硬画（那会看到光束"钉在原地"）
+                    continue;
+                }
                 b.renderTip(partialTick, TIP);
                 if (owner.equals(player.getUUID())) {
                     // 自己的光束：起点用枪口近似，第一人称才像是从枪口出来的
@@ -258,9 +262,8 @@ public final class PhysgunBeamRenderer {
             if (grabbed) {
                 alpha = 0.55F;
                 PhysgunClientState.Beam own = PhysgunClientState.beam(self);
-                if (own != null && own.hasEndpoints()) {
-                    // 抓点 = 光束终点（服务端按体局部抓点算出来的世界点，就在物体上）
-                    own.renderEnd(partialTick, E);
+                if (own != null && own.hasEndpoints() && own.renderEnd(partialTick, E)) {
+                    // 抓点 = 光束终点（由体局部抓点 + **客户端自己的**体位姿现算出来的世界点）
                     lockCenter = E;
                     long id = PhysgunClientState.grabbedBodyId(self);
                     aimBody = id > 0L ? ClientPhysicsWorld.body(id) : null;

@@ -475,30 +475,14 @@ public class PhysgunItem extends Item {
         return String.format(java.util.Locale.ROOT, "，最近体原点 %.1f 格（共 %d 个体）", best, count);
     }
 
-    /** 体局部抓点 → 世界坐标（跟着刚体姿态走：船转，光束的抓点也跟着转）。 */
-    private static Vector3d worldAnchor(Grab grab) {
-        double[] pos = PhysicsBodyTracker.positionOf(grab.bodyId());
-        double[] rot = PhysicsBodyTracker.rotationOf(grab.bodyId());
-        if (pos == null || rot == null) {
-            return null;
-        }
-        Quaterniond q = new Quaterniond(rot[0], rot[1], rot[2], rot[3]);
-        if (!q.isFinite() || q.lengthSquared() < 1.0e-12) {
-            return null;
-        }
-        q.normalize();
-        return q.transform(new Vector3d(grab.anchorX(), grab.anchorY(), grab.anchorZ()))
-                .add(pos[0], pos[1], pos[2]);
-    }
-
     private static void broadcast(ServerPlayer sp, Grab grab) {
         if (!(sp.level() instanceof ServerLevel level)) {
             return;
         }
-        Vector3d anchor = worldAnchor(grab);
-        if (anchor == null) {
-            return;
-        }
+        // ★ 只发**抓点这个概念**（体 id + 体局部坐标），不发世界坐标 —— 见 BodyLocalAnchor 的类注释。
+        //   发世界坐标就必须在每个 tick 采样一次体位姿，而物体被拖过地面时接触抖动是 100Hz 级
+        //   ⇒ 20Hz 采样必然混叠（"玩家一动线就抽"的根因）。抓点在整次抓取里是常量，
+        //   世界点交给客户端用**它自己的**连续位姿每帧现算。
         Vec3 eye = sp.getEyePosition();
         Vec3 look = sp.getLookAngle();
         PacketDistributor.sendToPlayersNear(level, null,
@@ -507,7 +491,8 @@ public class PhysgunItem extends Item {
                         eye.x + look.x * MUZZLE_FORWARD,
                         eye.y + look.y * MUZZLE_FORWARD,
                         eye.z + look.z * MUZZLE_FORWARD,
-                        anchor.x, anchor.y, anchor.z,
+                        grab.bodyId(),
+                        grab.anchorX(), grab.anchorY(), grab.anchorZ(),
                         grab.holdDistance(), false));
     }
 

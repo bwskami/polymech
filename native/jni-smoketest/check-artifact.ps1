@@ -75,10 +75,10 @@ $checks = @(
        marks = @('liveTransform', 'boundsOf', 'INFLATE');
        why = '客户端解析拾取（不依赖客户端碰撞体）' },
     @{ cls = 'com\mss\polymech\client\physics\PhysgunClientState.class';
-       marks = @('grabbedBodyId', 'holdDistance', 'applyServer', 'setPredictedEndpoints');
+       marks = @('grabbedBodyId', 'holdDistance', 'applyServer', 'setPredictedSource');
        why = '按玩家的光束注册表（外层：预测 / 权威 / 松手 三个入口）' },
     @{ cls = 'com\mss\polymech\client\physics\PhysgunClientState$Beam.class';
-       marks = @('serverDriven', 'applyServerEndpoints', 'nodeCount', 'tick');
+       marks = @('serverDriven', 'applyServerSource', 'refreshEnd', 'nodeCount', 'tick');
        why = '单条光束内部类（端点插值 + 虚拟竿尖软弹簧 + 服务端权威接管；内部类是独立 .class）' },
     @{ cls = 'com\mss\polymech\client\physics\PhysgunRenderTypes.class';
        marks = @('poly_mech_physgun_beam', 'poly_mech_physgun_overlay', 'poly_mech_physgun_checker',
@@ -409,8 +409,14 @@ $contracts = @(
        must = 'slerp(values[a], values[b], w, out);';
        why = '★ 四元数必须 slerp 且取最短弧（分量线性插值在四元数上是错的；短弧不做会绕一大圈）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunClientState.java';
-       must = 'if (!endSamples.evaluate(out)) {';
-       why = '★ 光束端点必须走时间戳插值 —— 框的中心就是同一个 renderEnd 的输出，所以这一处同时修掉"线抽"和"框抽"' },
+       must = 'anchor.toWorld(ANCHOR_POS, ANCHOR_ROT, ANCHOR_OUT);';
+       why = '★★ 光束终点必须由**抓点 + 客户端自己的体位姿**每帧现算 —— 不许再发世界坐标再插值：服务端 20Hz 采样体位姿 vs 物体接触抖动 100Hz ⇒ 混叠（"玩家一动线就抽、不动就好"的根因）。框的中心就是同一个 renderEnd 的输出，所以这一处同时修线、框' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\BodyLocalAnchor.java';
+       must = 'public Vector3d toWorld(Vector3d bodyPos, Quaterniond bodyRot, Vector3d out) {';
+       why = '★ 「抓点」这个概念只能有**一处**换算（服务端/客户端预测/渲染共用），否则三边各算一套必然漂移' },
+    @{ file = 'src\main\java\com\mss\polymech\network\PhysgunBeamPacket.java';
+       must = 'long bodyId, double localX, double localY, double localZ,';
+       why = '★★ 光束包只发**抓点本体**（体 id + 体局部坐标）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunClientState.java';
        must = '2.0 * PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS / 20.0';
        why = '★★ 渲染延迟必须**由发包间隔推出**（≥2 拍）。写死 0.10 而采样是每 2 tick(0.1s) ⇒ 延迟刚好 1 拍 ⇒ 网络稍抖就越过最新样本被夹住 ⇒ 又开始抽（这正是天空那边 0.10 不能照抄的原因）' },
@@ -482,7 +488,10 @@ $absentContracts = @(
        why = '★ 同上：私有快照环（histT/histP/histR）不得回归' },
     @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
        mustNot = 'target = "Lnet/minecraft/client/Camera;setRotation(FFF)V"';
-       why = '★★ 那个注入点（ordinal=0 的 INVOKE）不得回归：它落在 Camera.setup 的**第一次** setRotation 之后，会被后面两次覆盖，其中最后那次把 roll 置 0 —— 相机不滚而输入基底滚，滚到 ±180 就是左右反' }
+       why = '★★ 那个注入点（ordinal=0 的 INVOKE）不得回归：它落在 Camera.setup 的**第一次** setRotation 之后，会被后面两次覆盖，其中最后那次把 roll 置 0 —— 相机不滚而输入基底滚，滚到 ±180 就是左右反' },
+    @{ file = 'src\main\java\com\mss\polymech\network\PhysgunBeamPacket.java';
+       mustNot = 'double endX, double endY, double endZ,';
+       why = '★ 世界端点不得回归：那是**派生量**，发它必然把物体 100Hz 的接触抖动按 20Hz 采样下来（混叠 = 玩家一动就抽）' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

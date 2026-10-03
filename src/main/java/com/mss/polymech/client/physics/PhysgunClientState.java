@@ -1,9 +1,11 @@
 package com.mss.polymech.client.physics;
 
 import com.mss.polymech.network.PhysgunBeamPacket;
+import com.mss.polymech.physics.BodyLocalAnchor;
 import com.mss.polymech.physics.PhysgunBeamShape;
 import com.mss.polymech.util.TimedSamples;
 import org.joml.Quaterniond;
+import org.joml.Vector3d;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -52,7 +54,14 @@ public final class PhysgunClientState {
         private final double[] start = new double[3];
         private final double[] prevStart = new double[3];
         private final double[] end = new double[3];
-        private final double[] prevEnd = new double[3];
+        /**
+         * <b>抓点</b>：这条光束抓住的那个体的<b>体局部</b>点 —— 见 {@link BodyLocalAnchor}。
+         *
+         * <p>它是这条光束的<b>本体</b>；{@link #end}（世界点）是每帧由它 + 客户端自己的体位姿
+         * <b>派生</b>出来的。世界点不再从网络插值 —— 那样必然混叠（服务端 20Hz 采样 vs
+         * 物体接触抖动 100Hz）。</p>
+         */
+        private BodyLocalAnchor anchor;
         private boolean hasEndpoints;
         private boolean serverDriven;
         private boolean released;
@@ -68,16 +77,17 @@ public final class PhysgunClientState {
         private boolean hasTip;
 
         /**
-         * 起点 / 终点 / 竿尖的<b>带时间戳快照环</b>（通用件，见 {@link TimedSamples}）。
+         * 起点 / 竿尖的<b>带时间戳快照环</b>（通用件，见 {@link TimedSamples}）。
          *
-         * <p>这就是"线抽抽、框也抽抽"的根治处。老写法是
-         * {@code lerp(prevEnd, end, partialTick)}，它默认"包的到达与 tick 边界对齐"；
-         * 而包是每 tick 到的、帧在任意相位渲染 ⇒ 每 tick 凭空跳一整个采样间隔。
-         * 框的中心正是同一个 {@code renderEnd} 的输出，所以线和框<b>必然一起抽</b>
-         * —— 这也是为什么以前分开修两边都修不好。</p>
+         * <p>这两个量仍然是"按拍产生、按帧渲染"的：起点来自服务端广播、竿尖是客户端 tick 里的
+         * 弹簧状态 ⇒ 都要时间戳插值（老写法 {@code lerp(prev, cur, partialTick)} 默认"交换发生在
+         * tick 边界"，相位一乱就每拍跳一整个采样间隔，见 {@code docs/render-interpolation.md}）。</p>
+         *
+         * <p><b>终点不在其中</b>：它现在由 {@link #refreshEnd} 每帧从抓点现算 —— 见
+         * {@link BodyLocalAnchor}。原来给终点也套了同样的插值，那是在补偿"发世界坐标"这个错误的
+         * 数据模型（服务端 20Hz 采样体位姿 vs 物体接触抖动 100Hz ⇒ 混叠）。</p>
          */
         private final TimedSamples startSamples = new TimedSamples(3, 64, INTERP_DELAY_SECONDS);
-        private final TimedSamples endSamples = new TimedSamples(3, 64, INTERP_DELAY_SECONDS);
         private final TimedSamples tipSamples = new TimedSamples(3, 64, INTERP_DELAY_SECONDS);
 
         /**
@@ -204,11 +214,56 @@ public final class PhysgunClientState {
             }
         }
 
-        /** 插值后的终点：两个包之间只有 20Hz 的信息，所以要按帧补平。 */
-        public void renderEnd(float partialTick, double[] out) {
-            if (!endSamples.evaluate(out)) {
-                lerp(prevEnd, end, partialTick, out);
+        /**
+         * 终点（世界坐标）——<b>每帧从抓点现算</b>，不插值。
+         *
+         * <p>为什么不需要插值了：世界点 = 客户端自己的体位姿 × 抓点，而体位姿本身是连续的
+         * （本地 100Hz 刚体状态，或按时间戳插值过的网络位姿）。从连续量逐帧求出来的东西
+         * 天然逐帧连续，也就没有"相位错位"可言 —— 原来那套两拍插值是在补偿一个错误的
+         * 数据模型（发世界坐标），见 {@link BodyLocalAnchor}。</p>
+         *
+         * @return false = 客户端还没有这个体（包先到、体还没同步）⇒ 调用方这一帧别画
+         */
+        public boolean renderEnd(float partialTick, double[] out) {
+            if (!refreshEnd(partialTick)) {
+                return false;
             }
+            out[0] = end[0];
+            out[1] = end[1];
+            out[2] = end[2];
+            return true;
+        }
+
+        /**
+         * 把抓点按客户端当前的体位姿变成世界点，写进 {@link #end}。
+         *
+         * <p>位姿优先级与渲染器一致：本地刚体实时状态（100Hz，最连续）→ 镜子体的按包插值位姿。
+         * 两者都由 {@code ClientBody.renderX/renderRotation}（已走时间戳插值）或
+         * {@code ClientPhysics.liveTransform} 给出。</p>
+         */
+        private boolean refreshEnd(float partialTick) {
+            if (anchor == null) {
+                return false;
+            }
+            if (ClientPhysics.liveTransform(anchor.bodyId(), LIVE_POS, LIVE_ROT)) {
+                ANCHOR_POS.set(LIVE_POS[0], LIVE_POS[1], LIVE_POS[2]);
+                ANCHOR_ROT.set(LIVE_ROT[0], LIVE_ROT[1], LIVE_ROT[2], LIVE_ROT[3]);
+            } else {
+                ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(anchor.bodyId());
+                if (body == null) {
+                    return false;
+                }
+                ANCHOR_POS.set(body.renderX(partialTick), body.renderY(partialTick),
+                        body.renderZ(partialTick));
+                float[] r = new float[4];
+                body.renderRotation(partialTick, r);
+                ANCHOR_ROT.set(r[0], r[1], r[2], r[3]);
+            }
+            anchor.toWorld(ANCHOR_POS, ANCHOR_ROT, ANCHOR_OUT);
+            end[0] = ANCHOR_OUT.x;
+            end[1] = ANCHOR_OUT.y;
+            end[2] = ANCHOR_OUT.z;
+            return true;
         }
 
         /** 插值后的"虚拟竿尖"：渲染时用它算受力弯曲（见 {@link PhysgunBeamShape#control}）。 */
@@ -222,48 +277,42 @@ public final class PhysgunClientState {
             }
         }
 
-        void setEndpoints(double sx, double sy, double sz, double ex, double ey, double ez) {
-            if (hasEndpoints) {
-                copy(start, prevStart);
-                copy(end, prevEnd);
-            } else {
+        /** 记一条光束的<b>来源</b>：起点（射手枪口，世界坐标）+ 抓点（本体，见 {@link BodyLocalAnchor}）。 */
+        void setSource(double sx, double sy, double sz, BodyLocalAnchor anchor) {
+            if (!hasEndpoints) {
                 // 第一条：prev 直接对齐，避免从 (0,0,0) 插值出一根"从世界原点飞过来"的光束
                 prevStart[0] = sx;
                 prevStart[1] = sy;
                 prevStart[2] = sz;
-                prevEnd[0] = ex;
-                prevEnd[1] = ey;
-                prevEnd[2] = ez;
+            } else {
+                copy(start, prevStart);
             }
             start[0] = sx;
             start[1] = sy;
             start[2] = sz;
-            end[0] = ex;
-            end[1] = ey;
-            end[2] = ez;
+            // 抓点是**常量**（整次抓取里不动，除非换个抓点）⇒ 世界点交给 refreshEnd 每帧现算
+            this.anchor = anchor;
             hasEndpoints = true;
-            // ★ 打时间戳：这就是"通用方法"的入口 —— 谁写端点谁就记一拍。
-            //   两个 setter（本地预测 / 服务端权威）都汇到这里，所以不会漏。
             startSamples.push(start[0], start[1], start[2]);
-            endSamples.push(end[0], end[1], end[2]);
         }
 
         /** 本地预测（只在服务端权威到达前有效）。 */
-        void setPredictedEndpoints(double sx, double sy, double sz, double ex, double ey, double ez) {
+        void setPredictedSource(double sx, double sy, double sz, BodyLocalAnchor anchor) {
             if (!serverDriven) {
-                setEndpoints(sx, sy, sz, ex, ey, ez);
+                setSource(sx, sy, sz, anchor);
             }
         }
 
-        /** 服务端权威端点：一旦到达就永久接管（直到这条光束被释放并移除）。 */
-        void applyServerEndpoints(double sx, double sy, double sz, double ex, double ey, double ez) {
+        /** 服务端权威抓点：一旦到达就永久接管（直到这条光束被释放并移除）。 */
+        void applyServerSource(double sx, double sy, double sz, BodyLocalAnchor anchor) {
             serverDriven = true;
             released = false;
-            setEndpoints(sx, sy, sz, ex, ey, ez);
+            setSource(sx, sy, sz, anchor);
         }
 
         void tick() {
-            if (hasEndpoints) {
+            // 竿尖弹簧的**目标**是当前世界抓点 —— 每 tick 现算（与渲染同一处派生）
+            if (hasEndpoints && refreshEnd(1.0F)) {
                 // 虚拟竿尖：软弹簧追真实抓点。追不上的那一截就是"受力弯曲"的成因。
                 if (!hasTip) {
                     // 第一条：直接对齐，避免从 (0,0,0) 弹出一根弯曲的怪线
@@ -306,29 +355,37 @@ public final class PhysgunClientState {
     private static final double INTERP_DELAY_SECONDS =
             2.0 * PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS / 20.0;
 
+    /** {@code Beam#refreshEnd} 的取值暂存（渲染/客户端 tick 都在主线程，不存在重入）。 */
+    private static final double[] LIVE_POS = new double[3];
+    private static final float[] LIVE_ROT = new float[4];
+    private static final Vector3d ANCHOR_POS = new Vector3d();
+    private static final Quaterniond ANCHOR_ROT = new Quaterniond();
+    private static final Vector3d ANCHOR_OUT = new Vector3d();
+
     // ==================== 写入（客户端主线程） ====================
 
     /** 开火瞬间的本地预测：让光束立刻出现，不用等服务端包回来。 */
     public static void grab(UUID player, long bodyId, double holdDistance,
-                            double sx, double sy, double sz, double ex, double ey, double ez) {
+                            double sx, double sy, double sz, BodyLocalAnchor anchor) {
         Beam beam = ensure(player, bodyId, holdDistance);
-        beam.setPredictedEndpoints(sx, sy, sz, ex, ey, ez);
+        beam.setPredictedSource(sx, sy, sz, anchor);
     }
 
     /**
-     * 服务端权威：谁（player）抓着哪个体（bodyId，可 -1 = 未知）、光束两端在世界哪里。
+     * 服务端权威：谁（player）抓着哪个体的<b>哪个局部抓点</b>，起点（枪口）在哪。
      *
+     * @param anchor   抓点本体（世界点由客户端每帧现算，见 {@link BodyLocalAnchor}）
      * @param released true = 松手了（让这条光束开始淡出，而不是硬切）
      */
-    public static void applyServer(UUID player, long bodyId, double holdDistance,
+    public static void applyServer(UUID player, double holdDistance,
                                    double sx, double sy, double sz,
-                                   double ex, double ey, double ez, boolean released) {
+                                   BodyLocalAnchor anchor, boolean released) {
         if (released) {
             release(player);
             return;
         }
-        Beam beam = ensure(player, bodyId, holdDistance);
-        beam.applyServerEndpoints(sx, sy, sz, ex, ey, ez);
+        Beam beam = ensure(player, anchor.bodyId(), holdDistance);
+        beam.applyServerSource(sx, sy, sz, anchor);
     }
 
     /** 松手：不立刻删，交给强度曲线淡出（照参考的 intensity 衰减）。 */

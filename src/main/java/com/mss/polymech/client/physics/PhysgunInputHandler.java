@@ -5,6 +5,7 @@ import com.mss.polymech.item.PhysgunItem;
 import com.mss.polymech.network.PhysgunAction;
 import com.mss.polymech.network.PhysgunActionPacket;
 import com.mss.polymech.network.PhysgunDragPacket;
+import com.mss.polymech.physics.BodyLocalAnchor;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -154,17 +155,18 @@ public final class PhysgunInputHandler {
 
         // 本地先算一次（解析求交，不依赖客户端碰撞体），让光束**立刻**出现；
         // 服务端权威包到达后接管（PhysgunClientState.serverDriven）。
+        // ★ 预测出来的也是**抓点**（体局部），不是世界终点 —— 与权威包同一个模型，
+        //   见 BodyLocalAnchor；世界点由渲染每帧现算。
         PhysgunTarget.Hit hit = PhysgunTarget.find(PhysgunItem.RANGE);
         if (hit != null) {
             Vec3 eye = player.getEyePosition(1.0F);
             Vec3 look = player.getViewVector(1.0F);
-            Vec3 hitPoint = eye.add(look.scale(hit.distance()));
             PhysgunClientState.grab(id, hit.bodyId(),
                     Math.max(MIN_DISTANCE, Math.min(PhysgunItem.RANGE, hit.distance())),
                     eye.x + look.x * PhysgunItem.MUZZLE_FORWARD,
                     eye.y + look.y * PhysgunItem.MUZZLE_FORWARD,
                     eye.z + look.z * PhysgunItem.MUZZLE_FORWARD,
-                    hitPoint.x, hitPoint.y, hitPoint.z);
+                    new BodyLocalAnchor(hit.bodyId(), hit.localX(), hit.localY(), hit.localZ()));
         }
         // ★ 打不中也要发：客户端镜像没同步上时就是打不中，而服务端可能抓得住 ——
         //   这条教训原来写在 use() 里，现在搬到这里。服务端自己射线，不信这个 bodyId。

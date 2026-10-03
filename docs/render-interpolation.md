@@ -85,8 +85,8 @@ public static final int BROADCAST_INTERVAL_TICKS = 1;   // 原 2
 
 | 渲染量 | 之前 | 现在 |
 |---|---|---|
-| 光束**起点** | `lerp(prevStart, start, partialTick)` | `startSamples.evaluate` |
-| 光束**终点** ← 线 + 框的共同来源 | `lerp(prevEnd, end, partialTick)` | `endSamples.evaluate` |
+| 光束**起点**（射手枪口） | `lerp(prevStart, start, partialTick)` | `startSamples.evaluate` |
+| 光束**终点** ← 线 + 框的共同来源 | `lerp(prevEnd, end, partialTick)` | **不再插值**：改成「抓点 + 客户端自己的体位姿」每帧现算（见 §六） |
 | **虚拟竿尖**（受力弯曲） | `lerp(tipPrev, tip, partialTick)` | `tipSamples.evaluate` |
 | 抓取框/悬停框的体位姿（**主**路径） | `poseOf` → `ClientPhysics.liveTransform` | **本来就平滑**（100Hz 本地刚体状态），无需改 |
 | 抓取框/悬停框的体位姿（**兜底**路径） | `poseOf` → `ClientBody.renderX/renderRotation(partialTick)` | **已接**：`ClientBody` 加了四条快照环（`phys*` 客户端刚体自己 / `net*` 服务端同步），`renderX/Y/Z` 与 `renderRotation` 都先走时间戳插值、样本不足才退回旧 lerp |
@@ -182,7 +182,7 @@ public static final int BROADCAST_INTERVAL_TICKS = 1;   // 原 2
 `PhysgunClientState`（3 条环）、`ClientPhysicsWorld.ClientBody`（4 条环）、`CelestialBody`（2 条环）。
 
 1. `.\gradlew compileJava --console=plain` 必须 `BUILD SUCCESSFUL`。
-2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **20/20 步、exit 0**。
+2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **21/21 步、exit 0**。
 3. **任何**"按拍同步、按帧渲染"的新量都必须走 `TimedSamples`，不许再写
    `lerp(prev, cur, partialTick)` —— 契约钉住了 `PhysgunClientState` 里那一处；
    新增同类渲染量时请照抄它的接法（谁写数据谁 `push`，读的时候 `evaluate`）。
@@ -190,3 +190,68 @@ public static final int BROADCAST_INTERVAL_TICKS = 1;   // 原 2
    然后 `delay = 2 × 周期`。契约钉的就是这条式子（`2.0 * BROADCAST_INTERVAL_TICKS / 20.0`）。
 5. 改了发包间隔 ⇒ 延迟自动跟着变，但**采样越稀越难看**，别为了省包把它调大。
 6. 助手不启动客户端；实机由用户验。
+
+---
+
+## 六、★ 端点的**数据模型**才是根因（2026-10-03 改）：抓点，不是世界坐标
+
+§一~§五 做的是"把 20Hz 的世界点插得更顺"。那**治标**：用户实机反馈
+**"玩家不动时没有抽搐了，但玩家一动又有了"** —— 而"不动时好"什么都没证明：
+物体静止时 Δ=0，任何插值都不可能抽。
+
+### 6.1 真正的根因
+
+世界坐标是**派生量**：`world = 体位姿 · 抓点`。把它当成一等公民在网络上发，必然有两个后果：
+
+1. **混叠**：服务端只能按自己的 tick 采样体位姿 ⇒ 发出去的是 **20Hz 的世界点**；
+   而物体被拖着在地面上走时，接触解算的抖动是 **100Hz** 量级
+   （`mps-clone-plan` 第 22 节那条已记录、已拍板"接受"的穿透锯齿）。
+   **20Hz 采样 100Hz = 混叠** ⇒ 玩家一动就抽；不动时物体静止 ⇒ 不抽。
+2. **延迟**：客户端再插值这些世界点就必须付 ≥2 拍（100ms）的渲染延迟。
+
+### 6.2 参考怎么做的（这就是"通用方法"的答案）
+
+Create Aeronautics 的 `physics_staff` 存的是**体局部抓点**：
+
+```java
+// PhysicsStaffClientHandler:134 / :239   收发的是局部抓点，不是世界点
+final Vec3 hitLocation = JOMLConversion.toMojang(this.dragSession.dragLocalAnchor);
+// :374-384  渲染时用**客户端自己的**位姿逐帧变换
+Vec3 interpolatedBeamEnd = beam.previousEnd.lerp(beam.end, pt);
+interpolatedBeamEnd = subLevel.renderPose(pt).transformPosition(interpolatedBeamEnd);
+```
+
+`previousEnd.lerp(end, pt)` 插的是局部抓点 —— 抓着的时候它是**常量**，所以那个 lerp 是空操作，
+**不存在相位问题**。所有运动都在 `renderPose(pt)` 里，而它是逐帧求值的
+⇒ 世界点从**连续量**现算，结构上不可能混叠，也不需要延迟。
+
+### 6.3 本项目的改法（面向对象，不是打补丁）
+
+新增 `com.mss.polymech.physics.BodyLocalAnchor`（`bodyId` + 体局部 xyz）：
+
+| 层 | 之前（面向结果） | 现在（面向对象） |
+|---|---|---|
+| 包 `PhysgunBeamPacket` | `startX/Y/Z + endX/Y/Z`（世界点） | `bodyId + localX/Y/Z`（**抓点本体**） |
+| 服务端 `broadcast` | 每个 tick 采样体位姿算世界点 | 直接发 `Grab` 里那个常量抓点（并删掉死代码 `worldAnchor`） |
+| 客户端预测 | 预测一组世界端点 | 预测一个 `BodyLocalAnchor`（`PhysgunTarget.Hit` 本来就有 `localX/Y/Z`） |
+| 客户端渲染 | 插值世界点（`endSamples`） | `refreshEnd()` 每帧用**客户端自己的**位姿派生（`liveTransform` → 兜底 `ClientBody.render*`） |
+
+**换算只有一处**：`BodyLocalAnchor.toWorld(...)` —— 服务端、预测、渲染共用，三边不可能各算一套。
+
+**副作用（好的）**：那 100ms 渲染延迟**不用付了**；`renderEnd` 现在返回 `boolean`，
+客户端还没同步到那个体时**这一帧不画**（而不是拿旧世界点硬画，看着像"光束钉在原地"）。
+
+`TimedSamples` 仍然保留 —— 但只给**真正的**拍同步量用（起点＝服务端广播、竿尖＝客户端 tick 的弹簧状态）。
+**终点不再需要它**：那正是"用插值补偿一个错误的数据模型"。
+
+### 6.4 实机判据（补 §4.2）
+
+| # | 操作 | 判据 | 期望 |
+|---|---|---|---|
+| S6 | 抓一个物体，**拖着它在地面上走**（这正是原来必抽的场景） | `[牵引枪·丝滑判据]` | PASS = 抖动 ≤ 1.50 且 跳变帧 = 0（对照：改之前玩家一动必抽） |
+| S7 | 拖着物体走时看**框** | 框应一直套在同一格上 | PASS = 不来回跳格 |
+| S8 | 抓住一个体后**立刻**看（镜子体还没同步到） | 那一两帧**不画**这条光束，随后出现 | PASS = 不出现"钉在原点/上一位置"的错误光束 |
+
+契约（`check-artifact.ps1`）：`BodyLocalAnchor.toWorld` 存在 / 包里有 `bodyId + localX/Y/Z` /
+`PhysgunClientState` 里有 `anchor.toWorld(ANCHOR_POS, ANCHOR_ROT, ANCHOR_OUT)`；
+**mustNot**：`double endX, double endY, double endZ,`（世界端点不得回归）。
