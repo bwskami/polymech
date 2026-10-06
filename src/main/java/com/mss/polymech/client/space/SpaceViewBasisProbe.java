@@ -79,14 +79,15 @@ public final class SpaceViewBasisProbe {
         boolean pass = deg <= PASS_DEG;
 
         LOGGER.info("[PolyMech] [视线基] {} 夹角={}° 最差夹角={}° 眼-相机距={} | "
-                        + "玩家 yaw/pitch={}/{} 相机 yaw/pitch/roll={}/{}/{} | 维度={} 创造飞行={} 第三人称={}",
+                        + "玩家 yaw/pitch={}/{} 相机 yaw/pitch/roll={}/{}/{} | 维度={} 创造飞行={} 视角={} 相机脱离实体={}",
                 pass ? "PASS" : "FAIL",
                 fmt(deg), fmt(worstDeg), fmt(eyeCamDist),
                 fmt(mc.player.getYRot()), fmt(mc.player.getXRot()),
                 fmt(cam.getYRot()), fmt(cam.getXRot()), fmt(cam.getRoll()),
                 mc.level.dimension().location(),
                 mc.player.getAbilities().flying,
-                !cam.isDetached());
+                mc.options.getCameraType().isFirstPerson() ? "第一人称" : "第三人称",
+                cam.isDetached());
     }
 
     private static String fmt(double v) {
