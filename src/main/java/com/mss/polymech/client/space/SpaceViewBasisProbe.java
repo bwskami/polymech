@@ -37,8 +37,15 @@ public final class SpaceViewBasisProbe {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("PolyMech/Space/ViewBasis");
 
-    /** PASS 门槛（度）：两个前向的夹角。 */
-    private static final double PASS_DEG = 0.5;
+    /**
+     * PASS 门槛（度）：两个前向的夹角。
+     *
+     * <p>为什么是 1.0 而不是 0.5：太空里 {@code roll≈±180°} 时，姿态四元数是 float、
+     * {@code facing} 是 double，实测残差约 <b>0.53°</b>（2026-10-06 读数），属精度噪声而非分叉。
+     * 真正会咬人的是<b>起点</b>（{@code 眼-相机距}，太空实测 1.313 格），那一项见
+     * {@code PhysicsBodyInteractionClient#viewOrigin}。</p>
+     */
+    private static final double PASS_DEG = 1.0;
 
     /** 采样间隔（tick）：每 10 tick（0.5s）一行，够看清随姿态的变化。 */
     private static final int INTERVAL = 10;
