@@ -460,6 +460,21 @@ public final class PhysicsBodyInteractionClient {
         return pickTarget(player, false);
     }
 
+    /**
+     * 体局部格是不是空的 —— 瞄准框的<b>放置预览</b>用。
+     *
+     * <p>服务端 {@code useOrPlace} 最终走原版 {@code BlockItem.place}，目标格被占时
+     * {@code canPlace()} 为假、整次右键<b>静默失败</b>（玩家只看到"点了没反应"）。
+     * 预览格非空就画红，把这个静默失败变成看得见的信息。</p>
+     *
+     * <p>判据与射线同一张方块表（{@link #shapesOf}）：空气为 {@code null}。这是<b>预览</b>，
+     * 权威始终在服务端；被占格一定放不下，空格的最终成败还取决于物品自身规则
+     * （{@code canSurvive} 等），预览只保证"红的一定放不下"。</p>
+     */
+    public static boolean cellIsAir(ClientPhysicsWorld.ClientBody body, int dx, int dy, int dz) {
+        return shapesOf(body).shapeAt(new BlockPos(dx, dy, dz)) == null;
+    }
+
     private static Hit pickTarget(Player player, boolean log) {
         double reach = player.blockInteractionRange();
         Hit hit = castAgainstBodies(viewOrigin(player), player.getViewVector(1.0F), reach);

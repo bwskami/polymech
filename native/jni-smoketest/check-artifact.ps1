@@ -726,6 +726,20 @@ $contracts = @(
     @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
        mustNot = 'getEyePosition';
        why = '★★ 别在这文件里自写射线起点用眼睛：太空相机离眼 1.3~1.4 格，起点错一截框就整体错开一格（起点唯一实现在 ClientViewOrigin）' },
+    # ── 瞄准框第二轮：整块框说不出"哪一面" ⇒ 面高亮 + 放置预览（2026-10-06 用户原话
+    #    "你刚才增加的框是整个方块的框，我无法得知到底是哪个面"）──────────────────────
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       must = 'BoxOutlineRenderer.addBar(';
+       why = '★★ 命中面必须有**自己的四条粗边框**：只画整块框时六面长得一样，玩家读不出"我压在哪一面"（用户 2026-10-06 的原话就是这句）。删了它=退回"只有整块框"' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       must = '.relative(face)';
+       why = '★★ 放置预览格必须与**服务端落点同式**（原版 BlockPlaceContext 的 clickedPos.relative(face)）——预览画在哪、右键方块就该出现在哪；改成别的算式=预览撒谎，比没有预览更伤' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       must = 'cellIsAir(';
+       why = '★ 预览必须区分"能放/放不下"（青/红）：目标格被占时原版 canPlace 为假、右键**静默失败**，红幽灵把"点了没反应"变成看得见的原因' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'public static boolean cellIsAir(';
+       why = '★ 预览的空格判据必须与射线共用同一张方块表（shapesOf）——另写一份方块表查询会出现"预览说能放、服务端说放不下"' },
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
        must = 'SpaceBuildRules.targetKind(';
        why = '★★★ 创建/扩增分流必须真的被咨询（用户 2026-10-06 拍板："你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"）。删掉这一行就退回"一条规则管两件事"——上一版那样会把扩增手感切掉、创建也一起砍掉' },
