@@ -42,16 +42,23 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h2>用户拍板的规则</h2>
  * <blockquote>"只有在物理体旁边和人旁边的空地才能放"</blockquote>
- * ⇒ 前置判据见 {@link SpaceBuildRules#decide}：
- * 目标格必须<b>面相邻于某个物理体</b>（那种情况是"并进去"），或者<b>贴着玩家自己</b>（起步第一块）；
- * 两者都不满足就拒绝 —— 挡掉"远处凭空冒出一块没人找得到的单块体"。
+ * ⇒ 前置判据见 {@link SpaceBuildRules#decide}：目标格不得被占、不得与玩家身体相交。
+ * <b>目标格只能来自真实命中</b>（见下条）：被命中那一格沿命中面走一格。
  *
- * <h2>为什么整件事可以纯服务端做</h2>
- * 物理体的方块活在 {@code poly_mech:projection_world}，**不在客户端的 level 里** ⇒ 客户端射线必然 miss
- * ⇒ 客户端发的是原版"用物品"包，服务端在 {@code ServerPlayerGameMode} 里触发
- * {@link PlayerInteractEvent.RightClickItem}（取证：全 jar 常量池扫描显示
- * {@code ServerPlayerGameMode} 调用 {@code CommonHooks.onItemRightClick}）。
- * 于是"对着物理体"与"对着空处"都落到同一个处理器里，不会出现两条路各触发一次。
+ * <h2>⚠️ 2026-10-06：删掉"准星前方 3 格"兜底（用户报"很像基岩版的放置逻辑"）</h2>
+ * 原先打空时兜底到"眼睛 + 视线 × 3 格"。后果：
+ * 对着<b>空气</b>右键也能放 ⇒ 能在半空"点空气一路搭路"；瞄<b>方块边缘</b>时射线打空 ⇒
+ * 方块落到 3 格外（"往方块外延一格"）。这也正是用户最初那句"<b>有时</b>方块不放我瞄准的那个面"
+ * 里的"有时"：命中体时走客户端包里那条路（正确），打空时走兜底（3 格外）。
+ * space 0.3.0 的 {@code ProjectionManager.handleInteraction} 是
+ * {@code if (hit != null && ...) { ... useBlock(...) } return false;} —— <b>打空什么都不做，没有兜底</b>。
+ *
+ * <h2>两条路（哪条被触发取决于客户端自定义射线有没有命中体）</h2>
+ * ① 客户端 {@code PhysicsBodyInteractionClient} 自定义射线命中体 ⇒ 发 {@code PhysicsBodyEditPacket.use}
+ *    并 cancel ⇒ 服务端 {@code PhysicsBodyInteraction.useOrPlace}（<b>本类的处理器不会被触发</b>）；
+ * ② 客户端没命中（对着空处 / 真实方块）⇒ 走原版"用物品"包 ⇒ 服务端 {@code ServerPlayerGameMode} 触发
+ *    {@link PlayerInteractEvent.RightClickItem} ⇒ 本类。
+ * （本节旧文写的是"客户端射线必然 miss、不会两条路各触发一次"，那是 2026-10-06 之前的情况。）
  *
  * <h2>⚠️ 第一版的教训（别走回去）</h2>
  * 第一版自己拿 {@code new ServerPhysicalBody(...)} + {@code ProjectionManager.setBlock} +
@@ -99,41 +106,52 @@ public final class SpaceBlockPlacement {
             return;                                  // 冷却：防连点刷体
         }
 
-        // ---------- 目标格：**世界坐标**（局部坐标全交给 PhysicsBodyTracker）----------
+        // ---------- 目标格：**只能来自真实命中**（世界坐标；局部坐标全交给 PhysicsBodyTracker）----------
         // ⚠️ 起点必须是**相机锚点**，不是 {@code player.getEyePosition()}（2026-10-06 修）：
         //    太空第一人称相机离眼睛实测 1.313~1.430 格（主世界 0.000），
-        //    用眼睛算出来的目标格会整体**平行错开一格多** ⇒ 用户报的
-        //    "右键放置有时不放我瞄准的那个面 / 放到别处"。算式与客户端相机同源，
+        //    用眼睛算出来的目标格会整体**平行错开一格多**。算式与客户端相机同源，
         //    见 SpacePlayerData.cameraAnchor 与 SpaceAimOrigin。
         //    服务端读不到相机，只能拿同步来的 facing/left 重算同一份算式（残留 ≤2 tick 朝向滞后）。
         Vec3 eye = SpaceAimOrigin.of(player);
         Vec3 look = player.getLookAngle();
         // 照 space：射线打在**体自己**身上。原来打在 MPS 克隆栈（ServerPhysicalWorld）上，
-        // 而那条栈恒空 ⇒ 永远 null ⇒ 下面"命中体"那条分支从来没执行过（2026-10-06 修）。
+        // 而那条栈恒空 ⇒ 永远 null。
         PhysicsBodyTracker.BodyVoxelHit hit = PhysicsBodyTracker.raycastBody(level, eye, look, REACH);
 
-        BlockPos target;
-        if (hit != null) {
-            // 命中体 ⇒ 取"被命中那一格"沿**世界方向**的面相邻格
-            Direction worldFace = hit.worldFace();
-            Vec3 wl = hit.worldLocation();
-            BlockPos hitCell = BlockPos.containing(
-                    wl.x - worldFace.getStepX() * INSIDE_EPSILON,
-                    wl.y - worldFace.getStepY() * INSIDE_EPSILON,
-                    wl.z - worldFace.getStepZ() * INSIDE_EPSILON);
-            target = hitCell.relative(worldFace);
-        } else {
-            target = BlockPos.containing(eye.x + look.x * SpaceBuildRules.PLACE_DISTANCE,
-                    eye.y + look.y * SpaceBuildRules.PLACE_DISTANCE,
-                    eye.z + look.z * SpaceBuildRules.PLACE_DISTANCE);
+        // ⚠️⚠️ **打空就不放**（2026-10-06 修，用户报"很像基岩版的放置逻辑"）：
+        //    这里原先有一条"准星前方 3 格"的兜底。它的后果：
+        //      · 对着**空气**右键也能放 ⇒ 能在半空一路"点空气搭路"；
+        //      · 瞄**方块边缘**时射线打空 ⇒ 兜底把方块放到 3 格外 ⇒ "往方块外延一格"。
+        //    这也正是用户最初那句"**有时**方块不放我瞄准的那个面"里的"有时"：
+        //    命中体时走客户端包里那条路（格 = 命中格沿命中面走一格，正确），
+        //    打空时走兜底（3 格外）——同一次右键两种落点。
+        //    space 0.3.0 的 ProjectionManager.handleInteraction 逐字是：
+        //        PhysicalRaycast.Hit hit = PhysicalRaycast.cast(...);
+        //        if (hit != null && hit.physicalBody().getUuid().equals(physicalBodyId)) { ... useBlock(...) }
+        //        return false;                 // ← 打空 = 什么都不做，**没有兜底**
+        //    其 useBlock 里 placementPos = clickedPos.relative(hit.getDirection()) —— 与下面同构。
+        if (hit == null) {
+            Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 命中来源=无 ⇒ 不放置（无兜底）",
+                    SpaceAimOrigin.isCameraAnchored(player, 1.0F) ? "相机锚点" : "眼睛(退回)",
+                    eye, eye.distanceTo(player.getEyePosition()));
+            return;                     // 不 cancel：让原版自己去处理"对着真实方块 / 对着空处"的情形
         }
 
-        // 判据：这次放置用的**起点**与**目标格**（以及它离眼睛多远）。
+        // 命中体 ⇒ 取"被命中那一格"沿**世界方向**的面相邻格（= 准星真正指着的那个面）
+        Direction worldFace = hit.worldFace();
+        Vec3 wl = hit.worldLocation();
+        BlockPos hitCell = BlockPos.containing(
+                wl.x - worldFace.getStepX() * INSIDE_EPSILON,
+                wl.y - worldFace.getStepY() * INSIDE_EPSILON,
+                wl.z - worldFace.getStepZ() * INSIDE_EPSILON);
+        BlockPos target = hitCell.relative(worldFace);
+
+        // 判据：这次放置用的**起点**、**命中面**与**目标格**（以及起点离眼睛多远）。
         // 起点来源=false 表示锚点算不出来、已退回眼睛 —— 那就等于修复前的行为，必须能看出来。
         boolean anchored = SpaceAimOrigin.isCameraAnchored(player, 1.0F);
-        Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 目标={} 命中体={} 命中面={}",
+        Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 命中来源=体 命中体={} 命中面={} 目标={}",
                 anchored ? "相机锚点" : "眼睛(退回)", eye, eye.distanceTo(player.getEyePosition()),
-                target, hit == null ? -1L : hit.bodyId(), hit == null ? "-" : hit.worldFace());
+                hit.bodyId(), worldFace, target);
 
         // ---------- 前置判据（纯函数，离线有判据表）----------
         BlockState state = blockItem.getBlock().defaultBlockState();

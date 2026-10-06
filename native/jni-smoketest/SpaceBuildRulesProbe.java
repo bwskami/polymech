@@ -30,11 +30,10 @@ public final class SpaceBuildRulesProbe {
 
     public static void main(String[] args) {
         System.out.println("================ 太空建造规则离线判据 ================");
-        System.out.printf("参数：放置距离=%.1f 体上限=%d 冷却=%d tick%n",
-                SpaceBuildRules.PLACE_DISTANCE, SpaceBuildRules.MAX_BODIES_PER_DIMENSION,
-                SpaceBuildRules.COOLDOWN_TICKS);
-        System.out.println("   （已去掉「离玩家多远」那条门：目标格只可能是「贴体相邻格」或「准星前方 "
-                + SpaceBuildRules.PLACE_DISTANCE + " 格」，那条门只会挡住正面放置）");
+        System.out.printf("参数：体上限=%d 冷却=%d tick%n",
+                SpaceBuildRules.MAX_BODIES_PER_DIMENSION, SpaceBuildRules.COOLDOWN_TICKS);
+        System.out.println("   （已去掉「离玩家多远」那条门；2026-10-06 又整条删掉「准星前方 3 格」兜底 ——");
+        System.out.println("     目标格**只能**来自真实命中，打空就不放，照 space 的 handleInteraction）");
         System.out.println();
 
         // ---------- 1) 放置判据表 ----------
@@ -46,7 +45,7 @@ public final class SpaceBuildRulesProbe {
         decideCase("贴着物理体 ⇒ 允许（并进去，且不受体数上限限制）",
                 false, false, true, SpaceBuildRules.MAX_BODIES_PER_DIMENSION,
                 SpaceBuildRules.Decision.PLACE);
-        decideCase("不贴体、体数没到顶 ⇒ 允许（正面 3 格放得下 —— 用户报的「不好放」就是这条被挡了）",
+        decideCase("不贴体、体数没到顶 ⇒ 规则层允许（但放置路径上不可达：目标格只能来自真实命中，见 SpaceBlockPlacement）",
                 false, false, false, 10, SpaceBuildRules.Decision.PLACE);
         decideCase("不贴体 + 体数到顶 ⇒ 拒绝（只挡新建）",
                 false, false, false, SpaceBuildRules.MAX_BODIES_PER_DIMENSION,
