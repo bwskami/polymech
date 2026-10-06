@@ -2,6 +2,7 @@ import com.mss.polymech.physics.BodyVoxelRaycast;
 import com.mss.polymech.physics.SpaceBuildRules;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -23,7 +24,10 @@ import java.util.Random;
  * <p>判据分组：A 解析反例（旧实现必 FAIL 的那条）；B 正命中的格/面/命中点；
  * C 真实形状（半砖下半命中、上半必须未命中）；D 随机射线与"细步进采样"参考对拍；
  * E/F 局部⇄世界映射与"命中格沿世界面取相邻格"（服务端放置链）；
- * <b>G 交互包的"面帧"</b>（包里必须带体局部面，不是世界面 —— 2026-10-06"右键放置不放我瞄准的那个面"）。</p>
+ * <b>G 交互包的"面帧"</b>（包里必须带体局部面，不是世界面 —— 2026-10-06"右键放置不放我瞄准的那个面"）；
+ * <b>H 从底面进体必须报 DOWN；实机水平视角报的是贴脸那一面</b>
+ * （2026-10-06 用户报"准心看着在蓝块底面、右键却放到侧面方向，不符合 MC 放置逻辑"，
+ * 用实机日志里的起点/视线逐字复算钉死：相机在底面上方 0.183 格 ⇒ 底面不在视线上）。</p>
  */
 public final class BodyVoxelRaycastProbe {
 
@@ -38,6 +42,7 @@ public final class BodyVoxelRaycastProbe {
         groupE();
         groupF();
         groupG();
+        groupH();
 
         System.out.println("=== BodyVoxelRaycastProbe: " + passed + "/" + (passed + failed)
                 + " 通过，失败 " + failed + " ===");
@@ -468,6 +473,104 @@ public final class BodyVoxelRaycastProbe {
     private static Direction rotate(Direction face, Quaterniond rot) {
         int[] v = SpaceBuildRules.rotateFace(face.getStepX(), face.getStepY(), face.getStepZ(), rot);
         return Direction.getNearest(v[0], v[1], v[2]);
+    }
+
+    // ------------------------------------------------------------------ H：底面进体 ⇒ DOWN；水平视角 ⇒ 贴脸那一面
+
+    /**
+     * H 组：2026-10-06 用户报"我瞄的是白色侧面（放出蓝色），准心没动、看着在蓝色的<b>底面</b>，
+     * 右键却放到了侧面方向，不符合 MC 的放置逻辑"。两组判据把几何真相钉死：
+     *
+     * <ul>
+     *   <li><b>H1–H3 构造场景</b>：射线从下方进入<b>边界方块的底面</b>（包围盒进入点被
+     *       {@code AABB_ENTRY_EPSILON} 推进体内，起点落在满格形状内部）。必须报 (蓝格, DOWN) ——
+     *       MC 语义：放到该方块<b>下方</b>。绝不允许因"起点在形状内部"改报离开面/侧面。
+     *       H1 用解析值锚住场景（进入点恰在蓝格底面正中，离每条棱 ≥0.4 格，排除贴边二义）；
+     *       H2 走生产同款路径（AABB 进入点 + ε）；H3 走原版 {@code Level.clip} 语义（真起点）。
+     *       两者必须是同一张脸。</li>
+     *   <li><b>H4–H6 用户实机那一发</b>（18:30:50 的 [放置诊断] 起点/视线，体原点取
+     *       (1125624, 1095, −14739869) 换算到体局部）：相机在蓝块底面上方 <b>0.183</b> 格、
+     *       几乎水平微仰（dir.y=+0.060）⇒ <b>底面根本不在视线上</b>（H4：底面交点在相机身后
+     *       3 格以上）；生产路径报 (蓝格, WEST) —— 几何正确：打中的是贴着玩家的那一面，
+     *       MC 语义就是放到西侧（光束朝玩家延长一格），实机日志发的也正是 局部面=(−1,0,0)。</li>
+     * </ul>
+     *
+     * <p>场景坐标系（体局部，未旋转）：白 = (0,0,0) 占 [0,1]³；蓝 = (−1,0,0) 占
+     * x∈[−1,0]、y∈[0,1]、z∈[0,1]（在白的西面扩出来的一格）。体包围盒 =
+     * x∈[−1,1]、y∈[0,1]、z∈[0,1]。两格都按满格形状。</p>
+     */
+    private static void groupH() {
+        Map<Long, VoxelShape> cubes = new HashMap<>();
+        cubes.put(BlockPos.asLong(0, 0, 0), Shapes.block());    // 白
+        cubes.put(BlockPos.asLong(-1, 0, 0), Shapes.block());   // 蓝（白的西面一格）
+        BodyVoxelRaycast.LocalShapes shapes = p -> cubes.get(p.asLong());
+        AABB aabb = new AABB(-1.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+
+        // ── 场景一：从下方打蓝格底面（用户以为自己在做的那个动作）──────────────────
+        Vec3 origin = new Vec3(-0.5, -2.0, 1.5);
+        Vec3 dir = new Vec3(0.0, 0.8944271909999159, -0.4472135954999579);   // (0,2,-1)/√5
+        Vec3 end = origin.add(dir.scale(10.0));
+
+        // H1 解析锚：包围盒进入点必须恰是蓝格底面中心 (−0.5,0,0.5)，离每条棱 ≥0.4 ⇒ 场景为真且不贴边
+        java.util.Optional<Vec3> entryOpt = aabb.clip(origin, end);
+        boolean h1Center = entryOpt.isPresent()
+                && Math.abs(entryOpt.get().x - (-0.5)) < 1.0e-9
+                && Math.abs(entryOpt.get().y) < 1.0e-9
+                && Math.abs(entryOpt.get().z - 0.5) < 1.0e-9;
+        boolean h1Margins = entryOpt.isPresent()
+                && Math.min(entryOpt.get().x - (-1.0), 0.0 - entryOpt.get().x) >= 0.4
+                && Math.min(entryOpt.get().z - 0.0, 1.0 - entryOpt.get().z) >= 0.4;
+        check("H1 解析锚：包围盒进入点恰在蓝格底面正中(−0.5,0,0.5)，离每条棱≥0.4（场景为真）",
+                h1Center && h1Margins,
+                "进入点=" + (entryOpt.map(Object::toString).orElse("未命中")));
+
+        // H2 生产同款路径：进入点 + AABB_ENTRY_EPSILON ⇒ 必须报 (蓝格, DOWN)
+        Vec3 localStart = entryOpt.orElse(origin).add(dir.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON));
+        BodyVoxelRaycast.LocalHit prod = BodyVoxelRaycast.traverse(localStart, end, shapes);
+        check("H2 生产路径（进入点+ε，起点在满格形状内部）：格=(−1,0,0) 面=DOWN（MC 放到下方）",
+                prod != null && prod.cell().equals(new BlockPos(-1, 0, 0)) && prod.face() == Direction.DOWN,
+                describe(prod));
+
+        // H3 原版 Level.clip 语义：从真起点一路走 ⇒ 同一张脸（两个起点口径不许各说各话）
+        BodyVoxelRaycast.LocalHit vanilla = BodyVoxelRaycast.traverse(origin, end, shapes);
+        check("H3 真起点（原版语义）：同样格=(−1,0,0) 面=DOWN",
+                vanilla != null && vanilla.cell().equals(new BlockPos(-1, 0, 0))
+                        && vanilla.face() == Direction.DOWN,
+                describe(vanilla));
+
+        // ── 场景二：实机 18:30:50 那一发的逐字复算（体未旋转，局部==世界平移）────────
+        //    [放置诊断] 起点=(1125620.5441389333, 1095.1831355989757, −14739866.728623686)
+        //               视线=(0.8206464052200317, 0.06017237529158592, −0.5682492852210999)
+        //    体原点 = 首块格 (1125624, 1095, −14739869)
+        Vec3 cam = new Vec3(-3.4558610667, 0.1831355989757, 2.271376314);
+        Vec3 look = new Vec3(0.8206464052200317, 0.06017237529158592, -0.5682492852210999);
+        Vec3 camEnd = cam.add(look.scale(6.0));
+
+        // H4 解析：相机高于底面(y>0.18)且微仰 ⇒ 蓝格底面(y=0)的交点在相机身后 >3 格 ⇒ 底面不在视线上
+        double tBottom = (0.0 - cam.y) / look.y;
+        check("H4 解析：相机在底面上方0.183格、微仰视 ⇒ 底面交点在相机身后（底面根本不在视线上）",
+                cam.y > 0.18 && tBottom < -3.0,
+                "相机局部y=" + cam.y + " 底面交点t=" + tBottom + "（t<0 = 在身后）");
+
+        // H5 生产路径复算：报 (蓝格, WEST) —— 与实机日志 局部面=(−1,0,0) 一致，也是几何真值
+        java.util.Optional<Vec3> sessEntry = aabb.clip(cam, camEnd);
+        BodyVoxelRaycast.LocalHit sess = null;
+        if (sessEntry.isPresent()) {
+            Vec3 sessStart = sessEntry.get().add(look.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON));
+            sess = BodyVoxelRaycast.traverse(sessStart, camEnd, shapes);
+        }
+        check("H5 实机复算：水平视角命中的是贴着玩家的 WEST 面（实机日志发的正是局部面=(−1,0,0)）",
+                sess != null && sess.cell().equals(new BlockPos(-1, 0, 0)) && sess.face() == Direction.WEST,
+                sessEntry.isPresent() ? describe(sess)
+                        : "包围盒都未命中（复算数据有误）");
+
+        // H6 判据非空守卫：实机进入点离西面每条棱 ≥0.35 ⇒ H5 不是"擦边巧合"
+        boolean h6 = sessEntry.isPresent()
+                && Math.abs(sessEntry.get().x - (-1.0)) < 1.0e-9
+                && Math.min(Math.min(sessEntry.get().y, 1.0 - sessEntry.get().y),
+                            Math.min(sessEntry.get().z, 1.0 - sessEntry.get().z)) >= 0.35;
+        check("H6 守卫：实机进入点在西面正中带（离每条棱≥0.35，H5 不是擦边巧合）",
+                h6, "进入点=" + (sessEntry.map(Object::toString).orElse("未命中")));
     }
 
     private static void check(String name, boolean ok, String detail) {
