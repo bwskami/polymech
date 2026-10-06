@@ -100,8 +100,8 @@ $checks = @(
        marks = @('太空建造', 'onRightClickItem', 'placeBlockAt', 'hasAdjacentBody');
        why = '太空放方块 ⇒ 走 tracker 原语造/并物理体（第二版）' },
     @{ cls = 'com\mss\polymech\physics\SpaceBuildRules.class';
-       marks = @('MAX_BODIES_PER_DIMENSION', 'COOLDOWN_TICKS', 'rotateFace');
-       why = '放置判据 + 命中面世界化（离线判据调的就是这一类）' },
+       marks = @('MAX_BODIES_PER_DIMENSION', 'PLACE_DISTANCE', 'targetKind', 'rotateFace');
+       why = '放置判据 + 创建/扩增分流 + 命中面世界化（离线判据调的就是这一类）' },
     @{ cls = 'com\mss\polymech\physics\PhysicsBodyTracker.class';
        marks = @('hasAdjacentBody', 'findAdjacentBody', 'placeBlockAt');
        why = '建体/并体的唯一原语 + 抽出的邻接查询（同一次扫描，无第二份实现）' },
@@ -703,8 +703,20 @@ $contracts = @(
        must = 'groupG();';
        why = '★★ G 组（交互包的面帧：局部面 vs 世界面）必须真的被执行，删了这行就等于没判' },
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
-       must = '命中来源=无 ⇒ 不放置（无兜底）';
-       why = '★★★ 打空分支必须存在、且留下可查的判据（配合"不得存在"里那三条）。命中体那条分支的日志带 命中来源=体 + 命中面 + 目标格 —— 实机一眼分清"这次是命中还是打空"；用户 2026-10-06 报的"很像基岩版放置逻辑"就是打空兜底造成的' }
+       must = 'SpaceBuildRules.targetKind(';
+       why = '★★★ 创建/扩增分流必须真的被咨询（用户 2026-10-06 拍板："你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"）。删掉这一行就退回"一条规则管两件事"——上一版那样会把扩增手感切掉、创建也一起砍掉' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       must = 'PhysicsBodyTracker.hasBodyWithin(level, eye, REACH)';
+       why = '★★★ 分流的另一半："REACH 内有没有体"。少了它就只能靠"打空"判断 ⇒ 又变回不分场合的兜底（"点方块前面的空气进行延申搭路"）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       must = 'REFUSE_MISSED_BODY';
+       why = '★★★ "打空 + 周围有体 ⇒ 拒绝"这条必须存在 —— 它才是挡住"点空气搭路"的那一条；创建只在"周围完全没有体"时才允许' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       must = '分流=';
+       why = '★★ 运行期判据必须打出"这次是扩增还是创建"（配合 命中来源/目标格）—— 实机一眼分辨，不用猜' },
+    @{ file = 'native\jni-smoketest\SpaceBuildRulesProbe.java';
+       must = 'placementCase(';
+       why = '★★★ 分流真值表必须真的被执行（写了不调用等于没判）：离线那条能 FAIL 的判据在这里' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -780,20 +792,13 @@ $absentContracts = @(
     @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
        mustNot = 'data.eyeOffset(eye - half';
        why = '★★ 相机锚点算式不得在 mixin 里再内联一份（必须调 SpacePlayerData.cameraAnchor）—— 两端各写一份就会分叉，这正是本次缺陷的成因' },
-    # ── 目标格只能来自真实命中：不得再出现"准星前方 N 格"兜底（2026-10-06）──────────
-    # 用户原话："你这个放置逻辑就很像基岩版的放置逻辑，玩家甚至可以点方块前面的空气进行延申搭路，
-    # 瞄准方块边缘甚至会往相对方块延申一格"。机制就是下面这条兜底：打空时把方块放到 eye+look×3 格，
-    # 于是"点空气也能一路搭路"、瞄边缘时方块落到 3 格外。space 0.3.0 的
-    # ProjectionManager.handleInteraction 是 `if (hit != null && ...) {...} return false;` —— 打空什么都不做。
+    # ── 创建 / 扩增不得再被合并成一条规则（2026-10-06 用户两轮纠正）──────────────────
+    # 第一轮："很像基岩版的放置逻辑…点方块前面的空气进行延申搭路"（兜底不分场合：打空就放到 3 格外）。
+    # 第二轮（拍板）："你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"
+    #   —— 我上一版把"打空"一律判成不放，把创建一起砍了。所以下面这条"无条件拒绝"的文案不得回归。
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
-       mustNot = 'PLACE_DISTANCE';
-       why = '★★★ 不得再出现"准星前方 N 格"兜底（用户 2026-10-06 报的"基岩版搭路"）。目标格只能由"命中格沿命中面走一格"得到；打空就不放，照 space 的 handleInteraction' },
-    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
-       mustNot = 'look.x * ';
-       why = '★★★ 兜底的算式形状（视线 × 距离）不得回归 —— 它是"打到哪不算数、由距离决定落点"的指纹' },
-    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBuildRules.java';
-       mustNot = 'PLACE_DISTANCE';
-       why = '★★★ 该常量已整条删除（连同语义）。放回它 = 放回"打空也能放"' }
+       mustNot = '命中来源=无 ⇒ 不放置（无兜底）';
+       why = '★★★ 不得退回"打空一律不放"（那把创建一起砍了 —— 用户 2026-10-06 第二轮纠正）；也不得退回"打空一律兜底"（第一轮）。正确形态只有三条：命中⇒扩增 / 打空+周围有体⇒拒绝 / 打空+周围无体⇒创建' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

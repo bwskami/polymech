@@ -374,6 +374,40 @@ public final class PhysicsBodyTracker {
     }
 
     /**
+     * {@code eye} 的 {@code radius} 格内有没有物理体 —— 给"太空里放方块"的**创建 / 扩增分流**用
+     * （用户 2026-10-06 拍板：扩增必须精确瞄中体的面；只有周围完全没有体时才允许在空处起新体）。
+     *
+     * <p>判据用<b>方块中心</b>到 {@code eye} 的距离，不是刚体原点：{@code origin} 是建体时区域的
+     * 最小角、{@code x/y/z} 是当前刚体位置，大体（或已被挪走的体）的近端完全可能在 {@code REACH} 内
+     * 而原点在外 —— 用原点会把"周围明明有体"误判成没有，于是又能在自己结构旁边凭空放。</p>
+     *
+     * <p>遍历方式与 {@link #findAdjacentBody} 一致（{@code BODIES × blocks}；建造是低频操作），
+     * 命中即返回，所以最常见的情形（脚下/身边就是体）几乎不花时间。</p>
+     */
+    public static boolean hasBodyWithin(ServerLevel level, net.minecraft.world.phys.Vec3 eye, double radius) {
+        double r2 = radius * radius;
+        for (Map.Entry<Long, TrackedBody> entry : BODIES.entrySet()) {
+            TrackedBody tracked = entry.getValue();
+            if (tracked.level != level) {
+                continue;
+            }
+            Vector3d bodyPos = new Vector3d(tracked.x, tracked.y, tracked.z);
+            Quaterniond rot = new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw);
+            for (PhysicsBodySyncPacket.BlockEntry e : tracked.blocks) {
+                // 与 localToWorld 共用 RayBox 那一对映射（单一来源）
+                Vector3d c = RayBox.toWorldCenter(bodyPos, rot, e.dx(), e.dy(), e.dz());
+                double dx = c.x - eye.x;
+                double dy = c.y - eye.y;
+                double dz = c.z - eye.z;
+                if (dx * dx + dy * dy + dz * dz <= r2) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * 找与该格面相邻的那个物理体，并返回"该格落在它哪个<b>局部</b>格"（没有返回 null）。
      *
      * <h2>★ 2026-10-01 修的缺陷（本方法原来不含刚体旋转）</h2>

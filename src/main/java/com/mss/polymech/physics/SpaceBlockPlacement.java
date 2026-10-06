@@ -43,15 +43,23 @@ import java.util.concurrent.ConcurrentHashMap;
  * <h2>用户拍板的规则</h2>
  * <blockquote>"只有在物理体旁边和人旁边的空地才能放"</blockquote>
  * ⇒ 前置判据见 {@link SpaceBuildRules#decide}：目标格不得被占、不得与玩家身体相交。
- * <b>目标格只能来自真实命中</b>（见下条）：被命中那一格沿命中面走一格。
+ * 落点来源见 {@link SpaceBuildRules#targetKind}：<b>创建与扩增是两件事</b>。
  *
- * <h2>⚠️ 2026-10-06：删掉"准星前方 3 格"兜底（用户报"很像基岩版的放置逻辑"）</h2>
- * 原先打空时兜底到"眼睛 + 视线 × 3 格"。后果：
- * 对着<b>空气</b>右键也能放 ⇒ 能在半空"点空气一路搭路"；瞄<b>方块边缘</b>时射线打空 ⇒
- * 方块落到 3 格外（"往方块外延一格"）。这也正是用户最初那句"<b>有时</b>方块不放我瞄准的那个面"
- * 里的"有时"：命中体时走客户端包里那条路（正确），打空时走兜底（3 格外）。
- * space 0.3.0 的 {@code ProjectionManager.handleInteraction} 是
- * {@code if (hit != null && ...) { ... useBlock(...) } return false;} —— <b>打空什么都不做，没有兜底</b>。
+ * <h2>⚠️ 2026-10-06：创建 / 扩增必须分开（用户两轮实机反馈）</h2>
+ * 第一轮原话："你这个放置逻辑就很像基岩版的放置逻辑：玩家甚至可以点方块前面的空气进行延申搭路，
+ * 瞄准方块边缘甚至会往相对方块延申一格"。根因：打空时<b>不分场合</b>兜底到"眼睛 + 视线 × 3 格" ⇒
+ * 贴着结构瞄空气也能放、方块还落到 3 格外。第一版修法是"打空一律不放"，但第二轮用户纠正：
+ * "你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感" ——
+ * 那一刀把<b>创建</b>也砍了。现在：
+ * <ul>
+ *   <li><b>扩增</b>：精确命中体的面 ⇒ 命中格沿命中面走一格（与 space 的
+ *       {@code useBlock}: {@code clickedPos.relative(hit.getDirection())} 同构）；</li>
+ *   <li><b>拒绝</b>：打空但 REACH 内有体 ⇒ 不放（挡住"点空气搭路"）；</li>
+ *   <li><b>创建</b>：打空且 REACH 内完全没有体 ⇒ 准星前方 {@link SpaceBuildRules#PLACE_DISTANCE} 格起新体。</li>
+ * </ul>
+ * space 0.3.0 的 {@code ProjectionManager.handleInteraction} 只有"命中体"这一条路
+ * （{@code hit == null} 直接 {@code return false}），它那边没有"空处创建"的需求；我们的创建是本地需求，
+ * 所以只在"周围没有体"时启用。
  *
  * <h2>两条路（哪条被触发取决于客户端自定义射线有没有命中体）</h2>
  * ① 客户端 {@code PhysicsBodyInteractionClient} 自定义射线命中体 ⇒ 发 {@code PhysicsBodyEditPacket.use}
@@ -106,7 +114,7 @@ public final class SpaceBlockPlacement {
             return;                                  // 冷却：防连点刷体
         }
 
-        // ---------- 目标格：**只能来自真实命中**（世界坐标；局部坐标全交给 PhysicsBodyTracker）----------
+        // ---------- 目标格：先分"创建 / 扩增"，再算落点（世界坐标；局部坐标全交给 PhysicsBodyTracker）----------
         // ⚠️ 起点必须是**相机锚点**，不是 {@code player.getEyePosition()}（2026-10-06 修）：
         //    太空第一人称相机离眼睛实测 1.313~1.430 格（主世界 0.000），
         //    用眼睛算出来的目标格会整体**平行错开一格多**。算式与客户端相机同源，
@@ -118,40 +126,40 @@ public final class SpaceBlockPlacement {
         // 而那条栈恒空 ⇒ 永远 null。
         PhysicsBodyTracker.BodyVoxelHit hit = PhysicsBodyTracker.raycastBody(level, eye, look, REACH);
 
-        // ⚠️⚠️ **打空就不放**（2026-10-06 修，用户报"很像基岩版的放置逻辑"）：
-        //    这里原先有一条"准星前方 3 格"的兜底。它的后果：
-        //      · 对着**空气**右键也能放 ⇒ 能在半空一路"点空气搭路"；
-        //      · 瞄**方块边缘**时射线打空 ⇒ 兜底把方块放到 3 格外 ⇒ "往方块外延一格"。
-        //    这也正是用户最初那句"**有时**方块不放我瞄准的那个面"里的"有时"：
-        //    命中体时走客户端包里那条路（格 = 命中格沿命中面走一格，正确），
-        //    打空时走兜底（3 格外）——同一次右键两种落点。
-        //    space 0.3.0 的 ProjectionManager.handleInteraction 逐字是：
-        //        PhysicalRaycast.Hit hit = PhysicalRaycast.cast(...);
-        //        if (hit != null && hit.physicalBody().getUuid().equals(physicalBodyId)) { ... useBlock(...) }
-        //        return false;                 // ← 打空 = 什么都不做，**没有兜底**
-        //    其 useBlock 里 placementPos = clickedPos.relative(hit.getDirection()) —— 与下面同构。
-        if (hit == null) {
-            Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 命中来源=无 ⇒ 不放置（无兜底）",
+        // ⚠️⚠️ **创建与扩增是两件事，必须分开**（用户 2026-10-06 拍板，原话"你应该区分一下创建物理体
+        //    和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"）。分流判据是纯函数：
+        //    SpaceBuildRules.targetKind(命中?, REACH 内有体?)，离线有真值表（SpaceBuildRulesProbe 第 5 节）。
+        //      · 命中体          ⇒ **扩增**：落点 = 命中格沿命中面走一格（并进那个体）；
+        //      · 打空 + 周围有体  ⇒ **拒绝**：这是"没瞄中"，不是"要在空处起新体"⇒ 什么都不做。
+        //                          上一版把这条也判成"不放"是对的，但当时把创建一起砍了；
+        //                          而更早那版在这里无脑兜底到 3 格外 ⇒ 用户说的"很像基岩版的放置逻辑"
+        //                          （点方块前面的空气就能一路搭路、瞄边缘往方块外延一格）；
+        //      · 打空 + 周围无体  ⇒ **创建**：准星前方 PLACE_DISTANCE 格起新体（凭空起第一块只能这样）。
+        //    为什么"周围有体"时拒绝而不是就近吸附：吸附的表现正是"瞄着结构旁边的空气也能贴上去"，
+        //    用户明确否掉了那个方案（见 SpaceBuildRules.targetKind 的注释）。
+        boolean bodyWithinReach = hit != null || PhysicsBodyTracker.hasBodyWithin(level, eye, REACH);
+        SpaceBuildRules.Placement kind = SpaceBuildRules.targetKind(hit != null, bodyWithinReach);
+        if (kind == SpaceBuildRules.Placement.REFUSE_MISSED_BODY) {
+            tell(player, SpaceBuildRules.message(kind), ChatFormatting.YELLOW);
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 命中来源=无 但 REACH={} 内有体 ⇒ 不放置（扩增必须精确瞄中体的面）",
                     SpaceAimOrigin.isCameraAnchored(player, 1.0F) ? "相机锚点" : "眼睛(退回)",
-                    eye, eye.distanceTo(player.getEyePosition()));
-            return;                     // 不 cancel：让原版自己去处理"对着真实方块 / 对着空处"的情形
+                    eye, eye.distanceTo(player.getEyePosition()), REACH);
+            return;
         }
+        BlockPos target = kind == SpaceBuildRules.Placement.GROW
+                ? growTarget(hit)
+                : createTarget(eye, look);
 
-        // 命中体 ⇒ 取"被命中那一格"沿**世界方向**的面相邻格（= 准星真正指着的那个面）
-        Direction worldFace = hit.worldFace();
-        Vec3 wl = hit.worldLocation();
-        BlockPos hitCell = BlockPos.containing(
-                wl.x - worldFace.getStepX() * INSIDE_EPSILON,
-                wl.y - worldFace.getStepY() * INSIDE_EPSILON,
-                wl.z - worldFace.getStepZ() * INSIDE_EPSILON);
-        BlockPos target = hitCell.relative(worldFace);
-
-        // 判据：这次放置用的**起点**、**命中面**与**目标格**（以及起点离眼睛多远）。
+        // 判据：这次放置用的**起点**、**分流**与**目标格**（以及起点离眼睛多远）。
         // 起点来源=false 表示锚点算不出来、已退回眼睛 —— 那就等于修复前的行为，必须能看出来。
         boolean anchored = SpaceAimOrigin.isCameraAnchored(player, 1.0F);
-        Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 命中来源=体 命中体={} 命中面={} 目标={}",
+        Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 分流={} 命中来源={} 目标={}",
                 anchored ? "相机锚点" : "眼睛(退回)", eye, eye.distanceTo(player.getEyePosition()),
-                hit.bodyId(), worldFace, target);
+                kind == SpaceBuildRules.Placement.GROW ? "扩增(并进命中体)" : "创建(空处起新体)",
+                hit == null ? "无(REACH 内无体)" : ("体=" + hit.bodyId() + " 面=" + hit.worldFace()),
+                target);
 
         // ---------- 前置判据（纯函数，离线有判据表）----------
         BlockState state = blockItem.getBlock().defaultBlockState();
@@ -203,6 +211,34 @@ public final class SpaceBlockPlacement {
                 player.getGameProfile().getName(), level.dimension().location(), how, bodyId,
                 target.getX(), target.getY(), target.getZ(), Block.getId(state));
         LAST_PLACE_TICK.put(player.getUUID(), now);
+    }
+
+    /**
+     * <b>扩增</b>的落点：被命中那一格沿命中面走一格。
+     *
+     * <p>命中点是"贴着面"的（DDA 给的是射线穿入那个面的点），先沿法线反方向缩 {@link #INSIDE_EPSILON}
+     * 才保证 {@code BlockPos.containing} 取到的是<b>被命中那一格</b>本身，而不是面外那一格
+     * （与 {@code castTerrain} 同招）。</p>
+     */
+    private static BlockPos growTarget(PhysicsBodyTracker.BodyVoxelHit hit) {
+        Direction worldFace = hit.worldFace();
+        Vec3 wl = hit.worldLocation();
+        BlockPos hitCell = BlockPos.containing(
+                wl.x - worldFace.getStepX() * INSIDE_EPSILON,
+                wl.y - worldFace.getStepY() * INSIDE_EPSILON,
+                wl.z - worldFace.getStepZ() * INSIDE_EPSILON);
+        return hitCell.relative(worldFace);
+    }
+
+    /**
+     * <b>创建</b>的落点：准星前方 {@link SpaceBuildRules#PLACE_DISTANCE} 格。
+     *
+     * <p>只在"REACH 内完全没有体"时才会走到这里（见 {@link SpaceBuildRules#targetKind}）——
+     * 空处没有面可瞄，只能给一个固定距离的落点，否则玩家无法凭空起第一块。</p>
+     */
+    private static BlockPos createTarget(Vec3 eye, Vec3 look) {
+        double d = SpaceBuildRules.PLACE_DISTANCE;
+        return BlockPos.containing(eye.x + look.x * d, eye.y + look.y * d, eye.z + look.z * d);
     }
 
     /** 创造模式不消耗，生存消耗 1 个。 */

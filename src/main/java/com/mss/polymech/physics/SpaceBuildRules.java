@@ -20,13 +20,22 @@ import org.joml.Vector3f;
  * <p>查证后确认**那条门是我加过头了**：于是去掉该门，只保留真正必要的那条：
  * <b>目标格不得与玩家身体相交</b>（别把自己的腿封进方块里）。</p>
  *
- * <p>第三轮（2026-10-06 实机，原话"你这个放置逻辑就很像基岩版的放置逻辑：玩家甚至可以点方块
- * 前面的空气进行延申搭路，瞄准方块边缘甚至会往相对方块延申一格"）：当时"目标格"有两种来源，
- * 第二种是<b>准星前方固定 3 格</b>的兜底（那个常量已整条删除） —— 那就是"点空气也能搭路"的来源，
- * 已<b>整条删掉</b>（常量也删了）。现在目标格<b>只能</b>来自真实命中：被命中那一格沿命中面走一格，
- * 与 space 0.3.0 的 {@code useBlock} 里 {@code clickedPos.relative(hit.getDirection())} 同构；
- * 打空 ⇒ 不放（space 的 {@code handleInteraction} 就是 {@code hit == null} 直接 {@code return false}）。
- * ⇒ 本类里**不再有任何"准星前方 N 格"**的语义。</p>
+ * <p>第三轮（2026-10-06 实机，两轮）。第一句原话："你这个放置逻辑就很像基岩版的放置逻辑：玩家甚至可以
+ * 点方块前面的空气进行延申搭路，瞄准方块边缘甚至会往相对方块延申一格"。当时"目标格"有两种来源，
+ * 第二种是<b>准星前方固定 3 格</b>的兜底，而它<b>不分场合</b>：只要射线打空就用 ⇒ 贴着结构瞄空气也会放，
+ * 方块还落到 3 格外（"往方块外延一格"）。第二句原话（拍板）："你应该区分一下创建物理体和对物理体
+ * 扩增的区别，现在这个是影响到了扩大物理体的手感"。</p>
+ *
+ * <p>⇒ 现在的规则（见 {@link #targetKind}：创建与扩增<b>分开</b>）：
+ * <ol>
+ *   <li><b>扩增</b>：射线精确命中体的面 ⇒ 落点 = 被命中那一格沿命中面走一格，并进那个体。
+ *       与 space 0.3.0 的 {@code useBlock} 里 {@code clickedPos.relative(hit.getDirection())} 同构。</li>
+ *   <li><b>拒绝</b>：打空，但周围 {@code REACH} 内<b>有</b>体 ⇒ 什么都不做。这是"没瞄中"，
+ *       不是"要在空处起新体" —— 挡住"点空气一路搭路"。</li>
+ *   <li><b>创建</b>：打空，且周围 {@code REACH} 内<b>完全没有</b>体 ⇒ 在准星前方
+ *       {@link #PLACE_DISTANCE} 格起一个新体（凭空起第一块只能这样）。</li>
+ * </ol>
+ * 于是那条兜底<b>只在"周围没有体"时才可能被用到</b>，不再污染扩增的手感。</p>
  *
  * <h2>为什么太空里放方块要变成物理体（用户给的理由，也是硬约束）</h2>
  * <b>原版方块到了 ~3×10⁷ 格（30m）之后就放不出来了</b>：{@code BlockPos} 的 X/Z 各只有 26 位
@@ -44,6 +53,13 @@ import org.joml.Vector3f;
  */
 public final class SpaceBuildRules {
 
+    /**
+     * 周围（{@code REACH} 内）**完全没有**物理体时，"创建"新体的第一块取准星前方这么远（格）。
+     *
+     * <p>2026-10-06：这个值一度被整条删除（当时把"打空"一律判成不放）。现在它回来了，但用法收窄成
+     * <b>只有"周围没有体"这一种情形</b>才会走到 —— 见 {@link #targetKind}。</p>
+     */
+    public static final double PLACE_DISTANCE = 3.0;
     /** 每维度最多多少个体（防连点把物理世界塞爆）；只挡"新建"，并进已有体不受限。 */
     public static final int MAX_BODIES_PER_DIMENSION = 256;
     /** 同一玩家的放置间隔（tick）。 */
@@ -97,6 +113,49 @@ public final class SpaceBuildRules {
             case REFUSE_TOO_CLOSE -> "太贴着你了，把准星往前挪一点";
             case REFUSE_BODY_LIMIT -> "这个维度的物理体已达上限（" + MAX_BODIES_PER_DIMENSION + "）";
             case PLACE -> "";
+        };
+    }
+
+    /**
+     * 这一次右键到底要"创建"还是"扩增" —— <b>两件事，必须分开</b>（用户 2026-10-06 拍板）。
+     *
+     * <p>用户原话："你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"。
+     * 上一版把两者合成一条规则（打空一律不放），结果是扩增的手感被切掉、创建也一起没了。</p>
+     */
+    public enum Placement {
+        /** 扩增：射线命中体 ⇒ 落点 = 被命中那一格沿命中面走一格，并进那个体。 */
+        GROW,
+        /** 创建：周围 REACH 内完全没有体 ⇒ 准星前方 {@link #PLACE_DISTANCE} 格起新体。 */
+        CREATE,
+        /** 拒绝：没瞄中体，但周围**有**体 ⇒ 什么都不做（这是"没瞄中"，不是"要在空处起新体"）。 */
+        REFUSE_MISSED_BODY
+    }
+
+    /**
+     * 创建 / 扩增的分流（纯逻辑 ⇒ 离线有真值表，见 {@code SpaceBuildRulesProbe} 第 5 节）。
+     *
+     * <p><b>为什么"周围有体"时要拒绝，而不是就近吸附到那个体</b>：吸附看着手感好，但它的表现正是
+     * "瞄着结构旁边的空气也能贴上去" —— 就是用户说的"点方块前面的空气进行延申搭路"。
+     * 用户拍板选了严格版：<b>扩增必须精确瞄中体的面</b>；吸附方案被明确否掉。</p>
+     *
+     * <p>反过来，只有"周围完全没有体"才允许创建：这时玩家确实是在空处，无处可瞄，
+     * 给他一个 {@link #PLACE_DISTANCE} 格的落点才能凭空起第一块。</p>
+     *
+     * @param bodyHit          射线是否命中了物理体
+     * @param bodyWithinReach  {@code REACH} 内是否存在任何物理体（命中与否都算）
+     */
+    public static Placement targetKind(boolean bodyHit, boolean bodyWithinReach) {
+        if (bodyHit) {
+            return Placement.GROW;
+        }
+        return bodyWithinReach ? Placement.REFUSE_MISSED_BODY : Placement.CREATE;
+    }
+
+    /** 被拒绝时的玩家可见文案（{@link Placement} 那一半）。 */
+    public static String message(Placement placement) {
+        return switch (placement) {
+            case REFUSE_MISSED_BODY -> "没瞄到方块：加块要瞄在体的面上（周围没有体时才允许在空处起新块）";
+            case GROW, CREATE -> "";
         };
     }
 

@@ -30,10 +30,11 @@ public final class SpaceBuildRulesProbe {
 
     public static void main(String[] args) {
         System.out.println("================ 太空建造规则离线判据 ================");
-        System.out.printf("参数：体上限=%d 冷却=%d tick%n",
-                SpaceBuildRules.MAX_BODIES_PER_DIMENSION, SpaceBuildRules.COOLDOWN_TICKS);
-        System.out.println("   （已去掉「离玩家多远」那条门；2026-10-06 又整条删掉「准星前方 3 格」兜底 ——");
-        System.out.println("     目标格**只能**来自真实命中，打空就不放，照 space 的 handleInteraction）");
+        System.out.printf("参数：体上限=%d 冷却=%d tick 创建距离=%.1f 格%n",
+                SpaceBuildRules.MAX_BODIES_PER_DIMENSION, SpaceBuildRules.COOLDOWN_TICKS,
+                SpaceBuildRules.PLACE_DISTANCE);
+        System.out.println("   （已去掉「离玩家多远」那条门；2026-10-06 起 创建 / 扩增 **分开**：");
+        System.out.println("     扩增=必须精确命中体的面；打空+周围有体=拒绝；打空+周围无体=创建（准星前方 3 格））");
         System.out.println();
 
         // ---------- 1) 放置判据表 ----------
@@ -45,7 +46,7 @@ public final class SpaceBuildRulesProbe {
         decideCase("贴着物理体 ⇒ 允许（并进去，且不受体数上限限制）",
                 false, false, true, SpaceBuildRules.MAX_BODIES_PER_DIMENSION,
                 SpaceBuildRules.Decision.PLACE);
-        decideCase("不贴体、体数没到顶 ⇒ 规则层允许（但放置路径上不可达：目标格只能来自真实命中，见 SpaceBlockPlacement）",
+        decideCase("不贴体、体数没到顶 ⇒ 允许（这条只在「创建」时走到：周围无体 ⇒ 起新体）",
                 false, false, false, 10, SpaceBuildRules.Decision.PLACE);
         decideCase("不贴体 + 体数到顶 ⇒ 拒绝（只挡新建）",
                 false, false, false, SpaceBuildRules.MAX_BODIES_PER_DIMENSION,
@@ -132,6 +133,29 @@ public final class SpaceBuildRulesProbe {
                 Double.isNaN(tNoRot), "实得 " + fmt(tNoRot));
         System.out.println();
 
+        // ---------- 5) 创建 / 扩增分流（用户 2026-10-06 拍板："你应该区分一下创建物理体和对物理体扩增的区别"）----------
+        // 这一节钉的是"分流"本身：创建与扩增必须是**两条路**，而且"打空 + 周围有体"必须被拒绝
+        // （那正是用户说的"点方块前面的空气进行延申搭路"）。
+        System.out.println("--- 5) 创建 / 扩增分流（targetKind 真值表）---");
+        placementCase("命中体 ⇒ 扩增（落点 = 命中格沿命中面走一格）",
+                true, true, SpaceBuildRules.Placement.GROW);
+        placementCase("命中体（即便周围也有体）⇒ 仍是扩增，不是创建",
+                true, false, SpaceBuildRules.Placement.GROW);
+        placementCase("打空 + REACH 内有体 ⇒ 拒绝（挡住「点空气搭路」；扩增必须精确瞄中）",
+                false, true, SpaceBuildRules.Placement.REFUSE_MISSED_BODY);
+        placementCase("打空 + REACH 内完全没有体 ⇒ 创建（准星前方 PLACE_DISTANCE 格起新体）",
+                false, false, SpaceBuildRules.Placement.CREATE);
+        // 反向守卫：这两条必须**不同**，否则"区分创建与扩增"就是空话（真值表会退化成常量）。
+        check("打空时「周围有体」与「周围无体」必须给出不同结论（否则这条区分是假的）",
+                SpaceBuildRules.targetKind(false, true) != SpaceBuildRules.targetKind(false, false),
+                SpaceBuildRules.targetKind(false, true) + " vs " + SpaceBuildRules.targetKind(false, false));
+        check("创建落点距离必须为正（0 会把方块放进玩家身体里）",
+                SpaceBuildRules.PLACE_DISTANCE > 0.0, "PLACE_DISTANCE=" + SpaceBuildRules.PLACE_DISTANCE);
+        String missedMsg = SpaceBuildRules.message(SpaceBuildRules.Placement.REFUSE_MISSED_BODY);
+        check("「没瞄中」的拒绝文案非空且指出要瞄体的面",
+                missedMsg != null && !missedMsg.isEmpty() && missedMsg.contains("面"), missedMsg);
+        System.out.println();
+
         System.out.println(fails == 0 ? "==== 规则判据 PASS ====" : ("==== 有 " + fails + " 项 FAIL ===="));
         if (fails != 0) {
             System.exit(1);
@@ -141,6 +165,13 @@ public final class SpaceBuildRulesProbe {
     private static void decideCase(String what, boolean occupied, boolean intersects, boolean adjacent,
                                    int bodyCount, SpaceBuildRules.Decision want) {
         SpaceBuildRules.Decision got = SpaceBuildRules.decide(occupied, intersects, adjacent, bodyCount);
+        check(what, got == want, "期望 " + want + "，实得 " + got);
+    }
+
+    /** 创建 / 扩增分流的真值表一行。 */
+    private static void placementCase(String what, boolean bodyHit, boolean bodyWithinReach,
+                                      SpaceBuildRules.Placement want) {
+        SpaceBuildRules.Placement got = SpaceBuildRules.targetKind(bodyHit, bodyWithinReach);
         check(what, got == want, "期望 " + want + "，实得 " + got);
     }
 
