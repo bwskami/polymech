@@ -407,9 +407,36 @@ public final class PhysicsBodyInteractionClient {
      *
      * <p>返回 null 表示"这次交互归原版"（没命中物理体，或者真实方块更近）。</p>
      */
+    /**
+     * <b>射线起点必须与"画面"同源 = 相机位置</b>，而不是 {@code player.getEyePosition()}。
+     *
+     * <p><b>为什么（2026-10-06 [视线基] 判据实测）</b>：主世界里相机与眼睛重合
+     * （实测 {@code 眼-相机距=0.000}），两者等价，所以这个错一直没暴露；
+     * <b>太空里相机被挪开 1.313 格</b>（实测 {@code 眼-相机距=1.313}，{@code roll=-180°}）。
+     * 于是"准星那条线"与"从眼睛出发的射线"是两条<b>平行但错开 1.31 格</b>的线 ⇒
+     * 要打中准星上的方块就得往旁边偏约一格 ⇒ 表现正是
+     * "<b>得点它旁边的空处才能破坏</b>"，且只有太空、且偏差约一格。
+     * 实测同一次日志里最近体只有 <b>2.28</b> 格（射程 5.0）却仍 {@code 闸门=射线打空}。</p>
+     *
+     * <p><b>space 为准</b>：space 自己的互动射线起点就是相机位置 ——
+     * {@code mps/client/PhysicalBodyInteractionClient} 里
+     * {@code Vec3 eye = minecraft.gameRenderer.getMainCamera().getPosition();}。
+     * 本项目此前漏了这句。</p>
+     *
+     * <p><b>不要改回 {@code player.getEyePosition()}</b>：主世界看不出差别，
+     * 太空里立刻复发"瞄旁边的空处"。判据 {@code [视线基]} 会报出 {@code 眼-相机距}。</p>
+     */
+    private static Vec3 viewOrigin(Player player) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gameRenderer != null && mc.player != null) {
+            return mc.gameRenderer.getMainCamera().getPosition();
+        }
+        return player.getEyePosition();
+    }
+
     private static Hit currentHit(Player player) {
         double reach = player.blockInteractionRange();
-        Hit hit = castAgainstBodies(player.getEyePosition(), player.getViewVector(1.0F), reach);
+        Hit hit = castAgainstBodies(viewOrigin(player), player.getViewVector(1.0F), reach);
         if (hit == null) {
             logMiss("射线打空", -1L, Double.NaN, player, reach);
             return null;
