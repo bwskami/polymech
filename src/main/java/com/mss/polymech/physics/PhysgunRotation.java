@@ -153,8 +153,19 @@ public final class PhysgunRotation {
         return mass * s * s / 6.0;
     }
 
-    /** 力矩冲量（N·m·s）= 力矩 × 持续时间；与 {@link PhysgunSpring} 共用同一个 {@code FORCE_DURATION}。 */
+    /** 力矩冲量（N·m·s）= 力矩 × 持续时间（默认 {@link PhysgunSpring#FORCE_DURATION}，给按 MC tick 施力的路径用）。 */
     public static Vector3d torqueImpulse(Vector3d torque) {
-        return new Vector3d(torque).mul(PhysgunSpring.FORCE_DURATION);
+        return torqueImpulse(torque, PhysgunSpring.FORCE_DURATION);
+    }
+
+    /**
+     * 力矩冲量（N·m·s）= 力矩 × 持续时间 —— <b>持续时间由调用方给</b>。
+     *
+     * <p>施力节奏决定这个参数：按 MC tick 施力给 0.05，按 100Hz 物理子步施力给
+     * {@code PhysicsStepThread.STEP_SECONDS}（0.01）——同一份力矩、不同摊法，
+     * 平均效果一致。冲量口径与 {@link PhysgunSpring#forceFor} 对称，公式只有这一处。</p>
+     */
+    public static Vector3d torqueImpulse(Vector3d torque, double duration) {
+        return new Vector3d(torque).mul(duration);
     }
 }

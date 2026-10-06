@@ -269,7 +269,11 @@ public class PhysicalBody {
      */
     public void upChunk(int chunk_x, int chunk_y, int chunk_z) {
         this.blocks_render_update[chunk_x][chunk_y][chunk_z] = true;
-        int move = 64;
+        // ⚠ 这里的减数必须是 **MAX_WIDTH/2**（局部空间以体心为原点），不是 CHUNK_WIDTH、也不是写死的 64。
+        //   0.1.3 里 CHUNK_WIDTH == 64 == MAX_WIDTH/2，写死看不出问题；粒度改成 16 之后
+        //   "字面量 64" 只是**碰巧**还对 —— 下次再动 MAX_WIDTH 或 CHUNK_WIDTH 就会静默错位
+        //   （同 `voxelBounds` 注释里点名的"最容易改错的一处"）。取自常量，改一处全局生效。
+        int move = MAX_WIDTH / 2;
         ColliderBody oldCollider = this.colliderBodies[chunk_x][chunk_y][chunk_z];
         PalettedChunk chunk = this.chunks[chunkIndex(chunk_x, chunk_y, chunk_z)];
         boolean[] colliderData = chunk == null ? new boolean[CHUNK_SIZE] : chunk.colliderArray();
@@ -502,12 +506,14 @@ public class PhysicalBody {
 
     /** 区域填充（按子块切分，整子块直接用填充构造省一遍逐格写）。 */
     public void fillBlockState(int sx, int sy, int sz, int ex, int ey, int ez, int blockState) {
-        sx = Math.max(0, Math.min(MAX_WIDTH - 1, sx + 64));
-        sy = Math.max(0, Math.min(MAX_WIDTH - 1, sy + 64));
-        sz = Math.max(0, Math.min(MAX_WIDTH - 1, sz + 64));
-        ex = Math.max(0, Math.min(MAX_WIDTH - 1, ex + 64));
-        ey = Math.max(0, Math.min(MAX_WIDTH - 1, ey + 64));
-        ez = Math.max(0, Math.min(MAX_WIDTH - 1, ez + 64));
+        // 与 upChunk/voxelBounds 同一条约定：局部空间以体心为原点 ⇒ 入库前 +MAX_WIDTH/2（不是写死 64）。
+        final int half = MAX_WIDTH / 2;
+        sx = Math.max(0, Math.min(MAX_WIDTH - 1, sx + half));
+        sy = Math.max(0, Math.min(MAX_WIDTH - 1, sy + half));
+        sz = Math.max(0, Math.min(MAX_WIDTH - 1, sz + half));
+        ex = Math.max(0, Math.min(MAX_WIDTH - 1, ex + half));
+        ey = Math.max(0, Math.min(MAX_WIDTH - 1, ey + half));
+        ez = Math.max(0, Math.min(MAX_WIDTH - 1, ez + half));
         for (int cx = sx / CHUNK_WIDTH; cx <= ex / CHUNK_WIDTH; cx++) {
             for (int cy = sy / CHUNK_WIDTH; cy <= ey / CHUNK_WIDTH; cy++) {
                 for (int cz = sz / CHUNK_WIDTH; cz <= ez / CHUNK_WIDTH; cz++) {

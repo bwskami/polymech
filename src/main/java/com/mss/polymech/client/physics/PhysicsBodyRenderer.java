@@ -76,29 +76,29 @@ public final class PhysicsBodyRenderer {
         }
 
         Vec3 cam = event.getCamera().getPosition();
-        float partialTick = event.getPartialTick().getGameTimeDeltaTicks();
+        // pt = 部分刻（deltaTickResidual）。别用 getGameTimeDeltaTicks()——那是本帧步长，
+        // 当插值系数用等于 pt≈0，物体会停在上一刻并只在 tick 边界跳。见 PartialTicks 类注释（§7.12）。
+        float partialTick = com.mss.polymech.util.PartialTicks.of(event);
         PoseStack pose = event.getPoseStack();
         var buffers = mc.renderBuffers().bufferSource();
 
         Set<Long> live = new HashSet<>();
         for (ClientPhysicsWorld.ClientBody body : ClientPhysicsWorld.bodies()) {
-            // 照 MPS：直接取刚体**当前**状态（步进线程 100Hz 更新），不做插值。
-            // 在 20Hz 网络包之间插值只有 20Hz 的信息量，正是"一抽一抽"的来源。
-            double[] livePos = new double[3];
-            float[] liveRot = new float[4];
-            boolean hasLive = ClientPhysics.liveTransform(body.id(), livePos, liveRot);
-            double bodyX = hasLive ? livePos[0] : body.renderX(partialTick);
-            double bodyY = hasLive ? livePos[1] : body.renderY(partialTick);
-            double bodyZ = hasLive ? livePos[2] : body.renderZ(partialTick);
+            // 渲染口径 = renderTransform（镜子体 100Hz 步进环 / 网络位姿环，都被两拍包住）。
+            // ⚠️ 不能直读刚体（liveTransform）：那是 10ms 一跳的阶梯，高帧率下每帧位移是
+            // "0,0,0,0,0,整跳"的爆发 —— 2026-10-03 牵引枪读数 101/120 零位移帧的来源。
+            // 方块、高亮框、光束终点必须**同一个口径**，否则三者互相错开（线离开体表面）。
+            double[] renderPos = new double[3];
+            if (!ClientPhysics.renderTransform(body.id(), partialTick, renderPos, ROT)) {
+                continue;
+            }
+            double bodyX = renderPos[0];
+            double bodyY = renderPos[1];
+            double bodyZ = renderPos[2];
 
             pose.pushPose();
             pose.translate(bodyX - cam.x, bodyY - cam.y, bodyZ - cam.z);
-            if (hasLive) {
-                pose.mulPose(new Quaternionf(liveRot[0], liveRot[1], liveRot[2], liveRot[3]));
-            } else {
-                body.renderRotation(partialTick, ROT);
-                pose.mulPose(new Quaternionf(ROT[0], ROT[1], ROT[2], ROT[3]));
-            }
+            pose.mulPose(new Quaternionf(ROT[0], ROT[1], ROT[2], ROT[3]));
 
             live.add(body.id());
             CachedBody cached = cacheFor(body, level);

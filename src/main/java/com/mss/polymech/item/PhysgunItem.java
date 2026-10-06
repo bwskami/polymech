@@ -10,6 +10,7 @@ import com.mss.polymech.physics.PhysicsBodyTracker;
 import com.mss.polymech.physics.PhysicsNatives;
 import com.mss.polymech.physics.PhysgunLocks;
 import com.mss.polymech.physics.PhysgunRotation;
+import com.mss.polymech.physics.PhysicsStepThread;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -35,6 +36,7 @@ import org.joml.Vector3d;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -81,11 +83,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * 所以这里**只施力**：目标点 = 准星前方 {@code holdDistance} 处，力按
  * {@code a = Kp·误差 − Kd·速度} 算，再乘质量变成力。
  *
- * <h2>冲量 = 力 × 持续时间（与原来 MPS 那条路同一份数学）</h2>
- * 原来 MPS 那边是 {@code body.addForce(new Force(f, 0.05))}（施加 0.05 秒的力）；
- * tracker 只暴露 {@code applyImpulse}，所以这里取 {@code J = f·FORCE_DURATION}：
- * 一个 MC tick（0.05 秒）施加一次 ⇒ 等效 Δv 完全一致。弹簧数学仍只在
- * {@link com.mss.polymech.physics.PhysgunSpring} 一处定义，离线探针（{@code PhysgunDragProbe}）调的也是那一份。
+ * <h2>冲量 = 力 × 持续时间，且**按物理子步摊**（2026-10-04 起）</h2>
+ * 原来 MPS 那边是 {@code body.addForce(new Force(f, 0.05))}（施加 0.05 秒的力），
+ * 旧实现等效成"每 MC tick 打一次 {@code J = f·0.05}" —— 那是 20Hz 的方波激励：
+ * 物体每 tick 位移快慢交替，2026-10-04 的四组实机读数里它是终点抖动的**地板（≈2.3×）**。
+ * 现在冲量由<b>步进线程</b>的每个 100Hz 子步施加（{@link #physicsStep}，
+ * {@code J = f·0.01}）：频率 ×5、单次量 ÷5，<b>平均力逐位不变</b>。
+ * 弹簧数学仍只在 {@link com.mss.polymech.physics.PhysgunSpring} 一处定义，
+ * 离线探针（{@code PhysgunDragProbe}）调的也是那一份。
  */
 public class PhysgunItem extends Item {
 
@@ -116,8 +121,16 @@ public class PhysgunItem extends Item {
     /** 抓住状态：只在服务端记（物理体是服务端权威）。 */
     private static final Map<UUID, Grab> GRABS = new ConcurrentHashMap<>();
 
+    /** 已注册过"伺服子步回调"的物理世界（幂等：一个世界只挂一次）。 */
+    private static final Set<Long> SERVO_WORLDS = ConcurrentHashMap.newKeySet();
+
     /**
      * 抓取记录。
+     *
+     * <p>曾是 record —— 但伺服的<b>目标快照</b>需要"主线程每 tick 写、步进线程每 100Hz 子步读"，
+     * record 不允许实例字段，整体替换（withDrag）也做不到单写单读，所以是一个普通的不可变引用 +
+     * 几个 volatile 快照字段的类。访问器名保持 {@code bodyId()}/{@code holdDistance()}/{@code orientation()}
+     * 不变，调用点与契约不受影响。</p>
      *
      * @param bodyId      {@link PhysicsBodyTracker} 的 long id（**不是** MPS 的 UUID —— 见类注释）
      * @param anchorX/Y/Z 抓点在<b>体局部</b>空间的坐标。服务端每
@@ -126,13 +139,59 @@ public class PhysgunItem extends Item {
      * @param orientation <b>目标朝向</b>（旋转控制的指令）；{@code null} = 玩家还没转过
      *                    ⇒ 不做角伺服，物体保持原来的自由摆动。由 {@link PhysgunDragPacket} 更新。
      */
-    private record Grab(long bodyId, double holdDistance,
-                        double anchorX, double anchorY, double anchorZ,
-                        Quaterniond orientation) {
+    private static final class Grab {
+        final long bodyId;
+        final double anchorX, anchorY, anchorZ;
+        volatile double holdDistance;
+        volatile Quaterniond orientation;
 
-        /** 换成"带新朝向/新距离"的一份（record 不可变，所以是替换而不是改字段）。 */
-        Grab withDrag(double hold, Quaterniond q) {
-            return new Grab(bodyId, hold, anchorX, anchorY, anchorZ, q);
+        /**
+         * 伺服快照：目标点与质量由<b>主线程</b>每 MC tick 写一次，
+         * <b>步进线程</b>每 100Hz 子步读（见 {@link #physicsStep}）。
+         * {@code servoReady} 首次刷上才允许施力 —— 否则建抓后的第一个子步会朝 (0,0,0) 拉一把。
+         */
+        volatile double goalX, goalY, goalZ;
+        volatile double mass;
+        volatile boolean servoReady;
+
+        Grab(long bodyId, double holdDistance, double anchorX, double anchorY, double anchorZ,
+             Quaterniond orientation) {
+            this.bodyId = bodyId;
+            this.holdDistance = holdDistance;
+            this.anchorX = anchorX;
+            this.anchorY = anchorY;
+            this.anchorZ = anchorZ;
+            this.orientation = orientation;
+        }
+
+        long bodyId() {
+            return bodyId;
+        }
+
+        double holdDistance() {
+            return holdDistance;
+        }
+
+        Quaterniond orientation() {
+            return orientation;
+        }
+
+        double anchorX() {
+            return anchorX;
+        }
+
+        double anchorY() {
+            return anchorY;
+        }
+
+        double anchorZ() {
+            return anchorZ;
+        }
+
+        /** 换朝向/距离（原 withDrag 的语义：record 不可变时是替换，现在是原地 volatile 写）。 */
+        void setDrag(double hold, Quaterniond q) {
+            this.holdDistance = hold;
+            this.orientation = q;
         }
     }
 
@@ -289,7 +348,7 @@ public class PhysgunItem extends Item {
         }
     }
 
-    /** 单个抓取的每 tick 施力：线性弹簧 + 角伺服。 */
+    /** 单个抓取的每 tick 事务：解锁 → 有效性 → 刷伺服快照 → 光束广播节奏。 */
     private static void tickGrab(ServerPlayer sp, Grab grab) {
         // ★ 照参考 drag(...) 里的 `this.removeLock(subLevel)`：**拖着的东西必须是自由的**。
         //   参考的拖拽包每 tick 都发，所以它那条 removeLock 也每 tick 都跑 —— 效果就是
@@ -308,44 +367,97 @@ public class PhysgunItem extends Item {
 
         Vec3 eye = sp.getEyePosition();
         Vec3 look = sp.getLookAngle();
-        Vector3d target = new Vector3d(eye.x + look.x * grab.holdDistance(),
-                eye.y + look.y * grab.holdDistance(),
-                eye.z + look.z * grab.holdDistance());
-
-        Vector3d err = new Vector3d(target).sub(pos[0], pos[1], pos[2]);
-        double[] motion = PhysicsBodyTracker.motionOf(grab.bodyId());
-        Vector3d vel = motion == null ? new Vector3d() : new Vector3d(motion[0], motion[1], motion[2]);
-        // 弹簧数学抽在 PhysgunSpring（纯函数、无 MC 依赖）⇒ 离线探针能直接调它验证收敛性，
-        // 而不是"在探针里抄一遍公式"。限幅与稳定性理由见那个类。
-        Vector3d acc = com.mss.polymech.physics.PhysgunSpring.accel(err, vel);
-        Vector3d force = com.mss.polymech.physics.PhysgunSpring.forceFor(mass, acc);
-        // 冲量 = 力 × 持续时间（照原来 addForce(Force(f, 0.05)) 的等效量）
-        double dt = com.mss.polymech.physics.PhysgunSpring.FORCE_DURATION;
-        PhysicsBodyTracker.applyImpulse(grab.bodyId(), force.x * dt, force.y * dt, force.z * dt);
-
-        // ---- 角伺服（旋转控制）：与上面那半逐项对称，只是量纲从"加速度"换成"角加速度" ----
-        // 参考在 PhysicsStaffServerHandler.physicsTick 里给约束的 3 个角轴设马达
-        // （目标角 0 + 刚度/阻尼），由引擎驱动 —— 不是 setRotation。我们用力矩冲量做同一件事，
-        // 数学全在 PhysgunRotation（纯函数），离线判据见 native/jni-smoketest/PhysgunRotationProbe。
-        if (grab.orientation() != null) {
-            double[] rot = PhysicsBodyTracker.rotationOf(grab.bodyId());
-            double inertia = PhysicsBodyTracker.inertiaOf(grab.bodyId());
-            if (rot != null && inertia > 0.0) {
-                Quaterniond current = new Quaterniond(rot[0], rot[1], rot[2], rot[3]);
-                double[] axisAngle = PhysgunRotation.errorAxisAngle(current, grab.orientation());
-                Vector3d angVel = motion == null
-                        ? new Vector3d()
-                        : new Vector3d(motion[3], motion[4], motion[5]);
-                Vector3d alpha = PhysgunRotation.angularAccel(axisAngle, angVel);
-                Vector3d torque = PhysgunRotation.torqueFor(inertia, alpha);
-                Vector3d spin = PhysgunRotation.torqueImpulse(torque);
-                PhysicsBodyTracker.applyTorqueImpulse(grab.bodyId(), spin.x, spin.y, spin.z);
-            }
-        }
+        // 伺服快照：目标点（眼 + 视线 × 持握距离）与质量，一 tick 刷一次给步进线程读。
+        // 目标跟着视线走，所以可以一边走一边拖；快照本身就是 20Hz 更新的（玩家视角也就这个节奏），
+        // 真正要求 100Hz 连续的是**施力**，见 physicsStep。
+        grab.goalX = eye.x + look.x * grab.holdDistance();
+        grab.goalY = eye.y + look.y * grab.holdDistance();
+        grab.goalZ = eye.z + look.z * grab.holdDistance();
+        grab.mass = mass;
+        grab.servoReady = true;
+        ensureServo(grab.bodyId());
 
         // 光束端点按 2 tick 的节奏重算（抓点跟着刚体姿态走）
         if (sp.tickCount % PhysgunBeamPacket.BROADCAST_INTERVAL_TICKS == 0) {
             broadcast(sp, grab);
+        }
+    }
+
+    /**
+     * 把伺服挂到<b>物理步进线程</b>上（每个 100Hz 子步跑一次 {@link #physicsStep}）——按世界幂等注册。
+     *
+     * <p>为什么在步进线程：弹簧原来是"每 MC tick 打一次冲量"（20Hz 方波激励），
+     * 2026-10-04 的四组实机读数显示它就是终点抖动的<b>地板（≈2.3×）</b>——
+     * 物体每 tick 位移快慢交替，采样后速度忽高忽低，物理上物体也在微抽。
+     * 把同一份平均力摊到 100Hz 子步上（{@code F×0.01×100/s = F×0.05×20/s}，平均力逐位不变），
+     * 激励频率挪到求解器自己的节奏 —— 这与参考侧 CA 的"求解器内连续 motor"是同一件事，
+     * 只是我们原生层没有持续力 API（只有冲量），所以按子步摊。</p>
+     *
+     * <p>⚠️ 这就是"写了必须接线"的那类改动：注册只在首个子步回调真正挂上之前有效，
+     * 契约（check-artifact）钉住 {@code PhysicsStepThread.addPostStep} 这一句。</p>
+     */
+    private static void ensureServo(long bodyId) {
+        long world = PhysicsBodyTracker.worldOf(bodyId);
+        if (world > 0L && SERVO_WORLDS.add(world)) {
+            PhysicsStepThread.addPostStep(world, () -> physicsStep(world));
+        }
+    }
+
+    /**
+     * 每个 100Hz 物理子步（<b>步进线程</b>）：线性弹簧 + 角伺服的连续施力。
+     *
+     * <p>数学与原来逐 tick 版本逐字同源（{@link com.mss.polymech.physics.PhysgunSpring} /
+     * {@link com.mss.polymech.physics.PhysgunRotation}，离线探针调的就是这两份），
+     * 唯一差别是冲量的<b>持续时间</b>从 {@code FORCE_DURATION=0.05}（一个 MC tick）
+     * 换成 {@link PhysicsStepThread#STEP_SECONDS}（=0.01，一个物理子步）——
+     * 频率 ×5、单次量 ÷5，平均力与手感约束（限幅 MAX_A / MAX_ANG_ACCEL）完全不变。</p>
+     *
+     * <p>线程与越界：本回调由每个物理世界各挂一份，靠 {@code worldOf == worldHandle} 只处理
+     * 属于本世界的抓取（applyImpulse 内部也是按体自己的世界解析句柄，这里对表是为了不让
+     * A 世界的回调以 100Hz×N 份重复对 B 世界的体施力）。原生读写在步进刚结束的同线程上做，
+     * 与主线程的并发由原生层 {@code with_world} 互斥保证（与既有 {@code PlayerPhysicsBody.afterStep} 同一纪律）。</p>
+     */
+    public static void physicsStep(long worldHandle) {
+        if (GRABS.isEmpty()) {
+            return;
+        }
+        double dt = PhysicsStepThread.STEP_SECONDS;
+        for (Map.Entry<UUID, Grab> entry : GRABS.entrySet()) {
+            Grab grab = entry.getValue();
+            if (!grab.servoReady || PhysicsBodyTracker.worldOf(grab.bodyId()) != worldHandle) {
+                continue;
+            }
+            double[] pos = PhysicsBodyTracker.positionOf(grab.bodyId());
+            if (pos == null || !(grab.mass > 0.0)) {
+                continue;   // 有效性由主线程 tickGrab 把关；这里只是本子步读不到，跳过一拍
+            }
+            double[] motion = PhysicsBodyTracker.motionOf(grab.bodyId());
+            Vector3d vel = motion == null ? new Vector3d() : new Vector3d(motion[0], motion[1], motion[2]);
+            Vector3d err = new Vector3d(grab.goalX, grab.goalY, grab.goalZ).sub(pos[0], pos[1], pos[2]);
+            Vector3d acc = com.mss.polymech.physics.PhysgunSpring.accel(err, vel);
+            Vector3d force = com.mss.polymech.physics.PhysgunSpring.forceFor(grab.mass, acc);
+            PhysicsBodyTracker.applyImpulse(grab.bodyId(), force.x * dt, force.y * dt, force.z * dt);
+
+            // ---- 角伺服（旋转控制）：与上面那半逐项对称，只是量纲从"加速度"换成"角加速度" ----
+            // 参考在 PhysicsStaffServerHandler.physicsTick 里给约束的 3 个角轴设马达
+            // （目标角 0 + 刚度/阻尼），由引擎驱动 —— 不是 setRotation。我们用力矩冲量做同一件事，
+            // 数学全在 PhysgunRotation（纯函数），离线判据见 native/jni-smoketest/PhysgunRotationProbe。
+            Quaterniond orientation = grab.orientation();
+            if (orientation != null) {
+                double[] rot = PhysicsBodyTracker.rotationOf(grab.bodyId());
+                double inertia = PhysicsBodyTracker.inertiaOf(grab.bodyId());
+                if (rot != null && inertia > 0.0) {
+                    Quaterniond current = new Quaterniond(rot[0], rot[1], rot[2], rot[3]);
+                    double[] axisAngle = PhysgunRotation.errorAxisAngle(current, orientation);
+                    Vector3d angVel = motion == null
+                            ? new Vector3d()
+                            : new Vector3d(motion[3], motion[4], motion[5]);
+                    Vector3d alpha = PhysgunRotation.angularAccel(axisAngle, angVel);
+                    Vector3d torque = PhysgunRotation.torqueFor(inertia, alpha);
+                    Vector3d spin = PhysgunRotation.torqueImpulse(torque, dt);
+                    PhysicsBodyTracker.applyTorqueImpulse(grab.bodyId(), spin.x, spin.y, spin.z);
+                }
+            }
         }
     }
 
@@ -374,7 +486,7 @@ public class PhysgunItem extends Item {
         }
         q.normalize();
         double hold = Math.max(2.0, Math.min(RANGE, packet.holdDistance()));
-        GRABS.put(sp.getUUID(), grab.withDrag(hold, q));
+        grab.setDrag(hold, q);
     }
 
     /**

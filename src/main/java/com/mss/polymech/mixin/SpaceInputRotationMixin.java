@@ -112,6 +112,17 @@ public abstract class SpaceInputRotationMixin {
         //
         //   原注释说的"建造测试才顺手"只在**水平飞行**时成立，而那时 6DOF 基底与 yaw-only 恰好重合
         //   （roll=0、pitch=0）⇒ 顺手没有被牺牲，牺牲的只是"滚转/俯仰后仍然按没转的基座走"这个错误行为。
+        //
+        // ★★ 2026-10-03 第二轮追加：**创造飞行根本走不到这里，别在这里补飞行分支。**
+        //   `SpaceFlightMixin`（`@Mixin(Player.class)`）在 `Player.travel` 的 **HEAD 就 ci.cancel()**，
+        //   而 `moveRelative` 是从它下游的 `LivingEntity.travel` 里调的
+        //   ⇒ 飞行这一 tick 本方法**根本不执行**；飞行的**水平与竖直一起**由
+        //   `SpaceFlightMixin` + `SpaceFlight` 给（同样读 `SpacePlayerData.viewFrame`，同源）。
+        //   所以这里要处理的**只有走路/游泳**；想改飞行请去 `SpaceFlightMixin`。
+        //
+        //   ⚠️⚠️ 尤其**别在这里补"Space/Shift → 上下"**：见下面那段记录（零重力下无限累积）。
+        //   飞行的竖直已经由 `SpaceFlightMixin` 走视线基底给全了；在这里再补一份就是"两份来源叠加"，
+        //   而且这一份还绕不开"没阻尼地无限累积"那个老坑。
         data.markMovementBasis(true);
 
         // ── 照抄原版 getInputVector 的"归一化 + 缩放"部分，只换掉旋转 ──

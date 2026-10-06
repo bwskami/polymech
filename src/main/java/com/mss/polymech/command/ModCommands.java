@@ -788,8 +788,21 @@ public class ModCommands {
     private static int physicsBodyList(CommandSourceStack source) {
         var described = com.mss.polymech.physics.PhysicsBodyTracker.describe();
         source.sendSuccess(() -> Component.literal("物理体数量: " + described.size()), false);
+        int ghosts = 0;
         for (String line : described) {
             source.sendSuccess(() -> Component.literal("  " + line), false);
+            // 程序判定：行内出现任一"幽灵/姿态异常"标记就计数，最后给一行结论
+            if (line.contains("[幽灵") || line.contains("[姿态异常")) {
+                ghosts++;
+            }
+        }
+        if (ghosts == 0) {
+            source.sendSuccess(() -> Component.literal(
+                    "[物理体体检] PASS：无幽灵/姿态异常（组非空、四元数健全）"), true);
+        } else {
+            source.sendFailure(Component.literal(String.format(
+                    "[物理体体检] FAIL：%d 个异常体 —— 可用 /polymech physics collisiongroups <id> 1 -1 修正碰撞组，"
+                            + "或 /polymech physics drop <id> 直接销毁", ghosts)));
         }
         return described.size();
     }

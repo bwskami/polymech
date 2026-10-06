@@ -226,6 +226,62 @@ int baseX = cx * CHUNK_WIDTH - MAX_WIDTH / 2;
 第 7 条是唯一能把"渲染网格"与"碰撞网格"分开验的判据：两者用的是同一份
 `int[]`，但读取位移是**两处独立代码**（`PalettedChunk.index` 写、`PhysicalBody.voxelBounds` 读）。
 
+### 3.7 用户 2026-10-05 报告"玩家可以穿过物理体"：先分清哪条链，再看 `[镜子体体检]`
+
+**用户的猜测（"是不是因为变成 16"）必须分链回答 —— 答案是"看哪条链"：**
+
+| 链 | 用不用 `CHUNK_WIDTH`(16) | 16 能不能解释"穿过去" |
+|---|---|---|
+| **在跑的碰撞链**（服务端 `PhysicsBodyTracker` 的体 / 客户端 `ClientPhysics` 的镜子体 + 地形体素） | **不用** | ❌ 不能 |
+| MPS 克隆（`PhysicalBody`/`PalettedChunk`/`ProjectionManager`） | 用（§3.4 那个陷阱） | ✅ 能，但这条链**现在没有消费者** |
+
+- 在跑的碰撞链全程没有 `CHUNK_WIDTH`：`placeBlockAt`/`createFromRegion` 与 `ClientPhysics.syncShips`
+  都是 `NativePhysics.packCell(dx,dy,dz)` —— **相对各自刚体原点的 21 位有符号格坐标**
+  （±1,048,575，地形 localY≈1074 也安全）。客户端物理世界是 `ClientPhysics` 里自己
+  `worldCreate` 的那个 `world`，**不是** MPS 克隆的世界。所以 64→16 改不到它。
+- MPS 克隆那条链确实有 §3.4 的陷阱（偏移写成 `-CHUNK_WIDTH` ⇒ 静默平移 48 格），
+  但它现在没有渲染/碰撞消费者（§3.2：`ClientPhysicalBody` 连顶点缓冲都没有）。
+  真要担心它，判据是第 15 步 `SubChunkGranularityProbe` 的 B/C 组（覆盖性 + 反例有效性）。
+
+**"能看见、没碰撞、牵引枪抓不到、也挖不掉"是四个症状，而只有一个原因能同时给出四个**：
+那个体在**两侧都没有碰撞体**。渲染走方块列表（与碰撞体无关 ⇒ 照画），
+而牵引枪/挖掘都是**对碰撞体的射线**（没有碰撞体 ⇒ 打不到 ⇒ 抓不到、也挖不掉）。
+
+**已定位的真洞（客户端侧）**：原生层 `colliderAttachVoxels` 对**空单元数组**是 `return -1`
+（`lib.rs` 的 `Ok(n) if n > 0 => n, _ => return -1`），**不是**建一个空碰撞体。
+而 `ClientPhysics.syncShips` 原来**不看返回值** ⇒ 刚体建出来了、碰撞体一个没挂、`ShipBody` 照登记
+⇒ 从那一 tick 起玩家就能穿过它，画面却完全正常。现在改成"销毁刚体 + 不登记 + 打一行 FAIL，
+下一 tick 重试"。（`docs/mps-clone-plan.md` 的"拾取为什么在客户端自己算"早就记过
+"客户端镜子体不保证有碰撞体" —— 这次是把它从**已知前提**变成**可判定的错误**。）
+
+**新增程序判据（客户端，1s 一次，只查玩家 8 格内的体）：`[镜子体体检]`。**
+它把上面第 7 条自动化：从**眼睛**朝**画面上最近那一格的可见中心**（渲染位姿 + 方块列表）
+打一发玩家组 `(2,5)` 的射线，再打一发"全通过" `(-1,-1)`，四种结论互斥：
+
+| 日志尾部 | 含义 |
+|---|---|
+| `PASS（朝可见方块中心打，命中它自己的碰撞体）` | 可见面 = 碰撞面，这一侧真的能撞上 |
+| `FAIL：碰撞体在，但玩家的组 (2,5) 打不到它 ⇒ 组不匹配（幽灵）` | 碰撞组那一类（`filter=0`） |
+| `FAIL：先撞到别的碰撞体 N ⇒ 碰撞体整体错位（可见面与碰撞面不吻合）` | §3.4 那一类（48 格平移） |
+| `FAIL：朝可见方块中心打，两发都打不到 ⇒ 碰撞体不在世界 / 形状为空 / 整体错位` | 上面那个 `-1` 洞，或体素根本没建上 |
+
+**目标点必须是"可见的那一格"，不能是刚体原点**：原点就是碰撞体自己的坐标系，
+碰撞体整体平移时原点跟着一起平移 —— 打原点照样 PASS，只有打可见面才抓得到 §3.4 那类错位。
+
+**顺带修掉的一个崩溃（`SpaceBlockPlacement`，`2ec3443` 引入）**：
+成功提示里 `Long.toHexString(bodyId).substring(0, 8)` —— 原生层给的 id 是 3、4 这种小数，
+`Long.toHexString(3) == "3"` ⇒ `substring(0,8)` 抛 `StringIndexOutOfBoundsException`。
+它在**建体成功之后**炸，于是 ① 提示不出现（用户以为没放上，反复右键）② 冷却不记（可无限连点）
+③ `event.setCanceled(true)` 被跳过 ⇒ 原版放置路径继续跑。
+取证：`run/logs` 里 18:44 / 18:45 / 19:10 三次单块放置，每次 `物理体 N 由单块创建` 后 4ms 都是这条异常。
+修法两半：**把取消提前到副作用之前**（装饰不许带走契约）+ id 改 `%08x`（定宽，不再需要 substring）。
+
+**实机判据（绝对坐标，用户执行）**：
+1. 造一个物理体，站在离它 3~5 格处看日志：应出现一行 `[镜子体体检] … PASS`；
+   若是 FAIL，那一行已经把原因写在 `⇒` 后面（组 / 错位 / 不在），**不需要靠眼睛判断**。
+2. 走向它并贴上去：日志从 PASS 变 FAIL（或 FAIL 里出现"先撞到别的碰撞体"）⇒
+   可见面与碰撞面不重合，属于 §3.4 那一类，**不是** Rapier 参数问题（别再去调求解器）。
+
 
 ## 四、第 4 项：`Planet` 云层字段 ✅ 完成
 
@@ -254,7 +310,7 @@ int baseX = cx * CHUNK_WIDTH - MAX_WIDTH / 2;
 ## 五、验证约定（每项都要给）
 
 1. `.\gradlew compileJava` 必须 `BUILD SUCCESSFUL`。
-2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **exit 0**（现 **15 步**）；
+2. `.\native\jni-smoketest\run-offline-checks.ps1` 必须 **exit 0**（现 **23 步**：第 23 步是物理体射线几何内核 BodyVoxelRaycastProbe）；
    每加一条判据就并入该脚本（注意它有**双 BOM**：改完要用
    `[System.IO.File]::ReadAllBytes/WriteAllBytes` 补 `EF BB BF EF BB BF`，`edit` 工具会吃掉 BOM；
    `check-artifact.ps1` 是**单 BOM**）。
@@ -266,3 +322,104 @@ int baseX = cx * CHUNK_WIDTH - MAX_WIDTH / 2;
 7. 给离线探针加"复刻公式"时，**必须同时加 `check-artifact.ps1` 源码契约**钉住"复刻 == 实现"，
    否则探针可能在验证一个已经不存在的公式（第 2 项的 11 条契约就是为此）。
 8. 改动**删除**类行为（如删掉无界缓存）时用 `mustNot` 型契约，防止回归。
+
+---
+
+## 3.8 物理体互动：两栈并存 + 射线差异（2026-10-06 调查结论）
+
+### 结论一：仓库里有两套物理栈，同时活着
+
+| | STACK A（本项目自己） | STACK B（space 0.3.0 洁净室克隆） |
+|---|---|---|
+| 包 | `com.mss.polymech.physics` / `client.physics` | `com.mss.polymech.mps` |
+| 状态 | **全部玩家可见功能都走这里** | **全链路已接线但永久为空** |
+
+B 的"永久为空"是**可证明的**，不是猜测：全仓库 `new ServerPhysicalBody` 只有一处
+（`mps/physical/physical_body/ServerPhysicalBody.java:101`，`loadFromTag`），
+只被 B 自己的存档加载路径调用（`PhysicalBodyWorldData.loadBodies` ← `CollisionPhysicalServerAction:99`）；
+而 `saveBodies` 只写 B 世界里已有的体 ⇒ 空世界跨会话永远是空的。
+没有任何代码把 A 的体拷进 B（反之亦然）。两份存档文件也是分开的
+（A：`polymech_physics_bodies`；B：`physical_bodies`）。
+B 还在**无条件付代价**：客户端/服务端各一个 100Hz 步进线程 + 服务端 20Hz 区块线程，跑的都是空 Rapier 世界。
+
+### 结论二：B 即使有体也互动不了（四处断链，每处都独立致命）
+
+1. **没有造体者**：B 只有 `loadFromTag`；space 的 `PhysicalSelectionManager`（法杖选取建体，
+   也是 `uploadAllChunks`/`copyBlock` 的唯一调用者）在本仓库**整类缺失**，
+   `PhysicalSelectionActionPacket`/`SyncPhysicalSelection`/`PhysicalSelectionWandEvent` 同样缺失。
+2. **没有位姿流**：`SyncPhysicalBodyMoveBatch` 注册了但**全仓库没有构造点**（只有它自己的 `decode`）。
+   space 在 `ProjectionTickHandler` 里每 tick 给每个体入队一条 move ⇒ 客户端镜体停在创建/登录时的位姿。
+3. **方块数据只发 8/512 个子块**：登录/建体只发 `x,y,z ∈ [-1,0]`（`PhysicalWorldUpdateSyncEvent:82-90`、
+   `ServerPhysicalWorld:100-108`），space 是 `halfChunks=4` 即全部 512
+   ⇒ 客户端镜体在中心 32³ 之外全是空气 ⇒ `ShipRaycast` 找不到方块 ⇒ `findHit()==null`。
+4. **子块偏移差 3**：`PhysicalBody.setBlockStateChunk/getBlockStateChunkInt` 写 `chunk_x++`（偏移 1），
+   space 是 `chunk_x += 4`（偏移 4）；而 `ProjectionManager` 传的是 `chunkX - CHUNK_COUNT/2`（偏移 4）
+   ⇒ 负局部坐标被静默拒绝、正的错 3 个子块（48 格）。叠加 `readProjectionData` 还是 `chunkCount = 2`（2×2×2 时代）
+   ⇒ **读档后 B 的方块表整片为空**。
+
+### 结论三：A 的挖掘射线不是 space 的（已修）
+
+A 的客户端挖掘一直用自己写的 `PhysicsRaycast`：把方块表拍成 `int[]`，**逐块当单位立方体**做 slab 求交。
+两个偏差：
+
+1. **方块形状被当满格**：台阶/半砖/栅栏/玻璃板/草/火把的真实形状都不是整格 ⇒ 对着看得见的空处也报命中。
+   space 用 `state.getShape(...)` 的真实形状（空形状才退回 `Shapes.block()`）。
+2. **slab 少夹了一次 far**：某轴提供进入点时只更新 `tmin` 而**没有** `tmax = min(tmax, tFar)`
+   ⇒ 三轴区间不相交（射线从方块旁擦过）也报命中。解析反例（可复算）：
+   方块 (0,0,0)，起点 (0.5, −1.788854, −2.236068)，方向 (0, 0.894427, 0.447214)，reach=10；
+   X 平行 ⇒ 区间无限宽，Y ≈ [2, 3.118]，Z ≈ [5, 7.236]，交集为空（真值未命中），旧实现报"命中 t=5"。
+
+**后果**：擦边瞄准时客户端报的格 ≠ 服务端投影里的格（甚至报空气）⇒
+"瞄半天挖不掉 / 第一格破了后面不动 / 互动错格"，且**随角度时好时坏**。
+
+**修法（已落地）**：新增 `physics/BodyVoxelRaycast.java` —— 逐字照 space 的 `ShipRaycast`：
+原版 `BlockGetter.traverseBlocks` DDA + 方块真实形状 + `AABB.clip` 粗筛 + `AABB_ENTRY_EPSILON` 推进；
+`client/physics/PhysicsBodyInteractionClient.castAgainstBodies` 改用它，删除 `physics/PhysicsRaycast.java`。
+有意保留的唯一偏离：**位姿用渲染口径**（`renderX/Y/Z/Rotation(1.0f)`），因为玩家瞄的是画面上那一格，
+而我们的渲染走网络位姿环（space 渲染与拾取都直读体位姿，它没有这个问题）。
+
+### 结论四：放置射线读 B、写 A（**已修 2026-10-06**）
+
+> **已修**：`SpaceBlockPlacement` 的射线改成 `PhysicsBodyTracker.raycastBody(...)` —— 对 **A 自己的体**
+> 做 space 口径三步求交（AABB 粗筛 → 体局部 DDA + 方块真实形状 → 世界化），返回体局部格/面 +
+> **世界**面 + 世界命中点；世界面用 `SpaceBuildRules.rotateFace` 按刚体旋转转过。
+> 同时删掉 B 世界门禁（`ServerPhysicalWorld.getPhysicalWorld`）与已成死代码的
+> `worldFace(PhysicalRaycast.Hit)` ⇒ "对着体某一面放置"分支**从死代码变回活代码**。
+> 共用几何提到 `BodyVoxelRaycast`（新增 `worldAabb` / `toLocal` / `toWorld`），服务端不再有第二套实现。
+>
+> 判据：`BodyVoxelRaycastProbe` 新增 **F1–F7**（旋转体 + 已知面 ⇒ 目标格 = 面相邻格；期望值全部解析推导），
+> 探针 **18/18**、离线自检 **exit 0**、`compileJava` **BUILD SUCCESSFUL**。
+> 副产物：F4 抓出原版 `VoxelShape.clip` 会把起点沿射线推进 0.1%（`vec3.scale(0.001)`）的语义 ——
+> 实现是对的，判据的期望值据此修正（F7 仍 PASS ⇒ 放置决策对该 0.005 偏移不敏感）。
+>
+> 下面保留当时的诊断原文。
+
+
+`physics/SpaceBlockPlacement`：`:95` 取 B 的 `ServerPhysicalWorld` 当门禁、`:108` 用 B 的 `PhysicalRaycast.cast`，
+而 B 永远为空 ⇒ 永远返回 `null` ⇒ **"对着体某一面放置"那条分支是死代码**，
+每次放置都退化成 `eye + look * 3.0`（固定 3 格）。
+后果：无法把方块放到"正在看的那一面上"，常常凭空在别处新建一个体（`hasAdjacentBody` 判定失败）。
+修法：把这条射线改成对 A 的 `PhysicsBodyTracker` 体做（复用 `BodyVoxelRaycast.traverse` 几何内核）。
+
+### 结论五：穿模的候选机制（仍是假设，未证实）
+
+最自洽的解释是**渲染位姿环 vs 镜体碰撞位姿的错位**：玩家碰撞用镜体/原生的实时位姿，
+而画面上的体被网络位姿环延迟约 0.1s。体静止时两者重合 ⇒ 不穿；体在动时两者分离 ⇒ 看着穿过去了。
+（space 0.3.0 的玩家碰撞模型 `PhysicalEntityCollision` 是另一条路，本项目当时按用户决定"暂缓"，
+所以现在仍是 Rapier 双体那套 0.1.3 模型。）
+
+### 两栈并存的潜在雷（未爆发，但要知道）
+
+- **两个投影槽分配器管同一个维度**（`poly_mech:projection_world`，几何都是 128³）：A 取最小空槽、B 取持久化递增 `nextSlot`；
+  B 一旦有体就会拿到槽 0 —— 正是 A 第一个体用的槽，A 的 `wipeSlot` 会把对方的方块删掉。
+- **两个客户端互动处理器订阅同一对事件**（`client/physics/PhysicsBodyInteractionClient` 与 `mps/client/PhysicalBodyInteractionClient`），
+  今天无害只因为 B 找不到命中；B 一旦有体，一次点击会发两个包。
+- **B 的 `ProjectionManager.tick()` 无调用者**（`PhysicsServerTick:27` 解析到 A 的同名类）⇒ B 的脏块回写是死代码。
+- **kelvin 的"船当天体"桥读 B**（`PhysicalBodySpaceEvent:70-77`）⇒ 真实船永远不会生成 `Aircraft`。
+
+### 待用户决策
+
+B 是"照抄 space"的最终形态，但它现在**既不通电也没数据**。三条路：
+(a) 删掉 B，只留 A（A 已修好射线，最快止血）；
+(b) 把 A 的体喂给 B（迁移到 space 形态，工作量大，但方向与"照抄优先"一致）；
+(c) 维持现状（继续付空转代价 + 两个槽分配器的雷）。

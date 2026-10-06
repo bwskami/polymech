@@ -43,10 +43,8 @@ public class CelestialSmoothProbe {
     private static final double SPIN = 1.0;
     /** 预热帧数：让快照环攒够（延迟 0.10s = 20 帧，多给一些）。 */
     private static final int WARMUP = 40;
-    /** 统计帧数（窗口 120 帧，多跑一段让读数稳定）。 */
+    /** 统计帧数（窗口 1.2 秒 @200fps = 240 帧，多跑一段让读数稳定）。 */
     private static final int MEASURE = 260;
-    /** 统计窗口帧数。 */
-    private static final int WINDOW = 120;
 
     private static int passed;
     private static int failed;
@@ -65,7 +63,7 @@ public class CelestialSmoothProbe {
         CelestialBody body = new CelestialBody("overworld", "probe", new Vector3d(0.0, 0.0, 0.0),
                 new Quaterniond(), 1.0);
 
-        FrameJitterMeter meter = new FrameJitterMeter("[CelestialBody]", WINDOW);
+        FrameJitterMeter meter = new FrameJitterMeter("[CelestialBody]", FrameJitterMeter.DEFAULT_WINDOW_SECONDS);
         int framesPerSample = (int) Math.round(FRAME_HZ / SAMPLE_HZ);
         double maxPushedX = 0.0;
         double maxOutputX = -Double.MAX_VALUE;
@@ -110,30 +108,23 @@ public class CelestialSmoothProbe {
 
         FrameJitterMeter.Stats s = meter.stats();
         if (s == null) {
-            check(false, "统计窗口没攒够", "filled < " + WINDOW);
+            check(false, "统计窗口没攒够", "span < " + FrameJitterMeter.DEFAULT_WINDOW_SECONDS + "s");
             System.out.printf("%n=== CelestialSmoothProbe: %d/%d 通过，失败 %d ===%n", passed, passed + failed, failed);
             System.exit(1);
         }
         System.out.println("        " + meter.verdict());
 
-        // ⚠️ 实时忙等的固有噪声：本探针用 System.nanoTime 忙等按 200fps 推进真实时间。
-        //    机器一忙（例如整条套件刚跑完别的探针），某一帧就会迟到 ⇒ 那一帧的"每帧位移"偏大
-        //    ⇒ 抖动虚高（实测偶发 2.25，健康值是 1.00）。**这不是代码抽**：
-        //    真抽（旧两拍 lerp，见第 19 步 B 组）是 3.9 量级，而且**每次都会抽**，不会只偶发一次。
-        //    所以本探针的容差单独放宽到 2.5（**只放宽这一处**，FrameJitterMeter 的 1.5 与
-        //    游戏内那条读数一律不动）—— 保住"真抽必失败"，同时不让调度噪声误杀。
-        //    真正的修法是让 FrameJitterMeter 按帧间隔归一化（那样连游戏内 GC 卡帧也不会误报），
-        //    已记为待办，不在本次范围内。
-        final double probeJitterTolerance = 2.5;
-        check(s.decidable() && s.jitter() <= probeJitterTolerance && s.stalls() == 0,
-                "1 平滑：抖动 ≤ 2.5（探针容差，见注释）且 跳变帧 = 0",
-                String.format(java.util.Locale.ROOT, "抖动=%.2f 跳变帧=%d/%d",
+        // v2 量具（2026-10-04）已按**帧间隔归一化**（位移 → 速度）：实时忙等的迟到帧
+        // dt 变大、位移也等比变大 ⇒ v 不变，调度噪声不再推高抖动。v1 时代这里被迫放宽到 2.5
+        // 并记了待办（见 git 历史）—— 现在收回统一的 1.5，两处判据不再两套口径。
+        check(s.decidable() && s.jitter() <= FrameJitterMeter.JITTER_PASS && s.stalls() == 0,
+                "1 平滑：抖动 ≤ 1.5（与游戏内读数同一阈值）且 停帧 = 0",
+                String.format(java.util.Locale.ROOT, "抖动=%.2f 停帧=%d/%d",
                         s.jitter(), s.stalls(), s.frames()));
-        // 期待每帧位移 = SPEED / FRAME_HZ = 0.15 格；抖动已覆盖均匀性，这里再看量级对不对
-        double expectedStep = SPEED / FRAME_HZ;
-        check(Math.abs(s.mean() - expectedStep) < expectedStep * 0.25,
-                "2 每帧位移量级正确（没有被插值拉慢/加快）",
-                String.format(java.util.Locale.ROOT, "实测均 %.4f，期待 %.4f 格", s.mean(), expectedStep));
+        // 期待逐帧速度 = SPEED = 30 格/秒（v2 是速度口径；没有被插值拉慢/加快）
+        check(s.decidable() && Math.abs(s.mean() - SPEED) <= SPEED * 0.10,
+                "2 速度量级正确（没有被插值拉慢/加快）",
+                String.format(java.util.Locale.ROOT, "实测均 %.3f，期待 %.3f 格/秒", s.mean(), SPEED));
         check(maxOutputX <= maxPushedX + 1.0e-6,
                 "3 不外推：输出从不越过已推样本",
                 String.format(java.util.Locale.ROOT, "输出最大 %.4f ≤ 样本最大 %.4f", maxOutputX, maxPushedX));

@@ -79,6 +79,9 @@ public abstract class SpaceBodyTiltMixin {
             operation.call(self, entity, poseStack, bob, yBodyRot, partialTick, scale);
             return;
         }
+        // 自检用：把模型这一帧真正拿到的 partialTick 公布出去，供 PlayerColliderRender 并排比较
+        // （框走 event 的 DeltaTracker、模型走 LevelRenderer 传下来的 pt，两者必须同值）。
+        com.mss.polymech.client.physics.PlayerColliderRender.lastModelPartialTick = partialTick;
 
         // 绕"身体中心"旋转 —— **必须和物理碰撞箱绕同一点**：
         // Rapier 刚体的平移点就是"实体位置 + bodyCenterOffset"，盒子挂在刚体原点上，

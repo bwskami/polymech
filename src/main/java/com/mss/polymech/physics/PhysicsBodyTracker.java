@@ -113,7 +113,19 @@ public final class PhysicsBodyTracker {
         return new ArrayList<>(BODIES.keySet());
     }
 
-    /** 诊断：id → 当前位置、速度与方块数。 */
+    /**
+     * 诊断：id → 当前位置、速度与方块数，外加**碰撞组**与**姿态健全性**。
+     *
+     * <p>2026-10-05 补的两项是"幽灵物理体"的判据（用户报：能看见、没碰撞、牵引枪抓不到、也挖不掉）：
+     * <ul>
+     *   <li><b>组</b>：Rapier 判定是双向的 {@code (A.mem & B.filter) != 0 且 (B.mem & A.filter) != 0}。
+     *       {@code collisiongroups} 命令的文档里就写着 {@code 1 0} = "幽灵：filter 空集，跟谁都碰不上，
+     *       人可以直接穿过去" —— 打出组才能一眼认出这种体（之前 {@code describe} 恰恰不打组）；</li>
+     *   <li><b>姿态健全性</b>：零四元数 / NaN 会被 {@code BodyRaycast.nearest} <b>直接跳过</b>
+     *       （"位姿非法…直接跳过"），于是该体<b>不可牵引、不可挖</b>，而渲染侧照样画得出来
+     *       （{@code renderRotation} 的兜底把零四元数归一成单位姿态）—— 也是幽灵的一种。</li>
+     * </ul>
+     */
     public static List<String> describe() {
         List<String> out = new ArrayList<>();
         for (Map.Entry<Long, TrackedBody> entry : BODIES.entrySet()) {
@@ -122,10 +134,25 @@ public final class PhysicsBodyTracker {
             if (m == null) {
                 m = ZERO_MOTION;
             }
-            out.add(String.format("id=%d pos=(%.2f, %.2f, %.2f) 速度=(%.2f, %.2f, %.2f) 方块=%d 质量=%.1f kg%s",
+            int[] groups = COLLISION_GROUPS.get(entry.getKey());
+            // 姿态健全性：长度平方过小（≈零四元数）或任一分量非有限 ⇒ 求交那侧会跳过该体
+            double lenSq = t.qx * t.qx + t.qy * t.qy + t.qz * t.qz + t.qw * t.qw;
+            boolean badQuat = !(lenSq > 1.0e-12)
+                    || !(t.qx == t.qx && t.qy == t.qy && t.qz == t.qz && t.qw == t.qw);
+            // filter 空集 ⇒ 与谁都碰不上（文档里管这叫"幽灵"）
+            boolean ghost = groups != null && groups[1] == 0;
+            StringBuilder flags = new StringBuilder();
+            flags.append(" 组=").append(groups == null ? "未设置" : groups[0] + "/" + groups[1]);
+            if (ghost) {
+                flags.append(" [幽灵：filter=0，与谁都碰不上]");
+            }
+            if (badQuat) {
+                flags.append(" [姿态异常：BodyRaycast 会跳过 ⇒ 不可牵引/不可挖]");
+            }
+            out.add(String.format("id=%d pos=(%.2f, %.2f, %.2f) 速度=(%.2f, %.2f, %.2f) 方块=%d 质量=%.1f kg%s%s",
                     entry.getKey(), t.x, t.y, t.z, m[0], m[1], m[2], t.blocks.size(),
                     massOf(entry.getKey()),
-                    t.frozen() ? " [冻结]" : ""));
+                    t.frozen() ? " [冻结]" : "", flags));
         }
         return out;
     }
@@ -1394,6 +1421,21 @@ public final class PhysicsBodyTracker {
         return world > 0 && NativePhysics.worldRemoveConstraint(world, constraintId);
     }
 
+    /**
+     * 体所属的<b>物理世界句柄</b>（体不存在返回 0）。
+     *
+     * <p>给"每个世界各挂一份步进回调、回调里按世界对表"的场景用（牵引枪伺服
+     * {@code PhysgunItem.physicsStep}）：不这么做，A 世界的回调会以 100Hz×世界数 的频率
+     * 重复对 B 世界的体施力。</p>
+     */
+    public static long worldOf(long id) {
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null) {
+            return 0L;
+        }
+        return PhysicsWorldManager.world(tracked.level);
+    }
+
     /** 对刚体施加冲量（质量感知：同样冲量下轻物飞得远、重物几乎不动）。 */
     public static boolean applyImpulse(long id, double ix, double iy, double iz) {
         TrackedBody tracked = BODIES.get(id);
@@ -1529,6 +1571,117 @@ public final class PhysicsBodyTracker {
     }
 
     /** 取某刚体的方块快照（客户端做射线/预测用）。 */
+    /**
+     * 服务端物理体射线 —— <b>照 space 0.3.0 的 {@code ShipRaycast}</b>：粗筛世界 AABB →
+     * 把射线两端变换到体局部空间，用原版 DDA + 方块<b>真实形状</b>逐格走 → 取最近。
+     *
+     * <p><b>为什么需要它（2026-10-06）</b>：太空放置原来把射线打在 <b>MPS 克隆栈</b>
+     * （{@code mps...ServerPhysicalWorld}）上，而那条栈<b>恒空</b>（全仓库只有 {@code loadFromTag}
+     * 会建体，且存档只写它自己已有的体）⇒ 永远返回 {@code null} ⇒
+     * "对着体某一面放置"那条分支是<b>死代码</b>，每次放置都退化成 {@code eye + look × 3.0}。
+     * 这里改成对 A 自己的体求交；几何内核与客户端同一份（{@link BodyVoxelRaycast#traverse}），
+     * 不引入第二套实现。</p>
+     *
+     * @param look 单位视线方向
+     * @return 最近命中的体 + 局部格/局部面 + <b>世界</b>面（已按刚体旋转转过）+ 世界命中点 + 距离；
+     *         没打到返回 {@code null}
+     */
+    public static BodyVoxelHit raycastBody(ServerLevel level, net.minecraft.world.phys.Vec3 origin,
+                                           net.minecraft.world.phys.Vec3 look, double maxDistance) {
+        net.minecraft.world.phys.Vec3 end = origin.add(look.scale(maxDistance));
+        BodyVoxelHit best = null;
+        for (TrackedBody tracked : BODIES.values()) {
+            if (tracked.level() != level || tracked.blocks().isEmpty()) {
+                continue;
+            }
+            Quaterniond rot = new Quaterniond(tracked.qx(), tracked.qy(), tracked.qz(), tracked.qw());
+            if (!rot.isFinite() || rot.lengthSquared() < 1.0e-12) {
+                continue;                    // 零四元数 / NaN：BodyRaycast.nearest 也是直接跳过
+            }
+            rot.normalize();
+            Quaterniond inv = new Quaterniond(rot).conjugate();
+            double px = tracked.x();
+            double py = tracked.y();
+            double pz = tracked.z();
+            if (!Double.isFinite(px) || !Double.isFinite(py) || !Double.isFinite(pz)) {
+                continue;
+            }
+
+            // 局部格范围 + 局部格 → 状态（形状求交要用真实形状，不能按满格）
+            int minX = Integer.MAX_VALUE;
+            int minY = Integer.MAX_VALUE;
+            int minZ = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE;
+            int maxY = Integer.MIN_VALUE;
+            int maxZ = Integer.MIN_VALUE;
+            java.util.HashMap<Long, BlockState> states = new java.util.HashMap<>();
+            for (PhysicsBodySyncPacket.BlockEntry e : tracked.blocks()) {
+                minX = Math.min(minX, e.dx());
+                minY = Math.min(minY, e.dy());
+                minZ = Math.min(minZ, e.dz());
+                maxX = Math.max(maxX, e.dx());
+                maxY = Math.max(maxY, e.dy());
+                maxZ = Math.max(maxZ, e.dz());
+                states.put(BlockPos.asLong(e.dx(), e.dy(), e.dz()), PhysicsBodySyncPacket.stateFrom(e.stateId()));
+            }
+
+            // ① 粗筛：世界 AABB
+            net.minecraft.world.phys.AABB box = BodyVoxelRaycast.worldAabb(
+                    new int[]{minX, minY, minZ, maxX, maxY, maxZ}, px, py, pz, rot);
+            net.minecraft.world.phys.Vec3 entry = box.contains(origin)
+                    ? origin
+                    : box.clip(origin, end).orElse(null);
+            if (entry == null) {
+                continue;
+            }
+
+            // ② 精求交：体局部空间 DDA（起点沿射线推进 epsilon，避免贴面反复命中）
+            net.minecraft.world.phys.Vec3 localStart = BodyVoxelRaycast.toLocal(
+                    entry.add(look.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON)), px, py, pz, inv);
+            net.minecraft.world.phys.Vec3 localEnd = BodyVoxelRaycast.toLocal(end, px, py, pz, inv);
+            if (localStart == null || localEnd == null) {
+                continue;
+            }
+            BodyVoxelRaycast.LocalHit hit = BodyVoxelRaycast.traverse(localStart, localEnd, pos -> {
+                BlockState state = states.get(pos.asLong());
+                if (state == null || state.isAir()) {
+                    return null;             // 空气不挡
+                }
+                net.minecraft.world.phys.shapes.VoxelShape shape =
+                        state.getShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+                return shape.isEmpty() ? net.minecraft.world.phys.shapes.Shapes.block() : shape;
+            });
+            if (hit == null) {
+                continue;
+            }
+
+            // ③ 命中点换回世界、距离按世界算；面按刚体旋转转成世界方向（放置方向要用）
+            net.minecraft.world.phys.Vec3 world = BodyVoxelRaycast.toWorld(hit.location(), px, py, pz, rot);
+            if (world == null) {
+                continue;
+            }
+            double distance = origin.distanceTo(world);
+            if (!(distance <= maxDistance)) {
+                continue;
+            }
+            if (best == null || distance < best.distance()) {
+                int[] turned = SpaceBuildRules.rotateFace(hit.face().getStepX(), hit.face().getStepY(),
+                        hit.face().getStepZ(), rot);
+                net.minecraft.core.Direction face = net.minecraft.core.Direction.getNearest(
+                        turned[0], turned[1], turned[2]);
+                best = new BodyVoxelHit(tracked.body(), hit.cell(), hit.face(),
+                        face == null ? hit.face() : face, hit.location(), world, distance);
+            }
+        }
+        return best;
+    }
+
+    /** 服务端物理体射线命中：体 id + 局部格/局部面 + <b>世界</b>面 + 局部/世界命中点 + 距离（世界格）。 */
+    public record BodyVoxelHit(long bodyId, BlockPos localCell, net.minecraft.core.Direction localFace,
+                               net.minecraft.core.Direction worldFace, net.minecraft.world.phys.Vec3 localLocation,
+                               net.minecraft.world.phys.Vec3 worldLocation, double distance) {
+    }
+
     public static List<PhysicsBodySyncPacket.BlockEntry> blocksOf(long id) {
         TrackedBody tracked = BODIES.get(id);
         return tracked == null ? List.of() : tracked.blocks;

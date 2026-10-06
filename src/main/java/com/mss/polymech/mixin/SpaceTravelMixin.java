@@ -16,9 +16,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * 太空 6DOF：<b>只负责朝向</b>，不参与移动。
  *
- * <p>移动的"往哪走"由 {@link SpaceInputRotationMixin} 在 {@code Entity.moveRelative} 里
- * 把原版输入旋转到 6DOF 基底；"走多少 / 怎么停"由原版 {@code travel} 负责；
- * "最终位置"由物理刚体积分后回写（{@code EntityPhysicsDriveMixin}）。</p>
+ * <p><b>★ 移动现在的分工（2026-10-03 更新，别按旧版那句话理解）</b>：</p>
+ * <ol>
+ *   <li><b>走路 / 游泳</b>："往哪走"由 {@link SpaceInputRotationMixin} 在
+ *       {@code Entity.moveRelative} 里把原版输入旋转到 6DOF 基底；"走多少 / 怎么停"
+ *       仍归原版 {@code travel}；</li>
+ *   <li><b>创造飞行</b>：<b>整条速度链</b>由 {@link SpaceFlightMixin}
+ *       （{@code Player.travel} 的 HEAD 取消）接管 —— 冲量与阻尼都走视线基底，
+ *       见 {@link com.mss.polymech.space.SpaceFlight}。
+ *       ⚠️ 所以旧版这里写的"走多少 / 怎么停由原版 {@code travel} 负责"**对飞行已不成立**：
+ *       原版的飞行竖直沿**世界 +Y**，头朝下（滚转 180°）时按空格会往屏幕下飞；
+ *       而且它还会把 {@code moveRelative} 加进去的 y 分量整条覆盖。</li>
+ *   <li><b>最终位置</b>由物理刚体积分后回写（{@code EntityPhysicsDriveMixin}）；
+ *       <b>但飞行时物理层主动让路</b>（{@code ClientPhysics.drive()} 返回 false，
+ *       理由见那里的注释）⇒ 飞行这一 tick 的位移走原版 {@code Entity.move}（碰撞夹取照旧），
+ *       刚体只在 {@code afterPlayerTick} 里跟随。</li>
+ * </ol>
+ * <p>三者的输入基底必须同源：都读 {@code SpacePlayerData.viewFrame}。</p>
  *
  * <p>本类做四件事：</p>
  * <ol>

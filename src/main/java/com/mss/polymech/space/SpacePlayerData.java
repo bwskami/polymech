@@ -668,6 +668,18 @@ public final class SpacePlayerData {
      * 而相机那边又走 {@code setRotation(yaw, pitch, roll)} 的欧拉转换 —— <b>两条路各算各的</b>，
      * 一旦哪边的符号/约定有出入，就表现为"只有滚转时才左右反"这类难查的毛病。
      * 现在两边读同一个四元数，这种分歧在结构上就不存在了。</p>
+     *
+     * <p><b>★ 三个消费方（动这个类之前先看这张表）</b>：
+     * <ol>
+     *   <li><b>相机</b>：{@link #mcRotation} → 原版 {@code Camera.setRotation(yaw,pitch,roll)}
+     *       （注入点是 {@code Camera.setup} 的 TAIL，见 {@code SpaceCameraMixin}）；</li>
+     *   <li><b>走路 / 游泳</b>：{@code SpaceInputRotationMixin} 的 {@code moveRelative} 注入；</li>
+     *   <li><b>创造飞行</b>：{@code SpaceFlightMixin}（{@code Player.travel} 的 HEAD 取消）
+     *       —— <b>水平与竖直一起</b>都走这里，见 {@link SpaceFlight}。</li>
+     * </ol>
+     * 三者必须同源。历史上"移动"这条**分叉**成走路/飞行两条路，而飞行那条没读这里
+     * （走回原版 yaw-only 基底）⇒ 滚到 ±180 时相机滚了、输入没滚 ⇒ 用户报"左右键反向"。
+     * 所以：<b>任何一条移动路径都不得自算基底，也不得只改其中的一条。</b></p>
      */
     public org.joml.Quaternionf viewFrame(org.joml.Quaternionf out) {
         return basisToQuat(facing, left, out);

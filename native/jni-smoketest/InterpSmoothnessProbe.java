@@ -12,20 +12,29 @@ import com.mss.polymech.util.TimedSamples;
  * 本探针把这句话变成可判定的东西：同一条匀速运动、同一个采样节奏，
  * <b>只改"交换落在哪个相位"</b>，看每帧位移是否还均匀。
  *
- * <h2>四组（A/B 是对照组，缺了它们 C 就是死判据）</h2>
+ * <h2>六组（A/B/E 是对照组，缺了它们 C/F 的 PASS 就是死判据）</h2>
  * <ul>
  *   <li><b>A</b> 固定相位（交换正好在 tick 边界）+ 旧 lerp ⇒ 顺滑。证明<b>量具本身能给出 PASS</b>，
  *       否则 C 组的 PASS 可能只是"这个统计怎么也通过"；</li>
  *   <li><b>B</b> ★ <b>任意相位</b> + 旧 lerp ⇒ 必抽（每 tick 跳一整个 Δ）。这是"判据必须能 FAIL"的对照组；</li>
  *   <li><b>C</b> 同样的任意相位 + {@link TimedSamples} ⇒ 顺滑；</li>
  *   <li><b>D</b> 丢一拍 + {@link TimedSamples} ⇒ <b>夹住不外推</b>（外推会在丢包时把物体甩出屏幕）。</li>
+ *   <li><b>E</b>（2026-10-04 新增）★ <b>直读 100Hz 步进阶梯 @560fps</b> ⇒
+ *       必须 FAIL，且形态复现实机读数（零位移帧占大头、抖动 ≈ fps/100）。
+ *       这是 2026-10-03 牵引枪读数 {@code 最小=0.0000 跳变帧=101/120 抖动=8.12} 的离线归因：
+ *       运动本身没问题，是<b>消费方式</b>把连续运动读成了阶梯。</li>
+ *   <li><b>F</b> ★ 同一条阶梯信号 + {@link TimedSamples}（延迟 = 2×10ms，与
+ *       {@code ClientPhysics.renderTransform} 同构）⇒ 必须 PASS（停帧归零）。
+ *       <b>E/F 只差消费方式</b>，且两组的平均速度必须一致（同一运动）——
+ *       这一对才把"读数坏了是消费路径的锅"钉死。</li>
  * </ul>
  *
  * <h2>为什么可以直接调真实现</h2>
- * 两组判据都调<b>生产代码本体</b>（{@code TimedSamples} / {@code FrameJitterMeter}），
+ * 判据都调<b>生产代码本体</b>（{@code TimedSamples} / {@code FrameJitterMeter}），
  * 不是在这里复刻一份公式 —— 本项目栽过"探针复刻的契约与真实现不一致"。
- * 时钟由 {@code TimedSamples} 的可注入构造器给定，所以相位是<b>确定性</b>的
- * （靠 {@code Thread.sleep} 造相位不行：Windows 粒度 ~15ms，而一个 tick 才 50ms）。
+ * 时钟由 {@code TimedSamples} 的可注入构造器 / {@code FrameJitterMeter.sample(t,...)} 给定，
+ * 所以相位是<b>确定性</b>的（靠 {@code Thread.sleep} 造相位不行：Windows 粒度 ~15ms，
+ * 而一个 tick 才 50ms）。
  */
 public class InterpSmoothnessProbe {
 
@@ -35,8 +44,15 @@ public class InterpSmoothnessProbe {
     private static final double SAMPLE_HZ = 20.0;
     /** 匀速运动速度（格/秒）：取 8 —— 拖着东西走路就是这个量级。 */
     private static final double SPEED = 8.0;
-    /** 窗口帧数：与游戏内那条读数一致（120 帧）。 */
-    private static final int WINDOW = 120;
+    /** 统计窗口（秒）：与游戏内那条读数一致（1.2 秒，按时间开窗、与帧率无关）。 */
+    private static final double WINDOW_SECONDS = 1.2;
+    /**
+     * E/F 组：渲染帧率取 600 —— 既贴近实机当时的 444~586fps，又与 100Hz 步进<b>整除对齐</b>
+     * （步进边界恰好落在帧上 ⇒ 入环时刻精确，浮点 floor 不会在边界上来回抖）。
+     * 直读阶梯的零位移帧占比理论值 = 1 − 100/600 ≈ 83%，与实机 101/120 = 84% 同形。
+     */
+    private static final double HIGH_FPS = 600.0;
+    private static final double STEP_HZ = 100.0;
 
     /** 仿真时间轴：探针直接写它，作为 TimedSamples 的时钟。 */
     private static double simTime;
@@ -66,23 +82,40 @@ public class InterpSmoothnessProbe {
                 + "s = 2 个采样周期");
 
         // A：固定相位（交换正好落在 tick 边界）
-        runOldLerp("A 固定相位 + 旧 lerp（对照：应当顺滑）", 0);
+        runOldLerp("A 固定相位 + 旧 lerp（对照：应当顺滑）", 0, 20);
         // B：任意相位（半个采样周期）—— 交换落在帧与帧之间
-        runOldLerp("B 任意相位 + 旧 lerp（★ 对照：必须抽）", 5);
+        runOldLerp("B 任意相位 + 旧 lerp（★ 对照：必须抽）", 5, 20);
         // C：同样的任意相位，改走 TimedSamples
-        runTimed("C 任意相位 + TimedSamples（应当顺滑）", 5, false);
+        runTimed("C 任意相位 + TimedSamples（应当顺滑）", 5, false, 40);
         // D：丢一拍
         runDropout();
+        // E/F：直读 100Hz 步进阶梯 vs 快照环消费（2026-10-03 实机读数的离线归因）
+        double rawMean = runRawStepRead("E 直读步进阶梯 @560fps（★ 对照：必须 FAIL，复现实机读数）");
+        double ringMean = runStepRing("F 同一信号 + TimedSamples 消费（应当顺滑）");
+        if (rawMean > 0.0 && ringMean > 0.0) {
+            // 两组必须量的是**同一条运动**：平均速度一致 ⇒ 差异只可能来自消费方式
+            check(Math.abs(rawMean - ringMean) <= Math.max(rawMean, ringMean) * 0.10,
+                    "E/F 平均速度一致（两组量的是同一条运动）",
+                    String.format(java.util.Locale.ROOT, "直读=%.3f 环=%.3f 格/秒", rawMean, ringMean));
+        }
 
         System.out.printf("%n=== InterpSmoothnessProbe: %d/%d 通过，失败 %d ===%n",
                 passed, passed + failed, failed);
         System.exit(failed == 0 ? 0 : 1);
     }
 
-    /** A/B 组：复刻旧写法（`prev ← cur` 在推样本时交换，渲染用 partialTick 在两者间 lerp）。 */
-    private static void runOldLerp(String title, int phaseFrames) {
+    /**
+     * A/B 组：复刻旧写法（`prev ← cur` 在推样本时交换，渲染用 partialTick 在两者间 lerp）。
+     *
+     * @param feedFrom 第几帧开始喂量具 —— <b>预热段必须跳过</b>：仿真起步时
+     *                 {@code prev = cur = 0}、第一次交换前 x 恒为 0，这段零位移是
+     *                 探针脚手架的产物，不是被测行为。老版量具是 120 帧环形缓冲，
+     *                 会把预热"顺手"冲掉 —— 但那个语义没写出来；v2 按时间累计，
+     *                 不跳预热就会把 A 组冤枉成 FAIL（本轮实测 停帧=10 ⇒ FAIL）。
+     */
+    private static void runOldLerp(String title, int phaseFrames, int feedFrom) {
         System.out.println(title);
-        FrameJitterMeter meter = new FrameJitterMeter("[探针]", WINDOW);
+        FrameJitterMeter meter = new FrameJitterMeter("[探针]", WINDOW_SECONDS);
         int framesPerSample = (int) Math.round(FRAME_HZ / SAMPLE_HZ);
         double[] prev = posAt(0.0);
         double[] cur = posAt(0.0);
@@ -103,11 +136,13 @@ public class InterpSmoothnessProbe {
             double x = prev[0] + (cur[0] - prev[0]) * partial;
             double y = prev[1] + (cur[1] - prev[1]) * partial;
             double z = prev[2] + (cur[2] - prev[2]) * partial;
-            meter.sample(x, y, z);
+            if (frame >= feedFrom) {
+                meter.sample(simTime, x, y, z);
+            }
         }
         FrameJitterMeter.Stats s = meter.stats();
         if (s == null) {
-            check(false, "统计窗口没攒够", "filled < " + WINDOW);
+            check(false, "统计窗口没攒够", "span < " + WINDOW_SECONDS + "s");
             return;
         }
         System.out.println("        " + meter.verdict());
@@ -121,10 +156,16 @@ public class InterpSmoothnessProbe {
         }
     }
 
-    /** C 组：同样的任意相位，但走真实现 TimedSamples。 */
-    private static void runTimed(String title, int phaseFrames, boolean dropOne) {
+    /**
+     * C 组：同样的任意相位，但走真实现 TimedSamples。
+     *
+     * @param feedFrom 第几帧开始喂量具：预热 = 环攒够两拍 + 延迟(0.1s) 走出"夹在最旧一拍"的
+     *                 保持期（约第 26 帧结束），取 40 留足余量。不跳的实测代价是
+     *                 停帧=10 ⇒ 把正确的实现冤枉成 FAIL（与 A 组同一课）。
+     */
+    private static void runTimed(String title, int phaseFrames, boolean dropOne, int feedFrom) {
         System.out.println(title);
-        FrameJitterMeter meter = new FrameJitterMeter("[探针]", WINDOW);
+        FrameJitterMeter meter = new FrameJitterMeter("[探针]", WINDOW_SECONDS);
         double[] clock = {0.0};
         TimedSamples samples = new TimedSamples(3, 64, 2.0 * samplePeriod(), () -> clock[0]);
         double[] out = new double[3];
@@ -142,13 +183,13 @@ public class InterpSmoothnessProbe {
                     samples.push(p[0], p[1], p[2]);
                 }
             }
-            if (samples.evaluate(out)) {
-                meter.sample(out[0], out[1], out[2]);
+            if (samples.evaluate(out) && frame >= feedFrom) {
+                meter.sample(simTime, out[0], out[1], out[2]);
             }
         }
         FrameJitterMeter.Stats s = meter.stats();
         if (s == null) {
-            check(false, "统计窗口没攒够", "filled < " + WINDOW);
+            check(false, "统计窗口没攒够", "span < " + WINDOW_SECONDS + "s");
             return;
         }
         System.out.println("        " + meter.verdict());
@@ -205,6 +246,83 @@ public class InterpSmoothnessProbe {
 
     private static double samplePeriod() {
         return 1.0 / SAMPLE_HZ;
+    }
+
+    /**
+     * E 组：模拟"渲染直读刚体当前状态"——刚体是 10ms 一跳的阶梯（{@code liveTransform} 的语义）。
+     *
+     * <p>预期 FAIL，且形态必须复现实机读数（2026-10-03：{@code 最小=0.0000 跳变帧=101/120
+     * 抖动=8.12 ⇒ FAIL}）：停帧占大头（每 6 帧才跨 1 跳）、抖动 ≈ fps/100。
+     * 这组是"归因"本身 —— 运动是匀速直线，唯一变量是<b>怎么读它</b>。</p>
+     *
+     * @return 速度均值（格/秒，供 E/F 同运动校验）；统计没攒够返回 0
+     */
+    private static double runRawStepRead(String title) {
+        System.out.println(title);
+        FrameJitterMeter meter = new FrameJitterMeter("[探针]", WINDOW_SECONDS);
+        int totalFrames = (int) (HIGH_FPS * (WINDOW_SECONDS + 0.5));
+        for (int frame = 0; frame < totalFrames; frame++) {
+            double t = frame / HIGH_FPS;
+            // 直读语义：任何时刻读到的都是"最新已完成的那一跳"（held 零阶保持）
+            double stepT = Math.floor(t * STEP_HZ) / STEP_HZ;
+            meter.sample(t, SPEED * stepT, 0.0, 0.0);
+        }
+        FrameJitterMeter.Stats s = meter.stats();
+        if (s == null) {
+            check(false, "E 统计窗口没攒够", "span < " + WINDOW_SECONDS + "s");
+            return 0.0;
+        }
+        System.out.println("        " + meter.verdict());
+        boolean shape = s.stalls() >= s.frames() * 0.60 && s.jitter() >= 3.0;
+        check(!s.pass() && shape,
+                "E 直读阶梯 ⇒ 必须 FAIL，且形态=停帧为主（复现实机读数）",
+                String.format(java.util.Locale.ROOT, "停帧=%d/%d 抖动=%.2f（期待 ≥60%% 停帧、抖动 ≥3）",
+                        s.stalls(), s.frames(), s.jitter()));
+        return s.mean();
+    }
+
+    /**
+     * F 组：同一条阶梯信号进 {@link TimedSamples}（延迟 = 2×10ms —— 与
+     * {@code ClientPhysics.renderTransform} 的镜子环同构），渲染按帧求值。
+     *
+     * <p>预期 PASS：插值把阶梯还原成连续斜坡 ⇒ 每帧速度相等、停帧归零。
+     * 与 E 组的<b>唯一</b>差别就是消费方式。</p>
+     *
+     * @return 速度均值（格/秒，供 E/F 同运动校验）；统计没攒够返回 0
+     */
+    private static double runStepRing(String title) {
+        System.out.println(title);
+        FrameJitterMeter meter = new FrameJitterMeter("[探针]", WINDOW_SECONDS);
+        double stepPeriod = 1.0 / STEP_HZ;
+        // 生产同构：延迟 2 拍、时钟可注入（真实现，不是复刻公式）
+        TimedSamples ring = new TimedSamples(1, 64, 2.0 * stepPeriod, () -> simTime);
+        double[] out = new double[1];
+        int totalFrames = (int) (HIGH_FPS * (WINDOW_SECONDS + 0.5));
+        int lastStep = Integer.MIN_VALUE;
+        for (int frame = 0; frame < totalFrames; frame++) {
+            simTime = frame / HIGH_FPS;
+            int step = (int) Math.floor(simTime * STEP_HZ);
+            if (step != lastStep) {
+                lastStep = step;
+                // 入环的是**阶梯值本身**（镜像体采样就是这么进环的），连续性由消费端负责
+                ring.push(SPEED * (step / STEP_HZ));
+            }
+            // 预热段跳过：延迟 0.02s 内输出被"夹在最旧一拍"（恒为 0）—— 那是探针起步的脚手架，
+            // 不是被测行为（同 A/C 的预热课；老版环形量具把这段顺手冲掉了）
+            if (ring.evaluate(out) && simTime >= 3.0 * stepPeriod) {
+                meter.sample(simTime, out[0], 0.0, 0.0);
+            }
+        }
+        FrameJitterMeter.Stats s = meter.stats();
+        if (s == null) {
+            check(false, "F 统计窗口没攒够", "span < " + WINDOW_SECONDS + "s");
+            return 0.0;
+        }
+        System.out.println("        " + meter.verdict());
+        check(s.pass(), "F 同一信号 + TimedSamples 消费 ⇒ 顺滑（停帧归零）",
+                String.format(java.util.Locale.ROOT, "抖动=%.2f 停帧=%d/%d",
+                        s.jitter(), s.stalls(), s.frames()));
+        return s.mean();
     }
 
     /** 仿真运动：x 轴匀速直线（与实机"拖着物体走"同形）。 */

@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaterniond;
 import org.joml.Vector3d;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,7 +126,7 @@ public final class ClientPhysics {
                 com.mss.polymech.space.SpacePlayerData.get(Minecraft.getInstance().player);
         org.joml.Quaternionf rendered = new org.joml.Quaternionf();
         boolean hasRendered = diagData != null && diagData.bodyQuatForRender(
-                Minecraft.getInstance().getTimer().getGameTimeDeltaPartialTick(false), rendered) != null;
+                com.mss.polymech.util.PartialTicks.level(), rendered) != null;
         if (!diagInit) {
             diagInit = true;
             diagLastNanos = now;
@@ -216,28 +217,47 @@ public final class ClientPhysics {
     // 我们照它办：删掉启发式（`PhysicsBodyPushPacket` 保留，供将来做**显式**推拉键用）。
 
     /**
-     * 客户端镜像刚体（逐字照 space 0.1.3 的 {@code ClientPhysicalBody}）。
+     * 客户端镜像刚体（照 space 的 {@code ClientPhysicalBody}；字段语义 = 0.3.1）。
      *
      * <p>它是 <b>{@code KINEMATIC_POSITION}</b> 刚体：无限质量，本地谁也推不动；
-     * 位置只由服务端位姿驱动，姿态直接取同步值。space 的字段对应关系：
-     * {@code syncFrom}/{@code syncTo}/{@code syncProgress} ↔ 这里的同名字段，
+     * 位置与姿态都由服务端位姿经 ramp 推进。space 的字段对应关系：
+     * {@code syncFromPos/ToPos/FromRot/ToRot/syncProgress} ↔ 这里的同名字段，
      * 推进逻辑在 {@link #stepShipSync}。</p>
+     *
+     * <p><b>姿态也插值是 0.3.1 的做法</b>：0.1.3 是"姿态直接取同步值"（瞬时 set，我们旧版跟着它，
+     * 注释还写着"space 的 setRotation 也不插值"），0.3.1 起改成随 ramp 一起 slerp（最短弧）。
+     * 照抄 0.3.1：瞬时 set 会让姿态每 20Hz 跳一次，位移却平滑 —— 两者不同步，
+     * 而抓点/高亮框的位姿都含姿态项（杠杆臂放大跳变）。</p>
      */
     private static final class ShipBody {
         final long body;
+        /**
+         * 这个镜像刚体上那个体素碰撞体的 id。
+         *
+         * <p>为什么要存：{@code [镜子体体检]} 的判据是"从玩家眼睛朝体打一条射线，
+         * 打到的<b>是不是它</b>" —— 光知道"打中了什么"没有意义，必须能对上是哪一个碰撞体。
+         * （{@code worldCastRay} 的 out[4] 就是 colliderId，见 {@link NativePhysics}。）</p>
+         */
+        final long collider;
         final int blockCount;
-        /** 插值起点（世界坐标）—— space 的 {@code syncFrom}。 */
+        /** 插值起点（世界坐标）—— space 的 {@code syncFromPos}。 */
         volatile double[] syncFrom;
-        /** 插值终点 = 服务端最新位姿 —— space 的 {@code syncTo}。 */
+        /** 插值终点 = 服务端最新位姿 —— space 的 {@code syncToPos}。 */
         volatile double[] syncTo;
+        /** 姿态插值起/终 —— space 的 {@code syncFromRot}/{@code syncToRot}（0.3.1 起参与插值）。 */
+        volatile Quaterniond syncFromRot;
+        volatile Quaterniond syncToRot;
         /** 0→1，每物理子步 +{@link #SHIP_SYNC_STEP} —— space 的 {@code syncProgress}。 */
         volatile double progress = 1.0;
 
-        ShipBody(long body, int blockCount, double x, double y, double z) {
+        ShipBody(long body, long collider, int blockCount, double x, double y, double z) {
             this.body = body;
+            this.collider = collider;
             this.blockCount = blockCount;
             this.syncFrom = new double[]{x, y, z};
             this.syncTo = new double[]{x, y, z};
+            // 旋转两拍要到第一次 onMoveSync 才有（takeCurrent 语义：起点=当前实际姿态）；
+            // progress 初始 1.0 ⇒ 在那之前 stepShipSync 不会碰姿态。
         }
     }
 
@@ -246,6 +266,16 @@ public final class ClientPhysics {
      * <p>配合 100Hz 步进，一个 20Hz 服务端包会在 5 个子步内被平滑走完。</p>
      */
     private static final double SHIP_SYNC_STEP = 0.2;
+
+    /** 读出来的值全部有限吗（0.3.1 的 takeCurrent 兜底：坏值直接回退包里的位姿）。 */
+    private static boolean isFinite(double[] values) {
+        for (double v : values) {
+            if (!Double.isFinite(v)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     /**
      * 每个物理子步推进一次所有镜像体的运动学目标 —— space 的
@@ -271,15 +301,83 @@ public final class ClientPhysics {
                     a[0] + (b[0] - a[0]) * p,
                     a[1] + (b[1] - a[1]) * p,
                     a[2] + (b[2] - a[2]) * p);
+            // 姿态随 ramp 一起 slerp（照 0.3.1 的 tickSync：dot<0 先翻到同半球 = 最短弧，
+            // 否则跨符号边界会"绕远路转一大圈"——本项目在角伺服上栽过同一个坑）
+            Quaterniond from = ship.syncFromRot;
+            Quaterniond to = ship.syncToRot;
+            if (from != null && to != null) {
+                Quaterniond target = to;
+                double dot = from.x * to.x + from.y * to.y + from.z * to.z + from.w * to.w;
+                if (dot < 0.0) {
+                    target = new Quaterniond(-to.x, -to.y, -to.z, -to.w);
+                }
+                Quaterniond rot = new Quaterniond(from).slerp(target, p);
+                NativePhysics.bodySetRotation(worldHandle, ship.body, rot.x, rot.y, rot.z, rot.w, true);
+            }
             ship.progress = p;
         }
     }
 
     /**
-     * 读取客户端刚体**当前**的变换（渲染用，照 MPS：直接取当前状态，不做插值）。
+     * 已删除（2026-10-04 第二次收口）：{@code captureMirrorPoses} 与 {@code ShipBody} 的
+     * {@code posSamples/rotSamples} —— 镜子体位姿的 100Hz <b>渲染</b>采样架子。
      *
-     * <p>步进由 {@link PhysicsStepThread} 按 10ms 独立推进，状态是***100Hz 更新的，
-     * 所以渲染直接取当前值就够平滑；在两个 20Hz 网络包之间插值反而只有 20Hz 的信息量。</p>
+     * <p>它对渲染<b>没有增量信息</b>：环里的内容 = 同一批 20Hz 网络包经运动学 ramp 重放；
+     * 而"延迟 ≥ 2×采样周期"里的周期是<b>信息周期 50ms</b>，按 push 周期（10ms）给 0.02s
+     * 延迟反而暴露了<b>到达相位</b> —— 自由运行的 100Hz 步与 20Hz 包不同相位，ramp 走完就"等包"
+     * （部分周期只走 4/5 步）⇒ 周期性 10ms 停顿。实测（2026-10-04 四组读数）：
+     * 拖着走时<b>镜子环停帧 7.7% vs 网络环 1.0%</b>。</p>
+     *
+     * <p>渲染统一走下面的 {@link #renderTransform}（网络环，0.10s）；镜子体本身保留，
+     * 只服务<b>物理碰撞</b>（{@link #stepShipSync} 的运动学推进一条不少）。</p>
+     */
+
+    /**
+     * <b>渲染消费体位姿的唯一入口</b>：走 {@link ClientPhysicsWorld.ClientBody} 的<b>网络位姿环</b>
+     * （服务端 20Hz 采样进 {@code TimedSamples}，延迟 = 2 × 信息周期 = 0.10s，被两拍包住 ⇒
+     * 输出是时间的连续函数）。
+     *
+     * <h2>为什么不是镜子体的 100Hz 步进状态（2026-10-04 实测结论）</h2>
+     * 曾经首选 {@link ShipBody} 的 100Hz 步进环、网络环兜底 —— 四组实机读数：
+     * 拖着走时<b>镜子环停帧 7.7% vs 网络环 1.0%</b>。原因：
+     * <ul>
+     *   <li>镜子环的<b>信息</b>与网络环完全同源（都是那批 20Hz 包），100Hz push 进去的只是
+     *       运动学 ramp 的形状 —— <b>对渲染没有增量信息</b>；</li>
+     *   <li>而"延迟 ≥ 2×采样周期"里的周期应该是<b>信息周期（50ms）</b>不是 push 周期（10ms）
+     *       ——按 0.02s 延迟走就暴露了<b>到达相位</b>：自由运行的 100Hz 步与 20Hz 包不同相位，
+     *       ramp 走完就"等包"（部分周期只走 4/5 步）⇒ 周期性 10ms 停顿。</li>
+     * </ul>
+     * 代价 = 渲染滞后 ~100ms（参考 CA/Sable 就是这么付的：有意买延迟换确定性平滑，
+     * 且方块/框/光束终点**同口径**一起付，互相不错开）。
+     *
+     * <p>镜子体（{@link ShipBody}）本身保留 —— 它服务<b>物理碰撞</b>（玩家站在动的船上、
+     * 飞船互撞），那条链必须实时；被删掉的只是它的<b>渲染采样架子</b>（见类尾删除记事）。</p>
+     *
+     * <p>玩法侧（拾取、旋转捕获）要"此刻"的状态，继续走 {@link #liveTransform} ——
+     * 渲染读延迟样本、玩法读实时状态，各付各的代价。</p>
+     *
+     * @return false = 客户端还没有这个体
+     */
+    public static boolean renderTransform(long bodyId, float partialTick, double[] posOut, float[] rotOut) {
+        ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(bodyId);
+        if (body == null) {
+            return false;
+        }
+        posOut[0] = body.renderX(partialTick);
+        posOut[1] = body.renderY(partialTick);
+        posOut[2] = body.renderZ(partialTick);
+        body.renderRotation(partialTick, rotOut);
+        return true;
+    }
+
+    /**
+     * 读取客户端刚体**当前**的变换（<b>玩法查询用</b>，照 MPS：直接取当前状态，不做插值）。
+     *
+     * <p>步进由 {@link PhysicsStepThread} 按 10ms 独立推进 —— 但"当前状态"是
+     * <b>10ms 一跳的阶梯</b>：拾取、旋转捕获这类玩法逻辑读它没问题（要的就是此刻），
+     * <b>渲染绝不能读它</b>（560fps 下每 5.6 帧才跨一跳 ⇒ 每帧位移是爆发式的，
+     * 2026-10-03 牵引枪读数 101/120 零位移帧就是这么来的）。渲染走
+     * {@link #renderTransform}。</p>
      *
      * @return true 表示读到了（否则调用方退回按包插值）
      */
@@ -355,6 +453,7 @@ public final class ClientPhysics {
             }
         }
         ships.clear();
+        MIRROR_VERDICT.clear();
         for (long body : terrainBodies.values()) {
             if (body > 0 && world > 0) {
                 NativePhysics.bodyDestroy(world, body);
@@ -421,6 +520,7 @@ public final class ClientPhysics {
         terrainCenterY = player.getBlockY();
         updateTerrain(level, player);
         syncShips();
+        checkMirrorsIfDue(player);
         // 创造/旁观飞行：只把"玩家自己"交回原版移动（飞行手感照旧），
         // 物理世界与飞船/建筑照常模拟 —— 早先把整世界停掉是错的。
         // 碰撞箱由 ensurePlayerBody 锁死旋转（照 space 的 PhysicalEntity）：
@@ -530,6 +630,11 @@ public final class ClientPhysics {
         }
         if (playerFlies(player)) {
             // 创造飞行：位置交回原版，刚体保留并跟随（继续与飞船/建筑碰撞，见 afterPlayerTick）。
+            // ⚠️ "交回原版"只指**位置积分**这一层（`Entity.move`）。飞行这一 tick 的**速度**不是原版算的：
+            //    `SpaceFlightMixin` 在 `Player.travel` 的 HEAD 取消，换用视线基底（`SpaceFlight`）算
+            //    —— 因为原版的飞行竖直沿**世界 +Y**，头朝下时按空格会往屏幕下飞（2026-10-03 用户报）。
+            //    别根据这一行推断"创造飞行 = 完全原版"进而把 `SpaceFlightMixin` 当冗余删掉；
+            //    也**别在这里**接管飞行（本方法返回 false 正是为了让原版碰撞夹取对飞行继续生效）。
             PhysicsDrivenPlayers.unmark(player.getUUID());
             noteMode("原版驱动（创造飞行，刚体仍跟随）");
             return false;
@@ -827,6 +932,8 @@ public final class ClientPhysics {
         // 客户端镜像体的运动学推进也要**每个子步**跑（space 把它挂在 PhysicalWorld 的 tickListener 上）：
         // 只在 20Hz 的 tick 里写目标位姿，运动学体每步都会"到点即停"，动的船会一顿一顿。
         PhysicsStepThread.addPostStep(createdWorld, () -> stepShipSync(createdWorld));
+        // （曾在这里注册"镜子位姿 100Hz 渲染采样" captureMirrorPoses —— 已删，见类尾删除记事：
+        //  它对渲染无增量信息且暴露到达相位停顿；渲染统一走 renderTransform。）
         if (world > 0) {
             NativePhysics.worldSetTimestep(world, DT);
             worldDimension = dim;
@@ -1036,45 +1143,21 @@ public final class ClientPhysics {
     }
 
     /**
-     * 读取客户端刚体当前变换并写进 {@link ClientPhysicsWorld.ClientBody}（渲染用）。
+     * 已删除：{@code captureShipTransforms(boolean beforeStep)} 与 {@code ClientBody} 的
+     * {@code phys*} 快照环 / {@code snapshotPhysics} / {@code updatePhysics} / {@code physValid}。
      *
-     * <p>这是 space(MPS) 的做法：客户端物理世界自己按 100Hz 积分，渲染直接取刚体的状态；
-     * 20Hz 的同步包只负责周期性把刚体拉回权威位置/速度/角速度；
-     * 若改成在网络包之间插值，信息量永远只有 20Hz，怎么插都不顺。
+     * <p>它们是 2026-10-02"通用插值"那一轮搭的架子，但<b>从来没有被任何代码调用过</b> ——
+     * {@code physValid} 恒为 false，{@code renderX/renderRotation} 实际一直走网络环；
+     * 而 {@code refreshEnd} / {@code poseOf} / 方块渲染这三处渲染消费的首选全是
+     * {@link #liveTransform} 直读。也就是说"100Hz 本地刚体状态本来就平滑、无需插值"
+     * 这句写进文档的断言，对应的代码路径根本不存在；2026-10-03 的读数
+     * （{@code 最小=0.0000 跳变帧=101/120 抖动=8.12}）证明的就是它。</p>
      *
-     * @param beforeStep true = 步进前（记为"上一帧"，作为插值起点）；false = 步进后（本帧状态）。
-     */
-    private static void captureShipTransforms(boolean beforeStep) {
-        if (world <= 0 || ships.isEmpty()) {
-            return;
-        }
-        double[] p = new double[3];
-        double[] q = new double[4];
-        for (Map.Entry<Long, ShipBody> entry : ships.entrySet()) {
-            ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(entry.getKey());
-            if (body == null) {
-                continue;
-            }
-            long handle = entry.getValue().body;
-            if (!NativePhysics.bodyReadTranslation(world, handle, p)
-                    || !NativePhysics.bodyReadRotation(world, handle, q)) {
-                continue;
-            }
-            if (beforeStep) {
-                body.snapshotPhysics(p[0], p[1], p[2],
-                        (float) q[0], (float) q[1], (float) q[2], (float) q[3]);
-            } else {
-                body.updatePhysics(p[0], p[1], p[2],
-                        (float) q[0], (float) q[1], (float) q[2], (float) q[3]);
-            }
-        }
-    }
-
-    /**
-     * 已删除：{@code localCenter}。
-     *
-     * <p>它是为"给 DYNAMIC 镜像体补质量下限（附加热质量必须挂包围盒中心）"服务的；
-     * 镜像体改成运动学后没有质量可言，这个方法随之作废。</p>
+     * <p>替代品（最终形态，2026-10-04 两次收口后）：<b>渲染唯一消费入口</b> {@link #renderTransform}
+     * —— 直接走 {@code ClientBody} 的网络位姿环（20Hz 采样 + 0.10s 延迟，被两拍包住）。
+     * 中间曾接过一版"镜子体 100Hz 渲染采样"（{@code captureMirrorPoses} + {@code ShipBody} 快照环），
+     * 随后证明它对渲染<b>无增量信息</b>且暴露包到达相位（镜子环停帧 7.7% vs 网络环 1.0%），
+     * 已删 —— 故事完整记在类内另一块删除记事里。</p>
      */
 
     /**
@@ -1087,10 +1170,10 @@ public final class ClientPhysics {
      * 位置修正）再把它拽回去，<b>这个"拽回"就是把玩家弹飞的冲量来源</b>。
      * 运动学体无限质量、本地推不动，位置只跟服务端走，问题连同位置修正补丁一起消失。</p>
      *
-     * <p>位姿推进照 space：本方法（主线程，每个客户端 tick）只负责把"当前位姿 → 服务端新位姿"
-     * 写进 {@link ShipBody#syncFrom}/{@link ShipBody#syncTo} 并把 {@code progress} 归零；
-     * 真正的推进在 {@link #stepShipSync}（步进线程，每 100Hz 子步 +0.2）。
-     * 姿态直接取同步值 —— space 的 {@code setRotation} 也不插值。</p>
+     * <p>位姿推进照 space（0.3.1 字面）：本方法（主线程，每个客户端 tick）只负责把
+     * "当前位姿 → 服务端新位姿"（位置 + 姿态两拍）写进 {@link ShipBody} 的 sync 字段
+     * 并把 {@code progress} 归零；真正的推进在 {@link #stepShipSync}（步进线程，
+     * 每 100Hz 子步 +0.2，位置 lerp + 姿态 slerp）。</p>
      */
     private static void syncShips() {
         Set<Long> alive = new HashSet<>();
@@ -1119,21 +1202,41 @@ public final class ClientPhysics {
                                 PhysicsMaterials.BODY_FRICTION, 0.0, BODY_MEMBERSHIP, BODY_FILTER)
                         : NativePhysics.colliderAttachVoxels(world, body, 1.0, 1.0, 1.0, cells,
                                 PhysicsMaterials.BODY_FRICTION, 0.0);
+                // ⚠️ 必须检查返回值：原生层对**空单元数组**是直接返回 -1 的
+                //    （lib.rs 的 `Ok(n) if n > 0 => n, _ => return -1`），**不是**"建一个空碰撞体"。
+                //    以前这里不看返回值 ⇒ 刚体建出来了、碰撞体一个没挂上、ShipBody 照登记 ⇒
+                //    现象正是"看得见、能穿过"（渲染走网络位姿环，根本不依赖这个碰撞体）。
+                //    现在：销毁刚体、不登记，下一 tick 自然重试（方块列表到齐后就成功了）。
+                if (collider <= 0) {
+                    LOGGER.warn("[PolyMech] [镜子体体检] FAIL：物理体 {} 的碰撞体没挂上"
+                                    + "（collider={} 方块={}）⇒ 这一 tick 玩家会穿过它；已销毁刚体，下一 tick 重试",
+                            ship.id(), collider, ship.blocks().size());
+                    NativePhysics.bodyDestroy(world, body);
+                    continue;
+                }
                 PhysicsMaterials.apply(world, collider, PhysicsMaterials.BODY_FRICTION, 0.0);
-                ships.put(ship.id(), new ShipBody(body, ship.blocks().size(),
+                ships.put(ship.id(), new ShipBody(body, collider, ship.blocks().size(),
                         ship.tickX(), ship.tickY(), ship.tickZ()));
             } else {
-                // space 的 onMoveSync：起点 = 当前实际位姿，终点 = 服务端新位姿，进度归零。
+                // space 0.3.1 的 onMoveSync（takeCurrent 语义）：起点 = 当前实际位姿
+                //（读不到/非有限 ⇒ 回退包里的值），终点 = 服务端新位姿，进度归零。
+                // 位置与**姿态**都记两拍，交给 stepShipSync 逐子步推进（0.3.1 起姿态也 slerp，
+                // 0.1.3 是瞬时 set —— 那是旧版注释"setRotation 不插值"的出处，已过时）。
                 double[] cur = new double[3];
-                if (!NativePhysics.bodyReadTranslation(world, existing.body, cur)) {
+                if (!NativePhysics.bodyReadTranslation(world, existing.body, cur)
+                        || !isFinite(cur)) {
                     cur = new double[]{ship.tickX(), ship.tickY(), ship.tickZ()};
+                }
+                double[] curRot = new double[4];
+                if (!NativePhysics.bodyReadRotation(world, existing.body, curRot)
+                        || !isFinite(curRot)) {
+                    curRot = new double[]{ship.qx(), ship.qy(), ship.qz(), ship.qw()};
                 }
                 existing.syncFrom = cur;
                 existing.syncTo = new double[]{ship.tickX(), ship.tickY(), ship.tickZ()};
+                existing.syncFromRot = new Quaterniond(curRot[0], curRot[1], curRot[2], curRot[3]);
+                existing.syncToRot = new Quaterniond(ship.qx(), ship.qy(), ship.qz(), ship.qw());
                 existing.progress = 0.0;
-                // 姿态直接取同步值（space: physicalBody.setRotation(entry.rotate())）。
-                NativePhysics.bodySetRotation(world, existing.body,
-                        ship.qx(), ship.qy(), ship.qz(), ship.qw(), true);
             }
         }
         List<Long> gone = new ArrayList<>();
@@ -1144,8 +1247,145 @@ public final class ClientPhysics {
         }
         for (Long id : gone) {
             ShipBody body = ships.remove(id);
+            MIRROR_VERDICT.remove(id);
             if (body != null) {
                 NativePhysics.bodyDestroy(world, body.body);
+            }
+        }
+    }
+
+    // ==================== [镜子体体检]：程序判定"玩家能不能和这个体碰撞" ====================
+
+    /** 体检节流：1s。射线查询本身很便宜，但日志没必要每帧刷。 */
+    private static final long MIRROR_CHECK_MS = 1000L;
+    private static long lastMirrorCheckMs = 0L;
+    /** FAIL 的复述间隔：用户"再走一次试试"时应该能看到新的一行，但不能刷屏。 */
+    private static final long MIRROR_FAIL_REPEAT_MS = 10_000L;
+    private static long lastMirrorFailMs = 0L;
+    /** 只体检玩家附近的体（远处不需要碰撞）。 */
+    private static final double MIRROR_CHECK_RANGE = 8.0;
+    /** 每个镜像体的上一次判定：只在**变化**时打日志（否则每 1s 一行会淹掉别的诊断）。 */
+    private static final Map<Long, String> MIRROR_VERDICT = new HashMap<>();
+
+    /**
+     * {@code [镜子体体检]}：用<b>玩家自己的碰撞组</b>从眼睛朝镜像体打一条射线，
+     * 程序判定"玩家这一侧的碰撞视图里到底有没有这个体"。
+     *
+     * <h2>为什么必须由程序判</h2>
+     * "玩家可以穿过它"这句话，肉眼只能看到<b>结果</b>；而原因至少有三类，肉眼分不开：
+     * <ol>
+     *   <li><b>碰撞体不在</b>：体素数组为空时原生层返回 -1（见 {@code syncShips} 的守卫），
+     *       或者碰撞体被清掉之后没重建；</li>
+     *   <li><b>组不匹配</b>：Rapier 的判定是双向的
+     *       （{@code (A.mem & B.filter) != 0 且 (B.mem & A.filter) != 0}）——
+     *       {@code filter=0} 的"幽灵体"就是这一类，人直接穿过去；</li>
+     *   <li><b>位置不对</b>：碰撞体在别处（位姿/插值问题），于是人在"看得见的那一份"里穿过去。</li>
+     * </ol>
+     * 三类在画面上是同一句话，所以这里打<b>两发</b>射线把它们分开：
+     * <ul>
+     *   <li>第一发用玩家主刚体的组 {@code (2,5)}：命中且 colliderId == 该体的碰撞体 ⇒ PASS；</li>
+     *   <li>第二发用"全通过" {@code (-1,-1)}：能打到它 ⇒ 碰撞体在、问题在<b>组</b>；
+     *       连它也打不到 ⇒ 碰撞体根本不在世界里（或形状为空）。</li>
+     * </ul>
+     *
+     * <p>起点用眼睛、方向指向体的原点，长度就是两者距离 —— 所以"打不到"的语义是
+     * "这条视线穿过去了"，正是玩家走过去时的情形。玩家自己的一对刚体不会被算进来：
+     * {@code (2 & 5) == 0}，第二发虽然全通过，但判据只比对 colliderId。</p>
+     *
+     * <p>纯诊断：不参与任何游戏逻辑。</p>
+     */
+    private static void checkMirrorsIfDue(LocalPlayer player) {
+        if (world <= 0 || ships.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastMirrorCheckMs < MIRROR_CHECK_MS) {
+            return;
+        }
+        lastMirrorCheckMs = now;
+        double ox = player.getX();
+        double oy = player.getEyeY();
+        double oz = player.getZ();
+        double[] out = new double[5];
+        double[] renderPos = new double[3];
+        float[] renderRot = new float[4];
+        for (Map.Entry<Long, ShipBody> entry : ships.entrySet()) {
+            ShipBody ship = entry.getValue();
+            ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(entry.getKey());
+            if (body == null || body.blocks().isEmpty()) {
+                continue;
+            }
+            // 目标点 = **画面上那一格**（渲染位姿 + 方块列表），不是刚体原点。
+            //   §3.6 第 7 条要判的正是"碰撞面与可见面是否吻合"：碰撞体整体平移时
+            //   （例如偏移写成 -CHUNK_WIDTH 而不是 -MAX_WIDTH/2，见 space-030-execution §3.4，
+            //   静默平移 48 格），打刚体原点照样 PASS —— 因为原点就是碰撞体自己的坐标系，
+            //   它跟着一起平移。只有把射线打到"看得见的那一格"，错位才会表现为打不到。
+            if (!renderTransform(entry.getKey(), 1.0F, renderPos, renderRot)) {
+                continue;
+            }
+            Quaterniond q = new Quaterniond(renderRot[0], renderRot[1], renderRot[2], renderRot[3]);
+            // 玩家在体局部空间的位置：把 (眼 − 体原点) 反向转过去
+            Vector3d rel = new Vector3d(ox - renderPos[0], oy - renderPos[1], oz - renderPos[2]);
+            new Quaterniond(q).conjugate().transform(rel);
+            ClientPhysicsWorld.BlockEntry nearest = null;
+            double best = Double.MAX_VALUE;
+            for (ClientPhysicsWorld.BlockEntry e : body.blocks()) {
+                double ex = e.dx() + 0.5 - rel.x;
+                double ey = e.dy() + 0.5 - rel.y;
+                double ez = e.dz() + 0.5 - rel.z;
+                double d2 = ex * ex + ey * ey + ez * ez;
+                if (d2 < best) {
+                    best = d2;
+                    nearest = e;
+                }
+            }
+            if (nearest == null) {
+                continue;
+            }
+            // 最近那一格的可见中心（局部 → 世界）
+            Vector3d centre = new Vector3d(nearest.dx() + 0.5, nearest.dy() + 0.5, nearest.dz() + 0.5);
+            q.transform(centre);
+            double dx = renderPos[0] + centre.x - ox;
+            double dy = renderPos[1] + centre.y - oy;
+            double dz = renderPos[2] + centre.z - oz;
+            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist > MIRROR_CHECK_RANGE || dist < 1.0e-6) {
+                continue;
+            }
+            double ux = dx / dist;
+            double uy = dy / dist;
+            double uz = dz / dist;
+            boolean playerView = NativePhysics.worldCastRay(world, ox, oy, oz, ux, uy, uz, dist,
+                    PlayerPhysicsBody.MAIN_MEMBERSHIP, PlayerPhysicsBody.MAIN_FILTER, out);
+            long hit = playerView ? (long) out[4] : 0L;
+            String verdict;
+            if (hit == ship.collider) {
+                verdict = "PASS（朝可见方块中心打，命中它自己的碰撞体）";
+            } else {
+                boolean any = NativePhysics.worldCastRay(world, ox, oy, oz, ux, uy, uz, dist, -1, -1, out);
+                long anyHit = any ? (long) out[4] : 0L;
+                String why;
+                if (anyHit == ship.collider) {
+                    why = "碰撞体在，但玩家的组 (2,5) 打不到它 ⇒ 组不匹配（幽灵）";
+                } else if (any) {
+                    why = "先撞到别的碰撞体 " + anyHit + " ⇒ 碰撞体整体错位（可见面与碰撞面不吻合）";
+                } else {
+                    why = "朝可见方块中心打，两发都打不到 ⇒ 碰撞体不在世界 / 形状为空 / 整体错位";
+                }
+                verdict = "FAIL：" + why;
+            }
+            String prev = MIRROR_VERDICT.put(entry.getKey(), verdict);
+            boolean failed = verdict.startsWith("FAIL");
+            if (!verdict.equals(prev) || (failed && now - lastMirrorFailMs >= MIRROR_FAIL_REPEAT_MS)) {
+                String line = String.format(
+                        "[PolyMech] [镜子体体检] 物理体 %d 距玩家 %s 格 碰撞体=%d 方块=%d ⇒ %s",
+                        entry.getKey(), fmt2(dist), ship.collider, ship.blockCount, verdict);
+                if (failed) {
+                    lastMirrorFailMs = now;
+                    LOGGER.warn(line);
+                } else {
+                    LOGGER.info(line);
+                }
             }
         }
     }

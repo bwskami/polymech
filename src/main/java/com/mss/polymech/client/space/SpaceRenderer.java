@@ -150,7 +150,8 @@ public final class SpaceRenderer {
         RenderCompression.active = RenderCompression.enabled && celestialWorld == null;
         Camera camera = event.getCamera();
         var camPos = camera.getPosition();
-        float partialTick = event.getPartialTick().getGameTimeDeltaTicks();
+        // pt = 部分刻（deltaTickResidual），不是 getGameTimeDeltaTicks()（本帧步长）。见 PartialTicks（§7.12）。
+        float partialTick = com.mss.polymech.util.PartialTicks.of(event);
         // 星球 view：跟随完整相机旋转（含 roll），与 MC 主世界渲染一致
         // （GameRenderer.renderLevel 用 camera.rotation().conjugate() 构建 view）。
         // ⚠️ 地表维度**没有原版天空**：我们所有维度都用 SpaceDimensionEffects，它的 skyType 是

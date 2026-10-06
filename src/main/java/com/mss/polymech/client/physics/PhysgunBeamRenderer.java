@@ -116,17 +116,42 @@ public final class PhysgunBeamRenderer {
     private static final double[] TIP = new double[3];
 
     /**
-     * <b>丝滑判据</b>：自己那条光束终点的每帧位移抖动（通用件，见 {@link FrameJitterMeter}）。
+     * <b>丝滑判据</b>：自己那条光束终点的逐帧速度抖动（通用件，见 {@link FrameJitterMeter}）。
      *
      * <p>为什么要有它：用户反复报过"线抽抽、框也抽抽"。肉眼看"好像不抽了"不是判据 ——
-     * 本项目的实机判据必须程序判定 PASS/FAIL。窗口 120 帧（约 1.2 秒）攒够后，
-     * <b>松手那一刻</b>把这一段的统计打一行出来（照 {@code [牵引枪·旋转判据]} 的做法，
-     * 不刷屏）。口径与天空那条"太空顺滑"完全一致，避免同一种毛病两套说法。</p>
+     * 本项目的实机判据必须程序判定 PASS/FAIL。窗口按<b>时间</b>开（1.2 秒，与帧率无关：
+     * 原来的"120 帧"在 560fps 下只有 0.21 秒，不同机器量的根本不是同一段时间），
+     * 攒够后<b>松手那一刻</b>把这一段的统计打一行出来（照 {@code [牵引枪·旋转判据]} 的做法，
+     * 不刷屏）。口径与天空那条"太空顺滑"同源，避免同一种毛病两套说法。</p>
      */
     private static final FrameJitterMeter OWN_BEAM_METER =
-            new FrameJitterMeter("[牵引枪·丝滑判据]", 120);
+            new FrameJitterMeter("[牵引枪·丝滑判据]", FrameJitterMeter.DEFAULT_WINDOW_SECONDS);
     /** 本段是否喂过样本（决定松手时要不要打读数）。 */
     private static boolean meterArmed;
+
+    /**
+     * <b>归因分表</b>：同一条线由三个量拼成（起点=枪口、终点=抓点、中间=贝塞尔竿尖），
+     * 终点又有两条消费路径（首选镜子环、兜底网络环）。人站着不动线也偶尔抽时，
+     * 主表（终点）一条读数区分不出是谁在抖 —— 所以松手时把四条并排打出来，
+     * <b>哪条 FAIL 点名哪条链</b>（判读表见各自字段注释）：
+     *
+     * <ul>
+     *   <li>枪口 FAIL ⇒ 玩家自己的物理接触微抖进了眼点（物理层联动 · 路 2）；</li>
+     *   <li>竿尖 FAIL ⇒ TIP 弹簧链在摆（20Hz 弹簧 + 0.1s 环，贝塞尔中间放大）（路 3）；</li>
+     *   <li>网络环 FAIL + 主表 PASS ⇒ 服务端信号真在动、镜子环消费把它抹了；</li>
+     *   <li>主表 FAIL + 网络环 PASS ⇒ 镜像/同步链的"停—等—走"（路 1，到达相位）；</li>
+     *   <li>主表与网络环都 FAIL ⇒ 服务端位姿本身在抖（接触锯齿/弹簧微动 = 物理层，路 1 信号侧）；</li>
+     *   <li>四条全 PASS 而肉眼见抽 ⇒ 抽的是还没上表的东西，下一轮再拆。</li>
+     * </ul>
+     */
+    private static final FrameJitterMeter DIAG_MUZZLE_METER =
+            new FrameJitterMeter("[牵引枪·丝滑判据·枪口]", FrameJitterMeter.DEFAULT_WINDOW_SECONDS);
+    private static final FrameJitterMeter DIAG_TIP_METER =
+            new FrameJitterMeter("[牵引枪·丝滑判据·竿尖]", FrameJitterMeter.DEFAULT_WINDOW_SECONDS);
+    private static final FrameJitterMeter DIAG_NET_METER =
+            new FrameJitterMeter("[牵引枪·丝滑判据·网络环]", FrameJitterMeter.DEFAULT_WINDOW_SECONDS);
+    /** 网络环路径的终点暂存（{@code renderEndNet} 的输出）。 */
+    private static final double[] NET_E = new double[3];
 
     private static final Vector3d TMP = new Vector3d();
     private static final Quaterniond ROT = new Quaterniond();
@@ -162,7 +187,8 @@ public final class PhysgunBeamRenderer {
             return;
         }
 
-        float partialTick = event.getPartialTick().getGameTimeDeltaTicks();
+        // pt = 部分刻（deltaTickResidual），不是 getGameTimeDeltaTicks()（本帧步长）。见 PartialTicks（§7.12）。
+        float partialTick = com.mss.polymech.util.PartialTicks.of(event);
         Vec3 cam = event.getCamera().getPosition();
         CAM[0] = cam.x;
         CAM[1] = cam.y;
@@ -187,6 +213,7 @@ public final class PhysgunBeamRenderer {
         {
             VertexConsumer beam = PhysgunRenderTypes.beginPass(buffers, PhysgunRenderTypes.BEAM);
             List<UUID> gone = null;
+            boolean ownDrawn = false;
             for (PhysgunClientState.Beam b : PhysgunClientState.beams()) {
                 UUID owner = b.playerId();
                 Player ownerPlayer = level.getPlayerByUUID(owner);
@@ -213,11 +240,20 @@ public final class PhysgunBeamRenderer {
                 }
                 b.renderTip(partialTick, TIP);
                 if (owner.equals(player.getUUID())) {
-                    // 自己的光束：起点用枪口近似，第一人称才像是从枪口出来的
-                    muzzle(player, partialTick, S);
+                    // ★ 起点不再做渲染端二次覆盖（旧 muzzle() 手部偏移已删）：
+                    //   S = renderStart（服务端起点环，0.1s）⇒ 与终点 E 同一时间线，
+                    //   移动时两端同步、线不被拉扯；公式也与服务端广播/客户端预测三处统一。
                     // ★ 丝滑判据的输入：终点是"线"和"框"共同的来源，量它就等于两处一起量
                     OWN_BEAM_METER.sample(E[0], E[1], E[2]);
+                    // ★ 归因分表（同一窗口、同一帧）：起点 / 竿尖 / 网络环消费各量一条，
+                    //   松手时并排打印 —— 哪条 FAIL 点名哪条链（见诊断表字段注释）
+                    DIAG_MUZZLE_METER.sample(S[0], S[1], S[2]);
+                    DIAG_TIP_METER.sample(TIP[0], TIP[1], TIP[2]);
+                    if (b.renderEndNet(partialTick, NET_E)) {
+                        DIAG_NET_METER.sample(NET_E[0], NET_E[1], NET_E[2]);
+                    }
                     meterArmed = true;
+                    ownDrawn = true;
                 }
                 drawBeam(beam, mat, S, E, TIP, b, partialTick, alpha);
                 drawAnchor(beam, mat, E, alpha);
@@ -226,21 +262,26 @@ public final class PhysgunBeamRenderer {
             PhysgunClientState.Beam ownBeam = PhysgunClientState.beam(player.getUUID());
             if (meterArmed && (ownBeam == null || ownBeam.released())) {
                 meterArmed = false;
-                String verdict = OWN_BEAM_METER.verdict();
+                // 主表（终点·渲染口径）先打，随后三条归因分表 —— 哪条 FAIL 点名哪条链
+                emitVerdict(player, OWN_BEAM_METER);
+                emitVerdict(player, DIAG_MUZZLE_METER);
+                emitVerdict(player, DIAG_TIP_METER);
+                emitVerdict(player, DIAG_NET_METER);
                 OWN_BEAM_METER.reset();
-                if (verdict != null) {
-                    player.displayClientMessage(
-                            net.minecraft.network.chat.Component.literal(verdict), false);
-                }
+                DIAG_MUZZLE_METER.reset();
+                DIAG_TIP_METER.reset();
+                DIAG_NET_METER.reset();
             }
             if (gone != null) {
                 for (UUID id : gone) {
                     PhysgunClientState.remove(id);
                 }
             }
-            // 落点标记（弹簧的目标点：眼 + 视线 × holdDistance）也在光束通道上（加色发光）
-            if (holding && PhysgunClientState.isGrabbed(player.getUUID())) {
-                drawTargetMarker(beam, mat, player, partialTick,
+            // 落点标记（弹簧目标点）：基准 = 光束起点 S（服务端起点环，0.1s 时间线），
+            // 不再逐帧现算眼点 —— 玩家物理体的 tick 级位置抖动不再打进标记（"准星黄点抽抽"，2026-10-04）。
+            // ownDrawn：本帧自己的光束真的画出来了（S 才是新鲜值），否则不画，免得拿上一帧的旧 S。
+            if (holding && ownDrawn && PhysgunClientState.isGrabbed(player.getUUID())) {
+                drawTargetMarker(beam, mat, S, player, partialTick,
                         PhysgunClientState.holdDistance(player.getUUID()));
             }
             PhysgunRenderTypes.endPass(buffers, PhysgunRenderTypes.BEAM);
@@ -310,6 +351,14 @@ public final class PhysgunBeamRenderer {
         }
     }
 
+    /** 打一行读数（窗口没攒够 ⇒ {@code verdict()} 为 null ⇒ 这一条静默跳过）。 */
+    private static void emitVerdict(LocalPlayer player, FrameJitterMeter meter) {
+        String verdict = meter.verdict();
+        if (verdict != null) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal(verdict), false);
+        }
+    }
+
     /** 离开世界：清抓取状态，避免下次进来还画着一条指向旧体的光束。 */
     @SubscribeEvent
     public static void onLevelUnload(LevelEvent.Unload event) {
@@ -372,13 +421,22 @@ public final class PhysgunBeamRenderer {
         emit(vc, mat, QUAD, ANCHOR_RGB, alpha * 0.35F);
     }
 
-    /** 弹簧目标点的小十字标记（"拉力正把这个体拽向这里"）。 */
-    private static void drawTargetMarker(VertexConsumer vc, Matrix4f mat, LocalPlayer player,
-                                         float partialTick, double holdDistance) {
-        Vec3 eye = player.getEyePosition(partialTick);
+    /**
+     * 弹簧目标点的小十字标记（"拉力正把这个体拽向这里"）—— 投影在准星附近。
+     *
+     * <p><b>基准 = 光束起点 S（服务端起点环，0.1s），不是逐帧眼点</b>（2026-10-04 修）：
+     * 旧写法 {@code 眼(pt) + 视线(pt)×holdDistance} 逐帧现算，玩家物理体每个 tick 的位置抖动
+     * （接触/修正）直接打进标记 —— 实测枪口链站立时尖峰 5~15 格/秒、行走时更高，
+     * 表现就是"准星上的黄点一直抽抽"。现在标记与光束两端<b>同一 0.1s 时间线</b>：
+     * 位置项取环上的 S（= 眼+视线×{@link PhysgunItem#MUZZLE_FORWARD} 的延迟平滑值），
+     * 沿视线补到 holdDistance；视线每帧取（旋转经 xRotO 逐 tick 推进 + 鼠标增量，本来就平滑）。
+     * 代价 = 标记滞后 ~100ms —— 与线同步，正是想要的。</p>
+     */
+    private static void drawTargetMarker(VertexConsumer vc, Matrix4f mat, double[] start,
+                                         LocalPlayer player, float partialTick, double holdDistance) {
         Vec3 look = player.getViewVector(partialTick);
-        double[] c = {(eye.x + look.x * holdDistance), (eye.y + look.y * holdDistance),
-                (eye.z + look.z * holdDistance)};
+        double ahead = holdDistance - PhysgunItem.MUZZLE_FORWARD;
+        double[] c = {start[0] + look.x * ahead, start[1] + look.y * ahead, start[2] + look.z * ahead};
         PhysgunBeamShape.billboard(c, CAM, 0.055, QUAD);
         emit(vc, mat, QUAD, ANCHOR_RGB, 0.30F);
     }
@@ -489,16 +547,23 @@ public final class PhysgunBeamRenderer {
 
     // ==================== 位姿 / 顶点小工具 ====================
 
-    /** 体的当前世界位姿：优先 100Hz 的本地刚体状态，退回按网络包插值。 */
+    /**
+     * 体的当前世界位姿（渲染口径）—— 走 {@link ClientPhysics#renderTransform}
+     * （被两拍包住的时间戳插值，与光束终点/方块渲染同一个口径）。
+     *
+     * <p>不直读刚体：那是 10ms 一跳的阶梯，高帧率下框会随步进"跳格"
+     * （2026-10-03 读数 {@code 跳变帧=101/120} 的来源）。</p>
+     */
     private static void poseOf(ClientPhysicsWorld.ClientBody body, float partialTick,
                                Quaterniond rotOut, Vector3d posOut) {
-        double[] livePos = new double[3];
-        float[] liveRot = new float[4];
-        if (ClientPhysics.liveTransform(body.id(), livePos, liveRot)) {
-            posOut.set(livePos[0], livePos[1], livePos[2]);
-            rotOut.set(liveRot[0], liveRot[1], liveRot[2], liveRot[3]);
+        double[] pos = new double[3];
+        float[] rot = new float[4];
+        if (ClientPhysics.renderTransform(body.id(), partialTick, pos, rot)) {
+            posOut.set(pos[0], pos[1], pos[2]);
+            rotOut.set(rot[0], rot[1], rot[2], rot[3]);
             return;
         }
+        // 理论上到不了（循环遍历的就是 ClientBody）；保持兜底以免画出 NaN 位姿
         posOut.set(body.renderX(partialTick), body.renderY(partialTick), body.renderZ(partialTick));
         float[] r = new float[4];
         body.renderRotation(partialTick, r);
@@ -542,22 +607,15 @@ public final class PhysgunBeamRenderer {
         }
     }
 
-    /** 近似枪口（第一人称）：眼 + 视线×0.35 + 右×0.18 − 上×0.12。 */
-    private static void muzzle(LocalPlayer player, float partialTick, double[] out) {
-        Vec3 look = player.getViewVector(partialTick);
-        Vec3 eye = player.getEyePosition(partialTick);
-        Vec3 right = look.cross(new Vec3(0.0, 1.0, 0.0));
-        if (right.lengthSqr() < 1.0e-6) {
-            right = new Vec3(1.0, 0.0, 0.0);              // 正上/正下看时的退化
-        }
-        right = right.normalize();
-        Vec3 up = right.cross(look).normalize();
-        Vec3 m = eye.add(look.scale(PhysgunItem.MUZZLE_FORWARD))
-                .add(right.scale(0.18)).subtract(up.scale(0.12));
-        out[0] = m.x;
-        out[1] = m.y;
-        out[2] = m.z;
-    }
+    /**
+     * 已删除（2026-10-04）：{@code muzzle(player, partialTick, S)} —— 渲染端对起点的<b>二次覆盖</b>。
+     *
+     * <p>旧实现给起点加"手部偏移"（右×0.18 − 上×0.12）让线更像从枪管出来。两个问题：
+     * ① 起点成了<b>零延迟</b>的逐帧量，而终点走 0.1s 网络环 —— 移动时两端不同时间线，
+     * 线被拉扯（2026-10-04 实测行走窗口起点尖峰 240 格/秒，而终点被延迟抹平）；
+     * ② 渲染起点与服务端广播、客户端预测的公式（眼 + 视线×{@link PhysgunItem#MUZZLE_FORWARD}）
+     * 不一致 —— 同一个概念三处各算一套。现在三处统一走 {@code renderStart}。</p>
+     */
 
     private static boolean isHoldingPhysgun(LocalPlayer player) {
         return player.getItemInHand(InteractionHand.MAIN_HAND).is(ModItems.PHYSGUN.get())

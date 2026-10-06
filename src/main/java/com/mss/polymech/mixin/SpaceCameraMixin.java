@@ -50,13 +50,19 @@ public abstract class SpaceCameraMixin {
     public abstract float getPartialTickTime();
 
     /**
-     * 第三人称/正面：把镜头锚点从"脚底正上方 eyeHeight（世界竖直）"换成
-     * <b>身体坐标系里的眼睛位置</b>（{@code 实体位置 + Q_body·(0, eyeHeight, 0)}）。
+     * 把镜头锚点从"脚底正上方 eyeHeight（<b>世界竖直</b>）"换成
+     * <b>身体坐标系里的眼睛位置</b>（{@code 实体位置 + (0, 支点, 0) + Q_body·(0, 眼高 − 支点, 0)}）。
+     *
+     * <p>2026-10-05 起<b>第一、二、三人称一律走这里</b>（原来只管 detached，第一人称放行给原版）。
+     * 原因（§7.14，由 {@code [框·坐标系]} 的读数钉死）：原版锚点是
+     * {@code lerp + 眼高}，那是<b>世界竖直</b>方向；而太空里身体是 6DOF 的
+     * （实测 俯仰 −88° / 滚转 −180° 时），"头上的那一点"并不在世界 +Y 上。
+     * 于是第一人称的眼睛被钉在身体<b>另一侧</b>，身体一转眼睛与身体的相对关系就变
+     * ⇒ 玩家碰撞框（画在身体中心 + 身体姿态上）看着"位置异常"，随便转视角更明显。
+     * 第三人称本来就在用身体锚点，所以那边复测已经是对的 —— 第一人称只是补齐同一套。</p>
      *
      * <p>相机转的是<b>头</b>的朝向，第三人称/正面本来就该站在"头的前后方"：
-     * 锚点放在头上，原版随后沿视线方向后退，镜头就正对头部 —— 人物永远在画面中心。
-     * 这样"身体绕脚底转导致人偏出画面"的问题从根上消失，模型一行都不用动。
-     * 第一人称（!detached）保持原版锚点不变。</p>
+     * 锚点放在头上，原版随后沿视线方向后退，镜头就正对头部 —— 人物永远在画面中心。</p>
      */
     @WrapOperation(
             method = "setup",
@@ -64,7 +70,8 @@ public abstract class SpaceCameraMixin {
     )
     private void polymech$headAnchor(Camera self, double x, double y, double z, Operation<Void> operation) {
         Entity e = this.entity;
-        if (!this.isDetached() || !(e instanceof Player)
+        // ⚠️ 不再有 `!this.isDetached()`：第一人称也要身体锚点（见上面的注释）。
+        if (!(e instanceof Player)
                 || !e.level().dimension().equals(PlanetDimensions.SPACE)) {
             operation.call(self, x, y, z);
             return;

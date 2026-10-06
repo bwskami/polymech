@@ -44,7 +44,7 @@ public final class PhysgunTarget {
         if (mc.player == null || mc.level == null || ClientPhysicsWorld.size() == 0) {
             return null;
         }
-        float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(false);
+        float partialTick = com.mss.polymech.util.PartialTicks.level();
         Vec3 eye = mc.player.getEyePosition(partialTick);
         Vec3 look = mc.player.getViewVector(partialTick);
         return find(eye, look, reach);

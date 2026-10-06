@@ -64,18 +64,25 @@ public final class ClientPhysicsWorld {
         private double avx, avy, avz;
 
         /**
-         * 渲染用的"客户端刚体自己的状态"。
+         * 服务端同步位姿的<b>带时间戳快照环</b>（通用件 {@link TimedSamples}）。
          *
-         * <p>这是 space(MPS) 平滑的关键：客户端物理世界本地按 100Hz 积分，
-         * 渲染直接取刚体的变换，网络包（20Hz）只作为修正去拉回权威位置/速度/角速度。
-         * 若改成"两个网络包之间插值"，无论怎么插都只有 20Hz 的信息量 ——
-         * 表现就是移动一抽一抽、姿态一跳一跳。</p>
+         * <p>为什么要它们：{@link #renderX} / {@link #renderRotation} 原来是
+         * {@code prev + (cur - prev) * partialTick}，而那个写法**默认"prev ← cur 的交换发生在
+         * tick 边界"**；实际是"按拍更新、按帧渲染"，相位一乱就每次交换凭空跳一整个采样间隔
+         * （用户反复报的"抽抽"就是这个）。见 {@link TimedSamples} 的类注释。</p>
+         *
+         * <p>这是渲染消费的<b>兜底级</b>：镜子体（{@code ShipBody}）的 100Hz 步进环
+         * 优先，由 {@code ClientPhysics.renderTransform} 统一选路；本环给"该体不在本地
+         * 物理世界里"的场景兜底。延迟取 {@link TimedSamples#DEFAULT_DELAY_SECONDS}（0.10 s =
+         * 2 个 20Hz 拍），正好满足"延迟 ≥ 2 × 采样周期"（服务端每 tick 一发）。</p>
+         *
+         * <p>已删除：{@code phys*} 四条环 / {@code snapshotPhysics} / {@code updatePhysics} /
+         * {@code physValid} —— 它们的唯一喂入点 {@code captureShipTransforms} 是<b>从未被调用</b>
+         * 的死代码（见 {@code ClientPhysics} 里那块删除记事）。死架子比没有架子更误导人：
+         * 文档据此写下"100Hz 本地状态本来就平滑"的断言，而真实渲染一直在直读阶梯。</p>
          */
-        private boolean physValid;
-        private double physX, physY, physZ;
-        private double prevPhysX, prevPhysY, prevPhysZ;
-        private float physQx = 0.0f, physQy = 0.0f, physQz = 0.0f, physQw = 1.0f;
-        private float prevPhysQx = 0.0f, prevPhysQy = 0.0f, prevPhysQz = 0.0f, prevPhysQw = 1.0f;
+        private final TimedSamples netPosSamples = new TimedSamples(3, 32);
+        private final TimedSamples netRotSamples = new TimedSamples(4, 32);
 
         public ClientBody(long id, double x, double y, double z,
                           float qx, float qy, float qz, float qw,
@@ -157,42 +164,6 @@ public final class ClientPhysicsWorld {
 
         public double avz() {
             return avz;
-        }
-
-        /** 步进前：把当前物理状态记为"上一帧"（渲染插值起点）。 */
-        public void snapshotPhysics(double px, double py, double pz,
-                                    float nqx, float nqy, float nqz, float nqw) {
-            this.prevPhysX = px;
-            this.prevPhysY = py;
-            this.prevPhysZ = pz;
-            this.prevPhysQx = nqx;
-            this.prevPhysQy = nqy;
-            this.prevPhysQz = nqz;
-            this.prevPhysQw = nqw;
-            this.physValid = true;
-        }
-
-        /** 步进后：更新本帧物理状态。 */
-        public void updatePhysics(double px, double py, double pz,
-                                  float nqx, float nqy, float nqz, float nqw) {
-            // 最短弧：q 与 −q 表示同一旋转，直接分量插值会"绕远路"转一大圈
-            float dot = this.prevPhysQx * nqx + this.prevPhysQy * nqy
-                    + this.prevPhysQz * nqz + this.prevPhysQw * nqw;
-            if (dot < 0.0f) {
-                nqx = -nqx;
-                nqy = -nqy;
-                nqz = -nqz;
-                nqw = -nqw;
-            }
-            this.physX = px;
-            this.physY = py;
-            this.physZ = pz;
-            this.physQx = nqx;
-            this.physQy = nqy;
-            this.physQz = nqz;
-            this.physQw = nqw;
-            physPosSamples.push(px, py, pz);
-            physRotSamples.push(nqx, nqy, nqz, nqw);
         }
 
         /** 本地预测：移除一个方块（服务端很快会回发权威快照覆盖）。 */
@@ -297,23 +268,6 @@ public final class ClientPhysicsWorld {
         }
 
 
-        /**
-         * 位姿的<b>带时间戳快照环</b>（通用件 {@link TimedSamples}）—— 四条：
-         * {@code phys*} 是客户端刚体自己的状态、{@code net*} 是服务端同步下来的权威位姿。
-         *
-         * <p>为什么要它们：{@link #renderX} / {@link #renderRotation} 原来是
-         * {@code prev + (cur - prev) * partialTick}，而那个写法**默认"prev ← cur 的交换发生在
-         * tick 边界"**；实际是"按拍更新、按帧渲染"，相位一乱就每次交换凭空跳一整个采样间隔
-         * （用户反复报的"抽抽"就是这个）。见 {@link TimedSamples} 的类注释。</p>
-         *
-         * <p>延迟取 {@link TimedSamples#DEFAULT_DELAY_SECONDS}（0.10 s = 2 个 20Hz 拍）：
-         * 这条链的更新节奏取决于上游（服务端每 tick 广播 / 客户端镜像步进），
-         * 但 0.10 s 对两种节奏都成立 —— 上游更快时是"好几拍"、正好 20Hz 时是"两拍"。</p>
-         */
-        private final TimedSamples physPosSamples = new TimedSamples(3, 32);
-        private final TimedSamples physRotSamples = new TimedSamples(4, 32);
-        private final TimedSamples netPosSamples = new TimedSamples(3, 32);
-        private final TimedSamples netRotSamples = new TimedSamples(4, 32);
         /** {@link #renderX}/{@link #renderY}/{@link #renderZ} 共用的取值暂存（渲染单线程）。 */
         private final double[] renderPosScratch = new double[3];
         /** {@link #renderRotation} 的取值暂存。 */
@@ -333,58 +287,32 @@ public final class ClientPhysicsWorld {
 
         /** 位姿取值：优先时间戳插值；样本不足时退回旧的"两拍 lerp"。 */
         private double renderPos(float partialTick, int axis) {
-            TimedSamples ring = physValid ? physPosSamples : netPosSamples;
-            if (ring.evaluate(renderPosScratch)) {
+            if (netPosSamples.evaluate(renderPosScratch)) {
                 return renderPosScratch[axis];
-            }
-            if (physValid) {
-                double p = axis == 0 ? prevPhysX : axis == 1 ? prevPhysY : prevPhysZ;
-                double c = axis == 0 ? physX : axis == 1 ? physY : physZ;
-                return p + (c - p) * partialTick;
             }
             double p = axis == 0 ? prevX : axis == 1 ? prevY : prevZ;
             double c = axis == 0 ? x : axis == 1 ? y : z;
             return p + (c - p) * partialTick;
         }
 
-        /** 返回插值后的四元数（x,y,z,w），写入 out。优先用客户端刚体自己的状态。 */
+        /** 返回插值后的四元数（x,y,z,w），写入 out。 */
         public void renderRotation(float partialTick, float[] out) {
-            // 优先时间戳插值（见上面那四条快照环的注释）；样本不足时退回旧的"两拍 lerp"
-            TimedSamples ring = physValid ? physRotSamples : netRotSamples;
-            if (ring.evaluateQuat(renderRotScratch)) {
+            // 优先时间戳插值（见 net 环的注释）；样本不足时退回旧的"两拍 lerp"
+            if (netRotSamples.evaluateQuat(renderRotScratch)) {
                 out[0] = (float) renderRotScratch[0];
                 out[1] = (float) renderRotScratch[1];
                 out[2] = (float) renderRotScratch[2];
                 out[3] = (float) renderRotScratch[3];
                 return;
             }
-            float ax;
-            float ay;
-            float az;
-            float aw;
-            float bx;
-            float by;
-            float bz;
-            float bw;
-            if (physValid) {
-                ax = prevPhysQx;
-                ay = prevPhysQy;
-                az = prevPhysQz;
-                aw = prevPhysQw;
-                bx = physQx;
-                by = physQy;
-                bz = physQz;
-                bw = physQw;
-            } else {
-                ax = prevQx;
-                ay = prevQy;
-                az = prevQz;
-                aw = prevQw;
-                bx = qx;
-                by = qy;
-                bz = qz;
-                bw = qw;
-            }
+            float ax = prevQx;
+            float ay = prevQy;
+            float az = prevQz;
+            float aw = prevQw;
+            float bx = qx;
+            float by = qy;
+            float bz = qz;
+            float bw = qw;
             // 简单线性插值 + 归一化（量级小、连续，足够平滑）
             float nx = ax + (bx - ax) * partialTick;
             float ny = ay + (by - ay) * partialTick;

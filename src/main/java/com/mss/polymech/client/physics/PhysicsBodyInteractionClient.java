@@ -2,18 +2,26 @@ package com.mss.polymech.client.physics;
 
 import com.mss.polymech.Polymech;
 import com.mss.polymech.network.PhysicsBodyEditPacket;
-import com.mss.polymech.physics.PhysicsRaycast;
+import com.mss.polymech.util.PartialTicks;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.mss.polymech.physics.BodyVoxelRaycast;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.Shapes;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -23,11 +31,15 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * 客户端物理体交互：破坏 / 放置物理体上的方块。
  *
  * <p>物理体的方块已被从世界移除，原版 {@code clip()} 打不到，所以这里自己做射线
- * （{@link PhysicsRaycast}）：命中最近物理体方块 → 发包给服务端 → 服务端在投影维度里跑原版逻辑。</p>
+ * （{@link BodyVoxelRaycast}，照 space 0.3.0 的 {@code ShipRaycast}：原版 DDA + 方块真实形状）：
+ * 命中最近物理体方块 → 发包给服务端 → 服务端在投影维度里跑原版逻辑。</p>
  *
  * <p><b>破坏为什么要"每 tick 发一次"</b>：原版的挖掘时间由
  * {@code Minecraft.continueAttack → MultiPlayerGameMode.continueDestroyBlock} 驱动，
@@ -43,6 +55,54 @@ import org.joml.Vector3f;
  */
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
 public final class PhysicsBodyInteractionClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("PolyMech/Physics/Interaction");
+
+    /** {@link #logMiss} 的节流：同一刻只打一条，且至少隔 {@code 10} tick 才再打。 */
+    private static long lastDiagTick = -1L;
+
+    /**
+     * 挖掘/互动失败时的诊断 —— 把 {@link #currentHit} 的两道闸门**分开报**。
+     *
+     * <p><b>为什么要有它（2026-10-06 实机）</b>：用户报"瞄着可见方块挖不掉"，而服务端
+     * {@code 破坏请求落在空气上} 计数为 <b>0</b> ⇒ 破坏请求**根本没发出去** ⇒
+     * {@code currentHit} 返回了 null。可它只有两道闸门（① 射线打空；② 原版 hitResult 更近 ⇒ 否决），
+     * 此前**分不清是哪一道**，只能靠猜。这条日志一次实机测试就能定性。</p>
+     *
+     * <p>顺带报"最近体距玩家多少格"：射程取的是 {@code player.blockInteractionRange()}
+     * （生存 4.5 / 创造 5.0），若最近体就在 4.4 格左右，那就是**射程贴边**。</p>
+     */
+    private static void logMiss(String gate, long bodyId, double bodyDistance, Player player, double reach) {
+        long tick = player.level().getGameTime();
+        if (tick - lastDiagTick < 10) {
+            return;
+        }
+        lastDiagTick = tick;
+
+        float pt = PartialTicks.level();
+        Vec3 eye = player.getEyePosition();
+        long nearId = -1L;
+        double nearDist = Double.MAX_VALUE;
+        int nearBlocks = -1;
+        for (ClientPhysicsWorld.ClientBody body : ClientPhysicsWorld.bodies()) {
+            double dx = body.renderX(pt) - eye.x;
+            double dy = body.renderY(pt) - eye.y;
+            double dz = body.renderZ(pt) - eye.z;
+            double d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (d < nearDist) {
+                nearDist = d;
+                nearId = body.id();
+                nearBlocks = body.blocks().size();
+            }
+        }
+        HitResult vanilla = Minecraft.getInstance().hitResult;
+        String vanillaText = vanilla == null ? "null" : vanilla.getType() + "@" + vanilla.distanceTo(player);
+        LOGGER.info("[PolyMech] [挖掘诊断] 闸门={} 射程={} 创造={} 命中体={} 体距={} 最近体={} 最近距={}"
+                        + " 最近体方块={} 原版hit={} 眼=({},{},{})",
+                gate, reach, player.isCreative(), bodyId, bodyDistance, nearId, nearDist, nearBlocks,
+                vanillaText, eye.x, eye.y, eye.z);
+    }
+
 
     private static final Quaternionf ROT = new Quaternionf();
     private static final Quaternionf INV = new Quaternionf();
@@ -273,13 +333,13 @@ public final class PhysicsBodyInteractionClient {
             return;
         }
         float[] rot = new float[4];
-        body.renderRotation(1.0F, rot);
+        body.renderRotation(PartialTicks.level(), rot);
         Quaternionf q = new Quaternionf(rot[0], rot[1], rot[2], rot[3]);
         for (int i = 0; i < 2; i++) {
             TMP.set(hit.dx + RANDOM.nextFloat(), hit.dy + RANDOM.nextFloat(), hit.dz + RANDOM.nextFloat());
             q.transform(TMP);
             mc.level.addParticle(option,
-                    body.renderX(1.0F) + TMP.x, body.renderY(1.0F) + TMP.y, body.renderZ(1.0F) + TMP.z,
+                    body.renderX(PartialTicks.level()) + TMP.x, body.renderY(PartialTicks.level()) + TMP.y, body.renderZ(PartialTicks.level()) + TMP.z,
                     0.0, 0.0, 0.0);
         }
     }
@@ -306,10 +366,10 @@ public final class PhysicsBodyInteractionClient {
             return Vec3.ZERO;
         }
         float[] rot = new float[4];
-        body.renderRotation(1.0F, rot);
+        body.renderRotation(PartialTicks.level(), rot);
         TMP.set(hit.dx + 0.5F, hit.dy + 0.5F, hit.dz + 0.5F);
         new Quaternionf(rot[0], rot[1], rot[2], rot[3]).transform(TMP);
-        return new Vec3(body.renderX(1.0F) + TMP.x, body.renderY(1.0F) + TMP.y, body.renderZ(1.0F) + TMP.z);
+        return new Vec3(body.renderX(PartialTicks.level()) + TMP.x, body.renderY(PartialTicks.level()) + TMP.y, body.renderZ(PartialTicks.level()) + TMP.z);
     }
 
     private static void resetMining() {
@@ -325,68 +385,173 @@ public final class PhysicsBodyInteractionClient {
      * <p>返回 null 表示"这次交互归原版"（没命中物理体，或者真实方块更近）。</p>
      */
     private static Hit currentHit(Player player) {
-        Hit hit = castAgainstBodies(player.getEyePosition(), player.getViewVector(1.0F),
-                player.blockInteractionRange());
+        double reach = player.blockInteractionRange();
+        Hit hit = castAgainstBodies(player.getEyePosition(), player.getViewVector(1.0F), reach);
         if (hit == null) {
+            logMiss("射线打空", -1L, Double.NaN, player, reach);
             return null;
         }
         HitResult vanilla = Minecraft.getInstance().hitResult;
         if (vanilla != null && vanilla.getType() != HitResult.Type.MISS
                 && vanilla.distanceTo(player) < hit.distance) {
+            logMiss("原版更近", hit.bodyId, hit.distance, player, reach);
             return null;
         }
         return hit;
     }
 
-    /** 对所有物理体做射线，取最近命中。 */
+    /**
+     * 对所有物理体做射线，取最近命中 —— <b>三步照 space 0.3.0 的 {@code ShipRaycast}</b>。
+     *
+     * <ol>
+     *   <li><b>粗筛</b>：先与体的世界 AABB 求交（{@link AABB#clip}）。AABB 由方块表的局部范围
+     *       + 位姿算出；退化（没方块/零尺寸）时退化成外接球半径的立方
+     *       （{@link BodyVoxelRaycast#cubeAround}）—— 那正是 space 的兜底，只慢不错。</li>
+     *   <li><b>精求交</b>：把"进入点沿射线推进 epsilon"<b>和射线终点</b>都变换到局部空间，
+     *       交给 {@link BodyVoxelRaycast#traverse} 用原版 DDA + 方块<b>真实形状</b>逐格走。</li>
+     *   <li><b>取最近</b>：多个体都可能挡，取距离最小的。</li>
+     * </ol>
+     *
+     * <p><b>位姿用渲染口径</b>（{@code renderX/Y/Z/Rotation(1.0f)}），不用镜子体的实时位姿：
+     * 玩家瞄的是<b>画面上那一格</b>，两者必须同口径，否则"准星在这、命中在别处"。
+     * 这是本项目与 space 唯一的有意偏离（space 的渲染与拾取都直接读体自己的位姿）——
+     * 我们的渲染走网络位姿环（有 0.1s 延迟），拾取必须走同一个环才对得上画面。</p>
+     */
     public static Hit castAgainstBodies(Vec3 origin, Vec3 dir, double reach) {
+        Vec3 end = origin.add(dir.scale(reach));
         Hit best = null;
         for (ClientPhysicsWorld.ClientBody body : ClientPhysicsWorld.bodies()) {
-            double bx = body.renderX(1.0f);
-            double by = body.renderY(1.0f);
-            double bz = body.renderZ(1.0f);
+            double bx = body.renderX(PartialTicks.level());
+            double by = body.renderY(PartialTicks.level());
+            double bz = body.renderZ(PartialTicks.level());
 
             float[] rotF = new float[4];
-            body.renderRotation(1.0f, rotF);
+            body.renderRotation(PartialTicks.level(), rotF);
             ROT.set(rotF[0], rotF[1], rotF[2], rotF[3]);
-            INV.set(ROT).conjugate();
-
-            TMP.set((float) (origin.x - bx), (float) (origin.y - by), (float) (origin.z - bz));
-            INV.transform(TMP);
-            double[] localOrigin = {TMP.x, TMP.y, TMP.z};
-
-            TMP.set((float) dir.x, (float) dir.y, (float) dir.z);
-            INV.transform(TMP);
-            double[] localDir = {TMP.x, TMP.y, TMP.z};
-            double len = Math.sqrt(localDir[0] * localDir[0] + localDir[1] * localDir[1] + localDir[2] * localDir[2]);
-            if (len < 1.0e-6) {
+            if (!ROT.isFinite() || ROT.lengthSquared() == 0.0f) {
+                // 位姿非法：space 也跳过（零四元数会让局部变换整片变 NaN）
                 continue;
             }
-            localDir[0] /= len;
-            localDir[1] /= len;
-            localDir[2] /= len;
+            ROT.normalize();
+            INV.set(ROT).conjugate();
 
-            int[] blocks = new int[body.blocks().size() * 3];
-            for (int i = 0; i < body.blocks().size(); i++) {
-                ClientPhysicsWorld.BlockEntry e = body.blocks().get(i);
-                blocks[i * 3] = e.dx();
-                blocks[i * 3 + 1] = e.dy();
-                blocks[i * 3 + 2] = e.dz();
+            // ① 粗筛：世界 AABB
+            AABB box = worldAabb(body, bx, by, bz);
+            Vec3 entry = box.contains(origin) ? origin : box.clip(origin, end).orElse(null);
+            if (entry == null) {
+                continue;
             }
 
-            PhysicsRaycast.Hit local = PhysicsRaycast.cast(localOrigin, localDir, reach, blocks);
+            // ② 精求交：局部空间 DDA（起点沿射线推进 epsilon，避免贴面时反复命中同一个面）
+            Vec3 localStart = toLocal(entry.add(dir.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON)), bx, by, bz);
+            Vec3 localEnd = toLocal(end, bx, by, bz);
+            if (localStart == null || localEnd == null) {
+                continue;
+            }
+            BodyVoxelRaycast.LocalHit local =
+                    BodyVoxelRaycast.traverse(localStart, localEnd, shapesOf(body));
             if (local == null) {
                 continue;
             }
-            if (best == null || local.distance() < best.distance) {
-                // 法线同样要变换回世界空间（放置方向用）
-                TMP.set(local.normalX(), local.normalY(), local.normalZ());
+
+            // ③ 命中点与法线换回世界，距离按世界算（旋转不改变长度，但命中点必须回到世界才可比）
+            TMP.set((float) local.location().x, (float) local.location().y, (float) local.location().z);
+            ROT.transform(TMP);
+            Vec3 world = new Vec3(bx + TMP.x, by + TMP.y, bz + TMP.z);
+            double distance = origin.distanceTo(world);
+            if (distance > reach) {
+                continue;
+            }
+            if (best == null || distance < best.distance) {
+                Direction face = local.face();
+                TMP.set(face.getStepX(), face.getStepY(), face.getStepZ());
                 ROT.transform(TMP);
-                best = new Hit(body.id(), local.distance(), local.blockX(), local.blockY(), local.blockZ(),
-                        Math.round(TMP.x), Math.round(TMP.y), Math.round(TMP.z));
+                best = new Hit(body.id(), distance, local.cell().getX(), local.cell().getY(),
+                        local.cell().getZ(), Math.round(TMP.x), Math.round(TMP.y), Math.round(TMP.z));
             }
         }
         return best;
+    }
+
+    /** 世界点 → 体局部点（先平移、再乘逆旋转）；非有限时返回 null。 */
+    private static Vec3 toLocal(Vec3 world, double bx, double by, double bz) {
+        TMP.set((float) (world.x - bx), (float) (world.y - by), (float) (world.z - bz));
+        INV.transform(TMP);
+        if (!Float.isFinite(TMP.x) || !Float.isFinite(TMP.y) || !Float.isFinite(TMP.z)) {
+            return null;
+        }
+        return new Vec3(TMP.x, TMP.y, TMP.z);
+    }
+
+    /**
+     * 体的世界 AABB —— 对应 space 里体自己维护的 {@code worldAABB}。
+     *
+     * <p>由方块表的<b>局部格范围</b> + 位姿算：局部格占 {@code [x, x+1]}，所以最大角是 {@code max+1}。
+     * 没方块、或 8 个角变换后退化成零尺寸时，退回外接球立方
+     * （{@link BodyVoxelRaycast#cubeAround}）—— 粗筛只求"不漏"，慢一点不会错。</p>
+     */
+    private static AABB worldAabb(ClientPhysicsWorld.ClientBody body, double bx, double by, double bz) {
+        int minX = Integer.MAX_VALUE;
+        int minY = Integer.MAX_VALUE;
+        int minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE;
+        int maxY = Integer.MIN_VALUE;
+        int maxZ = Integer.MIN_VALUE;
+        for (ClientPhysicsWorld.BlockEntry e : body.blocks()) {
+            minX = Math.min(minX, e.dx());
+            minY = Math.min(minY, e.dy());
+            minZ = Math.min(minZ, e.dz());
+            maxX = Math.max(maxX, e.dx());
+            maxY = Math.max(maxY, e.dy());
+            maxZ = Math.max(maxZ, e.dz());
+        }
+        if (minX > maxX) {
+            return BodyVoxelRaycast.cubeAround(bx, by, bz);
+        }
+        double wMinX = Double.MAX_VALUE;
+        double wMinY = Double.MAX_VALUE;
+        double wMinZ = Double.MAX_VALUE;
+        double wMaxX = -Double.MAX_VALUE;
+        double wMaxY = -Double.MAX_VALUE;
+        double wMaxZ = -Double.MAX_VALUE;
+        for (int corner = 0; corner < 8; corner++) {
+            TMP.set((corner & 1) == 0 ? minX : maxX + 1.0f,
+                    (corner & 2) == 0 ? minY : maxY + 1.0f,
+                    (corner & 4) == 0 ? minZ : maxZ + 1.0f);
+            ROT.transform(TMP);
+            double wx = bx + TMP.x;
+            double wy = by + TMP.y;
+            double wz = bz + TMP.z;
+            wMinX = Math.min(wMinX, wx);
+            wMinY = Math.min(wMinY, wy);
+            wMinZ = Math.min(wMinZ, wz);
+            wMaxX = Math.max(wMaxX, wx);
+            wMaxY = Math.max(wMaxY, wy);
+            wMaxZ = Math.max(wMaxZ, wz);
+        }
+        if (!(wMaxX > wMinX) || !(wMaxY > wMinY) || !(wMaxZ > wMinZ)) {
+            return BodyVoxelRaycast.cubeAround(bx, by, bz);
+        }
+        return new AABB(wMinX, wMinY, wMinZ, wMaxX, wMaxY, wMaxZ);
+    }
+
+    /**
+     * 体的方块表 → "局部格 → 碰撞形状" —— 对应 space 的 {@code clipBlock}：
+     * 空气返回 {@code null}，方块形状为空的按满格 {@link Shapes#block()} 处理。
+     */
+    private static BodyVoxelRaycast.LocalShapes shapesOf(ClientPhysicsWorld.ClientBody body) {
+        Map<Long, BlockState> states = new HashMap<>();
+        for (ClientPhysicsWorld.BlockEntry e : body.blocks()) {
+            states.put(BlockPos.asLong(e.dx(), e.dy(), e.dz()), e.state());
+        }
+        return pos -> {
+            BlockState state = states.get(pos.asLong());
+            if (state == null || state.isAir()) {
+                return null;
+            }
+            VoxelShape shape = state.getShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
+            return shape.isEmpty() ? Shapes.block() : shape;
+        };
     }
 
     /** 命中的物理体方块。 */

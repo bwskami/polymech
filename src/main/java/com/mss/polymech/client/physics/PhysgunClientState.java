@@ -235,34 +235,59 @@ public final class PhysgunClientState {
         }
 
         /**
-         * 把抓点按客户端当前的体位姿变成世界点，写进 {@link #end}。
+         * 把抓点按<b>渲染口径的</b>体位姿变成世界点，写进 {@link #end}。
          *
-         * <p>位姿优先级与渲染器一致：本地刚体实时状态（100Hz，最连续）→ 镜子体的按包插值位姿。
-         * 两者都由 {@code ClientBody.renderX/renderRotation}（已走时间戳插值）或
-         * {@code ClientPhysics.liveTransform} 给出。</p>
+         * <p>位姿必须走 {@link ClientPhysics#renderTransform} —— 它是"按拍同步、按帧渲染"的
+         * 唯一消费入口（镜子体 100Hz 步进环，延迟 2×10ms；兜底网络环，延迟 2×50ms），
+         * 输出是时间的连续函数。<b>不能</b>在这里直读刚体（{@code liveTransform}）：
+         * 那是 10ms 一跳的阶梯，560fps 下每 5.6 帧才跨一跳 —— 2026-10-03 的读数
+         * （{@code 最小=0.0000 跳变帧=101/120 抖动=8.12 ⇒ FAIL}）就是它。
+         * 玩法侧（拾取、旋转捕获）读实时状态是另一回事，见 {@code liveTransform} 的注释。</p>
+         *
+         * @return false = 客户端还没有这个体（包先到、体还没同步）⇒ 调用方这一帧别画
          */
         private boolean refreshEnd(float partialTick) {
             if (anchor == null) {
                 return false;
             }
-            if (ClientPhysics.liveTransform(anchor.bodyId(), LIVE_POS, LIVE_ROT)) {
-                ANCHOR_POS.set(LIVE_POS[0], LIVE_POS[1], LIVE_POS[2]);
-                ANCHOR_ROT.set(LIVE_ROT[0], LIVE_ROT[1], LIVE_ROT[2], LIVE_ROT[3]);
-            } else {
-                ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(anchor.bodyId());
-                if (body == null) {
-                    return false;
-                }
-                ANCHOR_POS.set(body.renderX(partialTick), body.renderY(partialTick),
-                        body.renderZ(partialTick));
-                float[] r = new float[4];
-                body.renderRotation(partialTick, r);
-                ANCHOR_ROT.set(r[0], r[1], r[2], r[3]);
+            if (!ClientPhysics.renderTransform(anchor.bodyId(), partialTick, LIVE_POS, LIVE_ROT)) {
+                return false;
             }
+            ANCHOR_POS.set(LIVE_POS[0], LIVE_POS[1], LIVE_POS[2]);
+            ANCHOR_ROT.set(LIVE_ROT[0], LIVE_ROT[1], LIVE_ROT[2], LIVE_ROT[3]);
             anchor.toWorld(ANCHOR_POS, ANCHOR_ROT, ANCHOR_OUT);
             end[0] = ANCHOR_OUT.x;
             end[1] = ANCHOR_OUT.y;
             end[2] = ANCHOR_OUT.z;
+            return true;
+        }
+
+        /**
+         * <b>诊断用</b>：同一个抓点换算，但位姿只走<b>网络环</b>（{@code ClientBody.render*}，
+         * 20Hz 服务端采样 + 2×50ms 延迟），不经过首选的镜子体步进环。
+         *
+         * <p>与主路径 {@link #refreshEnd} 并排喂进归因分表（{@code PhysgunBeamRenderer} 的
+         * {@code DIAG_NET_METER}）：两条消费路径同窗对照 ——
+         * 都 FAIL ⇒ 服务端信号本身在抖（物理层：接触锯齿/弹簧微动）；
+         * 只有主表 FAIL ⇒ 镜像/同步链的"停—等—走"。<b>不参与渲染</b>，纯测量。</p>
+         */
+        boolean renderEndNet(float partialTick, double[] out) {
+            if (anchor == null) {
+                return false;
+            }
+            ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(anchor.bodyId());
+            if (body == null) {
+                return false;
+            }
+            ANCHOR_POS.set(body.renderX(partialTick), body.renderY(partialTick),
+                    body.renderZ(partialTick));
+            float[] r = new float[4];
+            body.renderRotation(partialTick, r);
+            ANCHOR_ROT.set(r[0], r[1], r[2], r[3]);
+            anchor.toWorld(ANCHOR_POS, ANCHOR_ROT, ANCHOR_OUT);
+            out[0] = ANCHOR_OUT.x;
+            out[1] = ANCHOR_OUT.y;
+            out[2] = ANCHOR_OUT.z;
             return true;
         }
 

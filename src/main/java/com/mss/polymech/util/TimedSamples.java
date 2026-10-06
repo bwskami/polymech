@@ -124,9 +124,15 @@ public final class TimedSamples {
      * 记一拍。与上一拍的间隔小于 {@link #SAME_SAMPLE_EPS_SECONDS} 时<b>就地更新</b>那一拍
      * （见该常量的注释），否则追加新的一拍。
      *
+     * <p><b>synchronized</b>：镜子体位姿环由<b>物理步进线程</b>（100Hz）push、渲染线程 evaluate
+     * （见 {@code ClientPhysics.captureMirrorPoses}）。环形缓冲的"时间戳+样本+count"三件套
+     * 不加锁时，渲染线程可能读到写了一半的样本（位置新、姿态旧）。竞争规模是
+     * 每秒百次级的短临界区，锁开销可以忽略；漏了这把锁的症状是<b>偶发</b>的画面撕裂，
+     * 那类问题没有判据能抓，只能在结构上堵死。</p>
+     *
      * @param value 长度必须等于 {@code dim}
      */
-    public void push(double... value) {
+    public synchronized void push(double... value) {
         if (value.length != dim) {
             throw new IllegalArgumentException("样本维度不符：期望 " + dim + "，实际 " + value.length);
         }
@@ -153,7 +159,7 @@ public final class TimedSamples {
     }
 
     /** 已存条数。 */
-    public int size() {
+    public synchronized int size() {
         return count;
     }
 
@@ -162,7 +168,7 @@ public final class TimedSamples {
      *
      * @return false = 样本不足（调用方自行回退到旧的"两拍 lerp"）
      */
-    public boolean evaluate(double[] out) {
+    public synchronized boolean evaluate(double[] out) {
         return evaluate(out, false);
     }
 
@@ -171,7 +177,7 @@ public final class TimedSamples {
      *
      * @return false = 样本不足
      */
-    public boolean evaluateQuat(double[] out) {
+    public synchronized boolean evaluateQuat(double[] out) {
         return evaluate(out, true);
     }
 
@@ -265,7 +271,7 @@ public final class TimedSamples {
     }
 
     /** 相邻两拍的时间间隔（秒）；样本不足返回 {@code NaN}。 */
-    public double sampleIntervalSeconds() {
+    public synchronized double sampleIntervalSeconds() {
         if (count < 2) {
             return Double.NaN;
         }
@@ -275,7 +281,7 @@ public final class TimedSamples {
     }
 
     /** 环里的时间跨度（秒）；样本不足返回 {@code NaN}。 */
-    public double historySeconds() {
+    public synchronized double historySeconds() {
         if (count < 2) {
             return Double.NaN;
         }
@@ -285,7 +291,7 @@ public final class TimedSamples {
     }
 
     /** 清空（换维度/重连时用）。 */
-    public void clear() {
+    public synchronized void clear() {
         count = 0;
         next = 0;
     }

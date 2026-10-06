@@ -54,10 +54,10 @@ $checks = @(
        marks = @('原版日月已隐藏');
        why = '只掐原版日月的 mixin（且证明 mixin 类确实被编译进产物）' },
     @{ cls = 'com\mss\polymech\item\PhysgunItem.class';
-       marks = @('已抓住', 'serverTick', 'tickGrab', 'applyAction', 'startDrag', 'stopDrag',
+       marks = @('已抓住', 'serverTick', 'tickGrab', 'physicsStep', 'applyAction', 'startDrag', 'stopDrag',
                  'PhysgunActionPacket', 'PhysgunSpring', 'PhysgunBeamPacket', 'BodyRaycast',
                  'PhysicsBodyTracker', 'nearestBodyInfo');
-       why = '牵引枪（抓取 + 弹簧拖拽 + 光束广播 + 音效）—— 2026-09-29 起在 PhysicsBodyTracker 上求交；2026-10-01 起右键是开关（serverTick 驱动施力，不再是 onUseTick）。⚠️ 别把 START_DRAG/STOP_DRAG 写进 marks：switch 里的枚举常量名会被 javac 放进合成的 $SwitchMap 类，本类里没有这两个字符串（写进去必假 MISS）' },
+       why = '牵引枪（抓取 + 弹簧拖拽 + 光束广播 + 音效）—— 2026-09-29 起在 PhysicsBodyTracker 上求交；2026-10-01 起右键是开关（serverTick 驱动事务，2026-10-04 起施力在 physicsStep、每 100Hz 子步一次）。⚠️ 别把 START_DRAG/STOP_DRAG 写进 marks：switch 里的枚举常量名会被 javac 放进合成的 $SwitchMap 类，本类里没有这两个字符串（写进去必假 MISS）' },
     @{ cls = 'com\mss\polymech\physics\BodyRaycast.class';
        marks = @('INFLATE', 'nearest', 'toLocalPoint');
        why = '服务端体求交（与客户端同一套 RayBox 数学；离线判据第 12 步）' },
@@ -281,7 +281,7 @@ $contracts = @(
        why = '★ 按键必须注册，否则 ROTATE_MODE_KEY.isDown() 恒假 ⇒ 永远进不了旋转模式' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        must = 'PhysicsBodyTracker.applyTorqueImpulse(grab.bodyId(), spin.x, spin.y, spin.z)';
-       why = '★ 服务端真的施加了角伺服的力矩冲量（在 tickGrab 里、每 tick 一次，与线性那半同节奏）' },
+       why = '★ 服务端真的施加了角伺服的力矩冲量（在 physicsStep 里、每 100Hz 物理子步一次（2026-10-04 起），与线性那半同节奏）' },
     @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
        must = 'PhysgunRotation.errorAxisAngle(current, grab.orientation())';
        why = '角误差由 PhysgunRotation（纯函数、有离线判据）算，服务端不另写一份' },
@@ -311,6 +311,48 @@ $contracts = @(
     @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
        must = 'RayBox.toWorldCenter(new Vector3d(tracked.x, tracked.y, tracked.z)';
        why = 'localToWorld 与 toLocalCell 共用同一对映射（单一来源；本项目在"同一概念两份实现"上吃过亏）' },
+
+    # ── 物理体方块射线：必须照 space 0.3.0 的 ShipRaycast（2026-10-06）────────────
+    # 旧的手写实现（physics/PhysicsRaycast.java）已删除：它把方块表拍成 int[]、逐块当单位立方体做 slab，
+    # ① 真实形状被当满格；② 某轴提供进入点时漏夹 tmax ⇒ 擦边也报命中 ⇒ "瞄半天挖不掉 / 互动错格"。
+    # 这几条是**正向**契约：谁把挖掘射线改回旧写法，这里就 MISS。
+    @{ file = 'src\main\java\com\mss\polymech\physics\BodyVoxelRaycast.java';
+       must = 'BlockGetter.traverseBlocks(localStart, localEnd, shapes,';
+       why = '★ 照 space：逐格用**原版 DDA** 走，不自己写 slab 循环（边界归属/命中面语义全靠它）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\BodyVoxelRaycast.java';
+       must = 'return shape.clip(start, end, pos);';
+       why = '★ 照 space：用方块**真实形状**求交（台阶/半砖/栅栏不再是满格）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\BodyVoxelRaycast.java';
+       must = 'shape = Shapes.block();';
+       why = '照 space：形状为空的方块按满格处理（否则草/火把这类会被射线穿过去）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'BodyVoxelRaycast.traverse(localStart, localEnd, shapesOf(body))';
+       why = '★ 挖掘射线必须走新几何内核（旧 physics/PhysicsRaycast 已删除，回归即 MISS）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'box.clip(origin, end)';
+       why = '★ 照 space 第一步：先用体的世界 AABB 粗筛，再做局部 DDA（少了它，大船的每格都要走一遍）' },
+    @{ file = 'native\jni-smoketest\run-offline-checks.ps1';
+       must = 'BodyVoxelRaycastProbe.java';
+       why = '★ 射线判据必须并入离线自检，否则探针不会被执行（判据写了等于没写）' },
+
+    # 放置射线（2026-10-06 修）：原来打在 **MPS 克隆栈**（恒空）上 ⇒ 永远 null ⇒
+    # "对着体某一面放置"是死代码，每次放置退化成 eye + look × 3.0。这五条是正向契约：
+    # 谁把放置射线改回 B 栈、或把世界面那一步省掉，这里就 MISS。
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       must = 'PhysicsBodyTracker.raycastBody(level, eye, look, REACH)';
+       why = '★★ 放置射线必须打在 **A 自己的体**上（B 的 ServerPhysicalWorld 恒空，打上去永远是 null）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       must = 'hit.worldFace()';
+       why = '★ 目标格必须沿**世界**面取相邻格：体被转过（牵引枪）时不转面就会放到体的另一侧' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'public static BodyVoxelHit raycastBody(';
+       why = '★ 服务端射线入口（体局部 DDA + 真实形状，与客户端同一份几何内核）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\BodyVoxelRaycast.java';
+       must = 'public static AABB worldAabb(';
+       why = '★ 共用几何：世界 AABB 粗筛盒（服务端与客户端同一份，别再各写一套）' },
+    @{ file = 'native\jni-smoketest\BodyVoxelRaycastProbe.java';
+       must = 'groupF();';
+       why = '★ F 组（旋转体的放置几何：局部面→世界面→目标格）必须真的被执行，删了这行就等于没判' },
 
     # ── 操作方式对齐 Create Aeronautics（用户 2026-10-01 拍板）──────────────────
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
@@ -400,8 +442,8 @@ $contracts = @(
 
     # ── 通用方法：带时间戳的插值（根治"线抽抽、框也抽抽"）──────────────────────
     @{ file = 'src\main\java\com\mss\polymech\util\TimedSamples.java';
-       must = 'public boolean evaluate(double[] out)';
-       why = '★ 通用件本体：所有"按拍同步、按帧渲染"的量都该走它，而不是各写一份 lerp(prev,cur,partialTick)' },
+       must = 'public synchronized boolean evaluate(double[] out)';
+       why = '★ 通用件本体：所有"按拍同步、按帧渲染"的量都该走它，而不是各写一份 lerp(prev,cur,partialTick)。synchronized 是 2026-10-04 加的：镜子环由步进线程 push、渲染线程 evaluate（不加锁会读到写了一半的样本）' },
     @{ file = 'src\main\java\com\mss\polymech\util\TimedSamples.java';
        must = 'if (target >= times[newest]) {';
        why = '★ 越过最新样本必须**夹住**（保持那一拍），绝不外推 —— 外推会在丢包时把物体甩到屏幕外' },
@@ -428,21 +470,120 @@ $contracts = @(
        why = '★ 丝滑判据的输入必须是 E（线框共同来源）—— 量它就等于线、框两处一起量' },
     @{ file = 'src\main\java\com\mss\polymech\util\FrameJitterMeter.java';
        must = 'boolean decidable = mean > 1.0e-6;';
-       why = '★ 位移均值≈0（物体本来就没动）必须判"不可判"，不能判 PASS —— 那会变成一条永远通过的假判据（本项目栽过"死判据"）' },
+       why = '★ 速度均值≈0（物体本来就没动）必须判"不可判"，不能判 PASS —— 那会变成一条永远通过的假判据（本项目栽过"死判据"）' },
+    @{ file = 'src\main\java\com\mss\polymech\util\FrameJitterMeter.java';
+       must = '(times[filled - 1] - times[0]) >= windowSeconds';
+       why = '★★ 窗口必须按**时间**开（秒），不能按帧数：120 帧在 60fps 是 2 秒、560fps 只有 0.21 秒，同一判据在不同机器上量的不是同一段时间（2026-10-04 v2）' },
+    @{ file = 'src\main\java\com\mss\polymech\util\FrameJitterMeter.java';
+       must = 'dx[filled] = ddx / dt;';
+       why = '★★ 统计口径必须是**逐帧速度**（位移 ÷ 帧间隔），不是裸位移：帧间隔不均时裸位移两头误报（GC 卡帧虚高、步进短帧漏判）（2026-10-04 v2）' },
     @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
        must = 'double partial = (frame % framesPerSample) / (double) framesPerSample;';
        why = '★★ 旧写法的 partialTick 必须用**整数帧**算，不能写 (simTime % period)/period：浮点取模在 tick 边界给出 0.0499999 而非 0，会凭空造出倒退跳变 —— 本探针第一版就是这么把自己判 FAIL 的（判据写错，不是代码错）' },
     @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
        must = 'new TimedSamples(3, 64, 2.0 * samplePeriod(), () -> clock[0])';
        why = '★ 探针必须调**真实现**（并用可注入时钟保证相位确定性），不许在这里复刻一份插值公式' },
+    @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
+       must = 'Math.floor(t * STEP_HZ) / STEP_HZ';
+       why = '★★ E 组的直读语义（零阶保持：任何时刻读到的都是最新已完成的那一跳）——它复现实机读数的形态（停帧 ≈ 1−100/fps），是"归因 = 消费方式"的对照组；改掉它 E 组就不再证明任何事' },
+    @{ file = 'native\jni-smoketest\InterpSmoothnessProbe.java';
+       must = 'new TimedSamples(1, 64, 2.0 * stepPeriod, () -> simTime)';
+       why = '★ F 组必须调真实现（与 ClientPhysics.renderTransform 同构：延迟 = 2×步进周期 + 可注入时钟），不许复刻公式' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysics.java';
+       must = 'PhysicsStepThread.addPostStep(createdWorld, () -> stepShipSync(createdWorld));';
+       why = '★★ 镜子体的运动学推进必须每子步跑（掉了=动的船一顿一顿）。2026-10-04 收口镜子采样架子时差点连坐误删——这一句单独钉住' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysics.java';
+       must = 'public static boolean renderTransform(long bodyId, float partialTick, double[] posOut, float[] rotOut)';
+       why = '★ 渲染消费体位姿的唯一入口必须存在（refreshEnd / poseOf / 方块渲染三处都走它才同口径）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
-       must = 'physPosSamples.push(px, py, pz);';
-       why = '★ 客户端刚体自己的位姿也要打时间戳（renderX/renderRotation 的两个分支都是"按拍更新、按帧渲染"）' },
+       must = 'new TimedSamples(3, 32)';
+       why = '★★ 渲染位姿的唯一数据源 = 网络位姿环，延迟取 TimedSamples 默认 0.10s = 2×信息周期(50ms)。⚠️ 别按 push 周期算延迟——镜子环那版就是把"延迟≥2×采样周期"里的周期用错了（信息周期≠push 周期），暴露包到达相位：拖着走时镜子环停帧 7.7% vs 网络环 1.0%（2026-10-04 四组读数）' },
+    @{ file = 'src\main\java\com\mss\polymech\util\TimedSamples.java';
+       must = 'public static final double DEFAULT_DELAY_SECONDS = 0.10;';
+       why = '★ 网络环（20Hz 信息）的默认延迟 = 2×50ms，由它推出——改它等于改所有走默认值的环' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'PhysicsStepThread.addPostStep(world, () -> physicsStep(world));';
+       why = '★★ 伺服必须接线到步进线程（写了不接线=没有）。没这句，弹簧退回每 MC tick 一次的 20Hz 脉冲 —— 2026-10-04 四组实机读数里终点抖动的地板 ≈2.3× 就是它' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'double dt = PhysicsStepThread.STEP_SECONDS;';
+       why = '★★ 施力节奏 = 100Hz 物理子步（冲量 F×0.01、频率×5 单次÷5，平均力不变）。写回 FORCE_DURATION(0.05) 就是退回每 tick 一发的方波激励' },
+    @{ file = 'src\main\java\com\mss\polymech\util\FrameJitterMeter.java';
+       must = 'decidable && mean >= STALL_MIN_MEAN';
+       why = '★ 停帧只在"明显在动"的窗口计数（门槛 0.5 格/秒）：静止窗口的零位移是天经地义，算成停帧会把判据淹了（实测枪口站立时停帧 91% 全是水分）；静止窗口里的速度尖峰仍由抖动抓' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       must = 'Mth.lerp(pt, player.xo, player.getX())';
+       why = '★★ 玩家框的位姿基准必须走**原版实体插值**（与第三人称渲染的玩家同源）。直读刚体是 10ms 阶梯，与实体的连续插值**相对**错位 ⇒ 框在人身上鬼畜（2026-10-04 用户报；space 0.3.1 的 PhysicalPlayerColliderRender 也是 getPos() 直读 —— 参考没解决这个，别照抄回去）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       must = 'data.bodyQuatForRender(pt, new org.joml.Quaternionf())';
+       why = '★★ 框的姿态必须乘**渲染姿态四元数**（与第三人称模型 SpaceBodyTiltMixin 同源）。不乘就"模型转了框不转" ⇒ 滚转/超人姿态下框看着不在人身上（2026-10-04 二修）；用物理真实姿态会暴露 100Hz 采样率（每 2~3 帧才动一次）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       must = 'rig.centerOffset()';
+       why = '★ 中心偏移必须取 **rig 建体时锁死的值**（姿态切换会同步更新），不是每帧重算 bodyCenterOffset —— 框描述的是刚体，两者在姿态切换瞬间可能不一致' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       mustNot = 'rig.readPosition(';
+       why = '★★ 框不得再直读刚体位置（10ms 阶梯，与实体插值相对错位）；直读只留读不到就跳过的兜底也不行 —— 2026-10-04 一修的教训' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       mustNot = 'rawSibling[0] - rawMain[0]';
+       why = '★★ 兄弟差分不得回归：afterStep 每子步 sibling.pos=main.pos，帧级读到的只是子步中间态，每帧不同 ⇒ 橙框相对主框抽动（那信息只在子步内部存在，帧级渲染显示不出来）' },
+    @{ file = 'src\main\java\com\mss\polymech\util\PartialTicks.java';
+       must = 'return tracker.getGameTimeDeltaPartialTick(false);';
+       why = '★★★ 部分刻的**唯一实现**（§7.12）：必须是 deltaTickResidual（getGameTimeDeltaPartialTick），不是 getGameTimeDeltaTicks —— 后者是"本帧走了多少刻"（≈0.04），当插值系数用等于 pt≈0' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       must = 'PartialTicks.of(event)';
+       why = '★★★ 框的 pt 必须走 PartialTicks（§7.12 根因：pt 取错 ⇒ lerp(pt,xo,x)≈xo ⇒ 框停在上一刻、只在 tick 边界跳 ⇒ 移动时抽搐 + 第二/三人称比人慢一整刻）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       must = 'Stage.AFTER_ENTITIES';
+       why = '★★★ 框必须在 AFTER_ENTITIES 阶段画（§7.13 根因）：AFTER_SOLID_BLOCKS 由 renderSectionLayer:972 发出，而相机矩阵要到 renderLevel:1002 才压进 modelView 栈 ⇒ 在那个阶段 flush 的线框吃的是陈旧 modelView，框画在屏幕错处（地形/实体各自重设矩阵所以看不出异常）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       mustNot = 'AFTER_SOLID_BLOCKS';
+       why = '★★★ 不得回到 AFTER_SOLID_BLOCKS（同上：该阶段 flush 时着色器的 modelView 不是相机矩阵）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       must = 'event.getModelViewMatrix()';
+       why = '★★★ flush 前必须显式把 modelView 设成 event.getModelViewMatrix()（= frustumMatrix，与实体同一帧）——"相机旋转在 modelView 栈里、不在 poseStack 里"，只靠阶段"碰巧"有矩阵是不可靠的' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PlayerColliderRender.java';
+       mustNot = '.getGameTimeDeltaTicks()';
+       why = '★★★ 不得再把"本帧步长"当部分刻（§7.12 根因；取法统一到 PartialTicks）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       mustNot = '.getGameTimeDeltaTicks()';
+       why = '★★★ 同上：线/枪口的 pt 也曾取错 —— 枪口读数"停帧 1816/5273"就是 pt≈0 的台阶（§7.12）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyRenderer.java';
+       mustNot = '.getGameTimeDeltaTicks()';
+       why = '★★★ 同上：物理体方块的 pt 也曾取错（§7.12）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceRenderer.java';
+       mustNot = '.getGameTimeDeltaTicks()';
+       why = '★★★ 同上：天体渲染的 pt 也曾取错（§7.12）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       must = 'b.renderStart(partialTick, S);';
+       why = '★★ 光束起点 = renderStart（服务端起点环，0.1s）——与终点同一时间线，移动时两端同步线才不被拉扯（公式也与服务端广播/客户端预测统一成 眼+视线×MUZZLE_FORWARD）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       mustNot = 'muzzle(player, partialTick, S);';
+       why = '★★ 渲染端对起点的二次覆盖（手部偏移）不得回归：它把起点变成零延迟逐帧量，与 0.1s 延迟的终点不同时间线 ⇒ 移动时线被拉扯（实测行走窗口起点尖峰 240 格/秒）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       must = 'double ahead = holdDistance - PhysgunItem.MUZZLE_FORWARD;';
+       why = '★★ 准星落点标记的基准 = 光束起点 S（服务端起点环 0.1s），沿视线补到 holdDistance —— 与线同一时间线。逐帧眼点（getEyePosition）会把玩家物理体的 tick 级抖动打进标记（"黄点一直抽抽"，2026-10-04）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       mustNot = 'player.getEyePosition(';
+       why = '★★ 落点标记不得回到逐帧眼点基准（同上一条；整文件不许再出现眼点直读）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysics.java';
+       must = 'new Quaterniond(from).slerp(target, p)';
+       why = '★★ 镜像体姿态必须随 ramp 一起 slerp（space 0.3.1 起的做法；0.1.3 是瞬时 set，旧注释"setRotation 不插值"已过时）。dot<0 先翻同半球 = 最短弧，否则绕远路转一大圈' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysics.java';
+       must = 'existing.syncFromRot = new Quaterniond(curRot[0]';
+       why = '★ 姿态也要记两拍（syncFromRot=当前实际姿态、非有限回退包值 = 0.3.1 的 takeCurrent 语义）——少了它 slerp 没有起点' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunClientState.java';
+       must = 'ClientPhysics.renderTransform(anchor.bodyId(), partialTick, LIVE_POS, LIVE_ROT)';
+       why = '★★ 光束终点的位姿必须走 renderTransform（被两拍包住的时间戳插值）。直读 liveTransform 是 10ms 一跳的阶梯：560fps 下每 5.6 帧才跨一跳 ⇒ 2026-10-03 读数 停帧=101/120、抖动=8.12 ⇒ FAIL' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyRenderer.java';
+       must = 'ClientPhysics.renderTransform(body.id(), partialTick, renderPos, ROT)';
+       why = '★★ 方块渲染必须与光束终点/框**同一口径**：三者各读各的位姿来源就会互相错开（线离开体表面）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       must = 'ClientPhysics.renderTransform(body.id(), partialTick, pos, rot)';
+       why = '★ 高亮框（poseOf）同口径；直读阶梯的框会随步进"跳格"（判据 S7）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
        must = 'netPosSamples.push(nx, ny, nz);';
        why = '★ 服务端同步下来的权威位姿同样是拍同步量 —— 抓取框/悬停框用的镜子体位姿就在这里' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientPhysicsWorld.java';
-       must = 'if (ring.evaluateQuat(renderRotScratch)) {';
+       must = 'if (netRotSamples.evaluateQuat(renderRotScratch)) {';
        why = '★ 姿态必须 slerp（不能分量线性插值）：分量插值在四元数上是错的，转过符号边界时会绕一大圈' },
     @{ file = 'src\main\java\com\mss\polymech\mps\kelvin\physical\celestial_body\CelestialBody.java';
        must = 'this.posSamples.push(this.pos.x, this.pos.y, this.pos.z);';
@@ -458,7 +599,58 @@ $contracts = @(
        why = '★★ 注入点必须在 setup 的 **TAIL**：Camera.setup 里 setRotation 被调三次（offset 79/170/269），最后一次是 2 参版 = setRotation(yRot, xRot, 0f) ⇒ 会把我们的 roll 硬置 0。旧注入点（ordinal=0 之后）正好被它覆盖 ⇒ 相机不滚、输入基底滚 ⇒ **滚到 ±180 时左右键反向**（用户 2026-10-03 报）' },
     @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
        must = 'this.setRotation(yaw + 180.0F, -pitch, (float) -roll);';
-       why = '★ 正面视角（thirdPersonReverse）要照抄原版那条分支自己翻一次，且 roll **取反** —— 这个符号由 RollInputBasisProbe 的 B 组程序判定（可区分的 45 个姿态里只有 -roll 成立，+roll 0/45），不是推出来的' }
+       why = '★ 正面视角（thirdPersonReverse）要照抄原版那条分支自己翻一次，且 roll **取反** —— 这个符号由 RollInputBasisProbe 的 B 组程序判定（可区分的 45 个姿态里只有 -roll 成立，+roll 0/45），不是推出来的' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
+       mustNot = '!this.isDetached() ||';
+       why = '★★★ 太空相机锚点不得再排除第一人称（§7.14 根因）：原版第一人称锚点是 lerp + 眼高 = **世界竖直**，而太空里身体是 6DOF 的（实测 俯仰 −88°/滚转 −180° 时"头上的那一点"不在世界 +Y）⇒ 眼睛被钉在身体另一侧，玩家碰撞框看着"位置异常"、随便转视角更明显（用户 2026-10-05 报）。第一/二/三人称一律走身体坐标系锚点' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = '[幽灵：filter=0，与谁都碰不上]';
+       why = '★★★ 幽灵物理体的判据必须出现在 describe() 里（2026-10-05 用户报：能看见、没碰撞、牵引枪抓不到、也挖不掉）。两条机制：① 碰撞组 filter=0（collisiongroups 命令文档自己写着"1 0 = 幽灵：filter 空集，跟谁都碰不上"）；② 零四元数/NaN —— BodyRaycast.nearest 直接跳过 ⇒ 不可牵引/不可挖，而渲染侧 renderRotation 的兜底照样画。之前 describe 恰恰不打组，所以查不出来' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       must = 'int move = MAX_WIDTH / 2;';
+       why = '★★★ 子块偏移必须取 MAX_WIDTH/2（局部空间以体心为原点）：0.1.3 里 CHUNK_WIDTH==64==MAX_WIDTH/2，写死 64 看不出问题；粒度改成 16 之后字面量只是"碰巧"还对，下次动 MAX_WIDTH 或 CHUNK_WIDTH 就静默错位（用户 2026-10-05 报"瞄体打不中、瞄旁边空气才能挖"，症状形状正是求交帧与渲染帧错开）' },
+    @{ file = 'src\main\java\com\mss\polymech\mps\physical\physical_body\PhysicalBody.java';
+       mustNot = 'int move = 64;';
+       why = '★★★ 同上：不得回到写死的 64（与 voxelBounds 注释里点名的"最容易改错的一处"同源）' },
+
+    # ── 创造飞行的竖直（2026-10-03 第三条路；docs/space-input-basis.md §三）─────────────
+    # 原版把飞行的阻尼做在**世界轴**上（x,z×0.91 / y×0.6），而输入意图是**视线轴**的；
+    # 两基不同 ⇒ 稳态速度方向必然偏（水平姿态下两基重合，所以平时看不出来）。
+    # 修法照 space 0.3.0 的 MixinPlayerFlight：把 Player.travel 的飞行分支整条换成视线基底版本。
+    # 这几条钉的是"少了任何一条就静默退化"的环节：
+    @{ file = 'src\main\resources\poly_mech.mixins.json';
+       must = '"SpaceFlightMixin"';
+       why = '★ mixin 必须注册进 client 段，否则整条飞行竖直链静默失效（不报错、就是又往屏幕下飞）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = '@Inject(method = "travel(Lnet/minecraft/world/phys/Vec3;)V", at = @At("HEAD"), cancellable = true)';
+       why = '★★ 注入点必须是 Player.travel 的 **HEAD 取消**：原版飞行分支已经把 y 覆盖成 d2·0.6（d2 读于 super.travel 之前），TAIL 上再改就只是在"已经被世界轴阻尼过"的结果上打补丁' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = 'data.viewFrame(new Quaternionf())';
+       why = '★ 基底必须取自 SpacePlayerData.viewFrame（与走路那条 moveRelative、以及相机自检同源）；自造一份基底就是"同一概念两份实现"' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = 'SpaceFlight.cancelVanillaVertical(ascend, baseFlySpeed)';
+       why = '★ 必须撤掉 LocalPlayer.aiStep 已经加进来的**世界 +Y** 冲量：不撤就是"世界竖直 + 屏幕竖直"两份叠加（固定点 = 0.6·冲量/(1−0.6) = 1.5 倍冲量；⚠️ 不是 2.5 倍 —— 那是 v ← D·v+冲量 的解）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = 'SpaceFlight.damp(frame, moved.x, moved.y, moved.z, new Vector3d())';
+       why = '★★ 阻尼必须**按视线基底逐轴**做 —— 这一句就是"往屏幕下飞"的修复本体；换成世界轴乘法就退回原版结构' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = 'self.stopFallFlying();';
+       why = '★ 取消 travel 会跳过原版飞行分支的 setSharedFlag(7, false)（清鞘翅滑翔标记）。不能省：LivingEntity.updateFallFlying() 只在 !level.isClientSide 时才写 flag7，所以**客户端**的 flag7 平时就靠那一行清。setSharedFlag 是 Entity 的 protected、@Shadow 又只认目标类自身声明的成员 ⇒ 走 public 的 stopFallFlying()（净效果同 flag7=false）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = 'self.calculateEntityAnimation(false);';
+       why = '★ 取消 travel 会跳过 LivingEntity.travel 末尾的这一步；不补的话飞行时手脚不再摆动（原版飞行是摆的）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       must = 'data.markMovementBasis(true);';
+       why = '★ "这一 tick 走了哪条基底"必须记进状态并出现在 [姿态自检] 里（飞行 vs 走路是一个分叉，分叉必须被报出来）' },
+    @{ file = 'src\main\java\com\mss\polymech\space\SpaceFlight.java';
+       must = 'public static final double HORIZONTAL_DAMP = 0.91;';
+       why = '★ 水平阻尼 = 原版 f3（照 space 0.3.0 的字面值）；改它等于改手感' },
+    @{ file = 'src\main\java\com\mss\polymech\space\SpaceFlight.java';
+       must = 'public static final double UP_DAMP = 0.6;';
+       why = '★ 竖直阻尼 = 原版 Player.travel 飞行分支的 0.6（稳态 = 0.6·冲量/(1−0.6) = 1.5 倍）' },
+    @{ file = 'src\main\java\com\mss\polymech\space\SpaceFlight.java';
+       must = 'left.x * alongLeft + up.x * alongUp + view.x * alongForward,';
+       why = '★★ 阻尼必须"分解到视线基底三轴 → 各自乘阻尼 → 再合成回来"。改成对 vx/vy/vz 直接乘常数就是世界轴阻尼 = 原版结构 = 用户报的"往屏幕下飞"' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -494,7 +686,27 @@ $absentContracts = @(
        why = '★ 世界端点不得回归：那是**派生量**，发它必然把物体 100Hz 的接触抖动按 20Hz 采样下来（混叠 = 玩家一动就抽）' },
     @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceInputRotationMixin.java';
        mustNot = 'if (((Player) self).getAbilities().flying || ((Player) self).isSpectator()) return;';
-       why = '★★ 这条"创造/旁观飞行走原版"的提前返回不得回归：它让移动走回原版 yaw-only 基底（**不含 roll**），而相机那侧照滚 ⇒ 滚到 ±180 时画面倒了、A/D 却按没倒的基座走 ⇒ 按 A 往屏幕右（用户 2026-10-03 报"滚转后左右键反向"）。当时离线探针与运行时自检**双双 PASS**，因为两条判据都没问"移动这一 tick 到底走了哪条路"' }
+       why = '★★ 这条"创造/旁观飞行走原版"的提前返回不得回归：它让移动走回原版 yaw-only 基底（**不含 roll**），而相机那侧照滚 ⇒ 滚到 ±180 时画面倒了、A/D 却按没倒的基座走 ⇒ 按 A 往屏幕右（用户 2026-10-03 报"滚转后左右键反向"）。当时离线探针与运行时自检**双双 PASS**，因为两条判据都没问"移动这一 tick 到底走了哪条路"' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceFlightMixin.java';
+       mustNot = 'travelVector.y';
+       why = '★★ 1.21.1 里 LivingEntity.yya **只被读、从没被写**（永远是 0），所以 travelVector.y 恒为 0 —— docs/space-input-basis.md §3.4 把它列为"竖直输入"的候选是错的（另一个候选 yya 同理）。竖直真正的来源是 LocalPlayer.aiStep 里沿世界 +Y 的 delta.y += j·flySpeed·3。谁再把 travelVector.y 当竖直输入，就是回到了那个错误前提' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceInputRotationMixin.java';
+       mustNot = 'shiftKeyDown';
+       why = '★★ 不得在这里补"Space/Shift → 上下"（把竖直输入展开成视线基底的 up）。两个理由：① 早先就在这里补过 —— 零重力 + 无阻尼下那点输入会**无限累积**，表现是"在失重里一直往上飞"；② 2026-10-03 起飞行的竖直已由 SpaceFlightMixin 走视线基底给全（水平 + 竖直一起），在这里再补一份就是"两份来源叠加"。本类只该处理走路/游泳：飞行在 Player.travel 的 HEAD 就被取消了，moveRelative 根本不执行。判据用 shiftKeyDown：这条地雷必然要读原版输入字段（jumping / shiftKeyDown），而本类只需旋转基底、没有别的理由读它们' },
+
+    # ── 渲染位姿消费必须走 renderTransform，不得直读刚体（2026-10-04）──────────────
+    # 直读（liveTransform）拿到的是运动学镜像 10ms 一跳的**阶梯**：560fps 下每 5.6 帧才跨一跳
+    # ⇒ 每帧位移 "0,0,0,0,0,整跳" —— 2026-10-03 实机读数 停帧=101/120、抖动=8.12 的根因。
+    # 玩法侧（拾取 PhysgunTarget / 旋转捕获 PhysgunInputHandler）读实时状态是另一回事，不禁。
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunClientState.java';
+       mustNot = 'ClientPhysics.liveTransform(';
+       why = '★★ 光束终点不得直读刚体阶梯（那正是 101/120 停帧的来源）；渲染消费只能走 renderTransform' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyRenderer.java';
+       mustNot = 'ClientPhysics.liveTransform(';
+       why = '★★ 方块渲染不得直读阶梯（与光束终点同口径才不会互相错开）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
+       mustNot = 'ClientPhysics.liveTransform(';
+       why = '★★ 高亮框不得直读阶梯（框跳格 = 判据 S7 失败）' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

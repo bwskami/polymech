@@ -92,10 +92,6 @@ public final class SpaceBlockPlacement {
         if (!(stack.getItem() instanceof BlockItem blockItem) || player.isSpectator()) {
             return;
         }
-        ServerPhysicalWorld world = ServerPhysicalWorld.getPhysicalWorld(level);
-        if (world == null) {
-            return;
-        }
         int now = player.tickCount;
         Integer last = LAST_PLACE_TICK.get(player.getUUID());
         if (last != null && now - last < SpaceBuildRules.COOLDOWN_TICKS) {
@@ -105,15 +101,15 @@ public final class SpaceBlockPlacement {
         // ---------- 目标格：**世界坐标**（局部坐标全交给 PhysicsBodyTracker）----------
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getLookAngle();
-        PhysicalRaycast.Hit hit = PhysicalRaycast.cast(world,
-                new Vector3d(eye.x, eye.y, eye.z),
-                new Vector3d(look.x, look.y, look.z), REACH);
+        // 照 space：射线打在**体自己**身上。原来打在 MPS 克隆栈（ServerPhysicalWorld）上，
+        // 而那条栈恒空 ⇒ 永远 null ⇒ 下面"命中体"那条分支从来没执行过（2026-10-06 修）。
+        PhysicsBodyTracker.BodyVoxelHit hit = PhysicsBodyTracker.raycastBody(level, eye, look, REACH);
 
         BlockPos target;
-        if (hit != null && hit.physicalBody() != null) {
+        if (hit != null) {
             // 命中体 ⇒ 取"被命中那一格"沿**世界方向**的面相邻格
-            Direction worldFace = worldFace(hit);
-            Vector3d wl = hit.worldLocation();          // 注意：是 joml 的 Vector3d，不是 MC 的 Vec3
+            Direction worldFace = hit.worldFace();
+            Vec3 wl = hit.worldLocation();
             BlockPos hitCell = BlockPos.containing(
                     wl.x - worldFace.getStepX() * INSIDE_EPSILON,
                     wl.y - worldFace.getStepY() * INSIDE_EPSILON,
@@ -140,46 +136,41 @@ public final class SpaceBlockPlacement {
             return;
         }
 
+        // ★ 先把"吃掉这次右键"落地（契约），再做副作用（提示 / 冷却）—— 顺序就是这条教训本身。
+        //
+        //   2026-10-05 从 run/logs 查到：成功提示里那句
+        //       Long.toHexString(bodyId).substring(0, 8)
+        //   在体 id 是小数时必炸 —— 原生层分配的 id 是 3、4 这种小整数，
+        //   Long.toHexString(3) == "3"（长度 1），substring(0, 8) 直接抛
+        //   StringIndexOutOfBoundsException: Range [0, 8) out of bounds for length 1。
+        //   取证：18:44 / 18:45 / 19:10 三次单块放置，每次 "物理体 N 由单块创建" 后面 4ms
+        //   都跟着这条异常（NeoForge 的 EventBus 把它记成 "Exception caught during firing event"）。
+        //
+        //   它的杀伤面比"提示没出来"大得多，因为它发生在**建体成功之后**：
+        //     ① 成功提示永远不出现（用户以为没放上，于是反复右键）；
+        //     ② 冷却不记（可无限连点，一次点击一个体）；
+        //     ③ 最要命：下面那两行 event.setCanceled 被跳过 ⇒ 原版放置路径继续跑。
+        //   所以修法有两半：把取消提到副作用**之前**（装饰不许带走契约），
+        //   并把 id 改成定宽十六进制（%08x 对 3 也给 "00000003"，不再需要 substring）。
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+
         // ---------- 唯一实现入口：项目已有原语（并体 or 建体，含碰撞体/广播/存档/地皮）----------
         long bodyId = PhysicsBodyTracker.placeBlockAt(level, target, Block.getId(state));
         if (bodyId <= 0) {
             tell(player, "放置失败（原生层不可用 / 该格被占用 / 超出上限）", ChatFormatting.RED);
-        } else {
-            consume(player, stack);
-            String how = adjacent ? "并入物理体" : "新建物理体";
-            tell(player, String.format(java.util.Locale.ROOT, "%s %s：(%d, %d, %d) %s",
-                    how, Long.toHexString(bodyId).substring(0, 8),
-                    target.getX(), target.getY(), target.getZ(), state.getBlock().getName().getString()),
-                    ChatFormatting.GREEN);
-            Polymech.LOGGER.info("[太空建造] {} 在 {} {} body={} 于 ({}, {}, {}) state={}",
-                    player.getGameProfile().getName(), level.dimension().location(), how, bodyId,
-                    target.getX(), target.getY(), target.getZ(), Block.getId(state));
-            LAST_PLACE_TICK.put(player.getUUID(), now);
+            return;
         }
-        event.setCanceled(true);
-        event.setCancellationResult(InteractionResult.SUCCESS);
-    }
-
-    /**
-     * 命中面的**世界方向**：物理体可能被转过（牵引枪），所以要把局部面按刚体旋转转过去。
-     *
-     * <p>不转的话，体一转，方块就会放到"体的另一侧"—— 这正是离线判据里"体转 90°"那组要防的错。
-     * 拿不到刚体时退回局部面（≈未旋转的常见情况）。</p>
-     */
-    private static Direction worldFace(PhysicalRaycast.Hit hit) {
-        Direction local = hit.localFace();
-        if (local == null) {
-            return Direction.UP;
-        }
-        PhysicalBody body = hit.physicalBody();
-        if (body == null) {
-            return local;
-        }
-        // 旋转数学在 SpaceBuildRules.rotateFace（纯函数）⇒ 离线判据能直接钉"体转 90°"那组
-        int[] world = SpaceBuildRules.rotateFace(local.getStepX(), local.getStepY(), local.getStepZ(),
-                body.getRotation());
-        Direction dir = Direction.getNearest(world[0], world[1], world[2]);
-        return dir == null ? local : dir;
+        consume(player, stack);
+        String how = adjacent ? "并入物理体" : "新建物理体";
+        tell(player, String.format(java.util.Locale.ROOT, "%s %s：(%d, %d, %d) %s",
+                how, String.format(java.util.Locale.ROOT, "%08x", bodyId),
+                target.getX(), target.getY(), target.getZ(), state.getBlock().getName().getString()),
+                ChatFormatting.GREEN);
+        Polymech.LOGGER.info("[太空建造] {} 在 {} {} body={} 于 ({}, {}, {}) state={}",
+                player.getGameProfile().getName(), level.dimension().location(), how, bodyId,
+                target.getX(), target.getY(), target.getZ(), Block.getId(state));
+        LAST_PLACE_TICK.put(player.getUUID(), now);
     }
 
     /** 创造模式不消耗，生存消耗 1 个。 */
