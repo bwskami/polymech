@@ -61,6 +61,28 @@ public final class PhysicsBodyInteractionClient {
     /** {@link #logMiss} 的节流：同一刻只打一条，且至少隔 {@code 10} tick 才再打。 */
     private static long lastDiagTick = -1L;
 
+    /** {@link #logHit} 的节流与"上一 tick 命中格"，用来暴露"格在跳"。 */
+    private static long lastHitLogTick = -1L;
+    private static long lastHitKey = Long.MIN_VALUE;
+
+    /**
+     * 命中格诊断（节流）：服务端要"连续 tick 同一格"才累积进度（换格即归零），
+     * 所以这一行里 {@code 换格=true} 反复出现 = 永远挖不穿。见 {@link #castAgainstBodies}。
+     */
+    private static void logHit(Hit hit, Minecraft mc) {
+        long tick = mc.level == null ? 0L : mc.level.getGameTime();
+        long key = ((long) hit.bodyId * 31L + hit.dx) * 31L + hit.dy;
+        key = key * 31L + hit.dz;
+        boolean changed = key != lastHitKey;
+        lastHitKey = key;
+        if (!changed && tick - lastHitLogTick < 10) {
+            return;
+        }
+        lastHitLogTick = tick;
+        LOGGER.info("[PolyMech] [挖掘诊断] 命中 体={} 格=({},{},{}) 换格={} 距离={}",
+                hit.bodyId, hit.dx, hit.dy, hit.dz, changed, hit.distance);
+    }
+
     /**
      * 挖掘/互动失败时的诊断 —— 把 {@link #currentHit} 的两道闸门**分开报**。
      *
@@ -79,7 +101,7 @@ public final class PhysicsBodyInteractionClient {
         }
         lastDiagTick = tick;
 
-        float pt = PartialTicks.level();
+        float pt = PartialTicks.forDisplay();
         Vec3 eye = player.getEyePosition();
         long nearId = -1L;
         double nearDist = Double.MAX_VALUE;
@@ -222,6 +244,7 @@ public final class PhysicsBodyInteractionClient {
             resetMining();
             return;
         }
+        logHit(hit, mc);
 
         // 挥手：与原版 same 每 tick 一次（LivingEntity#swing 自己会把动画按半程重起，
         // 所以看起来是"连续挥"而不是卡住）。
@@ -333,13 +356,13 @@ public final class PhysicsBodyInteractionClient {
             return;
         }
         float[] rot = new float[4];
-        body.renderRotation(PartialTicks.level(), rot);
+        body.renderRotation(PartialTicks.forDisplay(), rot);
         Quaternionf q = new Quaternionf(rot[0], rot[1], rot[2], rot[3]);
         for (int i = 0; i < 2; i++) {
             TMP.set(hit.dx + RANDOM.nextFloat(), hit.dy + RANDOM.nextFloat(), hit.dz + RANDOM.nextFloat());
             q.transform(TMP);
             mc.level.addParticle(option,
-                    body.renderX(PartialTicks.level()) + TMP.x, body.renderY(PartialTicks.level()) + TMP.y, body.renderZ(PartialTicks.level()) + TMP.z,
+                    body.renderX(PartialTicks.forDisplay()) + TMP.x, body.renderY(PartialTicks.forDisplay()) + TMP.y, body.renderZ(PartialTicks.forDisplay()) + TMP.z,
                     0.0, 0.0, 0.0);
         }
     }
@@ -366,10 +389,10 @@ public final class PhysicsBodyInteractionClient {
             return Vec3.ZERO;
         }
         float[] rot = new float[4];
-        body.renderRotation(PartialTicks.level(), rot);
+        body.renderRotation(PartialTicks.forDisplay(), rot);
         TMP.set(hit.dx + 0.5F, hit.dy + 0.5F, hit.dz + 0.5F);
         new Quaternionf(rot[0], rot[1], rot[2], rot[3]).transform(TMP);
-        return new Vec3(body.renderX(PartialTicks.level()) + TMP.x, body.renderY(PartialTicks.level()) + TMP.y, body.renderZ(PartialTicks.level()) + TMP.z);
+        return new Vec3(body.renderX(PartialTicks.forDisplay()) + TMP.x, body.renderY(PartialTicks.forDisplay()) + TMP.y, body.renderZ(PartialTicks.forDisplay()) + TMP.z);
     }
 
     private static void resetMining() {
@@ -412,21 +435,24 @@ public final class PhysicsBodyInteractionClient {
      *   <li><b>取最近</b>：多个体都可能挡，取距离最小的。</li>
      * </ol>
      *
-     * <p><b>位姿用渲染口径</b>（{@code renderX/Y/Z/Rotation(1.0f)}），不用镜子体的实时位姿：
-     * 玩家瞄的是<b>画面上那一格</b>，两者必须同口径，否则"准星在这、命中在别处"。
-     * 这是本项目与 space 唯一的有意偏离（space 的渲染与拾取都直接读体自己的位姿）——
-     * 我们的渲染走网络位姿环（有 0.1s 延迟），拾取必须走同一个环才对得上画面。</p>
+     * <p><b>位姿必须与显示同口径</b>（{@code renderX/Y/Z/renderRotation}）：玩家瞄的是画面上那一格。
+     * 显示走 {@link ClientPhysics#renderTransform}（网络环，为平滑<b>有意</b>延迟 0.10s），拾取就必须走
+     * 同一个环，否则"准星在这、命中在别处"。</p>
+     *
+     * <p><b>不要改成 {@link ClientPhysics#liveTransform}</b>（2026-10-06 实机试过并回退）：那是"此刻"的
+     * 刚体状态，与画面差 0.10s 的位移，表现变成"<b>得点它旁边的空处才能挖</b>"——把一个时间问题换成了
+     * 空间问题。玩法侧读 liveTransform 是给拾取/旋转捕获用的，不是给"瞄准显示中的方块"用的。</p>
      */
     public static Hit castAgainstBodies(Vec3 origin, Vec3 dir, double reach) {
         Vec3 end = origin.add(dir.scale(reach));
         Hit best = null;
         for (ClientPhysicsWorld.ClientBody body : ClientPhysicsWorld.bodies()) {
-            double bx = body.renderX(PartialTicks.level());
-            double by = body.renderY(PartialTicks.level());
-            double bz = body.renderZ(PartialTicks.level());
-
+            float pt = PartialTicks.forDisplay();
+            double bx = body.renderX(pt);
+            double by = body.renderY(pt);
+            double bz = body.renderZ(pt);
             float[] rotF = new float[4];
-            body.renderRotation(PartialTicks.level(), rotF);
+            body.renderRotation(pt, rotF);
             ROT.set(rotF[0], rotF[1], rotF[2], rotF[3]);
             if (!ROT.isFinite() || ROT.lengthSquared() == 0.0f) {
                 // 位姿非法：space 也跳过（零四元数会让局部变换整片变 NaN）

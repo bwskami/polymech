@@ -61,6 +61,33 @@ public final class PartialTicks {
         return of(event.getPartialTick());
     }
 
+    /**
+     * 最近一帧渲染用的部分刻（由渲染器每帧 {@link #recordFrame} 记下）。
+     *
+     * <p><b>为什么需要它</b>：位姿在<b>样本不足</b>时会退回"两拍 lerp"
+     * （{@code prev + (cur - prev) * partialTick}），那条路<b>吃 alpha</b>。渲染器用当帧 alpha，
+     * 玩法侧若用别的口径（例如写死 {@code 1.0F}，或换成 {@code liveTransform} 的"此刻"刚体），
+     * 就会算出<b>不同的位姿</b> ⇒ 射线打在画面之前/之后 ⇒ 表现正是
+     * "瞄着显示的位置打不中 / 得点它旁边的空处才能挖"（2026-10-06 实机定位）。
+     * 目前 {@link #of(RenderLevelStageEvent)} 与 {@link #level()} 恰好是同一个对象，
+     * 但把"画面最后一帧的 alpha"显式记下来，才能让这条耦合不再依赖"恰好相同"。</p>
+     */
+    private static volatile float lastFrame = Float.NaN;
+
+    /** 渲染器每帧调一次，记下这一帧的部分刻。 */
+    public static void recordFrame(float partialTick) {
+        lastFrame = partialTick;
+    }
+
+    /**
+     * 玩法侧"瞄准<b>画面上</b>那一格"时用它：与画面最后一帧<b>同一个 alpha</b>。
+     * 还没有帧记录过（刚启动）时退回 {@link #level()}。
+     */
+    public static float forDisplay() {
+        float f = lastFrame;
+        return Float.isNaN(f) ? level() : f;
+    }
+
     /** 关卡渲染之外的场合（tick / 更新逻辑）用客户端计时器。 */
     public static float level() {
         return of(Minecraft.getInstance().getTimer());

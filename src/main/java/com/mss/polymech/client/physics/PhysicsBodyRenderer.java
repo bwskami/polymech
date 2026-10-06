@@ -79,6 +79,8 @@ public final class PhysicsBodyRenderer {
         // pt = 部分刻（deltaTickResidual）。别用 getGameTimeDeltaTicks()——那是本帧步长，
         // 当插值系数用等于 pt≈0，物体会停在上一刻并只在 tick 边界跳。见 PartialTicks 类注释（§7.12）。
         float partialTick = com.mss.polymech.util.PartialTicks.of(event);
+        // 记下当帧 alpha：玩法侧"瞄准画面上那一格"必须用同一个值（见 PartialTicks#forDisplay）
+        com.mss.polymech.util.PartialTicks.recordFrame(partialTick);
         PoseStack pose = event.getPoseStack();
         var buffers = mc.renderBuffers().bufferSource();
 
