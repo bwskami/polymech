@@ -38,14 +38,16 @@ public final class PhysgunTarget {
     public record Hit(long bodyId, double distance, double localX, double localY, double localZ) {
     }
 
-    /** 从本地玩家眼睛沿视线在 {@code reach} 格内找最近的物理体；没打中返回 null。 */
+    /** 从本地玩家<b>视线起点</b>沿视线在 {@code reach} 格内找最近的物理体；没打中返回 null。 */
     public static Hit find(double reach) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || ClientPhysicsWorld.size() == 0) {
             return null;
         }
         float partialTick = com.mss.polymech.util.PartialTicks.level();
-        Vec3 eye = mc.player.getEyePosition(partialTick);
+        // 起点走 ClientViewOrigin（相机位置）—— 太空里相机离眼睛 1.31~1.43 格，
+        // 用 getEyePosition 会让"准星指着哪个体/多远"整体错开一格多（2026-10-06）。
+        Vec3 eye = ClientViewOrigin.of(mc.player);
         Vec3 look = mc.player.getViewVector(partialTick);
         return find(eye, look, reach);
     }

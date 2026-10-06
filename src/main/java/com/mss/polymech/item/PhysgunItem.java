@@ -11,6 +11,7 @@ import com.mss.polymech.physics.PhysicsNatives;
 import com.mss.polymech.physics.PhysgunLocks;
 import com.mss.polymech.physics.PhysgunRotation;
 import com.mss.polymech.physics.PhysicsStepThread;
+import com.mss.polymech.space.SpaceAimOrigin;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -293,7 +294,9 @@ public class PhysgunItem extends Item {
             return;                         // 已经抓着 ⇒ 重复的 START（丢包重发 / 改包），忽略
         }
         ServerLevel serverLevel = sp.serverLevel();
-        Vec3 eye = sp.getEyePosition();
+        // 起点走 SpaceAimOrigin（太空=相机锚点）：服务端原先用 getEyePosition，
+        // 太空里与准星平行错开 1.31~1.43 格 ⇒ "抓错点/抓不住"（2026-10-06）。
+        Vec3 eye = SpaceAimOrigin.of(sp);
         Vec3 look = sp.getLookAngle();
         BodyRaycast.Hit hit = raycast(serverLevel, eye, look);
         if (hit == null) {
@@ -365,9 +368,9 @@ public class PhysgunItem extends Item {
             return;
         }
 
-        Vec3 eye = sp.getEyePosition();
+        Vec3 eye = SpaceAimOrigin.of(sp);
         Vec3 look = sp.getLookAngle();
-        // 伺服快照：目标点（眼 + 视线 × 持握距离）与质量，一 tick 刷一次给步进线程读。
+        // 伺服快照：目标点（**视线起点** + 视线 × 持握距离）与质量，一 tick 刷一次给步进线程读。
         // 目标跟着视线走，所以可以一边走一边拖；快照本身就是 20Hz 更新的（玩家视角也就这个节奏），
         // 真正要求 100Hz 连续的是**施力**，见 physicsStep。
         grab.goalX = eye.x + look.x * grab.holdDistance();
@@ -595,7 +598,7 @@ public class PhysgunItem extends Item {
         //   发世界坐标就必须在每个 tick 采样一次体位姿，而物体被拖过地面时接触抖动是 100Hz 级
         //   ⇒ 20Hz 采样必然混叠（"玩家一动线就抽"的根因）。抓点在整次抓取里是常量，
         //   世界点交给客户端用**它自己的**连续位姿每帧现算。
-        Vec3 eye = sp.getEyePosition();
+        Vec3 eye = SpaceAimOrigin.of(sp);
         Vec3 look = sp.getLookAngle();
         PacketDistributor.sendToPlayersNear(level, null,
                 sp.getX(), sp.getY(), sp.getZ(), PhysgunBeamPacket.BROADCAST_RANGE,

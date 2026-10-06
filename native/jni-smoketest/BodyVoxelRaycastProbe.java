@@ -21,7 +21,9 @@ import java.util.Random;
  * 本探针把这两个偏差各钉一条判据：<b>判据由解析推导或独立算法给出，不是抄实现里的常量</b>。</p>
  *
  * <p>判据分组：A 解析反例（旧实现必 FAIL 的那条）；B 正命中的格/面/命中点；
- * C 真实形状（半砖下半命中、上半必须未命中）；D 随机射线与"细步进采样"参考对拍。</p>
+ * C 真实形状（半砖下半命中、上半必须未命中）；D 随机射线与"细步进采样"参考对拍；
+ * E/F 局部⇄世界映射与"命中格沿世界面取相邻格"（服务端放置链）；
+ * <b>G 交互包的"面帧"</b>（包里必须带体局部面，不是世界面 —— 2026-10-06"右键放置不放我瞄准的那个面"）。</p>
  */
 public final class BodyVoxelRaycastProbe {
 
@@ -35,6 +37,7 @@ public final class BodyVoxelRaycastProbe {
         groupD();
         groupE();
         groupF();
+        groupG();
 
         System.out.println("=== BodyVoxelRaycastProbe: " + passed + "/" + (passed + failed)
                 + " 通过，失败 " + failed + " ===");
@@ -390,6 +393,81 @@ public final class BodyVoxelRaycastProbe {
     /** F 组自用的浮点近似相等（名字带前缀，避免与其它组的同名工具撞车）。 */
     private static boolean fNear(double a, double b) {
         return Math.abs(a - b) < 1.0e-6;
+    }
+
+    // ------------------------------------------------------------------ G：交互包的"面帧"
+
+    /**
+     * G 组：{@code PhysicsBodyEditPacket.use(...)} 里那个 {@code faceX/Y/Z} 必须是
+     * <b>体局部</b>面，不是世界面。
+     *
+     * <p><b>为什么单独钉一条（2026-10-06 实机）</b>：用户报"右键放置有时不放我瞄准的那个面"。
+     * 服务端 {@code PhysicsBodyInteraction.useOrPlace} 在<b>投影维度</b>（= 体局部坐标）里做
+     * {@code toProjection(slot, dx,dy,dz).relative(face)}，所以 {@code dx/dy/dz}（局部格）
+     * 与 {@code face} 必须<b>同坐标系</b>；而客户端此前把命中面用刚体旋转转成了世界面再发。
+     * 未旋转的体看不出差别（G1 就是那条中性判据），体一旦被牵引枪转过，
+     * 方块就落到<b>体的另一侧</b>（G2/G3）—— 与 {@code SpaceBuildRules.rotateFace} 注释里
+     * 记过的"直接用会把方块放到体的另一侧"是同一件事的镜像。</p>
+     *
+     * <p>期望值全部由解析给出：{@code R = +90°Y} 满足 {@code R(0,0,-1)=(-1,0,0)}、
+     * {@code R(-1,0,0)=(0,0,1)}（与 F 组同一约定）。</p>
+     */
+    private static void groupG() {
+        Quaterniond rot = new Quaterniond(0.0, Math.sin(Math.PI / 4.0), 0.0, Math.cos(Math.PI / 4.0));
+        Quaterniond inv = new Quaterniond(rot).conjugate();
+
+        Direction localFace = Direction.NORTH;          // 射线沿 +Z 进入 ⇒ 局部 NORTH（同 F4）
+
+        // G1 中性：体未旋转时 世界面 == 局部面 ⇒ 这次改动对"没转过的体"是恒等的
+        Direction idWorld = rotate(localFace, new Quaterniond());
+        check("G1 中性：体未旋转时 世界面 == 局部面（改动不改未旋转体的行为）",
+                idWorld == localFace, "世界面=" + idWorld + " 局部面=" + localFace);
+
+        // G2 反例（解析）：R=+90°Y ⇒ 局部 NORTH 的世界方向 = WEST；
+        //     若包里带**世界面**，服务端在局部空间走 WEST ⇒ 世界偏移 R(-1,0,0)=(0,0,1)=SOUTH
+        //     ⇒ 方块落到体的**另一侧**（用户报的症状）
+        Direction worldFace = rotate(localFace, rot);
+        Direction buggyWorldOffset = rotate(worldFace, rot);
+        check("G2 反例：带世界面(WEST)时方块落到体的另一侧（解析：R·WEST=SOUTH）",
+                worldFace == Direction.WEST && buggyWorldOffset == Direction.SOUTH,
+                "世界面=" + worldFace + " 带世界面的实际落向=" + buggyWorldOffset);
+
+        // G3 正确：带**局部面** ⇒ 世界偏移 R·NORTH = WEST == 玩家瞄准的世界面
+        Direction fixedWorldOffset = rotate(localFace, rot);
+        check("G3 正确：带局部面(NORTH)时方块出现在瞄准那一侧（解析：R·NORTH=WEST）",
+                fixedWorldOffset == worldFace && fixedWorldOffset == Direction.WEST,
+                "实际落向=" + fixedWorldOffset + " 期望=" + worldFace);
+
+        // G4 判据非空守卫：这一组必须"世界面 != 局部面"，否则 G2/G3 是死判据
+        check("G4 判据非空：旋转体上 世界面 != 局部面（否则 G2/G3 测不到东西）",
+                worldFace != localFace, "世界面=" + worldFace + " 局部面=" + localFace);
+
+        // G5 覆盖：R=+90°Y 下四个水平面的世界面都与局部面不同 ⇒ 缺陷不是"某个面的特例"
+        int differed = 0;
+        for (Direction f : new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST}) {
+            if (rotate(f, rot) != f) {
+                differed++;
+            }
+        }
+        check("G5 覆盖：绕 Y 转 90° 后 4 个水平面全部换了号（缺陷不是单面特例）",
+                differed == 4, "换了号的水平面=" + differed + "/4");
+
+        // G6 生产函数往返：rotateFace(局部,R)=世界 且 rotateFace(世界,R⁻¹)=局部
+        //    —— 钉住"两个坐标系确实不同"，也钉住客户端要发的那个值就是局部面
+        int[] toWorld = SpaceBuildRules.rotateFace(localFace.getStepX(), localFace.getStepY(),
+                localFace.getStepZ(), rot);
+        int[] backToLocal = SpaceBuildRules.rotateFace(worldFace.getStepX(), worldFace.getStepY(),
+                worldFace.getStepZ(), inv);
+        check("G6 往返：rotateFace(局部,R)=世界 且 rotateFace(世界,R⁻¹)=局部（两坐标系确实不同）",
+                Direction.getNearest(toWorld[0], toWorld[1], toWorld[2]) == worldFace
+                        && Direction.getNearest(backToLocal[0], backToLocal[1], backToLocal[2]) == localFace,
+                "去=" + java.util.Arrays.toString(toWorld) + " 回=" + java.util.Arrays.toString(backToLocal));
+    }
+
+    /** G 组自用：把面按刚体旋转转成世界方向（与生产代码同一个 {@link SpaceBuildRules#rotateFace}）。 */
+    private static Direction rotate(Direction face, Quaterniond rot) {
+        int[] v = SpaceBuildRules.rotateFace(face.getStepX(), face.getStepY(), face.getStepZ(), rot);
+        return Direction.getNearest(v[0], v[1], v[2]);
     }
 
     private static void check(String name, boolean ok, String detail) {

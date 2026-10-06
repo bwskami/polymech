@@ -56,7 +56,8 @@ public class ClampMeterOverlay {
             return;
         }
 
-        Vec3 eye = mc.player.getEyePosition(1.0F);
+        // 起点走 ClientViewOrigin（相机位置）：准星是相机的视线，太空里眼睛与相机差 1.31~1.43 格。
+        Vec3 eye = com.mss.polymech.client.physics.ClientViewOrigin.of(mc.player);
         Vec3 look = mc.player.getViewVector(1.0F);
         double blockClip = WireTargeting.blockClipDistance(mc.level, mc.player, eye, look, TARGET_REACH);
         GridConnection found = WireTargeting.findConnection(

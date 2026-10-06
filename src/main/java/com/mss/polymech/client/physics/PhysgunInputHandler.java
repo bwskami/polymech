@@ -159,7 +159,9 @@ public final class PhysgunInputHandler {
         //   见 BodyLocalAnchor；世界点由渲染每帧现算。
         PhysgunTarget.Hit hit = PhysgunTarget.find(PhysgunItem.RANGE);
         if (hit != null) {
-            Vec3 eye = player.getEyePosition(1.0F);
+            // 枪口起点走 ClientViewOrigin（相机位置）：光束必须从**画面里那条视线**出发，
+            // 太空里眼睛与相机差 1.31~1.43 格，用眼睛会让光束整体偏一格多（2026-10-06）。
+            Vec3 eye = ClientViewOrigin.of(player);
             Vec3 look = player.getViewVector(1.0F);
             PhysgunClientState.grab(id, hit.bodyId(),
                     Math.max(MIN_DISTANCE, Math.min(PhysgunItem.RANGE, hit.distance())),

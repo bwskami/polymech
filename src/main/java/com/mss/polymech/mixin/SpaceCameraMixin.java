@@ -71,34 +71,24 @@ public abstract class SpaceCameraMixin {
     private void polymech$headAnchor(Camera self, double x, double y, double z, Operation<Void> operation) {
         Entity e = this.entity;
         // ⚠️ 不再有 `!this.isDetached()`：第一人称也要身体锚点（见上面的注释）。
-        if (!(e instanceof Player)
-                || !e.level().dimension().equals(PlanetDimensions.SPACE)) {
-            operation.call(self, x, y, z);
-            return;
-        }
-        SpacePlayerData data = SpacePlayerData.get(e);
-        if (!data.isInitialized()) {
+        if (!(e instanceof Player)) {
             operation.call(self, x, y, z);
             return;
         }
         float pt = this.getPartialTickTime();
-        double px = Mth.lerp(pt, e.xo, e.getX());
         double py = Mth.lerp(pt, e.yo, e.getY());
-        double pz = Mth.lerp(pt, e.zo, e.getZ());
         // 原版传进来的 y = 插值后的脚底 y + 眼高，所以眼高直接减出来（不必去碰它的私有字段）
         double eye = y - py;
-        if (eye <= 0.0) {
+        // ── 算式**唯一实现**在 SpacePlayerData.cameraAnchor（2026-10-06 抽出去）──
+        //   为什么必须同源：服务端（SpaceBlockPlacement / PhysgunItem）读不到相机，
+        //   只能拿同步来的 facing/left 重算**同一个锚点**；这里若各自再写一份，
+        //   两边就会像"挖掘射线用眼睛、相机在别处"那样再次分叉（见 SpaceViewBasisProbe）。
+        Vector3d anchor = SpacePlayerData.cameraAnchor(e, pt, eye, new Vector3d());
+        if (anchor == null) {
             operation.call(self, x, y, z);
             return;
         }
-        // 模型/物理体的旋转支点是 SpacePlayerData.bodyCenterOffset()：
-        //   head = 实体位置 + (0, 支点, 0) + Q_body · (0, 眼高 − 支点, 0)
-        // 普通姿态支点 = 半高（0.9，与旧代码逐位相同）；超人姿态 = 头盒中心（1.6）。
-        // 相机锚点必须与模型用同一个支点，否则自由滚转 + 超人姿态时锚点会偏离真正的头
-        // （最多差 1.3 格）——表现就是"第三人称里镜头不贴在头上、身体一倾斜就跟着飘"。
-        double half = SpacePlayerData.bodyCenterOffset(e);
-        Vector3d off = data.eyeOffset(eye - half, pt, new Vector3d());
-        operation.call(self, px + off.x, py + half + off.y, pz + off.z);
+        operation.call(self, anchor.x, anchor.y, anchor.z);
     }
 
     /**

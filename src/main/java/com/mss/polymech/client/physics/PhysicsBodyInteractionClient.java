@@ -211,9 +211,18 @@ public final class PhysicsBodyInteractionClient {
             // 左键破坏只在创造模式预测（那边本来就是瞬破）；生存有挖掘时间，预测反而是错的。
             PacketDistributor.sendToServer(PhysicsBodyEditPacket.use(
                     hit.bodyId, hit.dx, hit.dy, hit.dz,
-                    hit.normalX, hit.normalY, hit.normalZ,
+                    hit.localFaceX, hit.localFaceY, hit.localFaceZ,
                     hand == InteractionHand.OFF_HAND ? 1 : 0,
                     player.isShiftKeyDown()));
+            // 判据：把"这次放置用的起点/格/面"打出来 —— 面必须是**体局部**面
+            // （服务端在投影空间里 pos.relative(face)）。见 Hit 的注释与 G 组离线判据。
+            Vec3 origin = viewOrigin(player);
+            LOGGER.info("[PolyMech] [放置诊断] 发USE 体={} 格=({},{},{}) 局部面=({},{},{}) "
+                            + "起点={} 眼-起点距={} 视线={}",
+                    hit.bodyId, hit.dx, hit.dy, hit.dz,
+                    hit.localFaceX, hit.localFaceY, hit.localFaceZ,
+                    origin, origin.distanceTo(player.getEyePosition()),
+                    player.getViewVector(1.0F));
             event.setCanceled(true);
         }
     }
@@ -427,11 +436,9 @@ public final class PhysicsBodyInteractionClient {
      * 太空里立刻复发"瞄旁边的空处"。判据 {@code [视线基]} 会报出 {@code 眼-相机距}。</p>
      */
     private static Vec3 viewOrigin(Player player) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.gameRenderer != null && mc.player != null) {
-            return mc.gameRenderer.getMainCamera().getPosition();
-        }
-        return player.getEyePosition();
+        // 算式与实测数字**唯一实现**搬到了 ClientViewOrigin（2026-10-06），
+        // 因为牵引枪/剪线钳/夹表也要同一个起点 —— 各写一份就会重现"同一个概念两条路"。
+        return ClientViewOrigin.of(player);
     }
 
     private static Hit currentHit(Player player) {
@@ -516,11 +523,13 @@ public final class PhysicsBodyInteractionClient {
                 continue;
             }
             if (best == null || distance < best.distance) {
-                Direction face = local.face();
-                TMP.set(face.getStepX(), face.getStepY(), face.getStepZ());
-                ROT.transform(TMP);
+                // ⚠️ 存的是**体局部**面，不是世界面（2026-10-06 修，见 Hit 的注释）：
+                //    服务端 useOrPlace 在投影（=体局部）空间里 pos.relative(face)，
+                //    带世界面会让方块落到体的另一侧（体转过之后必现）。
+                Direction localFace = local.face();
                 best = new Hit(body.id(), distance, local.cell().getX(), local.cell().getY(),
-                        local.cell().getZ(), Math.round(TMP.x), Math.round(TMP.y), Math.round(TMP.z));
+                        local.cell().getZ(), localFace.getStepX(), localFace.getStepY(),
+                        localFace.getStepZ());
             }
         }
         return best;
@@ -607,8 +616,20 @@ public final class PhysicsBodyInteractionClient {
         };
     }
 
-    /** 命中的物理体方块。 */
+    /**
+     * 命中的物理体方块。
+     *
+     * <p><b>{@code localFace*} 是"体局部"的面，不是世界面</b>（2026-10-06 修，这是一条踩过的坑）：
+     * {@link com.mss.polymech.physics.PhysicsBodyInteraction#useOrPlace} 在<b>投影维度</b>
+     * （= 体的局部坐标）里做 {@code ProjectionManager.toProjection(slot, dx,dy,dz).relative(face)}，
+     * 所以包里那个 {@code faceX/Y/Z} 必须与 {@code dx/dy/dz} 在<b>同一个坐标系</b>。
+     * 旧代码把局部面用 {@code ROT} 转成世界面再发 —— 未旋转的体看不出差别，
+     * 一旦体被牵引枪转过，方块就落到<b>体的另一侧</b>（用户报的"不放我瞄准的那个面"）。
+     * 同一个约定在 {@link com.mss.polymech.physics.SpaceBuildRules#rotateFace} 的注释里
+     * 已经写过一次（"直接用会把方块放到体的另一侧"）——那是给<b>世界空间</b>消费者用的方向。
+     * 离线判据见 {@code native/jni-smoketest/BodyVoxelRaycastProbe.java} 的 G 组。</p>
+     */
     public record Hit(long bodyId, double distance, int dx, int dy, int dz,
-                      int normalX, int normalY, int normalZ) {
+                      int localFaceX, int localFaceY, int localFaceZ) {
     }
 }

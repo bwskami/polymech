@@ -1,6 +1,8 @@
 package com.mss.polymech.client.space;
 
 import com.mss.polymech.Polymech;
+import com.mss.polymech.space.SpacePlayerData;
+import com.mss.polymech.util.PartialTicks;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
@@ -26,10 +28,18 @@ import java.util.Locale;
  * 这正是 {@code docs/space-input-basis.md} 警告过的"同一个概念存在分叉"。</p>
  *
  * <p><b>判据（绝对量，与相机怎么动无关）</b>：{@code angle(player.getViewVector, camera.getLookVector)}。
- * 两者是同一个前向的两个来源，理论上必须重合 ⇒ 夹角 {@code <= 0.5°} 记 PASS，否则 FAIL。
+ * 两者是同一个前向的两个来源，理论上必须重合 ⇒ 夹角 {@code <= 1.0°} 记 PASS，否则 FAIL。
  * 眼-相机距一并报出（第一人称应≈0；第三人称必然>0，那属于正常，不是本判据的 FAIL 项）。</p>
  *
- * <p><b>怎么用</b>：主世界应全 PASS；太空里若出现 FAIL，且 {@code 夹角}随姿态/滚转变化，
+ * <p><b>第二条判据（2026-10-06 加）：锚点复算 == 真实相机位置。</b>
+ * 服务端（{@code SpaceBlockPlacement} 放方块 / {@code PhysgunItem} 牵引枪）<b>读不到相机</b>，
+ * 只能拿同步来的 {@code facing/left} 走 {@link SpacePlayerData#cameraAnchor} 重算同一个锚点。
+ * 这一项就用<b>真实相机</b>去验那条算式（读真实相机与真实实体，能 FAIL）：
+ * 偏差 ≈ 0.000 才叫"两端同源"；算式一旦退回眼睛，它会立刻变成 1.31~1.43 格。
+ * 这正是"右键放置不放我瞄准的那个面 / 放到别处"的量化判据。</p>
+ *
+ * <p><b>怎么用</b>：主世界应全 PASS（锚点项显示 {@code —}，因为主世界不走锚点）；
+ * 太空里若出现 FAIL，且 {@code 夹角}随姿态/滚转变化，
  * 就证实"两条路分叉"，且分叉大小直接给出治本修的门槛。修好后必须全 PASS。</p>
  */
 @EventBusSubscriber(modid = Polymech.MOD_ID, value = Dist.CLIENT, bus = EventBusSubscriber.Bus.GAME)
@@ -47,11 +57,22 @@ public final class SpaceViewBasisProbe {
      */
     private static final double PASS_DEG = 1.0;
 
+    /**
+     * 「锚点复算 == 真实相机」的 PASS 门槛（格）。
+     *
+     * <p>为什么是 0.01：客户端相机与锚点算式用的是<b>同一个</b>部分刻
+     * （{@code PartialTicks.forDisplay()} = 渲染最后一帧的 alpha，也是相机 {@code setup} 用的那个）
+     * 和同一份算式（{@link SpacePlayerData#cameraAnchor}），所以两者应当逐位接近，
+     * 只差 float 往返误差。留 0.01 格给四元数 float 精度。</p>
+     */
+    private static final double ANCHOR_PASS = 0.01;
+
     /** 采样间隔（tick）：每 10 tick（0.5s）一行，够看清随姿态的变化。 */
     private static final int INTERVAL = 10;
 
     private static int tick;
     private static double worstDeg = -1.0;
+    private static double worstAnchorDist = -1.0;
 
     private SpaceViewBasisProbe() {
     }
@@ -83,12 +104,32 @@ public final class SpaceViewBasisProbe {
         if (deg > worstDeg) {
             worstDeg = deg;
         }
-        boolean pass = deg <= PASS_DEG;
+        boolean anglePass = deg <= PASS_DEG;
 
-        LOGGER.info("[PolyMech] [视线基] {} 夹角={}° 最差夹角={}° 眼-相机距={} | "
+        // ---- 判据 2：锚点复算（服务端唯一能走的那条路）== 真实相机 ----
+        // 服务端读不到相机，只能拿同步的 facing/left 重算；这一项直接拿真实相机验它。
+        org.joml.Vector3d anchor = SpacePlayerData.cameraAnchor(mc.player, PartialTicks.forDisplay(),
+                mc.player.getEyeHeight(), new org.joml.Vector3d());
+        double anchorDist = Double.NaN;
+        if (anchor != null) {
+            double dx = anchor.x - camPos.x;
+            double dy = anchor.y - camPos.y;
+            double dz = anchor.z - camPos.z;
+            anchorDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (anchorDist > worstAnchorDist) {
+                worstAnchorDist = anchorDist;
+            }
+        }
+        boolean anchorPass = anchor == null || anchorDist <= ANCHOR_PASS;
+        boolean pass = anglePass && anchorPass;
+
+        LOGGER.info("[PolyMech] [视线基] {} 夹角={}°{} 最差夹角={}° 眼-相机距={} 锚点-相机距={}{} | "
                         + "玩家 yaw/pitch={}/{} 相机 yaw/pitch/roll={}/{}/{} | 维度={} 创造飞行={} 视角={} 相机脱离实体={}",
                 pass ? "PASS" : "FAIL",
-                fmt(deg), fmt(worstDeg), fmt(eyeCamDist),
+                fmt(deg), anglePass ? "" : "(FAIL)",
+                fmt(worstDeg), fmt(eyeCamDist),
+                Double.isNaN(anchorDist) ? "—" : fmt(anchorDist),
+                Double.isNaN(anchorDist) ? "" : (anchorPass ? "(PASS)" : "(FAIL 锚点算式退回/漂移)"),
                 fmt(mc.player.getYRot()), fmt(mc.player.getXRot()),
                 fmt(cam.getYRot()), fmt(cam.getXRot()), fmt(cam.getRoll()),
                 mc.level.dimension().location(),

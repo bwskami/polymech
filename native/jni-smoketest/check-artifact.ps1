@@ -650,7 +650,58 @@ $contracts = @(
        why = '★ 竖直阻尼 = 原版 Player.travel 飞行分支的 0.6（稳态 = 0.6·冲量/(1−0.6) = 1.5 倍）' },
     @{ file = 'src\main\java\com\mss\polymech\space\SpaceFlight.java';
        must = 'left.x * alongLeft + up.x * alongUp + view.x * alongForward,';
-       why = '★★ 阻尼必须"分解到视线基底三轴 → 各自乘阻尼 → 再合成回来"。改成对 vx/vy/vz 直接乘常数就是世界轴阻尼 = 原版结构 = 用户报的"往屏幕下飞"' }
+       why = '★★ 阻尼必须"分解到视线基底三轴 → 各自乘阻尼 → 再合成回来"。改成对 vx/vy/vz 直接乘常数就是世界轴阻尼 = 原版结构 = 用户报的"往屏幕下飞"' },
+    # ── 瞄准射线的**起点**：客户端=真实相机，服务端=同一份锚点算式（2026-10-06）──────────
+    # 用户报"右键放置有时不放我瞄准的那个面"。两条独立缺陷：
+    #   ① 交互包里带的是**世界面**（体被牵引枪转过之后，方块落到体的另一侧）；
+    #   ② 射线起点用 player.getEyePosition()，而太空第一人称相机被 SpaceCameraMixin 挪到
+    #      "身体坐标系里的头" ⇒ 实测眼-相机距 1.313~1.430 格（主世界恒 0.000）⇒ 整体平行错开一格多。
+    # 这几条是正向契约：谁把起点改回眼睛、或把面再转成世界面，这里就 MISS。
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\ClientViewOrigin.java';
+       must = 'gameRenderer.getMainCamera().getPosition()';
+       why = '★★ 客户端瞄准起点的**唯一实现** = 相机位置（space 的 PhysicalBodyInteractionClient 逐字如此）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'ClientViewOrigin.of(player)';
+       why = '★★ 挖掘/放置射线必须走相机起点（用 getEyePosition 在太空里与准星平行错开 1.3~1.4 格）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'Direction localFace = local.face();';
+       why = '★★★ 交互包必须带**体局部**面：服务端 useOrPlace 在投影（=体局部）空间里 pos.relative(face)；带世界面 ⇒ 体转过之后方块落到体的另一侧（用户 2026-10-06 报"右键放置不放我瞄准的那个面"）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'hit.localFaceX, hit.localFaceY, hit.localFaceZ';
+       why = '★★ 发包时用的就是局部面那三个分量（字段名 localFace* 本身就是这条契约的说明书）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunTarget.java';
+       must = 'ClientViewOrigin.of(mc.player)';
+       why = '★★ 牵引枪拾取起点同源（"准星指着哪个体/多远"必须与画面同一条线）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunInputHandler.java';
+       must = 'ClientViewOrigin.of(player)';
+       why = '★★ 枪口/预测抓点起点同源（光束起点必须从画面里那条视线出发）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\WireCutterOverlay.java';
+       must = 'ClientViewOrigin.of(mc.player)';
+       why = '★ 剪线钳瞄准起点同源（同一条准星）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\ClampMeterOverlay.java';
+       must = 'ClientViewOrigin.of(mc.player)';
+       why = '★ 夹表瞄准起点同源（同一条准星）' },
+    @{ file = 'src\main\java\com\mss\polymech\space\SpacePlayerData.java';
+       must = 'public static Vector3d cameraAnchor(';
+       why = '★★★ 相机锚点算式的**唯一实现**（客户端 mixin 与服务端放置/牵引枪共用）。两端各写一份 = 同一个概念两条路，本项目硬规矩' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
+       must = 'SpacePlayerData.cameraAnchor(e, pt, eye, new Vector3d())';
+       why = '★★ 相机自己必须走那一份算式（否则"服务端复算的锚点"与真实相机又会分叉，SpaceViewBasisProbe 的 锚点-相机距 会 FAIL）' },
+    @{ file = 'src\main\java\com\mss\polymech\space\SpaceAimOrigin.java';
+       must = 'SpacePlayerData.cameraAnchor(entity, partialTick, entity.getEyeHeight(), new Vector3d())';
+       why = '★★ 服务端起点 = 同一份锚点算式（读不到相机，只能拿同步的 facing/left 重算）' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       must = 'SpaceAimOrigin.of(player)';
+       why = '★★★ 太空放置射线起点必须是相机锚点（原先 getEyePosition ⇒ 目标格整体错开一格多 = 用户报的"放到别处/不放我瞄的那个面"）' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       must = 'SpaceAimOrigin.of(sp)';
+       why = '★★ 牵引枪服务端射线/弹簧目标点/光束起点三处同源（原先 getEyePosition，太空里抓错点）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\space\SpaceViewBasisProbe.java';
+       must = '锚点-相机距';
+       why = '★★ 运行期判据：拿**真实相机**验"服务端那条锚点算式"（能 FAIL；算式退回眼睛会立刻变成 1.31~1.43 格）' },
+    @{ file = 'native\jni-smoketest\BodyVoxelRaycastProbe.java';
+       must = 'groupG();';
+       why = '★★ G 组（交互包的面帧：局部面 vs 世界面）必须真的被执行，删了这行就等于没判' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -706,7 +757,26 @@ $absentContracts = @(
        why = '★★ 方块渲染不得直读阶梯（与光束终点同口径才不会互相错开）' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunBeamRenderer.java';
        mustNot = 'ClientPhysics.liveTransform(';
-       why = '★★ 高亮框不得直读阶梯（框跳格 = 判据 S7 失败）' }
+       why = '★★ 高亮框不得直读阶梯（框跳格 = 判据 S7 失败）' },
+    # ── 起点与面帧：不得退回"眼睛 + 世界面"（2026-10-06）──────────────────────────
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       mustNot = 'TMP.set(face.getStepX(), face.getStepY(), face.getStepZ());';
+       why = '★★★ 不得再把命中面**旋转成世界面**再发：服务端在投影空间 pos.relative(face) ⇒ 方块落到体的另一侧（用户报"右键放置不放我瞄准的那个面"）。这条就是那次修改前的原文' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       mustNot = 'hit.normalX';
+       why = '★★ 旧字段名 normalX/Y/Z（世界面语义）不得回归 —— 名字本身就是坐标系的说明书' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
+       mustNot = 'Vec3 eye = player.getEyePosition();';
+       why = '★★★ 放置射线起点不得回到眼睛：太空第一人称相机离眼睛实测 1.313~1.430 格（主世界 0.000）⇒ 目标格平行错开一格多' },
+    @{ file = 'src\main\java\com\mss\polymech\item\PhysgunItem.java';
+       mustNot = 'sp.getEyePosition()';
+       why = '★★ 牵引枪服务端三处起点不得回到眼睛（同上；太空里抓错点、光束整体偏一格多）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysgunTarget.java';
+       mustNot = 'mc.player.getEyePosition(';
+       why = '★★ 牵引枪拾取起点不得回到眼睛（与准星平行错开一格多）' },
+    @{ file = 'src\main\java\com\mss\polymech\mixin\SpaceCameraMixin.java';
+       mustNot = 'data.eyeOffset(eye - half';
+       why = '★★ 相机锚点算式不得在 mixin 里再内联一份（必须调 SpacePlayerData.cameraAnchor）—— 两端各写一份就会分叉，这正是本次缺陷的成因' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

@@ -6,6 +6,7 @@ import com.mss.polymech.mps.physical.helper.PhysicalRaycast;
 import com.mss.polymech.mps.physical.manger.ProjectionManager;
 import com.mss.polymech.mps.physical.physical_body.PhysicalBody;
 import com.mss.polymech.mps.physical.physical_world.ServerPhysicalWorld;
+import com.mss.polymech.space.SpaceAimOrigin;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -99,7 +100,13 @@ public final class SpaceBlockPlacement {
         }
 
         // ---------- 目标格：**世界坐标**（局部坐标全交给 PhysicsBodyTracker）----------
-        Vec3 eye = player.getEyePosition();
+        // ⚠️ 起点必须是**相机锚点**，不是 {@code player.getEyePosition()}（2026-10-06 修）：
+        //    太空第一人称相机离眼睛实测 1.313~1.430 格（主世界 0.000），
+        //    用眼睛算出来的目标格会整体**平行错开一格多** ⇒ 用户报的
+        //    "右键放置有时不放我瞄准的那个面 / 放到别处"。算式与客户端相机同源，
+        //    见 SpacePlayerData.cameraAnchor 与 SpaceAimOrigin。
+        //    服务端读不到相机，只能拿同步来的 facing/left 重算同一份算式（残留 ≤2 tick 朝向滞后）。
+        Vec3 eye = SpaceAimOrigin.of(player);
         Vec3 look = player.getLookAngle();
         // 照 space：射线打在**体自己**身上。原来打在 MPS 克隆栈（ServerPhysicalWorld）上，
         // 而那条栈恒空 ⇒ 永远 null ⇒ 下面"命中体"那条分支从来没执行过（2026-10-06 修）。
@@ -120,6 +127,13 @@ public final class SpaceBlockPlacement {
                     eye.y + look.y * SpaceBuildRules.PLACE_DISTANCE,
                     eye.z + look.z * SpaceBuildRules.PLACE_DISTANCE);
         }
+
+        // 判据：这次放置用的**起点**与**目标格**（以及它离眼睛多远）。
+        // 起点来源=false 表示锚点算不出来、已退回眼睛 —— 那就等于修复前的行为，必须能看出来。
+        boolean anchored = SpaceAimOrigin.isCameraAnchored(player, 1.0F);
+        Polymech.LOGGER.info("[太空建造] 判据 起点来源={} 起点={} 眼-起点距={} 目标={} 命中体={} 命中面={}",
+                anchored ? "相机锚点" : "眼睛(退回)", eye, eye.distanceTo(player.getEyePosition()),
+                target, hit == null ? -1L : hit.bodyId(), hit == null ? "-" : hit.worldFace());
 
         // ---------- 前置判据（纯函数，离线有判据表）----------
         BlockState state = blockItem.getBlock().defaultBlockState();

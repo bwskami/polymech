@@ -1,6 +1,8 @@
 package com.mss.polymech.space;
 
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.joml.Vector3d;
 
 /**
@@ -392,6 +394,58 @@ public final class SpacePlayerData {
         org.joml.Vector3f local = new org.joml.Vector3f(0.0f, (float) eyeHeight, 0.0f);
         bodyQuat(partialTick, new org.joml.Quaternionf()).transform(local);
         return out.set(local.x, local.y, local.z);
+    }
+
+    /**
+     * <b>太空"视线锚点" = 客户端相机的实际位置</b> —— 这条算式<b>全工程只有这一份</b>。
+     *
+     * <h2>为什么必须有它（2026-10-06，两处症状同一个根）</h2>
+     * 太空里玩家身体是 6DOF 的，而 vanilla 的相机锚点是
+     * {@code lerp(实体位置) + (0, 眼高, 0)} —— 那个 {@code +Y} 是<b>世界竖直</b>方向。
+     * 身体一旦滚转/俯仰，"头上那一点"就不在世界 +Y 上：
+     * {@code SpaceCameraMixin} 因此把第一人称相机也改成"身体坐标系里的头"
+     * （{@code 位置 + (0,支点,0) + Q_body·(0,眼高−支点,0)}，见 §7.14 的 {@code [框·坐标系]} 读数）。
+     * 实测后果：太空第一人称 {@code 眼-相机距 ≈ 1.31~1.43 格}（身体近翻转时接近上限
+     * {@code 2·0.72 = 1.44}），主世界恒 {@code 0.000}。
+     *
+     * <p>于是任何"从 {@code player.getEyePosition()} 出发"的射线都与准星<b>平行错开一格多</b>：
+     * 挖不动（客户端）、放错格/错面（服务端 {@code SpaceBlockPlacement}）、
+     * 牵引枪抓错点（服务端 {@code PhysgunItem}）。客户端能直接读真实相机
+     * （{@code gameRenderer.getMainCamera().getPosition()}，space 的依据是
+     * {@code mps/client/PhysicalBodyInteractionClient}），<b>服务端读不到相机</b> ——
+     * 它只能拿同步来的 {@code facing/left}（每 2 tick 一次）<b>重算同一个锚点</b>。
+     * 把算式放在这里，两端就是<b>同源</b>的；谁再各自写一份，就会重现"同一个概念两条路"。</p>
+     *
+     * <p><b>残留误差（诚实记录）</b>：服务端用的是"≤2 tick 之前"的朝向样本，
+     * 所以它重算出的锚点与客户端当帧相机差一个"头部偏移量被转过多少"——
+     * 头部偏移量长约 {@code 0.72 格}，误差 ≈ {@code 0.72 × 这段时间转过的弧度}
+     * （转 20°/s 时约 0.025 格，转 180°/s 时约 0.23 格），
+     * 与它替掉的 1.31~1.43 格<b>系统性</b>错位相比小一个量级。
+     * 要完全消除得让客户端把当帧起点随右键一起发上来（协议改动，未做）。</p>
+     *
+     * @param eyeHeight 眼高（客户端从 vanilla 传进 {@code setPosition} 的 y 里减出实体 y 得到，
+     *                  服务端用 {@link Entity#getEyeHeight()}）
+     * @return 锚点写入 {@code out}；<b>不适用</b>（非玩家 / 非太空维度 / 未初始化 / 眼高非正）返回 {@code null}
+     */
+    public static Vector3d cameraAnchor(Entity entity, float partialTick, double eyeHeight, Vector3d out) {
+        if (!(entity instanceof Player)) {
+            return null;
+        }
+        if (!entity.level().dimension().equals(com.mss.polymech.dimension.PlanetDimensions.SPACE)) {
+            return null;
+        }
+        SpacePlayerData data = get(entity);
+        if (!data.isInitialized() || !(eyeHeight > 0.0)) {
+            return null;
+        }
+        double px = Mth.lerp(partialTick, entity.xo, entity.getX());
+        double py = Mth.lerp(partialTick, entity.yo, entity.getY());
+        double pz = Mth.lerp(partialTick, entity.zo, entity.getZ());
+        // 模型/物理体的旋转支点是 bodyCenterOffset()：
+        //   head = 实体位置 + (0, 支点, 0) + Q_body · (0, 眼高 − 支点, 0)
+        double half = bodyCenterOffset(entity);
+        Vector3d off = data.eyeOffset(eyeHeight - half, partialTick, new Vector3d());
+        return out.set(px + off.x, py + half + off.y, pz + off.z);
     }
 
     // ==================== 身体 / 头部（颈部锥） ====================

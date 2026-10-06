@@ -449,6 +449,14 @@ Write-Host "`n===== 23/23 物理体射线几何内核（BodyVoxelRaycastProbe：
 #   ★ C2 非满格形状：半砖上半（看得见是空的）必须未命中 —— 旧实现按整格算会假命中。
 #   C3 形状为空的方块按满格（space 的 Shapes.block() 分支）。
 #   D 200 条随机射线与"细步进采样"独立参考对拍（两侧都命中时比距离，容差 4 个步长）。
+#   ★ G 交互包的"面帧"：包里那个 faceX/Y/Z 必须是**体局部**面，不是世界面
+#                 （服务端 useOrPlace 在投影=体局部空间里 pos.relative(face)）。
+#                 G1 中性（未旋转体上 世界面==局部面，证明改动不改未旋转体的行为）；
+#                 G2 反例 + G3 正确各一条（R=+90°Y 时带世界面会把方块放到体的另一侧：
+#                 世界偏移 R·WEST=SOUTH，而带局部面是 R·NORTH=WEST=瞄准那一侧）；
+#                 G4/G5 判据非空守卫（旋转体上两坐标系必须不同，且 4 个水平面全换号）；
+#                 G6 生产函数往返 rotateFace(局部,R)=世界 且 rotateFace(世界,R⁻¹)=局部。
+#                 2026-10-06 用户报"右键放置有时不放我瞄准的那个面"。
 $rayArgfile = "$root\build\probe-raycast.txt"
 [System.IO.File]::WriteAllLines($rayArgfile,
         @('-Dstdout.encoding=UTF-8', '-cp', ($cpJars -join ';'),
