@@ -442,16 +442,39 @@ public final class PhysicsBodyInteractionClient {
     }
 
     private static Hit currentHit(Player player) {
+        return pickTarget(player, true);
+    }
+
+    /**
+     * 无日志版瞄准目标：给瞄准框渲染器（{@link BodyTargetOutlineRenderer}）每帧调用。
+     *
+     * <p>判据与 {@link #currentHit} <b>完全同一条路</b>（射线打空 / 原版更近都算"没瞄上体"），
+     * 唯一区别是不打 {@code logMiss} —— 渲染每帧一次，走带日志那条会把
+     * {@code run/logs/latest.log} 每秒刷几千行诊断。别在两处各写一份判据：</p>
+     *
+     * <p>这个框的存在理由是"点之前先看见准星在哪个方块、哪个面上"——原版对方块永远有黑色瞄准框，
+     * 我们的物理体方块不是真方块、原版不给画，于是三轮实机争执（"瞄的是底面还是侧面"）
+     * 都卡在玩家没有瞄准反馈上。框与点击同一条判据路，框亮哪面，右键就沿哪面放。</p>
+     */
+    public static Hit aimTarget(Player player) {
+        return pickTarget(player, false);
+    }
+
+    private static Hit pickTarget(Player player, boolean log) {
         double reach = player.blockInteractionRange();
         Hit hit = castAgainstBodies(viewOrigin(player), player.getViewVector(1.0F), reach);
         if (hit == null) {
-            logMiss("射线打空", -1L, Double.NaN, player, reach);
+            if (log) {
+                logMiss("射线打空", -1L, Double.NaN, player, reach);
+            }
             return null;
         }
         HitResult vanilla = Minecraft.getInstance().hitResult;
         if (vanilla != null && vanilla.getType() != HitResult.Type.MISS
                 && vanilla.distanceTo(player) < hit.distance) {
-            logMiss("原版更近", hit.bodyId, hit.distance, player, reach);
+            if (log) {
+                logMiss("原版更近", hit.bodyId, hit.distance, player, reach);
+            }
             return null;
         }
         return hit;

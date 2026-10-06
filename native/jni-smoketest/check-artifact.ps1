@@ -705,6 +705,27 @@ $contracts = @(
     @{ file = 'native\jni-smoketest\BodyVoxelRaycastProbe.java';
        must = 'groupH();';
        why = '★★ H 组（2026-10-06 用户报"准心看着在蓝块底面、却放到侧面方向"）必须真的被执行：H2/H3 钉"从底面进体必须报 DOWN（MC 放到下方）"，H4–H6 用实机日志的起点/视线逐字复算钉"相机在底面上方 0.183 格时底面根本不在视线上，报 WEST 是几何正确"。删了这行等于没判' },
+    # ── 物理体方块瞄准框（2026-10-06 三轮"瞄的是哪个面"争执的治本反馈）──────────────
+    # 原版对面块永远画黑色瞄准线框；物理体方块不是真方块、原版不给画 ⇒ 太空里瞄准结构
+    # 没有任何反馈，用户连着三轮把"贴脸那一面的下沿"看成"底面"。这个框亮哪面，右键就沿哪面放。
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'public static Hit aimTarget(Player player)';
+       why = '★ 瞄准框每帧要的"当前瞄中的体方块"必须走与点击完全同一条判据路的无日志版（带日志的 currentHit 每帧调会把日志每秒刷几千行）。删了它渲染器就只能自写射线 = 框指一处、点击放另一处' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       must = 'PhysicsBodyInteractionClient.aimTarget(';
+       why = '★★ 瞄准框必须用与点击完全同一条判据路（aimTarget 无日志版）——渲染自己再写一条射线就会出现"框指一处、点击放另一处"' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       must = 'renderRotation(';
+       why = '★ 框的位姿必须走显示环（与拾取/方块渲染同一个口径），框才套在画面上那一格' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       must = 'hit.localFaceX()';
+       why = '★ 面填充必须用包同款的**体局部**面（useOrPlace 就在局部空间沿它取相邻格）——框亮哪面右键就沿哪面放' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       mustNot = 'liveTransform';
+       why = '★★ 别读刚体实时位姿（10ms 阶梯）：框会跳格、和画面/点击口径错开（2026-10-03 的教训）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
+       mustNot = 'getEyePosition';
+       why = '★★ 别在这文件里自写射线起点用眼睛：太空相机离眼 1.3~1.4 格，起点错一截框就整体错开一格（起点唯一实现在 ClientViewOrigin）' },
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
        must = 'SpaceBuildRules.targetKind(';
        why = '★★★ 创建/扩增分流必须真的被咨询（用户 2026-10-06 拍板："你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"）。删掉这一行就退回"一条规则管两件事"——上一版那样会把扩增手感切掉、创建也一起砍掉' },
