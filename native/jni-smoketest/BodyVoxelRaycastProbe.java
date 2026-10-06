@@ -27,7 +27,12 @@ import java.util.Random;
  * <b>G 交互包的"面帧"</b>（包里必须带体局部面，不是世界面 —— 2026-10-06"右键放置不放我瞄准的那个面"）；
  * <b>H 从底面进体必须报 DOWN；实机水平视角报的是贴脸那一面</b>
  * （2026-10-06 用户报"准心看着在蓝块底面、右键却放到侧面方向，不符合 MC 放置逻辑"，
- * 用实机日志里的起点/视线逐字复算钉死：相机在底面上方 0.183 格 ⇒ 底面不在视线上）。</p>
+ * 用实机日志里的起点/视线逐字复算钉死：相机在底面上方 0.183 格 ⇒ 底面不在视线上）；
+ * <b>I "报的面 == 真正的进入面"在任何角度都必须成立</b>（2026-10-06 用户报"瞄准侧面却出来另一面、
+ * 得正对着那个面才准" —— 根因是线段起点取"体 AABB 进入点 ± ε"贴在体表面上，
+ * 被原版 {@code VoxelShape.clip} 内部的 <b>0.1% 段长</b>推进推进了方块形状内部，
+ * 命中面于是退化成"方向主轴面"；修法是起点 = 真正的射线起点。
+ * 判据由独立 slab 解析给出，216 个姿态全扫）。</p>
  */
 public final class BodyVoxelRaycastProbe {
 
@@ -43,6 +48,7 @@ public final class BodyVoxelRaycastProbe {
         groupF();
         groupG();
         groupH();
+        groupI();
 
         System.out.println("=== BodyVoxelRaycastProbe: " + passed + "/" + (passed + failed)
                 + " 通过，失败 " + failed + " ===");
@@ -346,27 +352,28 @@ public final class BodyVoxelRaycastProbe {
                 String.valueOf(entry));
 
         // F3 世界→局部：R⁻¹(1,0,0)=(0,0,1) ⇒ 射线在局部空间沿 +Z 走
-        //    起点 R⁻¹(1e-5,0.5,-0.5)=(0.5,0.5,1e-5)；终点 R⁻¹(5,0.5,-0.5)=(0.5,0.5,5.0)
-        Vec3 localStart = BodyVoxelRaycast.toLocal(
-                entry.add(dir.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON)), px, py, pz, inv);
+        //    起点取**真正的射线起点**（修后口径，原版 Level.clip 同口径）
+        //    R⁻¹(5−10, 0.5, 0.5)=(0.5,0.5,−5.0)；终点 R⁻¹(15−10,0.5,0.5)=(0.5,0.5,5.0)
+        Vec3 localStart = BodyVoxelRaycast.toLocal(origin, px, py, pz, inv);
         Vec3 localEnd = BodyVoxelRaycast.toLocal(end, px, py, pz, inv);
-        check("F3 世界→局部（解析：起点 (0.5,0.5,~1e-5)、终点 (0.5,0.5,5.0)）",
+        check("F3 世界→局部（解析：起点 (0.5,0.5,−5.0)、终点 (0.5,0.5,5.0)）",
                 localStart != null && localEnd != null
                         && fNear(localStart.x, 0.5) && fNear(localStart.y, 0.5)
-                        && Math.abs(localStart.z) < 1.0e-3
+                        && fNear(localStart.z, -5.0)
                         && fNear(localEnd.x, 0.5) && fNear(localEnd.y, 0.5) && fNear(localEnd.z, 5.0),
                 "start=" + localStart + " end=" + localEnd);
 
         // F4 局部 DDA：单块 (0,0,0)，射线沿 +Z 进入 ⇒ 局部面必须是 NORTH（-Z）
-        //     命中点的 z **不是 0**：原版 VoxelShape.clip 会先把起点沿射线推进 0.1%（vec3.scale(0.001)）再求交，
-        //     所以 z = 起点 + 0.001 × 行程 = 1e-5 + 0.001×(5.0−1e-5) = 0.00500999…。
-        //     这是 MC 自己的语义、space 同源 ⇒ 照抄不改；期望值由该语义解析推导（不是抄实现常量）。
-        double expectZ = localStart.z + 0.001 * (localEnd.z - localStart.z);
+        //    命中点 z **正好是 0**：起点在块外 −5 处，原版 clip 内部那点"0.1% 段长"推进
+        //    （0.001×10 = 0.01）远不足以把起点推进方块 ⇒ 报的是真进入面 + 真进入点。
+        //    （旧口径"起点 = AABB 进入点 ± ε"时起点贴在块面上，那点推进就把它推进块内，
+        //      命中面退化成"方向主轴面" —— 见 I 组。）
+        double expectZ = 0.0;
         Map<Long, VoxelShape> block = new HashMap<>();
         block.put(BlockPos.asLong(0, 0, 0), Shapes.block());
         BodyVoxelRaycast.LocalShapes shapes = p -> block.get(p.asLong());
         BodyVoxelRaycast.LocalHit hit = BodyVoxelRaycast.traverse(localStart, localEnd, shapes);
-        check("F4 局部命中：格=(0,0,0)、面=NORTH、命中点 z=起点+0.1%行程（原版 clip 的 nudge）",
+        check("F4 局部命中：格=(0,0,0)、面=NORTH、命中点 z=0（真进入点，起点在块外 nudge 不影响）",
                 hit != null && hit.cell().equals(new BlockPos(0, 0, 0)) && hit.face() == Direction.NORTH
                         && fNear(hit.location().x, 0.5) && fNear(hit.location().y, 0.5)
                         && fNear(hit.location().z, expectZ),
@@ -386,7 +393,9 @@ public final class BodyVoxelRaycastProbe {
                 worldFace == Direction.WEST, String.valueOf(worldFace));
 
         // F7 目标格 = 被命中格沿世界面的相邻格：hitCell=(10,64,9) ⇒ target=(9,64,9)（射线来向那一格）
-        double eps = BodyVoxelRaycast.AABB_ENTRY_EPSILON;
+        //    eps 只用于把"正好落在面上"的命中点推进格内再取格（BlockPos.containing 的边界归属），
+        //    与生产路径无关 —— 生产路径直接用局部命中格 local.cell()。
+        double eps = 1.0E-5;
         BlockPos hitCell = BlockPos.containing(world.x - worldFace.getStepX() * eps,
                 world.y - worldFace.getStepY() * eps, world.z - worldFace.getStepZ() * eps);
         BlockPos target = hitCell.relative(worldFace);
@@ -482,12 +491,13 @@ public final class BodyVoxelRaycastProbe {
      * 右键却放到了侧面方向，不符合 MC 的放置逻辑"。两组判据把几何真相钉死：
      *
      * <ul>
-     *   <li><b>H1–H3 构造场景</b>：射线从下方进入<b>边界方块的底面</b>（包围盒进入点被
-     *       {@code AABB_ENTRY_EPSILON} 推进体内，起点落在满格形状内部）。必须报 (蓝格, DOWN) ——
+     *   <li><b>H1–H3 构造场景</b>：射线从下方进入<b>边界方块的底面</b>。必须报 (蓝格, DOWN) ——
      *       MC 语义：放到该方块<b>下方</b>。绝不允许因"起点在形状内部"改报离开面/侧面。
      *       H1 用解析值锚住场景（进入点恰在蓝格底面正中，离每条棱 ≥0.4 格，排除贴边二义）；
-     *       H2 走生产同款路径（AABB 进入点 + ε）；H3 走原版 {@code Level.clip} 语义（真起点）。
-     *       两者必须是同一张脸。</li>
+     *       H2 走生产口径（起点 = 真正的射线起点）；H3 用独立 slab 解析给出进入面。
+     *       两者必须是同一张脸。
+     *       <br>⚠️ 本条几何"进入面 == 方向主轴面"，所以旧口径（起点 = AABB 进入点 ± ε）
+     *       也碰巧报 DOWN —— 抓那个 bug 的是 <b>I 组</b>（斜看时主轴与进入面不同）。</li>
      *   <li><b>H4–H6 用户实机那一发</b>（18:30:50 的 [放置诊断] 起点/视线，体原点取
      *       (1125624, 1095, −14739869) 换算到体局部）：相机在蓝块底面上方 <b>0.183</b> 格、
      *       几乎水平微仰（dir.y=+0.060）⇒ <b>底面根本不在视线上</b>（H4：底面交点在相机身后
@@ -524,19 +534,25 @@ public final class BodyVoxelRaycastProbe {
                 h1Center && h1Margins,
                 "进入点=" + (entryOpt.map(Object::toString).orElse("未命中")));
 
-        // H2 生产同款路径：进入点 + AABB_ENTRY_EPSILON ⇒ 必须报 (蓝格, DOWN)
-        Vec3 localStart = entryOpt.orElse(origin).add(dir.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON));
-        BodyVoxelRaycast.LocalHit prod = BodyVoxelRaycast.traverse(localStart, end, shapes);
-        check("H2 生产路径（进入点+ε，起点在满格形状内部）：格=(−1,0,0) 面=DOWN（MC 放到下方）",
+        // H2 生产路径（修后口径）：起点 = **真正的射线起点**（原版 Level.clip 同口径）⇒ 必须报 (蓝格, DOWN)
+        //    注意：这条几何"进入面 == 方向主轴面"，所以旧的"进入点±ε"也碰巧报 DOWN ——
+        //    真正能抓出那个 bug 的是 I 组（斜看时主轴与进入面不同）。
+        BodyVoxelRaycast.LocalHit prod = BodyVoxelRaycast.traverse(origin, end, shapes);
+        check("H2 生产路径（起点=真正的射线起点）：格=(−1,0,0) 面=DOWN（MC 放到下方）",
                 prod != null && prod.cell().equals(new BlockPos(-1, 0, 0)) && prod.face() == Direction.DOWN,
                 describe(prod));
 
-        // H3 原版 Level.clip 语义：从真起点一路走 ⇒ 同一张脸（两个起点口径不许各说各话）
-        BodyVoxelRaycast.LocalHit vanilla = BodyVoxelRaycast.traverse(origin, end, shapes);
-        check("H3 真起点（原版语义）：同样格=(−1,0,0) 面=DOWN",
-                vanilla != null && vanilla.cell().equals(new BlockPos(-1, 0, 0))
-                        && vanilla.face() == Direction.DOWN,
-                describe(vanilla));
+        // H3 独立解析（slab，与实现无关）：起点在蓝格下方(y<0)且仰视(dir.y>0) ⇒
+        //    蓝格 y 近平面 t=(0−origin.y)/dir.y 必须大于 z 近平面 t=(1−origin.z)/dir.z ⇒ 进入面 = 底面 DOWN。
+        //    H2（实现）与 H3（解析）是两条独立口径，必须一致。
+        double h3Ty = (0.0 - origin.y) / dir.y;
+        double h3Tz = (1.0 - origin.z) / dir.z;
+        Direction h3Face = h3Ty > h3Tz ? Direction.DOWN : Direction.SOUTH;
+        check("H3 独立解析（slab）：进入面 = " + h3Face + "（t_y=" + String.format("%.3f", h3Ty)
+                        + " > t_z=" + String.format("%.3f", h3Tz) + "），实现必须与之一致",
+                origin.y < 0.0 && dir.y > 0.0 && h3Ty > h3Tz && h3Face == Direction.DOWN
+                        && prod != null && prod.face() == h3Face,
+                "解析面=" + h3Face + " 实现面=" + (prod == null ? "null" : prod.face()));
 
         // ── 场景二：实机 18:30:50 那一发的逐字复算（体未旋转，局部==世界平移）────────
         //    [放置诊断] 起点=(1125620.5441389333, 1095.1831355989757, −14739866.728623686)
@@ -553,12 +569,9 @@ public final class BodyVoxelRaycastProbe {
                 "相机局部y=" + cam.y + " 底面交点t=" + tBottom + "（t<0 = 在身后）");
 
         // H5 生产路径复算：报 (蓝格, WEST) —— 与实机日志 局部面=(−1,0,0) 一致，也是几何真值
+        //    （这条几何"进入面 == 方向主轴面"：水平看时主轴就是 WEST，所以旧的"进入点±ε"也报 WEST）
         java.util.Optional<Vec3> sessEntry = aabb.clip(cam, camEnd);
-        BodyVoxelRaycast.LocalHit sess = null;
-        if (sessEntry.isPresent()) {
-            Vec3 sessStart = sessEntry.get().add(look.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON));
-            sess = BodyVoxelRaycast.traverse(sessStart, camEnd, shapes);
-        }
+        BodyVoxelRaycast.LocalHit sess = BodyVoxelRaycast.traverse(cam, camEnd, shapes);
         check("H5 实机复算：水平视角命中的是贴着玩家的 WEST 面（实机日志发的正是局部面=(−1,0,0)）",
                 sess != null && sess.cell().equals(new BlockPos(-1, 0, 0)) && sess.face() == Direction.WEST,
                 sessEntry.isPresent() ? describe(sess)
@@ -571,6 +584,188 @@ public final class BodyVoxelRaycastProbe {
                             Math.min(sessEntry.get().z, 1.0 - sessEntry.get().z)) >= 0.35;
         check("H6 守卫：实机进入点在西面正中带（离每条棱≥0.35，H5 不是擦边巧合）",
                 h6, "进入点=" + (sessEntry.map(Object::toString).orElse("未命中")));
+    }
+
+    // ------------------------------------------------------------------ I：斜看时"报的面 == 进入面"
+
+    /**
+     * I 组：<b>"报的面 == 真正的进入面"在任何角度都必须成立</b>
+     * （2026-10-06 用户报"我瞄准的是侧面，出来的却是另外一面；得我正对着那个面才能切换那个面"）。
+     *
+     * <p><b>根因</b>：生产路径原先照 space 用"体世界 AABB 进入点 <b>+ε（1e-5）</b>"当局部 DDA 的线段起点。
+     * 原版 {@code VoxelShape.clip} 内部会把起点沿射线推进 <b>0.1% 段长</b>（避免 t=0 退化；离线实测：
+     * 段长 4.52 ⇒ 阈值 0.0045、段长 10.52 ⇒ 阈值 0.0105），而 ε=1e-5 远小于该量 ⇒ 起点被推进
+     * <b>方块形状内部</b>；"起点在形状内"时 {@code clip} 返回的是<b>方向主轴那一面</b>（最朝向相机的面），
+     * 不是真正的进入面。正对着面时主轴恰好就是那一面（所以"正对着才准"），斜看时主轴换成别的面 ⇒ 报错面。
+     * 修法：<b>起点 = 真正的射线起点</b>（原版 {@code Level.clip} 口径），AABB 只当粗筛。</p>
+     *
+     * <p>判据全部由<b>独立 slab 解析</b>给出（{@link #analyticEntryFace} / {@link #rayHitsUnitCube}），
+     * 不抄实现里的任何常量或分支。</p>
+     */
+    private static void groupI() {
+        Map<Long, VoxelShape> cubes = new HashMap<>();
+        cubes.put(BlockPos.asLong(0, 0, 0), Shapes.block());
+        BodyVoxelRaycast.LocalShapes shapes = p -> cubes.get(p.asLong());
+        AABB aabb = new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0);
+
+        // ── I1~I3：实机 21:57:57 那一发的比例（斜看侧面；方向主轴 = Y，真进入面 = z=1 面）──
+        //    日志原文：格=(-3,1,0) 局部面=(0,1,0)；起点/视线逐字抄自 run/logs/latest.log
+        Vec3 cam = new Vec3(-0.593, 1.780, 1.871);
+        Vec3 look = new Vec3(0.4280393719673157, -0.6871063709259033, -0.5870835781097412);
+        Vec3 end = cam.add(look.scale(6.0));
+        java.util.List<Direction> analyticSet = analyticEntryFaces(cam, look);
+        Direction analytic = analyticSet.get(0);
+        check("I1 解析（独立 slab 法）：该姿态唯一进入面 = SOUTH（方向主轴是 Y，但进入面不是 UP）",
+                analyticSet.size() == 1 && analytic == Direction.SOUTH,
+                "解析进入面=" + analyticSet);
+
+        BodyVoxelRaycast.LocalHit fixed = BodyVoxelRaycast.traverse(cam, end, shapes);
+        check("I2 修后生产路径（起点=真正的射线起点）必须报 SOUTH —— 与解析真值一致（斜瞄不再翻面）",
+                fixed != null && fixed.cell().equals(new BlockPos(0, 0, 0))
+                        && fixed.face() == Direction.SOUTH,
+                describe(fixed));
+
+        java.util.Optional<Vec3> entry = aabb.clip(cam, end);
+        BodyVoxelRaycast.LocalHit old = entry.isPresent()
+                ? BodyVoxelRaycast.traverse(entry.get().add(look.scale(OLD_ADVANCE_EPS)), end, shapes)
+                : null;
+        check("I3 旧公式（起点=进入点+ε，贴面 ⇒ 被原版内部推进到形状内）会报 UP —— "
+                        + "与实机日志 局部面=(0,1,0) 完全一致，即用户报的\"瞄侧面却出另一面\"",
+                old != null && old.face() == Direction.UP && old.face() != analytic,
+                old == null ? "null" : ("旧公式报=" + old.face() + " 解析真值=" + analytic));
+
+        // ── I4~I5：姿态扫描（216 个相机位姿 × 9 个瞄准点，含贴棱/贴角点）────────────
+        //    只瞄格心是不够的：从球面瞄格心时"进入面"恒等于"方向主轴面"，旧公式也全对
+        //    （第一版扫描就是这样，旧公式 0 错）。用户的实机姿态是**斜看被压扁的那一面**、
+        //    准星落在靠近棱的位置 —— 那种姿态进入面 ≠ 主轴面，才是这个 bug 的现场。
+        double[][] targets = {
+                {0.5, 0.5, 0.5},
+                {0.15, 0.15, 0.15}, {0.85, 0.15, 0.15}, {0.15, 0.85, 0.15}, {0.85, 0.85, 0.15},
+                {0.15, 0.15, 0.85}, {0.85, 0.15, 0.85}, {0.15, 0.85, 0.85}, {0.85, 0.85, 0.85},
+        };
+        int total = 0;
+        int strictTotal = 0;
+        int fixedWrong = 0;
+        int oldWrong = 0;
+        int shownFixed = 0;
+        int shownOld = 0;
+        for (double az = 0.0; az < 360.0; az += 15.0) {
+            for (double el = -60.0; el <= 60.0; el += 15.0) {
+                double azr = Math.toRadians(az);
+                double elr = Math.toRadians(el);
+                Vec3 o = new Vec3(0.5 + 4.0 * Math.cos(elr) * Math.cos(azr),
+                        0.5 + 4.0 * Math.sin(elr),
+                        0.5 + 4.0 * Math.cos(elr) * Math.sin(azr));
+                for (double[] t : targets) {
+                    Vec3 aim = new Vec3(t[0], t[1], t[2]);
+                    Vec3 d = aim.subtract(o).normalize();
+                    if (!rayHitsUnitCube(o, d)) {
+                        continue;
+                    }
+                    // 独立 slab 解析：射线正好擦棱/角时多个面都合法（近平面 t 并列）
+                    java.util.List<Direction> expectSet = analyticEntryFaces(o, d);
+                    boolean strict = expectSet.size() == 1;
+                    Vec3 e = o.add(d.scale(8.0));
+                    total++;
+                    if (strict) {
+                        strictTotal++;
+                    }
+                    // 修后生产路径：起点 = 真正的射线起点
+                    BodyVoxelRaycast.LocalHit f = BodyVoxelRaycast.traverse(o, e, shapes);
+                    if (f == null || !expectSet.contains(f.face())) {
+                        fixedWrong++;
+                        if (shownFixed < 6) {
+                            shownFixed++;
+                            System.out.println("      · I4 反例 az=" + az + " el=" + el + " 瞄准=" + aim
+                                    + " 解析合法面=" + expectSet
+                                    + " 实现面=" + (f == null ? "null" : f.face()));
+                        }
+                    }
+                    // 旧公式：起点 = AABB 进入点 + ε（贴面 ⇒ 被原版内部推进到形状内）
+                    java.util.Optional<Vec3> ent = aabb.clip(o, e);
+                    if (ent.isPresent()) {
+                        BodyVoxelRaycast.LocalHit o2 = BodyVoxelRaycast.traverse(
+                                ent.get().add(d.scale(OLD_ADVANCE_EPS)), e, shapes);
+                        if (o2 == null || !expectSet.contains(o2.face())) {
+                            oldWrong++;
+                            if (shownOld < 6) {
+                                shownOld++;
+                                System.out.println("      · I5 旧公式反例 az=" + az + " el=" + el
+                                        + " 瞄准=" + aim + " 解析合法面=" + expectSet
+                                        + " 旧公式面=" + (o2 == null ? "null" : o2.face()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        check("I4 姿态扫描：修后 " + total + " 个姿态（其中非退化 " + strictTotal
+                        + " 个）报的面都落在解析合法面集合内",
+                total >= 50 && fixedWrong == 0,
+                "姿态数=" + total + " 非退化=" + strictTotal + " 修后错=" + fixedWrong);
+        check("I5 姿态扫描对照：旧公式在 " + total + " 个姿态里有 " + oldWrong
+                        + " 个报错面（>0 即复现用户症状）",
+                oldWrong > 0, "旧公式错=" + oldWrong);
+    }
+
+    /**
+     * 旧实现的起点推进量（{@code entry + dir·1e-5}）—— <b>只用来钉"这就是 bug"</b>，
+     * 生产代码里已经删掉（它远小于原版 clip 内部的 0.1% 段长推进量，必然被推进形状内部）。
+     */
+    private static final double OLD_ADVANCE_EPS = 1.0E-5;
+
+    /**
+     * 独立 slab 解析：从盒外的 o 沿单位方向 d 射入 [0,1]³，返回<b>所有合法的进入面</b>
+     * （与实现无关）。
+     *
+     * <p>进入面 = "近平面参数 t 最大"的那一轴；射线<b>正好擦棱/擦角</b>时两轴 t 并列，
+     * 此时两个面都合法（原版给的任一个都对），所以返回集合而不是单个面。</p>
+     */
+    private static java.util.List<Direction> analyticEntryFaces(Vec3 o, Vec3 d) {
+        double tx = nearT(o.x, d.x);
+        double ty = nearT(o.y, d.y);
+        double tz = nearT(o.z, d.z);
+        double best = Math.max(tx, Math.max(ty, tz));
+        java.util.List<Direction> out = new java.util.ArrayList<>(3);
+        if (Double.isFinite(tx) && tx > 0.0 && tx >= best - 1.0e-9) {
+            out.add(d.x >= 0 ? Direction.WEST : Direction.EAST);
+        }
+        if (Double.isFinite(ty) && ty > 0.0 && ty >= best - 1.0e-9) {
+            out.add(d.y >= 0 ? Direction.DOWN : Direction.UP);
+        }
+        if (Double.isFinite(tz) && tz > 0.0 && tz >= best - 1.0e-9) {
+            out.add(d.z >= 0 ? Direction.NORTH : Direction.SOUTH);
+        }
+        return out;
+    }
+
+    /** 某轴"近平面"的参数 t；该轴分量≈0 时不约束（返回 −∞）。 */
+    private static double nearT(double origin, double dir) {
+        if (Math.abs(dir) < 1.0e-12) {
+            return Double.NEGATIVE_INFINITY;
+        }
+        return dir >= 0 ? (0.0 - origin) / dir : (1.0 - origin) / dir;
+    }
+
+    /** 独立判据：射线是否真的打中 [0,1]³（slab 法）。 */
+    private static boolean rayHitsUnitCube(Vec3 o, Vec3 d) {
+        double tNear = Double.NEGATIVE_INFINITY;
+        double tFar = Double.POSITIVE_INFINITY;
+        double[] os = {o.x, o.y, o.z};
+        double[] ds = {d.x, d.y, d.z};
+        for (int i = 0; i < 3; i++) {
+            if (Math.abs(ds[i]) < 1.0e-12) {
+                if (os[i] < 0.0 || os[i] > 1.0) {
+                    return false;
+                }
+                continue;
+            }
+            double t1 = (0.0 - os[i]) / ds[i];
+            double t2 = (1.0 - os[i]) / ds[i];
+            tNear = Math.max(tNear, Math.min(t1, t2));
+            tFar = Math.min(tFar, Math.max(t1, t2));
+        }
+        return tNear <= tFar && tFar > 0.0;
     }
 
     private static void check(String name, boolean ok, String detail) {

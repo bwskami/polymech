@@ -1659,19 +1659,20 @@ public final class PhysicsBodyTracker {
                 states.put(BlockPos.asLong(e.dx(), e.dy(), e.dz()), PhysicsBodySyncPacket.stateFrom(e.stateId()));
             }
 
-            // ① 粗筛：世界 AABB
+            // ① 粗筛：世界 AABB（只用来跳过"整条射线都打不到"的体；起点在体内时没有进入点）
             net.minecraft.world.phys.AABB box = BodyVoxelRaycast.worldAabb(
                     new int[]{minX, minY, minZ, maxX, maxY, maxZ}, px, py, pz, rot);
-            net.minecraft.world.phys.Vec3 entry = box.contains(origin)
-                    ? origin
-                    : box.clip(origin, end).orElse(null);
-            if (entry == null) {
+            if (!box.contains(origin) && box.clip(origin, end).isEmpty()) {
                 continue;
             }
 
-            // ② 精求交：体局部空间 DDA（起点沿射线推进 epsilon，避免贴面反复命中）
-            net.minecraft.world.phys.Vec3 localStart = BodyVoxelRaycast.toLocal(
-                    entry.add(look.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON)), px, py, pz, inv);
+            // ② 精求交：体局部空间 DDA。**起点必须是真正的射线起点**（原版 Level.clip 同口径）：
+            //    原版 VoxelShape.clip 内部会把起点沿射线推进 0.1% 段长（避免 t=0 退化，离线实测
+            //    段长 4.52 ⇒ 阈值 0.0045、段长 10.52 ⇒ 阈值 0.0105）。若起点取"体 AABB 进入点 ± ε"
+            //    （ε=1e-5 远小于该量），这点推进就把它推进方块形状内部 ⇒ 命中面退化成"方向主轴面"
+            //    （最朝向相机的面）—— 正是用户报的"瞄侧面却出来另一面、得正对着那个面才准"。
+            //    见 BodyVoxelRaycast 类注释的 ⚠️ 段。
+            net.minecraft.world.phys.Vec3 localStart = BodyVoxelRaycast.toLocal(origin, px, py, pz, inv);
             net.minecraft.world.phys.Vec3 localEnd = BodyVoxelRaycast.toLocal(end, px, py, pz, inv);
             if (localStart == null || localEnd == null) {
                 continue;

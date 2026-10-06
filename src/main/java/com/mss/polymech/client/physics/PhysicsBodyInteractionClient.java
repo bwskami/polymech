@@ -502,8 +502,10 @@ public final class PhysicsBodyInteractionClient {
      *   <li><b>粗筛</b>：先与体的世界 AABB 求交（{@link AABB#clip}）。AABB 由方块表的局部范围
      *       + 位姿算出；退化（没方块/零尺寸）时退化成外接球半径的立方
      *       （{@link BodyVoxelRaycast#cubeAround}）—— 那正是 space 的兜底，只慢不错。</li>
-     *   <li><b>精求交</b>：把"进入点沿射线推进 epsilon"<b>和射线终点</b>都变换到局部空间，
-     *       交给 {@link BodyVoxelRaycast#traverse} 用原版 DDA + 方块<b>真实形状</b>逐格走。</li>
+     *   <li><b>精求交</b>：把<b>射线两端</b>（真正的起点 + 终点）都变换到局部空间，
+     *       交给 {@link BodyVoxelRaycast#traverse} 用原版 DDA + 方块<b>真实形状</b>逐格走。
+     *       ⚠️ 起点必须是<b>真正的射线起点</b>，<b>不能</b>用"体 AABB 进入点 ± ε"
+     *       （2026-10-06 的"瞄侧面却出来另一面"就是它；见 {@link BodyVoxelRaycast} 类注释）。</li>
      *   <li><b>取最近</b>：多个体都可能挡，取距离最小的。</li>
      * </ol>
      *
@@ -533,15 +535,19 @@ public final class PhysicsBodyInteractionClient {
             ROT.normalize();
             INV.set(ROT).conjugate();
 
-            // ① 粗筛：世界 AABB
+            // ① 粗筛：世界 AABB（只用来跳过"整条射线都打不到"的体；起点在体内时没有进入点）
             AABB box = worldAabb(body, bx, by, bz);
-            Vec3 entry = box.contains(origin) ? origin : box.clip(origin, end).orElse(null);
-            if (entry == null) {
+            if (!box.contains(origin) && box.clip(origin, end).isEmpty()) {
                 continue;
             }
 
-            // ② 精求交：局部空间 DDA（起点沿射线推进 epsilon，避免贴面时反复命中同一个面）
-            Vec3 localStart = toLocal(entry.add(dir.scale(BodyVoxelRaycast.AABB_ENTRY_EPSILON)), bx, by, bz);
+            // ② 精求交：局部空间 DDA。**起点必须是真正的射线起点**（原版 Level.clip 同口径）：
+            //    原版 VoxelShape.clip 内部会把起点沿射线推进 0.1% 段长（避免 t=0 退化，离线实测
+            //    段长 4.52 ⇒ 阈值 0.0045、段长 10.52 ⇒ 阈值 0.0105）。若起点取"体 AABB 进入点 ± ε"
+            //    （ε=1e-5 远小于该量），这点推进就把它推进方块形状内部 ⇒ 命中面退化成"方向主轴面"
+            //    （最朝向相机的面）—— 正是用户报的"瞄侧面却出来另一面、得正对着那个面才准"。
+            //    见 BodyVoxelRaycast 类注释的 ⚠️ 段。
+            Vec3 localStart = toLocal(origin, bx, by, bz);
             Vec3 localEnd = toLocal(end, bx, by, bz);
             if (localStart == null || localEnd == null) {
                 continue;

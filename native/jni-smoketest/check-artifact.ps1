@@ -705,6 +705,9 @@ $contracts = @(
     @{ file = 'native\jni-smoketest\BodyVoxelRaycastProbe.java';
        must = 'groupH();';
        why = '★★ H 组（2026-10-06 用户报"准心看着在蓝块底面、却放到侧面方向"）必须真的被执行：H2/H3 钉"从底面进体必须报 DOWN（MC 放到下方）"，H4–H6 用实机日志的起点/视线逐字复算钉"相机在底面上方 0.183 格时底面根本不在视线上，报 WEST 是几何正确"。删了这行等于没判' },
+    @{ file = 'native\jni-smoketest\BodyVoxelRaycastProbe.java';
+       must = 'groupI();';
+       why = '★★ I 组（2026-10-06 用户报"我瞄准的是侧面，出来的却是另外一面；得我正对着那个面才能切换那个面"）必须真的被执行：根因是线段起点取"体 AABB 进入点 ± ε"贴在体表面上，被原版 VoxelShape.clip 内部的 0.1% 段长推进推进了方块形状内部，命中面于是退化成"方向主轴面"（最朝向相机的面）；修法是起点 = 真正的射线起点（原版 Level.clip 口径）。I4 扫 1944 个姿态（非退化 1804）必须零错，I5 钉住旧公式在 568 个姿态上报错面。删了这行等于没判' },
     # ── 物理体方块瞄准框（2026-10-06 三轮"瞄的是哪个面"争执的治本反馈）──────────────
     # 原版对面块永远画黑色瞄准线框；物理体方块不是真方块、原版不给画 ⇒ 太空里瞄准结构
     # 没有任何反馈，用户连着三轮把"贴脸那一面的下沿"看成"底面"。这个框亮哪面，右键就沿哪面放。
@@ -740,6 +743,12 @@ $contracts = @(
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
        must = 'public static boolean cellIsAir(';
        why = '★ 预览的空格判据必须与射线共用同一张方块表（shapesOf）——另写一份方块表查询会出现"预览说能放、服务端说放不下"' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'toLocal(origin,';
+       why = '★★★ 局部 DDA 的线段起点必须是**真正的射线起点**（原版 Level.clip 口径），不是"体 AABB 进入点 ± ε"：原版 VoxelShape.clip 内部会把起点沿射线推进 0.1% 段长（离线实测：段长 4.52 ⇒ 阈值 0.0045、段长 10.52 ⇒ 阈值 0.0105），ε=1e-5 远小于该量 ⇒ 起点被推进方块形状内部，命中面退化成"方向主轴面"（最朝向相机的面）—— 用户 2026-10-06 报的"瞄准侧面却出来另一面、得正对着那个面才准"就是这个。判据见 BodyVoxelRaycastProbe 的 I 组' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       must = 'toLocal(origin,';
+       why = '★★★ 服务端射线（SpaceBlockPlacement 的兜底路）必须与客户端同一条起点口径：真正的射线起点，不是 AABB 进入点。两条路各写一份就会重现"客户端命中、服务端全空/错面"' },
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
        must = 'SpaceBuildRules.targetKind(';
        why = '★★★ 创建/扩增分流必须真的被咨询（用户 2026-10-06 拍板："你应该区分一下创建物理体和对物理体扩增的区别，现在这个是影响到了扩大物理体的手感"）。删掉这一行就退回"一条规则管两件事"——上一版那样会把扩增手感切掉、创建也一起砍掉' },
@@ -818,6 +827,12 @@ $absentContracts = @(
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
        mustNot = 'hit.normalX';
        why = '★★ 旧字段名 normalX/Y/Z（世界面语义）不得回归 —— 名字本身就是坐标系的说明书' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       mustNot = 'AABB_ENTRY_EPSILON';
+       why = '★★★ 不许再回到"起点 = AABB 进入点 ± ε"：那正是 2026-10-06 的面翻转 bug（起点贴面 ⇒ 被原版 clip 的 0.1% 段长推进推进形状内部 ⇒ 报方向主轴面）。判据见 BodyVoxelRaycastProbe 的 I 组' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
+       mustNot = 'AABB_ENTRY_EPSILON';
+       why = '★★★ 同客户端：不许回到"起点 = AABB 进入点 ± ε"' },
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
        mustNot = 'Vec3 eye = player.getEyePosition();';
        why = '★★★ 放置射线起点不得回到眼睛：太空第一人称相机离眼睛实测 1.313~1.430 格（主世界 0.000）⇒ 目标格平行错开一格多' },
