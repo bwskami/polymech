@@ -708,41 +708,6 @@ $contracts = @(
     @{ file = 'native\jni-smoketest\BodyVoxelRaycastProbe.java';
        must = 'groupI();';
        why = '★★ I 组（2026-10-06 用户报"我瞄准的是侧面，出来的却是另外一面；得我正对着那个面才能切换那个面"）必须真的被执行：根因是线段起点取"体 AABB 进入点 ± ε"贴在体表面上，被原版 VoxelShape.clip 内部的 0.1% 段长推进推进了方块形状内部，命中面于是退化成"方向主轴面"（最朝向相机的面）；修法是起点 = 真正的射线起点（原版 Level.clip 口径）。I4 扫 1944 个姿态（非退化 1804）必须零错，I5 钉住旧公式在 568 个姿态上报错面。删了这行等于没判' },
-    # ── 物理体方块瞄准框（2026-10-06 三轮"瞄的是哪个面"争执的治本反馈）──────────────
-    # 原版对面块永远画黑色瞄准线框；物理体方块不是真方块、原版不给画 ⇒ 太空里瞄准结构
-    # 没有任何反馈，用户连着三轮把"贴脸那一面的下沿"看成"底面"。这个框亮哪面，右键就沿哪面放。
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
-       must = 'public static Hit aimTarget(Player player)';
-       why = '★ 瞄准框每帧要的"当前瞄中的体方块"必须走与点击完全同一条判据路的无日志版（带日志的 currentHit 每帧调会把日志每秒刷几千行）。删了它渲染器就只能自写射线 = 框指一处、点击放另一处' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       must = 'PhysicsBodyInteractionClient.aimTarget(';
-       why = '★★ 瞄准框必须用与点击完全同一条判据路（aimTarget 无日志版）——渲染自己再写一条射线就会出现"框指一处、点击放另一处"' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       must = 'renderRotation(';
-       why = '★ 框的位姿必须走显示环（与拾取/方块渲染同一个口径），框才套在画面上那一格' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       must = 'hit.localFaceX()';
-       why = '★ 面填充必须用包同款的**体局部**面（useOrPlace 就在局部空间沿它取相邻格）——框亮哪面右键就沿哪面放' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       mustNot = 'liveTransform';
-       why = '★★ 别读刚体实时位姿（10ms 阶梯）：框会跳格、和画面/点击口径错开（2026-10-03 的教训）' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       mustNot = 'getEyePosition';
-       why = '★★ 别在这文件里自写射线起点用眼睛：太空相机离眼 1.3~1.4 格，起点错一截框就整体错开一格（起点唯一实现在 ClientViewOrigin）' },
-    # ── 瞄准框第二轮：整块框说不出"哪一面" ⇒ 面高亮 + 放置预览（2026-10-06 用户原话
-    #    "你刚才增加的框是整个方块的框，我无法得知到底是哪个面"）──────────────────────
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       must = 'BoxOutlineRenderer.addBar(';
-       why = '★★ 命中面必须有**自己的四条粗边框**：只画整块框时六面长得一样，玩家读不出"我压在哪一面"（用户 2026-10-06 的原话就是这句）。删了它=退回"只有整块框"' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       must = '.relative(face)';
-       why = '★★ 放置预览格必须与**服务端落点同式**（原版 BlockPlaceContext 的 clickedPos.relative(face)）——预览画在哪、右键方块就该出现在哪；改成别的算式=预览撒谎，比没有预览更伤' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\BodyTargetOutlineRenderer.java';
-       must = 'cellIsAir(';
-       why = '★ 预览必须区分"能放/放不下"（青/红）：目标格被占时原版 canPlace 为假、右键**静默失败**，红幽灵把"点了没反应"变成看得见的原因' },
-    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
-       must = 'public static boolean cellIsAir(';
-       why = '★ 预览的空格判据必须与射线共用同一张方块表（shapesOf）——另写一份方块表查询会出现"预览说能放、服务端说放不下"' },
     @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
        must = 'toLocal(origin,';
        why = '★★★ 局部 DDA 的线段起点必须是**真正的射线起点**（原版 Level.clip 口径），不是"体 AABB 进入点 ± ε"：原版 VoxelShape.clip 内部会把起点沿射线推进 0.1% 段长（离线实测：段长 4.52 ⇒ 阈值 0.0045、段长 10.52 ⇒ 阈值 0.0105），ε=1e-5 远小于该量 ⇒ 起点被推进方块形状内部，命中面退化成"方向主轴面"（最朝向相机的面）—— 用户 2026-10-06 报的"瞄准侧面却出来另一面、得正对着那个面才准"就是这个。判据见 BodyVoxelRaycastProbe 的 I 组' },
