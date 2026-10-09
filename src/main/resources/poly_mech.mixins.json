@@ -43,6 +43,7 @@
     "ProjectionContainerMixin",
     "ProjectionChunkDirtyMixin",
     "ProjectionDropRelocationMixin",
+    "ProjectionLevelEventMixin",
     "SpaceElytraMixin",
     "SpaceFlowingFluidMixin",
     "SpaceFallingBlockMixin"

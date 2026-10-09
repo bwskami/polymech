@@ -9,16 +9,20 @@
 decompiled-space/
   0.1.0/     ← space 0.1.0（minecraft [1.21.1]，neoforge [21.1.223,)）
   0.1.3/     ← space 0.1.3（minecraft [1.21.1]，neoforge [21.1.223,)）
-  0.3.0/     ← space 0.3.0（minecraft [1.21.1]，neoforge [21.1.223,)）★ **当前基准**（2026-09-30 起）
+  0.3.0/     ← space 0.3.0（minecraft [1.21.1]，neoforge [21.1.223,)）
+  0.5.0/     ← space 0.5.0（minecraft [1.21.1]，neoforge [21.1.223,)）★ **当前基准**（2026-10-07 起）
 ```
 
-> **⚠ 基准已切换到 0.3.0**（用户 2026-09-30 指令："之后的参考都已最新版为准"）。
-> 引用任何行为/参数前**先查 0.3.0**；0.1.3/0.1.0 只作历史对照。
-> 两者的包名**整体改过**（见下节"0.3.0 的结构变化"），照老路径找不到类时先看那张映射表。
+> **⚠ 基准已切换到 0.5.0**（沿用用户 2026-09-30 指令："之后的参考都已最新版为准"；
+> 0.5.0 于 2026-10-07 按本文"新增一个版本"流程反编译入库）。
+> 引用任何行为/参数前**先查 0.5.0**；0.3.0/0.1.3/0.1.0 只作历史对照。
+> 各版本间包名**改过两轮**（0.1.x→0.3.0 见"0.3.0 的结构变化"，0.3.0→0.5.0 见
+> "0.3.0 → 0.5.0 的结构变化"），照老路径找不到类时先查这两张映射表。
 
 每个版本目录下都是反编译后的完整 jar 内容：
-`org/`（类）、`assets/`、`data/`、`META-INF/`、`natives/`，以及四个 mixin 配置
-（`space.mixins.json`、`space.kelvin.mixins.json`、`space.mps.mixins.json`、`space.sunshine.mixins.json`）。
+`org/`（类）、`assets/`、`data/`、`META-INF/`、`natives/`，以及 mixin 配置
+（全部版本都有 `space.mixins.json`、`space.mps.mixins.json`、`space.sunshine.mixins.json`；
+0.1.x 还有 `space.kelvin.mixins.json`，0.3.0 起消失，见下文）。
 
 **为什么必须分版本**：我们的不少实现是"照 space 对照着做"的，而 space 各版本差异不小
 （0.1.3 比 0.1.0 多 53 个类）。混在一个目录里就分不清"这条结论出自哪一版"。
@@ -75,7 +79,8 @@ fracture fragments/joints）、以及 `rayon` 并行。也就是说：**继续�
 |---|---|---|
 | 0.1.0 | 263 | 早期对照版本（MPS 物理 / Kelvin 天体 / Sunshine 渲染 三套） |
 | 0.1.3 | 316 | 上一代基准；与 0.1.0 差 53 个类 |
-| **0.3.0** | **345**（含内部类 465） | ★ **当前基准**。与 0.1.3 同名保留 228 / 纯新增 117 / 消失 88 —— 大部分"消失"其实是**改包名** |
+| 0.3.0 | 345（含内部类声明 440） | 与 0.1.3 同名保留 228 / 纯新增 117 / 消失 88 —— 大部分"消失"其实是**改包名** |
+| **0.5.0** | **324**（含内部类声明 424） | ★ **当前基准**（2026-10-07 入库）。与 0.3.0 同名保留 277 / 纯新增 47 / 消失 68 |
 
 ## 0.3.0 的结构变化（2026-09-30 加入，逐类比对过）
 
@@ -147,7 +152,59 @@ body.addForce(new RigidBody.Force(new Vector3d(worldDir).normalize(this.magnitud
 - **离线标定已完成**（本项目 `ThrustCalibrationProbe`，回归第 8 项）：a = F/m 误差 0.4%。
 
 
-## 已知差异（边对照边记，避免重复结论）
+## 0.3.0 → 0.5.0 的结构变化（2026-10-07 加入，逐类比对过）
+
+净减 21 个顶层类（345 → 324）：新增 47 / 消失 68，但多数"消失"又是**改包名**。
+
+### 一、包名整理（`space.util.**` 基本被拆光，Manger 拼写修正）
+
+| 0.3.0 | 0.5.0 | 说明 |
+|---|---|---|
+| `space.util.manger.SpaceModDataPackManger` / `…ModelManger` | `space.game.manager.SpaceModDataPackManager` / `…ModelManager` | **Manger → Manager 拼写修正** + 换包 |
+| `space.util.manger.SpaceModSoundManager` | `space.game.manager.SpaceModSoundManager` | 同上 |
+| `space.util.MathUtil/PoolCache/ShapeHelper` | `space.game.util.*` | 工具类统一进 `game.util` |
+| `space.util.accessor.*`（8 个） | `space.game.accessor.*`（少 `LivingEntityAccessor`/`SpaceEntityAccessor`/`TCEAccessor`） | accessor 换包并精简 |
+| `space.util.event.SpacePlayerTeleport`、`space.util.helper.*` | `space.game.event.*`、`space.game.helper.*` | 同上 |
+| `space.sui.**` | `space.ui.sui.**` | SUI 控件框架整体挪进 `space.ui`（另有 `space.ui.overlay.*`） |
+| `sunshine.util.helper.GeometryHelper` | `sunshine.render.helper.GeometryHelper` | 渲染工具归位 |
+| `mps.Native` | `mps.MPSNative` | 原生绑定类改名 |
+| `mps.collision.network.PhysicalBodySyncManager`、`…CelestialBodySyncManager` | `…network.helper.PhysicalBodySyncClient/Manager`、`orbit.network.helper.CelestialBodySyncClient/SpaceSyncManager` | 同步管理器下沉 `helper` 子包 |
+| `space.client.ClientWorldCleanup` | `mps.collision.event.WorldCleanup` | 世界清理统一收进 mps |
+
+### 二、mixin 配置差异（逐条）
+
+| 配置 | 0.3.0 → 0.5.0（条目数） | + 新增 | − 移除 |
+|---|---|---|---|
+| `space.mixins.json` | 28 → **34** | `MixinServerChunkCache`、`MixinChunkMapFarPlayer`、`MixinEntityFarBlockCollision`、`MixinTelescopeClick`、voxy 兼容 `MixinVoxelIngestService`/`MixinVoxyRenderSystem` | — |
+| `space.mps.mixins.json` | 5 → **4** | — | `MixinLivingEntity`（0.3.0 里它已是**空壳**——`@Mixin(LivingEntity)` 无任何注入，删除纯属清理，无行为影响） |
+| `space.sunshine.mixins.json` | 25 → **20** | — | `gui.MixinModListScreen`、`gui.MixinScreen`、`gui.MixinSelectWorldScreen`、`render.MixinPostChain`、`render.MixinPostPass`（Mod List 界面注入与旧后处理链被移除） |
+
+> 注：0.5.0 仍**没有** `space.kelvin.mixins.json`（0.3.0 起 kelvin → orbit 后就没了）。
+
+### 三、原生层换名 + 跨平台（重要）
+
+`natives/mps_rigid_body.dll`（5,154,304 B）→ **`natives/mps.dll`**（5,157,888 B），
+并首次同时带 **`mps.so`（4.6 MB）/ `mps.dylib`**（Linux / macOS 构建）。
+引用原生库路径时按新名字找；与本项目 `polymech_physics` 的 ABI 对照也要以 0.5.0 为准。
+
+### 四、系统级增删（按对本项目的价值排序）
+
+- **流体系统（新）**：`FluidTankBlock/FluidOutletBlock/FluidValveBlock` + 对应 BlockEntity + `game/logistics/FluidNetwork`
+  （0.3.0 的 logistics 只有 Data/Energy，0.5.0 补上 Fluid）。
+- **推进器渲染（新）**：`ChemicalThrusterBlockEntityRenderer`（0.3.0 只有霍尔推进器渲染器）。
+- **远距离/区块（新）**：`MixinEntityFarBlockCollision`、`MixinChunkMapFarPlayer`、`MixinServerChunkCache` —— 远距离方块碰撞与区块生命周期补强。
+- **voxy 兼容（新）**：`compat.voxy` 三个类（voxy 体素渲染与太空维度互守）。
+- **无线电大瘦身（删）**：`radio/physics/*`（Doppler/Attenuation/BlockAttenuation）、`RadioSource/Transmitter/Receiver`、
+  `PropagationContext`、`RadioConstants/RadioStorage`、`adapter/*` 全部消失，只剩 `IRadioCapable`/`RadioTransceiver`/`Signal`/`RadioNetwork`。
+- **后处理链（删）**：`MixinPostChain`/`MixinPostPass`、`PlanetEngineFireDataUBO`、`CloudTextureArray` 移除；
+  新增 `sunshine/render/helper/MsLutTarget`（大气多散射 LUT）。
+- **物理体存档（搬家）**：`PhysicalBodyWorldData` 不再是独立文件，改成
+  **`CollisionPhysicalServerAction.PhysicalBodyWorldData` 内部类**（存档逻辑还在，
+  dataStorage key 仍叫 `"physical_bodies"`）——对照存档直接搜这个内部类。
+  另两个 `*Test` 类（`PhysicalBodyStorageTest`/`PhysicalBlockUpdateTimingTest`，0.3.0 顺手打包进 jar 的测试）删除。
+- **杂项（删）**：`game/propulsion/empty.java`（占位文件）、`FrameMaterial`、`DoubleClickKeyMapping`、`space.render.SpaceModVertexFormats`、
+  sunshine 的 Mod List 界面类（`ModListScreenRender`/`ScrollPanelMixin`/`MixinModListScreen` 等 10 个）。
+
 
 - **投影里产生的掉落物**：0.1.0 与 0.1.3 **都没有处理**（`org/polaris2023/mps` 下搜不到
   `ItemEntity` / `addFreshEntity` / `popResource`）。本项目自己实现了"每 tick 扫实体 + 搬到世界侧"，

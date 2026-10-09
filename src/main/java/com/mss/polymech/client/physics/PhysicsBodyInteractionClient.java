@@ -7,17 +7,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.mss.polymech.physics.BodyVoxelRaycast;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.Shapes;
@@ -30,6 +38,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -225,6 +234,154 @@ public final class PhysicsBodyInteractionClient {
                     player.getViewVector(1.0F));
             event.setCanceled(true);
         }
+    }
+
+    // ==================== 中键选取（"拿方块"） ====================
+
+    /**
+     * 中键选取物理体内的方块。
+     *
+     * <h2>为什么不能挂在 {@code InteractionKeyMappingTriggered} 上（照 space 也照不成）</h2>
+     * 原版的中键入口是 {@code Minecraft#pickBlock()}，而它<b>第一行就是</b>：
+     * <pre>if (this.hitResult != null &amp;&amp; this.hitResult.getType() != HitResult.Type.MISS) {
+     *      if (ClientHooks.onClickInput(2, keyPickItem, MAIN_HAND).isCanceled()) return;
+     *      ...</pre>
+     * 也就是说 <b>NeoForge 那个事件只在"原版射线打中了真方块"时才发</b>。
+     * 瞄着悬空的物理体时背后是空气 ⇒ 原版 {@code hitResult} = MISS ⇒ <b>事件根本不触发</b>，
+     * 挂在它上面的选取（space/MPS 的做法）于是"有时灵有时不灵"。
+     *
+     * <p>所以这里挂在更早的 {@link InputEvent.MouseButton.Pre} 上：
+     * 它在 {@code MouseHandler.onPress} 里、<b>KeyMapping 登记之前</b>发，
+     * 与原版射线无关。命中体 ⇒ 做我们自己的选取并取消事件
+     * （取消后 {@code KeyMapping.click} 不执行 ⇒ 原版 pickBlock 那一刻压根不会跑，
+     * 也就不会顺手把"挡在体后面的那块"选进背包）；没命中 ⇒ 什么都不做，原版照常。</p>
+     *
+     * <p><b>守门</b>：开着界面/覆盖层时中键归界面（事件在界面处理<b>之前</b>发，必须自己挡）；
+     * 旁观者的中键是旁观者菜单（原版在 {@code MouseHandler.onPress} 里特判）。</p>
+     */
+    @SubscribeEvent
+    public static void onMousePick(InputEvent.MouseButton.Pre event) {
+        if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_MIDDLE || event.getAction() != GLFW.GLFW_PRESS) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null || mc.gameMode == null) {
+            return;
+        }
+        if (mc.screen != null || mc.getOverlay() != null) {
+            return;
+        }
+        if (mc.player.isSpectator()) {
+            return;
+        }
+        Hit hit = currentHit(mc.player);
+        if (hit == null) {
+            return; // 没打中体：这次中键原样放行
+        }
+        if (!pickBlock(mc, hit)) {
+            return; // 该格取不出物品（空气/克隆栈为空）：放行，别把原版也堵死
+        }
+        event.setCanceled(true);
+    }
+
+    /**
+     * 从中键那一下选取物品 —— 逐行对齐原版 {@code Minecraft#pickBlock} 的方块分支，
+     * 外加 space/MPS {@code PhysicalBodyInteractionClient#handlePickBlock} 的体局部坐标。
+     *
+     * <p>区别只有两处（都是"体的方块不在世界里"逼出来的）：
+     * 状态从<b>体的方块表</b>读（{@link #stateOf}），方块实体从<b>体的方块实体表</b>读
+     * （{@link #bodyBlockEntity}，Ctrl 选取带 NBT 用）—— 原版那两处读的是世界。</p>
+     *
+     * @return 是否完成了选取（false = 交给原版）
+     */
+    private static boolean pickBlock(Minecraft mc, Hit hit) {
+        BlockState state = stateOf(hit);
+        if (state == null || state.isAir()) {
+            return false;
+        }
+        Player player = mc.player;
+        BlockPos localPos = new BlockPos(hit.dx(), hit.dy(), hit.dz());
+
+        // 命中点：射线起点 + 视线×命中距离（与画面同源；照原版把"真命中点"交给 getCloneItemStack）
+        Vec3 origin = viewOrigin(player);
+        Vec3 at = origin.add(player.getViewVector(1.0F).scale(hit.distance()));
+        Direction face = Direction.getNearest(hit.localFaceX(), hit.localFaceY(), hit.localFaceZ());
+        BlockHitResult blockHit = new BlockHitResult(at, face == null ? Direction.UP : face, localPos, false);
+
+        ItemStack stack = state.getCloneItemStack(blockHit, mc.level, localPos, player);
+        if (stack.isEmpty()) {
+            LOGGER.info("[PolyMech] [中键选取] 体 {} 格 ({},{},{}) 克隆栈为空，放弃选取",
+                    hit.bodyId, hit.dx, hit.dy, hit.dz);
+            return false;
+        }
+
+        // Ctrl 选取带方块实体 NBT（与 MPS 同形：不加创造门槛 —— 生存下背包里几乎不可能有同 NBT 的物品，
+        // 结果就是选不中、无副作用）。
+        if (Screen.hasControlDown() && state.hasBlockEntity()) {
+            BlockEntity blockEntity = bodyBlockEntity(mc, hit, state);
+            if (blockEntity != null) {
+                addCustomNbtData(stack, blockEntity, mc.level.registryAccess());
+            }
+        }
+
+        Inventory inventory = player.getInventory();
+        int slot = inventory.findSlotMatchingItem(stack);
+        String mode;
+        if (player.getAbilities().instabuild) {
+            inventory.setPickedItem(stack);
+            mc.gameMode.handleCreativeModeItemAdd(player.getItemInHand(InteractionHand.MAIN_HAND),
+                    36 + inventory.selected);
+            mode = "创造";
+        } else if (slot != -1) {
+            if (Inventory.isHotbarSlot(slot)) {
+                inventory.selected = slot;
+                mode = "热键栏 slot=" + slot;
+            } else {
+                mc.gameMode.handlePickItem(slot);
+                mode = "背包 slot=" + slot;
+            }
+        } else {
+            mode = "背包里没有这个物品（生存模式照原版不给）";
+        }
+        LOGGER.info("[PolyMech] [中键选取] 体 {} 格 ({},{},{}) {} -> {}（{}）",
+                hit.bodyId, hit.dx, hit.dy, hit.dz,
+                net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()),
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()),
+                mode);
+        return true;
+    }
+
+    /**
+     * 读该格在<b>体的方块实体表</b>里的 NBT，还原本地实例 —— 客户端没有投影维度，
+     * 只能用服务端发来的 {@code PhysicsBodyBlockEntityPacket} 那份 tag。
+     * 还原方式与 {@link PhysicsBodyRenderer} 渲染方块实体时完全一致
+     * （{@code BlockEntity.loadStatic} + {@code setLevel}），同一个概念不写两份。
+     */
+    private static BlockEntity bodyBlockEntity(Minecraft mc, Hit hit, BlockState state) {
+        ClientPhysicsWorld.ClientBody body = ClientPhysicsWorld.body(hit.bodyId());
+        if (body == null) {
+            return null;
+        }
+        for (ClientPhysicsWorld.BlockEntityEntry entry : body.blockEntities()) {
+            if (entry.dx() == hit.dx() && entry.dy() == hit.dy() && entry.dz() == hit.dz()) {
+                BlockEntity blockEntity = BlockEntity.loadStatic(
+                        new BlockPos(hit.dx(), hit.dy(), hit.dz()), state, entry.tag(),
+                        mc.level.registryAccess());
+                if (blockEntity != null) {
+                    blockEntity.setLevel(mc.level);
+                }
+                return blockEntity;
+            }
+        }
+        return null;
+    }
+
+    /** 把方块实体的自定义 NBT 与组件写进被选取的物品（照原版 {@code Minecraft#addCustomNbtData}）。 */
+    private static void addCustomNbtData(ItemStack stack, BlockEntity blockEntity, RegistryAccess registryAccess) {
+        CompoundTag tag = blockEntity.saveCustomAndMetadata(registryAccess);
+        blockEntity.removeComponentsFromTag(tag);
+        BlockItem.setBlockEntityData(stack, blockEntity.getType(), tag);
+        stack.applyComponents(blockEntity.collectComponents());
     }
 
     /**

@@ -19,16 +19,21 @@ import java.util.Map;
  * 绕视线轴把"屏幕 up"朝参考 up 拧一点。旧设计是把"保持水平"实现成"绕世界竖轴偏航"，
  * 那才会在视线与竖轴平行时退化成画面空转。</p>
  *
- * <p><b>参考 up 的分区</b>：</p>
+ * <p><b>参考 up 的分区</b>（2026-10-07 起，V 开关是总闸 —— 管住下面所有"自动"档）：</p>
  * <ol>
+ *   <li><b>V 关</b>：一切自动回正都不做 —— 重力档、贴面档、深空档全停，只留 X 手动回正
+ *       （那是玩家亲手按出来的，不算"自动"。用户报"关了辅助靠近物理体仍自动调节"的
+ *       bug：旧实现只有深空档看开关）。</li>
  *   <li>有重力（行星/大气）：参考 = 重力方向（我们的重力恒沿 −Y 缩放，故为世界竖直上）；</li>
  *   <li>零重力 + 脚下（从脚底沿玩家自己的"下"，{@link #FLOOR_MAX_DIST} 格内）有物理体表面：
  *       参考 = 该命中面的朝外法线（人站在甲板上就以甲板为下）；</li>
- *   <li>零重力 + 什么都没有（深空）：默认开 <b>深空飞行辅助</b>（{@link #toggleFlightAssist()}，
- *       V 键切换）—— 以世界竖直为参考、做<b>快速的滚转锁定</b>（松手 Z/C 后约 0.2~0.5 秒内
- *       弹回水平），让你几乎来不及迷向。仍受 {@code rollKeyActive} 让路与极点淡出约束；
- *       想完全自由飞、或把某个方向当"上"时，按 V 关掉即可。</li>
+ *   <li>零重力 + 什么都没有（深空）：深空飞行辅助 —— 以世界竖直为参考、做<b>快速的滚转锁定</b>
+ *       （松手 Z/C 后约 0.2~0.5 秒内弹回水平），让你几乎来不及迷向。
+ *       仍受 {@code rollKeyActive} 让路与极点淡出约束。</li>
  * </ol>
+ *
+ * <p>想完全自由飞（重力/贴面/深空全不掺和）、或把某个方向当"上"时，按 V 关掉即可
+ * —— 现在是真的关。</p>
  *
  * <p><b>手动回正：按一下（不是长按）</b>。按下即开始，之后每 tick 自动推进，直到收敛
  * （误差 &lt; {@link #MANUAL_DONE_DEG}）或超过 {@link #MANUAL_MAX_TICKS} 兜底时长；
@@ -126,7 +131,11 @@ public final class LevelAssist {
     /** 当前回正侧别：+1 = 让参考 up 在屏幕上方（回正），−1 = 就近倒挂水平。 */
     private static int levelSide = 1;
 
-    /** 深空飞行辅助开关（默认开）：零重力且无邻近物理体时，把滚转柔和拉回世界竖直。 */
+    /**
+     * 飞行辅助总开关（默认开，V 键切换）：关 = 一切自动回正全停（重力档/贴面档/深空档），
+     * 只留 X 手动回正。2026-10-07 前它只管深空档 —— 关着辅助贴着物理体照样被自动拧
+     * （用户实测报的 bug），与"按 V 关掉即可完全自由飞"的承诺不符，现改为总闸。
+     */
     private static boolean flightAssistEnabled = true;
 
     /**
@@ -256,27 +265,32 @@ public final class LevelAssist {
         }
         playerUp.normalize();
 
-        // ── 1. 参考 up：重力 > 邻近物理体的最近面 > 手动回正 > 深空飞行辅助（世界竖直）──
+        // ── 1. 参考 up：V 开 → 重力 > 邻近物理体的最近面 > 深空辅助（世界竖直）；
+        //        V 关 → 一切"自动"档全停，只剩 X 手动回正 ──
+        // 2026-10-07 用户报 bug："飞行辅助是关闭的状态，靠近这个物理体仍然会自动调节
+        // 飞行状态"。根因：旧实现里 V 开关只挡了深空那一档，重力档和贴面档
+        // （bodyFaceUp）根本不看开关 —— 与类注释"按 V 关掉即可完全自由飞"的承诺不符。
         boolean hasReference;
         boolean deepSpaceAssist = false;
-        if (PlanetDimensions.gravity(player.level().dimension()) > 0.0f) {
+        if (!flightAssistEnabled) {
+            if (manual) {
+                // X 手动回正不受 V 影响：那是玩家亲手按出来的，不是"自动"
+                target.set(0.0, 1.0, 0.0);
+                hasReference = true;
+            } else {
+                hasReference = false;
+            }
+        } else if (PlanetDimensions.gravity(player.level().dimension()) > 0.0f) {
             // 有重力：重力就是"上"（我们的重力恒沿 −Y 缩放）
             target.set(0.0, 1.0, 0.0);
             hasReference = true;
         } else if (bodyFaceUp(player, playerUp, target)) {
             hasReference = true;
-        } else if (manual) {
-            // 深空手动回正：以原版上下为准
-            target.set(0.0, 1.0, 0.0);
-            hasReference = true;
-        } else if (flightAssistEnabled) {
+        } else {
             // 深空飞行辅助：以世界竖直为参考，柔和回正滚转（不夹俯仰，只扶滚转）
             target.set(0.0, 1.0, 0.0);
             hasReference = true;
             deepSpaceAssist = true;
-        } else {
-            // 深空且没开辅助：自动回正**不做任何事**（太空的"上"由人自己选，别替他拧）
-            hasReference = false;
         }
         refIsDeepSpace = deepSpaceAssist;
         if (!hasReference) {

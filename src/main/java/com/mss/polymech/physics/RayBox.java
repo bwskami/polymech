@@ -65,6 +65,24 @@ public final class RayBox {
     }
 
     /**
+     * 体局部<b>点</b>坐标 → 世界点（含旋转）—— {@link #toLocalPoint} 的严格逆。
+     *
+     * <p>{@code world = bodyPos + R·local}。格中心是它在 {@code (dx+0.5, dy+0.5, dz+0.5)}
+     * 处的特例，所以 {@link #toWorldCenter} 直接调它 —— <b>同一概念只有一份实现</b>
+     * （本项目在"同一概念两份实现"上吃过亏）。</p>
+     *
+     * <p>它服务的是<b>音效/事件搬运</b>：投影维度里的一次 {@code playSound} 坐标是
+     * 连续值（不落在格中心），要原样搬到物理体所在世界就必须点级映射，
+     * 而不是只搬格中心（那会让"按半格偏移播的音"整体挪半格）。</p>
+     */
+    public static Vector3d toWorldPoint(Vector3d bodyPos, Quaterniond bodyRotation,
+                                        double lx, double ly, double lz) {
+        Vector3d v = new Vector3d(lx, ly, lz);
+        new Quaterniond(bodyRotation).transform(v);
+        return v.add(bodyPos);
+    }
+
+    /**
      * 体局部<b>格</b>坐标 → 该格在世界空间的<b>中心</b>（含旋转）—— {@link #toLocalCell} 的逆。
      *
      * <p>{@code worldCenter = bodyPos + R·(local + 0.5)}。
@@ -73,9 +91,7 @@ public final class RayBox {
      */
     public static Vector3d toWorldCenter(Vector3d bodyPos, Quaterniond bodyRotation,
                                          int dx, int dy, int dz) {
-        Vector3d v = new Vector3d(dx + 0.5, dy + 0.5, dz + 0.5);
-        new Quaterniond(bodyRotation).transform(v);
-        return v.add(bodyPos);
+        return toWorldPoint(bodyPos, bodyRotation, dx + 0.5, dy + 0.5, dz + 0.5);
     }
 
     /**

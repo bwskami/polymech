@@ -27,8 +27,11 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.portal.DimensionTransition;
@@ -461,6 +464,20 @@ public class ModCommands {
                                 .then(Commands.argument("slot", IntegerArgumentType.integer(0, 4096))
                                         .executes(ctx -> physicsProjectionWipe(ctx.getSource(),
                                                 IntegerArgumentType.getInteger(ctx, "slot"))))))
+                .then(Commands.literal("soundtest")
+                        .then(Commands.argument("id", LongArgumentType.longArg(1))
+                                .then(Commands.argument("dx", IntegerArgumentType.integer(-64, 64))
+                                        .then(Commands.argument("dy", IntegerArgumentType.integer(-64, 64))
+                                                .then(Commands.argument("dz", IntegerArgumentType.integer(-64, 64))
+                                                        .executes(ctx -> physicsSoundTest(ctx.getSource(),
+                                                                LongArgumentType.getLong(ctx, "id"),
+                                                                IntegerArgumentType.getInteger(ctx, "dx"),
+                                                                IntegerArgumentType.getInteger(ctx, "dy"),
+                                                                IntegerArgumentType.getInteger(ctx, "dz"))))))))
+                .then(Commands.literal("soundmap")
+                        .then(Commands.argument("id", LongArgumentType.longArg(1))
+                                .executes(ctx -> physicsSoundMap(ctx.getSource(),
+                                        LongArgumentType.getLong(ctx, "id")))))
                 .then(Commands.literal("placeat")
                         .then(Commands.argument("pos", net.minecraft.commands.arguments.coordinates.BlockPosArgument.blockPos())
                                 .then(Commands.argument("block", StringArgumentType.word())
@@ -599,6 +616,11 @@ public class ModCommands {
                             + " / 经验球 " + com.mss.polymech.physics.ProjectionManager.relocatedOrbCount()
                             + " / 销毁垃圾 " + com.mss.polymech.physics.ProjectionManager.discardedDropCount()
                             + "（销毁=归属不到任何物理体，留在隐藏维度也没人要）"), false);
+            source.sendSuccess(() -> Component.literal(
+                    "  音效搬运：声音 " + com.mss.polymech.physics.ProjectionManager.relocatedSoundCount()
+                            + " / 事件 " + com.mss.polymech.physics.ProjectionManager.relocatedLevelEventCount()
+                            + " / 无归属静音 " + com.mss.polymech.physics.ProjectionManager.orphanSoundCount()
+                            + "（投影维度 0 个听众的声与事件，全部搬到体所在世界；判据 /polymech physics soundtest）"), false);
             source.sendSuccess(() -> Component.literal(String.format(
                     "  地皮 %d³、间距 %d、底部 Y=%d；占用槽位 %d（最高到 %d）；实际维度键 %s",
                     com.mss.polymech.physics.ProjectionManager.SLOT_SIZE,
@@ -637,6 +659,137 @@ public class ModCommands {
         }
         source.sendSuccess(() -> Component.literal("已清空地皮 " + slot + "：清掉 " + cleared + " 个方块"), true);
         return 1;
+    }
+
+    /**
+     * /polymech physics soundtest &lt;id&gt; &lt;dx&gt; &lt;dy&gt; &lt;dz&gt;：音效搬运自检（判据）。
+     *
+     * <p><b>为什么需要它</b>：音效"搬没搬、搬到哪个点"，平时只能靠耳朵听 —— 耳朵给不出
+     * PASS/FAIL。这条命令在<b>投影维度</b>里放一声按钮音 + 一次破坏事件（2001），
+     * 同一 tick 里读搬运计数：计数 +1 就说明那条链真的跑通了
+     * （事件钩子 → 归属判据 → 刚体姿态 → 目标世界广播），并把世界侧落点打出来供比对。</p>
+     *
+     * <p>两条咽喉各判一次，正好对应两个实现：
+     * {@code proj.playSound} 走 NeoForge 的 {@code PlayLevelSoundEvent}
+     * （{@code ProjectionSoundRelocation}），{@code proj.levelEvent} 走
+     * {@code ProjectionLevelEventMixin}。</p>
+     *
+     * <p>声音与事件都在<b>命令执行的同一 tick</b>内同步处理，所以前后计数就是判据，
+     * 不需要等客户端。</p>
+     */
+    private static int physicsSoundTest(CommandSourceStack source, long bodyId, int dx, int dy, int dz) {
+        ServerLevel proj = com.mss.polymech.physics.ProjectionManager.level();
+        int slot = com.mss.polymech.physics.ProjectionManager.slotOf(bodyId);
+        if (proj == null || !com.mss.polymech.physics.ProjectionManager.isReady()) {
+            source.sendFailure(Component.literal("投影维度未就绪"));
+            return 0;
+        }
+        if (slot < 0) {
+            source.sendFailure(Component.literal("物理体 " + bodyId + " 没有投影地皮（不存在，或建体时投影维度未就绪）"));
+            return 0;
+        }
+        BlockPos pos = com.mss.polymech.physics.ProjectionManager.toProjection(slot, dx, dy, dz);
+        BlockState state = proj.getBlockState(pos);
+        if (state.isAir()) {
+            source.sendFailure(Component.literal("投影里该格是空气，先放个方块：/polymech physics placeblock "
+                    + bodyId + " " + dx + " " + dy + " " + dz + " stone"));
+            return 0;
+        }
+
+        double px = pos.getX() + 0.5;
+        double py = pos.getY() + 0.5;
+        double pz = pos.getZ() + 0.5;
+        com.mss.polymech.physics.ProjectionManager.SoundTarget target =
+                com.mss.polymech.physics.ProjectionManager.mapSoundPoint(px, py, pz);
+        int soundBefore = com.mss.polymech.physics.ProjectionManager.relocatedSoundCount();
+        int eventBefore = com.mss.polymech.physics.ProjectionManager.relocatedLevelEventCount();
+
+        // ① 按坐标播的声 —— 绝大多数方块交互音（开箱/按钮/拉杆/门/放置）走的正是这条
+        proj.playSound(null, px, py, pz, SoundEvents.UI_BUTTON_CLICK, SoundSource.BLOCKS, 1.0F, 1.0F);
+        // ② levelEvent —— 破坏碎屑 + 破坏音（2001）走的这条
+        proj.levelEvent(null, LevelEvent.PARTICLES_DESTROY_BLOCK, pos, Block.getId(state));
+
+        int soundAfter = com.mss.polymech.physics.ProjectionManager.relocatedSoundCount();
+        int eventAfter = com.mss.polymech.physics.ProjectionManager.relocatedLevelEventCount();
+        boolean soundOk = soundAfter == soundBefore + 1;
+        boolean eventOk = eventAfter == eventBefore + 1;
+        boolean mapped = target != null;
+        boolean pass = soundOk && eventOk && mapped;
+
+        source.sendSuccess(() -> Component.literal((pass ? "§aPASS" : "§cFAIL") + " 音效搬运"
+                + "　声音计数 " + soundBefore + "→" + soundAfter + (soundOk ? "（+1）" : "（应 +1）")
+                + "　事件计数 " + eventBefore + "→" + eventAfter + (eventOk ? "（+1）" : "（应 +1）")), false);
+        if (mapped) {
+            source.sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT,
+                    "  投影 (%.1f, %.1f, %.1f) → 世界 (%.2f, %.2f, %.2f)　维度 %s",
+                    px, py, pz, target.x(), target.y(), target.z(),
+                    target.level().dimension().location())), false);
+            source.sendSuccess(() -> Component.literal(
+                    "  程序判据到「已广播」为止；听觉部分自己确认：站到该体旁边，应听到一声按钮咔 + 一次破坏碎屑"), false);
+        } else {
+            source.sendSuccess(() -> Component.literal(
+                    "  FAIL：该点归属不到任何物理体（mapSoundPoint 返回 null）—— 检查体是否已销毁/投影是否同步"), false);
+        }
+        return pass ? 1 : 0;
+    }
+
+    /**
+     * /polymech physics soundmap &lt;id&gt;：整个体的<b>声音归属体检</b>（判据，不用耳朵）。
+     *
+     * <p><b>为什么需要它</b>（2026-10-06 用户实机症状"有些格子放/挖/互动永远没声音，
+     * 挖掉重放同一格还是没有"）：一个格子到底有没有声，取决于它的声音会被搬到哪个体、
+     * 搬到哪个世界坐标 —— 这平时只能靠耳朵猜，而耳朵给不出 PASS/FAIL、也说不清
+     * "声去哪了"。本命令把该体<b>每一格</b>都过一遍归属判据
+     * （{@code ProjectionManager.soundOwnerAt}，与真实音效/事件/掉落/容器校验同一实现），
+     * 归属到别的体 / 归属不到的格直接点名并给出声音会落到的世界坐标 ——
+     * 那些格就是"永远没声音"的格。修复前后各跑一次，FAIL→PASS 即闭环。</p>
+     */
+    private static int physicsSoundMap(CommandSourceStack source, long bodyId) {
+        java.util.List<com.mss.polymech.network.PhysicsBodySyncPacket.BlockEntry> cells =
+                com.mss.polymech.physics.PhysicsBodyTracker.blocksOf(bodyId);
+        int slot = com.mss.polymech.physics.ProjectionManager.slotOf(bodyId);
+        if (cells == null || cells.isEmpty() || slot < 0
+                || !com.mss.polymech.physics.ProjectionManager.isReady()) {
+            source.sendFailure(Component.literal(
+                    "物理体 " + bodyId + " 不存在（或没有投影地皮）；先用 /polymech physics bodies 查 id"));
+            return 0;
+        }
+        int ok = 0;
+        java.util.List<Component> bad = new java.util.ArrayList<>();
+        for (com.mss.polymech.network.PhysicsBodySyncPacket.BlockEntry cell : cells) {
+            BlockPos projPos = com.mss.polymech.physics.ProjectionManager.toProjection(
+                    slot, cell.dx(), cell.dy(), cell.dz());
+            long owner = com.mss.polymech.physics.ProjectionManager.soundOwnerAt(projPos);
+            if (owner == bodyId) {
+                ok++;
+                continue;
+            }
+            // 归属错了：把"这一格的声音会被搬去哪"也打出来 —— 落到别的体/别的维度一眼可见
+            com.mss.polymech.physics.ProjectionManager.SoundTarget target =
+                    com.mss.polymech.physics.ProjectionManager.mapSoundPoint(
+                            projPos.getX() + 0.5, projPos.getY() + 0.5, projPos.getZ() + 0.5);
+            String where = target == null
+                    ? "无归属 → 静音"
+                    : String.format(java.util.Locale.ROOT, "声会落到 世界 (%.1f, %.1f, %.1f) 维度 %s",
+                            target.x(), target.y(), target.z(), target.level().dimension().location());
+            bad.add(Component.literal(String.format(java.util.Locale.ROOT,
+                    "  格 (%d, %d, %d) 归属到体 %d（应属 %d）%s",
+                    cell.dx(), cell.dy(), cell.dz(), owner, bodyId, where)));
+        }
+        boolean pass = bad.isEmpty();
+        int okCount = ok; // lambda 要引用，复制一份实际 final 的
+        source.sendSuccess(() -> Component.literal((pass ? "§aPASS" : "§cFAIL")
+                + " 声音归属体检　体 " + bodyId + "（槽位 " + slot + "）："
+                + okCount + "/" + (okCount + bad.size()) + " 格归属正确"), false);
+        for (Component line : bad.subList(0, Math.min(bad.size(), 8))) {
+            source.sendSuccess(() -> line, false);
+        }
+        if (bad.size() > 8) {
+            int more = bad.size() - 8;
+            source.sendSuccess(() -> Component.literal(
+                    "  …另有 " + more + " 格同样归属错误（多为 dx<0 的西扩格）"), false);
+        }
+        return pass ? 1 : 0;
     }
 
     /**

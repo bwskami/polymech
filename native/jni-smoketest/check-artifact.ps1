@@ -309,8 +309,8 @@ $contracts = @(
        must = 'placeBlock(adjacent.getKey(), localCell[0], localCell[1], localCell[2], stateId)';
        why = '★ 放方块的局部格由 findAdjacentBody 在局部空间算好返回（原来用 pos − origin 反算，旋转/平移后都错）' },
     @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyTracker.java';
-       must = 'RayBox.toWorldCenter(new Vector3d(tracked.x, tracked.y, tracked.z)';
-       why = 'localToWorld 与 toLocalCell 共用同一对映射（单一来源；本项目在"同一概念两份实现"上吃过亏）' },
+       must = 'RayBox.toWorldPoint(new Vector3d(tracked.x, tracked.y, tracked.z)';
+       why = 'localToWorld / localPointToWorld 与 toLocalCell 共用同一对映射（单一来源；本项目在"同一概念两份实现"上吃过亏）。2026-10-06 起"格心"成为"点"的特例：localToWorld 只是 localPointToWorld(dx+0.5,…) 的转发，两条路都落在 RayBox 这一对实现上（音效搬运要的是点级，见 ProjectionSoundMappingProbe 的 B 组）' },
 
     # ── 物理体方块射线：必须照 space 0.3.0 的 ShipRaycast（2026-10-06）────────────
     # 旧的手写实现（physics/PhysicsRaycast.java）已删除：它把方块表拍成 int[]、逐块当单位立方体做 slab，
@@ -728,7 +728,24 @@ $contracts = @(
        why = '★★ 运行期判据必须打出"这次是扩增还是创建"（配合 命中来源/目标格）—— 实机一眼分辨，不用猜' },
     @{ file = 'native\jni-smoketest\SpaceBuildRulesProbe.java';
        must = 'placementCase(';
-       why = '★★★ 分流真值表必须真的被执行（写了不调用等于没判）：离线那条能 FAIL 的判据在这里' }
+       why = '★★★ 分流真值表必须真的被执行（写了不调用等于没判）：离线那条能 FAIL 的判据在这里' },
+
+    # ── 音效系统（2026-10-06「增加物理体完整的音效系统（部分互动原本应该有的音效没用）」）──
+    # 病根：破坏/放置/使用全在投影维度跑原版逻辑，那边的声音按 this.dimension() 广播 ⇒ 0 个听众。
+    # 离线判据：native\jni-smoketest\ProjectionSoundMappingProbe.java（点级映射往返 / 单一来源 / 格心反例）
+    # 游戏内判据：/polymech physics soundtest（两条咽喉各判一次，计数 +1 才算 PASS）
+    @{ file = 'src\main\java\com\mss\polymech\physics\ProjectionSoundRelocation.java';
+       must = 'ProjectionManager.mapSoundPoint(';
+       why = '★★ 音效的归属与坐标必须走唯一实现（与掉落物搬运同一套 nearestBodyFor + RayBox.toWorldPoint）——自己再算一遍必然漂移' },
+    @{ file = 'src\main\java\com\mss\polymech\physics\ProjectionManager.java';
+       must = 'PhysicsBodyTracker.localPointToWorld(bodyId,';
+       why = '★★★ 音效必须**点级**映射：只搬到格心会偏最多 √3/2≈0.866 格（探针 C 组实测 0.707 格、18045/48600 采样落进别的世界格）' },
+    @{ file = 'src\main\java\com\mss\polymech\client\physics\PhysicsBodyInteractionClient.java';
+       must = 'InputEvent.MouseButton.Pre';
+       why = '★★★ 中键选取必须挂在 MouseButton.Pre：InteractionKeyMappingTriggered 只在原版射线打中真方块时才发（Minecraft.pickBlock 第一行就是 MISS 判断）——瞄着悬空体时背后是空气，事件根本不触发，挂上去就是"有时灵有时不灵"' },
+    @{ file = 'src\main\resources\poly_mech.mixins.json';
+       must = 'ProjectionLevelEventMixin';
+       why = '★★ 事件搬运的钩子必须注册：漏了 ⇒ 破坏碎屑/音效（levelEvent 2001）退回隐藏维度，编译期毫无提示' }
 )
 
 # ── 「不得存在」型契约 ───────────────────────────────────────────────────────
@@ -816,7 +833,12 @@ $absentContracts = @(
     #   —— 我上一版把"打空"一律判成不放，把创建一起砍了。所以下面这条"无条件拒绝"的文案不得回归。
     @{ file = 'src\main\java\com\mss\polymech\physics\SpaceBlockPlacement.java';
        mustNot = '命中来源=无 ⇒ 不放置（无兜底）';
-       why = '★★★ 不得退回"打空一律不放"（那把创建一起砍了 —— 用户 2026-10-06 第二轮纠正）；也不得退回"打空一律兜底"（第一轮）。正确形态只有三条：命中⇒扩增 / 打空+周围有体⇒拒绝 / 打空+周围无体⇒创建' }
+       why = '★★★ 不得退回"打空一律不放"（那把创建一起砍了 —— 用户 2026-10-06 第二轮纠正）；也不得退回"打空一律兜底"（第一轮）。正确形态只有三条：命中⇒扩增 / 打空+周围有体⇒拒绝 / 打空+周围无体⇒创建' },
+
+    # ── 音效系统：破坏事件不许手发（2026-10-06）──────────────────────────────
+    @{ file = 'src\main\java\com\mss\polymech\physics\PhysicsBodyInteraction.java';
+       mustNot = 'PARTICLES_DESTROY_BLOCK';
+       why = '★★★ 破坏碎屑/音效不得再手发：原版 playerWillDestroy 已在投影维度发过 2001，由 ProjectionLevelEventMixin 搬到世界 —— 两处都发就是双份碎屑与双份破坏音，而只手发则活塞砸掉/床/双格植物那几条路径全漏' }
 )
 Write-Host ""
 Write-Host '--- 着色器/接口契约 ---' -ForegroundColor Cyan

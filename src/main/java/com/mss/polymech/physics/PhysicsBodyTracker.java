@@ -1215,14 +1215,46 @@ public final class PhysicsBodyTracker {
      * @return 世界坐标 {x,y,z}；刚体不存在返回 null
      */
     public static double[] localToWorld(long id, int dx, int dy, int dz) {
+        return localPointToWorld(id, dx + 0.5, dy + 0.5, dz + 0.5);
+    }
+
+    /**
+     * 地皮<b>局部点</b>（连续坐标，格 {@code (dx,dy,dz)} 占 {@code [dx,dx+1)}）→
+     * 该物理体所在世界的坐标。
+     *
+     * <p>与 {@link #localToWorld} 同一条映射（后者就是它的格中心特例），
+     * 但点级版本才能原样搬运<b>不落在格中心</b>的坐标 —— 音效、levelEvent 的落点都是连续值。</p>
+     *
+     * @return 世界坐标 {x,y,z}；刚体不存在返回 null
+     */
+    public static double[] localPointToWorld(long id, double lx, double ly, double lz) {
         TrackedBody tracked = BODIES.get(id);
         if (tracked == null) {
             return null;
         }
         // 与"世界格 → 局部格"共用 RayBox 里那一对映射（单一来源）
-        Vector3d c = RayBox.toWorldCenter(new Vector3d(tracked.x, tracked.y, tracked.z),
-                new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw), dx, dy, dz);
-        return new double[]{c.x, c.y, c.z};
+        Vector3d w = RayBox.toWorldPoint(new Vector3d(tracked.x, tracked.y, tracked.z),
+                new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw), lx, ly, lz);
+        return new double[]{w.x, w.y, w.z};
+    }
+
+    /**
+     * 真实世界的<b>点</b> → 该体局部点（含旋转）—— {@link #localPointToWorld} 的严格逆。
+     *
+     * <p>同一条映射的另一个方向（{@code RayBox.toLocalPoint}）：服务端要做
+     * "世界里的实体碰撞箱 vs 体上某格的方块形状"这类跨空间相交测试时，
+     * 把实体侧变换到体局部最顺（方块形状在体局部是轴对齐的 VoxelShape）。</p>
+     *
+     * @return 体局部坐标 {x,y,z}；刚体不存在返回 null
+     */
+    public static double[] worldPointToLocal(long id, double wx, double wy, double wz) {
+        TrackedBody tracked = BODIES.get(id);
+        if (tracked == null) {
+            return null;
+        }
+        Vector3d l = RayBox.toLocalPoint(new Vector3d(tracked.x, tracked.y, tracked.z),
+                new Quaterniond(tracked.qx, tracked.qy, tracked.qz, tracked.qw), wx, wy, wz);
+        return new double[]{l.x, l.y, l.z};
     }
 
     /**
@@ -1263,14 +1295,28 @@ public final class PhysicsBodyTracker {
                     if (now == null) {
                         continue; // 投影维度不可用时不动缓存
                     }
-                    boolean had = blocks.removeIf(e -> e.dx() == lx && e.dy() == ly && e.dz() == lz);
+                    PhysicsBodySyncPacket.BlockEntry old = null;
+                    for (PhysicsBodySyncPacket.BlockEntry e : blocks) {
+                        if (e.dx() == lx && e.dy() == ly && e.dz() == lz) {
+                            old = e;
+                            break;
+                        }
+                    }
+                    if (old != null) {
+                        blocks.remove(old);
+                    }
                     if (!now.isAir()) {
-                        blocks.add(new PhysicsBodySyncPacket.BlockEntry((short) lx, (short) ly, (short) lz,
-                                PhysicsBodySyncPacket.stateId(now)));
-                        if (!had) {
+                        int nowId = PhysicsBodySyncPacket.stateId(now);
+                        blocks.add(new PhysicsBodySyncPacket.BlockEntry((short) lx, (short) ly, (short) lz, nowId));
+                        // 新格、或"格还在但状态变了"（开门/关门、拉杆、按钮…）都必须算变化：
+                        // 旧实现只认增格/删格，手点门是纯状态变化 ⇒ anyChanged 恒 false ⇒
+                        // 1297 行早退"不重建、不发包" ⇒ 客户端永远看到关着的门 —— 表现就是
+                        // "体上的门/活板门/栅栏门玩家无法互动"；红石之所以"能"控制，只是因为
+                        // 放/挖红石块本身有增删格，全量快照广播顺带捎上了门的新状态（2026-10 用户报）。
+                        if (old == null || old.stateId() != nowId) {
                             anyChanged = true;
                         }
-                    } else if (had) {
+                    } else if (old != null) {
                         anyChanged = true;
                     }
                 }
@@ -1300,8 +1346,8 @@ public final class PhysicsBodyTracker {
      * （下半扇门一开，上半扇的 {@code open} 也变），只同步命中格就会留下一半是旧状态 ——
      * 表现是"门只开了一半"。半径 1 的 3³ 扫描只有 27 次读，代价可忽略。</p>
      */
-    public static void syncAroundFromProjection(long id, int dx, int dy, int dz, int radius) {
-        syncFromProjection(id, dx, dy, dz, Math.max(0, radius));
+    public static boolean syncAroundFromProjection(long id, int dx, int dy, int dz, int radius) {
+        return syncFromProjection(id, dx, dy, dz, Math.max(0, radius));
     }
 
     /**

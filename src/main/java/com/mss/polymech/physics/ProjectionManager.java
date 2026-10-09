@@ -537,15 +537,68 @@ public final class ProjectionManager {
         return discardedDrops;
     }
 
+    // ==================== 音效 / levelEvent 搬运（隐藏维度里的声与事件要在世界里放） ====================
+
+    /** 累计从投影维度搬到世界的<b>声音</b>（{@code PlayLevelSoundEvent.AtPosition/AtEntity}）。 */
+    private static int relocatedSounds;
+    /** 累计从投影维度搬到世界的 <b>levelEvent</b>（破坏碎屑 2001、活塞/发射器那一类）。 */
+    private static int relocatedLevelEvents;
+    /** 累计"归属不到任何物理体、只能静音"的投影声音（隐藏维度里没人听得见，取消掉与留在原地等价）。 */
+    private static int orphanSounds;
+
+    public static int relocatedSoundCount() {
+        return relocatedSounds;
+    }
+
+    public static int relocatedLevelEventCount() {
+        return relocatedLevelEvents;
+    }
+
+    public static int orphanSoundCount() {
+        return orphanSounds;
+    }
+
+    static void countRelocatedSound() {
+        relocatedSounds++;
+    }
+
+    static void countRelocatedLevelEvent() {
+        relocatedLevelEvents++;
+    }
+
+    static void countOrphanSound() {
+        orphanSounds++;
+    }
+
     /**
      * 找出这个投影坐标该归属哪个物理体。
      *
-     * <p>先按地皮网格正查；投掷器/发射器会把物品<b>射出地皮边界</b>（飞出 128³ 之外），
-     * 那就退一步取 X 上<b>最近的地皮</b>（允许差 1 块），否则那些东西永远搬不走。</p>
+     * <h2>为什么"格归属"必须排在条带正查前面（2026-10-06 实机症状的根因）</h2>
+     * 体的局部格可以越过地皮条带往<b>负方向</b>扩：建体时首块是局部 (0,0,0)，
+     * 往西再放一块就是 dx=-1 —— 而 {@link #slotOfProjectionPos} 只按 X 正查条带，
+     * dx&lt;0 的格会被算进<b>上一个槽位</b>的条带里。于是只要存在两个以上的体
+     * （槽位都被从小到大占着），西扩那一片格子的放置/破坏/互动声就全被搬到
+     * <b>错误的体</b>身上 —— 甚至搬进另一个维度，那边 16 格广播半径内没有玩家，
+     * 表现就是"有些格子永远没声音，挖掉重放同一格还是没有"（按格确定性复现）。
+     * 掉落物搬运、levelEvent、容器校验共用这条判据，同样会错。
+     *
+     * <p><b>判据顺序</b>：
+     * <ol>
+     *   <li><b>格归属</b>：位置落在某体的格上（或紧贴一格，容 1 格抖动 —— 音效坐标
+     *       常 ±0.5 抖动、实体站在格顶上）⇒ 就是那个体。不同体的格在投影里
+     *       至少隔 64 格，不可能歧义。</li>
+     *   <li><b>条带正查 + 最近兜底</b>：投掷器/发射器会把物品<b>射出地皮边界</b>
+     *       （飞出 128³ 之外），那时候不落在任何格上，退一步取 X 上<b>最近的地皮</b>
+     *       （允许差 1 块），否则那些东西永远搬不走。</li>
+     * </ol></p>
      */
     private static long nearestBodyFor(BlockPos pos) {
         if (USED_SLOTS.isEmpty()) {
             return -1L;
+        }
+        long owning = bodyOwningNearbyCell(pos);
+        if (owning >= 0) {
+            return owning;
         }
         int slot = slotOfProjectionPos(pos);
         if (USED_SLOTS.contains(slot)) {
@@ -561,6 +614,41 @@ public final class ProjectionManager {
             }
         }
         return bestDist <= 1 ? bodyOfSlot(best) : -1L;
+    }
+
+    /**
+     * 位置贴着哪个体的格（切比雪夫距离 ≤ 1：同一格或紧邻的 6 格/26 格之一）。
+     *
+     * <p><b>容 1 格的理由</b>：方块音效的坐标常带 ±0.5 内的随机偏移
+     * （{@code playSound(x + …)}），{@code BlockPos.containing} 之后可能落到邻格；
+     * 站在方块上的实体（掉落物、经验球）其所在格是<b>空气</b>、不在任何体的格表里
+     * —— 但它正下方那格在。</p>
+     */
+    private static long bodyOwningNearbyCell(BlockPos pos) {
+        for (Map.Entry<Long, Integer> e : SLOT_OF_BODY.entrySet()) {
+            BlockPos start = startOf(e.getValue());
+            int dx = pos.getX() - start.getX();
+            int dy = pos.getY() - start.getY();
+            int dz = pos.getZ() - start.getZ();
+            for (com.mss.polymech.network.PhysicsBodySyncPacket.BlockEntry cell
+                    : PhysicsBodyTracker.blocksOf(e.getKey())) {
+                if (Math.abs(cell.dx() - dx) <= 1
+                        && Math.abs(cell.dy() - dy) <= 1
+                        && Math.abs(cell.dz() - dz) <= 1) {
+                    return e.getKey();
+                }
+            }
+        }
+        return -1L;
+    }
+
+    /**
+     * 诊断：这个投影坐标当前会被归属到哪个体 —— 与真实音效/事件/掉落/容器校验
+     * <b>同一条判据</b>（{@link #nearestBodyFor}）。供
+     * {@code /polymech physics soundmap} 体检命令用；-1 = 无归属（静音/丢弃）。
+     */
+    public static long soundOwnerAt(BlockPos pos) {
+        return nearestBodyFor(pos);
     }
 
     // ==================== 投影里的掉落物搬运 ====================
@@ -757,6 +845,88 @@ public final class ProjectionManager {
     }
 
     /**
+     * 投影维度里的一个点，映射到物理体所在世界的点（含目标维度）。
+     *
+     * @param level 目标世界（= 该体所在世界）
+     * @param x/y/z 世界侧坐标（连续值，音效原样用它、事件取其所在格）
+     */
+    public record SoundTarget(ServerLevel level, double x, double y, double z) {
+        /** 落到方块上（{@code levelEvent} 只吃整数格）。 */
+        public BlockPos blockPos() {
+            return BlockPos.containing(x, y, z);
+        }
+    }
+
+    /**
+     * 投影维度里的一个点 → 该物理体所在世界的点。
+     *
+     * <p><b>为什么必须点级</b>：{@code playSound(x,y,z)} 的坐标是连续值（方块音效常带
+     * 0.5 的格心偏移、甚至半格以内的随机偏移），只搬格中心会把音整体挪位；
+     * 所以走 {@link PhysicsBodyTracker#localPointToWorld}（{@code RayBox.toWorldPoint} 那一条
+     * 与"世界格⇄局部格"同一份实现的映射）。</p>
+     *
+     * <p>归属判据与掉落物搬运共用 {@link #nearestBodyFor}（含"射出地皮边界"时就近归属）——
+     * 同一个概念两条路必然漂移，本项目吃过这个亏。</p>
+     *
+     * @return 归属不到任何物理体时返回 null（调用方按"静音"处理）
+     */
+    public static SoundTarget mapSoundPoint(double x, double y, double z) {
+        if (level == null) {
+            return null;
+        }
+        long bodyId = nearestBodyFor(BlockPos.containing(x, y, z));
+        if (bodyId < 0) {
+            return null;
+        }
+        int slot = slotOf(bodyId);
+        if (slot < 0) {
+            return null;
+        }
+        ServerLevel target = PhysicsBodyTracker.levelOf(bodyId);
+        if (target == null) {
+            return null; // 体正在销毁/换维度
+        }
+        BlockPos start = startOf(slot);
+        double[] world = PhysicsBodyTracker.localPointToWorld(bodyId,
+                x - start.getX(), y - start.getY(), z - start.getZ());
+        if (world == null) {
+            return null;
+        }
+        return new SoundTarget(target, world[0], world[1], world[2]);
+    }
+
+    /**
+     * 把投影维度里发出的 {@code levelEvent} 搬到物理体所在世界。
+     *
+     * <p><b>为什么整类事件都要搬</b>：{@code ServerLevel.levelEvent} 按
+     * {@code this.dimension()} 广播，投影维度里<b>一个玩家都没有</b> —— 破坏碎屑与音效
+     * （2001）、活塞/发射器/音符盒那一类事件全部发给了空气。这与掉落物是同一个病：
+     * 隐藏维度里发生的一切"表现"都得挪到玩家看得见的世界里。</p>
+     *
+     * <p><b>{@code except} 传 null 是有意的</b>：原版 {@code playerWillDestroy} 传的
+     * 是"发起的玩家"，服务端据此跳过他 —— 因为<b>原版客户端会本地预测一遍</b>给他补上。
+     * 我们的客户端碰不到投影维度（右键/左键都被吞掉转发了），没有那份预测；
+     * 保留 except 的话<b>挖方块的人自己看不见碎屑也听不见音</b>。</p>
+     *
+     * @return true = 已在世界侧放了，调用方应取消投影里的那一次
+     */
+    public static boolean relocateLevelEvent(ServerLevel from, int type, BlockPos pos, int data) {
+        if (!isProjectionLevel(from)) {
+            return false;
+        }
+        SoundTarget target = mapSoundPoint(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+        if (target == null) {
+            return false; // 归属不到体：留在原地（＝没人听得见，但不会报错）
+        }
+        target.level().levelEvent(null, type, target.blockPos(), data);
+        countRelocatedLevelEvent();
+        Polymech.LOGGER.debug("[音效搬运] 事件 {} 投影 {} → 世界 {}（体 {}）",
+                type, pos.toShortString(), target.blockPos().toShortString(),
+                target.level().dimension().location());
+        return true;
+    }
+
+    /**
      * 投影维度里的容器，对"离它所属物理体足够近"的玩家视为仍然有效。
      *
      * <p><b>为什么必须改这个判定</b>：原版 {@code Container#stillValidBlockEntity} 比的是
@@ -769,7 +939,9 @@ public final class ProjectionManager {
                 || !(player instanceof net.minecraft.server.level.ServerPlayer sp)) {
             return false;
         }
-        long bodyId = bodyOfSlot(slotOfProjectionPos(be.getBlockPos()));
+        // 归属判据与音效/掉落同一份（nearestBodyFor）：西扩格（dx<0）按旧条带正查会
+        // 归到上一个槽位的体上 —— 箱子会校验"离错误的体够不够近"，结构离得远就直接关上。
+        long bodyId = nearestBodyFor(be.getBlockPos());
         // 用物理体的方块包围盒最近距离，避免大结构远端被判成超距
         return bodyId >= 0 && PhysicsBodyTracker.isNear(bodyId, sp, 8.0);
     }

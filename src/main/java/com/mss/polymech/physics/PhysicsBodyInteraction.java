@@ -1,7 +1,10 @@
 package com.mss.polymech.physics;
 
+import com.mss.polymech.space.SpacePlayerData;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundSource;
@@ -17,8 +20,11 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -312,6 +318,63 @@ public final class PhysicsBodyInteraction {
     }
 
     /**
+     * <b>玩家阻挡放置的唯一判据</b>（两条放置路径共用这一份）。
+     *
+     * <h2>为什么必须共用一份（2026-10-08 用户报"很近时仍有特殊情况可以直接放置"）</h2>
+     * <p>此前只有路径②（{@code SpaceBlockPlacement}，准星没打中体时）判玩家，
+     * <b>路径①（准星打中体的面、走 {@link #useOrPlace}）完全没有这一判</b>——
+     * 站在船边右键船面，新方块正好落在自己身上，人和方块重合（穿模）。判据抽到这里，
+     * 两条路径都必须过同一道闸。</p>
+     *
+     * <h2>判什么</h2>
+     * <ol>
+     *   <li><b>原版碰撞箱</b>（0.6×1.8，与 Rapier 玩家盒同尺寸）—— 物理权威；</li>
+     *   <li><b>可见身体</b>：身体基底的<b>旋转盒</b>（服务端有同步来的
+     *       facing/left/bodyFacing/bodyLeft）。太空 6DOF 下身体会躺/侧，
+     *       直立箱盖不住可见身体，那块区域放方块一样是"人和方块重合"。</li>
+     * </ol>
+     *
+     * @return true = 目标格与玩家身体相交 ⇒ 不许放
+     */
+    public static boolean playerBlocksCell(ServerPlayer player, BlockPos target) {
+        AABB cell = new AABB(target);
+        if (player.getBoundingBox().inflate(PLAYER_BLOCK_MARGIN).intersects(cell)) {
+            return true;
+        }
+        SpacePlayerData data = SpacePlayerData.get(player);
+        if (data == null || !data.isInitialized()) {
+            return false; // 非太空 6DOF：只有原版箱（上面的判据已经够）
+        }
+        return rotatedBodyBox(player, data).intersects(cell);
+    }
+
+    /** 玩家阻挡放置的容差（格）：贴面留一点余量，别让浮点误差把"正好贴着"放过去。 */
+    private static final double PLAYER_BLOCK_MARGIN = 0.05;
+
+    /**
+     * 可见身体的<b>保守世界盒</b>：旋转后的 0.6×1.8，支点与姿态和模型渲染同源
+     * （中心 = 实体 + {@link SpacePlayerData#bodyCenterOffset}，姿态 = 身体基底四元数）。
+     *
+     * <p>取八角的世界范围（保守）—— 判定方向是"宁可拒放也别穿模"，保守放大的方向是对的。</p>
+     */
+    private static AABB rotatedBodyBox(ServerPlayer player, SpacePlayerData data) {
+        double hw = Math.max(0.05, player.getBbWidth() * 0.5);
+        double hh = Math.max(0.05, player.getBbHeight() * 0.5);
+        double cx = player.getX();
+        double cy = player.getY() + SpacePlayerData.bodyCenterOffset(player);
+        double cz = player.getZ();
+        Quaternionf q = data.orientation(new Quaternionf());
+        Vector3f a0 = new Vector3f(1.0f, 0.0f, 0.0f).rotate(q);
+        Vector3f a1 = new Vector3f(0.0f, 1.0f, 0.0f).rotate(q);
+        Vector3f a2 = new Vector3f(0.0f, 0.0f, 1.0f).rotate(q);
+        double ex = hw * Math.abs(a0.x) + hh * Math.abs(a1.x) + hw * Math.abs(a2.x);
+        double ey = hw * Math.abs(a0.y) + hh * Math.abs(a1.y) + hw * Math.abs(a2.y);
+        double ez = hw * Math.abs(a0.z) + hh * Math.abs(a1.z) + hw * Math.abs(a2.z);
+        return new AABB(cx - ex, cy - ey, cz - ez, cx + ex, cy + ey, cz + ez)
+                .inflate(PLAYER_BLOCK_MARGIN);
+    }
+
+    /**
      * 使用 / 放置：先在投影里跑原版 {@code useItemOn} / {@code useWithoutItem}，
      * 都没消耗这次交互、手上又是方块物品时，再按原版 {@link BlockPlaceContext} 放置。
      *
@@ -360,6 +423,16 @@ public final class PhysicsBodyInteraction {
         if (!changed && stack.getItem() instanceof BlockItem blockItem) {
             BlockPlaceContext ctx = new BlockPlaceContext(
                     new UseOnContext(proj, player, interactionHand, stack, hit));
+            // 🚧 玩家阻挡判据（路径② 同一条，见 playerBlocksCell 的类注释）：
+            //    目标格压在玩家身上 ⇒ 拒放。**这里正是"很近时的特殊情况"漏掉的那道闸** ——
+            //    此前路径① 直接 place，方块落在自己身上，人和方块重合（穿模）。
+            BlockPos placeTarget = ctx.getClickedPos();
+            if (playerBlocksCell(player, placeTarget)) {
+                player.displayClientMessage(
+                        Component.literal(SpaceBuildRules.message(SpaceBuildRules.Decision.REFUSE_TOO_CLOSE))
+                                .withStyle(ChatFormatting.YELLOW), true);
+                return true; // 吃掉这次交互：别再让别的路径替我们放一次
+            }
             // 走原版 BlockItem.place，别自己 setBlock —— 它负责：
             //   · getStateForPlacement（朝向按玩家朝/点击面算，此前"朝向和原版不一样"就是漏了它）
             //   · setPlacedBy（门的另一半、床尾、告示牌…多格方块全靠它，此前"门被截掉"就是漏了它）

@@ -164,7 +164,7 @@ public final class SpaceBlockPlacement {
         // ---------- 前置判据（纯函数，离线有判据表）----------
         BlockState state = blockItem.getBlock().defaultBlockState();
         boolean occupied = !level.getBlockState(target).isAir();
-        boolean intersectsPlayer = player.getBoundingBox().inflate(0.05).intersects(new AABB(target));
+        boolean intersectsPlayer = PhysicsBodyInteraction.playerBlocksCell(player, target);
         boolean adjacent = PhysicsBodyTracker.hasAdjacentBody(level, target);
         SpaceBuildRules.Decision decision = SpaceBuildRules.decide(occupied, intersectsPlayer, adjacent,
                 PhysicsBodyTracker.bodyCount());
