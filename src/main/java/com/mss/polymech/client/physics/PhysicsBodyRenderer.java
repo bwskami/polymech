@@ -409,10 +409,6 @@ public final class PhysicsBodyRenderer {
                     new com.mss.polymech.physics.BodyLocalAnchor(
                             packet.bodyId(), packet.localX(), packet.localY(), packet.localZ()),
                     packet.released());
-            // space 式"物理替代移动"：由客户端物理世界接管本地玩家的位移
-            PhysicsClientHooks.movementDriver = (entity, delta) ->
-                    entity instanceof net.minecraft.client.player.LocalPlayer player
-                            && ClientPhysics.drive(player, delta);
         }
     }
 }

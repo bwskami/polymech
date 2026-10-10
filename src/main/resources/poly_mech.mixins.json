@@ -20,7 +20,9 @@
     "LevelLoadStatusManagerMixin",
     "LevelRendererCelestialSkyMixin",
     "SpaceDepthFarMixin",
-    "mps.MixinClientChunkCache"
+    "mps.MixinClientChunkCache",
+    "EntityPhysicsCollideMixin",
+    "EntityPhysicsProbeMixin"
   ],
   "mixins": [
     "datapack.WorldLoaderSpaceDataMixin",
@@ -39,7 +41,6 @@
     "LevelBoundsMixin",
     "LevelChunkPhysicsDirtyMixin",
     "EntityPhysicsMoveMixin",
-    "EntityPhysicsDriveMixin",
     "ProjectionContainerMixin",
     "ProjectionChunkDirtyMixin",
     "ProjectionDropRelocationMixin",

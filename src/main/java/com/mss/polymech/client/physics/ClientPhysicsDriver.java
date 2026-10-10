@@ -25,8 +25,6 @@ public final class ClientPhysicsDriver {
 
     @SubscribeEvent
     public static void onClientTickPost(ClientTickEvent.Post event) {
-        // 玩家 tick 之后：飞行时把玩家刚体同步到玩家位置（保留物理碰撞）
-        ClientPhysics.afterPlayerTick();
         // ★ 天体显示世界同步（照 space 的"每帧渲染前 syncMoveData"意图，但**不能**依赖渲染路径）：
         // space 的 SpaceRenderer 在**所有维度**都跑（它有 CelestialWorld 分支算地表天空），
         // 所以它的 syncMoveData 到处都生效；我们照抄时把渲染器守在了 `dimension == SPACE`，

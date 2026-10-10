@@ -356,6 +356,7 @@ public final class ClientPhysicsWorld {
             body.applyUpdate(e.x(), e.y(), e.z(), e.qx(), e.qy(), e.qz(), e.qw());
             body.applyVelocity(e.vx(), e.vy(), e.vz());
             body.applyAngularVelocity(e.avx(), e.avy(), e.avz());
+            MirrorPhysicalBodyBridge.onUpdate(body);
         }
     }
 
@@ -399,6 +400,7 @@ public final class ClientPhysicsWorld {
                 created.applyVelocity(packet.vx(), packet.vy(), packet.vz());
                 created.applyAngularVelocity(packet.avx(), packet.avy(), packet.avz());
                 BODIES.put(packet.bodyId(), created);
+                MirrorPhysicalBodyBridge.onCreate(created);
                 // 可靠创建握手：真正存下之后才回 ACK（服务端据此撤销"待确认"）。
                 // 这一步不能在收到包之前做 —— 那正是"客户端还没建好关卡、快照被冲掉"的场景。
                 net.neoforged.neoforge.network.PacketDistributor.sendToServer(
@@ -411,14 +413,19 @@ public final class ClientPhysicsWorld {
                             packet.qx(), packet.qy(), packet.qz(), packet.qw());
                     body.applyVelocity(packet.vx(), packet.vy(), packet.vz());
                     body.applyAngularVelocity(packet.avx(), packet.avy(), packet.avz());
+                    MirrorPhysicalBodyBridge.onUpdate(body);
                 }
             }
-            case REMOVE -> BODIES.remove(packet.bodyId());
+            case REMOVE -> {
+                BODIES.remove(packet.bodyId());
+                MirrorPhysicalBodyBridge.onRemove(packet.bodyId());
+            }
         }
     }
 
     /** 退出世界时清空。 */
     public static void clear() {
+        MirrorPhysicalBodyBridge.clear();
         BODIES.clear();
     }
 }

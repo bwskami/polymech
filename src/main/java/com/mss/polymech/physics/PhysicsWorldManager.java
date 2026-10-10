@@ -55,8 +55,6 @@ public final class PhysicsWorldManager {
             LEVELS.put(key, level);
             // 步进交给独立线程（10ms/步），照 space/MPS
             PhysicsStepThread.add(handle);
-            // 玩家双刚体的速度继承链：每个子步之后都要跑（space 的 RapierWorld tickListener）
-            PhysicsStepThread.addPostStep(handle, () -> PlayerPhysicsBody.afterStep(handle));
             LOGGER.info("[PolyMech] 维度 {} 物理世界已创建: 重力 {} m/s², 句柄 {}",
                     key.location(), -9.8 * gravityFactor, handle);
         }
@@ -96,8 +94,6 @@ public final class PhysicsWorldManager {
         TERRAINS.clear();
         PhysicsEntityManager.clear();
         PhysicsBodyTracker.clear();
-        PlayerPhysicsBody.clear();
-        PhysicsDrivenPlayers.clear();
         for (long handle : WORLDS.values()) {
             PhysicsStepThread.remove(handle);
             NativePhysics.worldDestroy(handle);

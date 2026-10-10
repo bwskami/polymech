@@ -1,8 +1,6 @@
 package com.mss.polymech.physics;
 
 import com.mss.polymech.network.PhysicsBodySyncPacket;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.function.Consumer;
 
@@ -44,19 +42,6 @@ public final class PhysicsClientHooks {
     public static volatile Consumer<com.mss.polymech.network.PhysgunBeamPacket>
             physgunBeamConsumer = packet -> {
     };
-
-    /** 物理接管移动（客户端实现）；服务端 no-op。返回 true 表示已接管，本次不再执行原版 setPos。 */
-    public static volatile MovementDriver movementDriver = (entity, delta) -> false;
-
-    /** 客户端物理驱动移动的接口。 */
-    @FunctionalInterface
-    public interface MovementDriver {
-        boolean drive(Entity entity, Vec3 delta);
-    }
-
-    public static boolean tryDrive(Entity entity, Vec3 delta) {
-        return movementDriver.drive(entity, delta);
-    }
 
     private PhysicsClientHooks() {
     }

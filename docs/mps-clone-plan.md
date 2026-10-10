@@ -4404,6 +4404,63 @@ MC 主投影(正常 Z, near=0.05, far=F) : depth = (0.05/(F-0.05))·(F/z − 1)
    另：`[坐标自检]` 的 `静态blockPos校验和=-5411703720350` 与代码里写死的闸门 `-5410990681030` **不一致**，
    而这条判据只打印不比较 ⇒ 要么补上比较、要么更新闸门值，别让它继续静默。
 
+## 三十二、玩家↔物理体碰撞：0.1.3 → 0.5.0 结构升级（已落地）
+
+> 2026-10-09。目标：根治「玩家穿进物理体（船）→ 卡在里面出不来」。结论：**结构升级**，不是调参。
+> 方案与验收由专家团前置流水线产出（`team/然后你现在可以按照space0-102010/` 下 SPEC/PLAN/TASKS/RESEARCH/REVIEW），
+> 本人在实现阶段逐个落地。回滚点 `git commit 9981c51`。
+
+### 32.1 两症状的根因（与 §21/22/23 是**不同**根因，别沿用旧修法）
+
+- **穿模**：旧 `PlayerPhysicsBody` 双刚体 `bodyEnableCcd(false)`（照 space 0.1.3 字面）+ 100Hz 定步，
+  高速单子步位移 > 碰撞体薄边 ⇒ Rapier 离散检测隧穿。原版靠「同一步内 `collide()` 夹位置」从不穿透，
+  而 0.1.3 的 `Entity.move` HEAD cancel 把这一层整段跳过。
+- **卡住**：穿进去后被求解器顶住，速度链 `main.linvel = sibling.linvel + own` 在接触里 `sibling ≈ −own`
+  对消 ⇒ 玩家速度归零、出不来。
+- **与旧 §21/22/23 的区别**：§21=被弹飞、§22=回灌 `+0.08` vs `getGravity()` 不匹配、§23=抽搐（位置回写架构）。
+  本次「穿进船 + 卡住」是**新的**根因（CCD 隧穿 + 速度链对消），不能沿用旧三节的修法（§22 已证调求解器旋钮无效）。
+
+### 32.2 新碰撞链（照抄 decompiled-space/0.5.0 逐文件对齐）
+
+| 环节 | 0.1.3（旧，已删） | 0.5.0（新，已落地） |
+|---|---|---|
+| 玩家移动权威 | Rapier 双刚体驱动，位置从刚体读回 | 原版 `Entity.move`+`collide`（撤销 HEAD cancel） |
+| 防穿模 | 双刚体离散碰撞（CCD 关） | `collide` RETURN 注入 `PhysicalEntityCollision.resolve`：Java 侧分段 OBB 扫掠 + sweep-and-slide + SAT 15 分离轴 |
+| 载速 | 兄弟刚体 `sibling.linvel` | 独立 `PhysicalEntityProbe` 探针刚体，`velocity()÷20` 在 `travel` HEAD 叠加到 move 输入 |
+| 玩家碰撞形状 | 双刚体（主+兄弟） | `PhysicalEntityCollider` 的 `EntityShape`（眼高 pivot + 盒底 offset，直立 rotation 恒 null） |
+
+数据源（用户拍板「切 mps」）：`MirrorPhysicalBodyBridge` 把主动栈 `ClientPhysicsWorld.ClientBody` 镜像成
+mps `PhysicalBody` 进 mps `ClientPhysicalWorld`（坐标约定：主动栈最小角原点 ↔ mps 中心原点 −64..63，
+恒等映射 + `fillBlockState` 内部 `+64`）；`PhysicalEntityCollision.snapshotBodies` 照抄 0.5.0 迭代
+mps `PhysicalWorld.getAllPhysicalBody()`，读 `PhysicalBody.getBlockStateInt`/`getPos`/`getRotation`/`worldAABB`。
+
+### 32.3 文件清单（删 6 / 改 8 / 增 7 + 2 探针）
+
+- **删除**：`PlayerPhysicsBody.java`、`EntityPhysicsDriveMixin.java`、`PhysicsAabbSolver.java`（旧死代码）、
+  `PhysicsGroundProbe.java`、`PhysicsDrivenPlayers.java`、`PlayerColliderRender.java`（双刚体线框渲染）。
+- **新增**：`physics/PhysicalEntityCollision.java`（扫掠解析器）、`physics/PhysicalEntityCollider.java`、
+  `physics/PhysicalEntityColliderAccess.java`、`physics/PhysicalEntityProbe.java`、
+  `client/physics/MirrorPhysicalBodyBridge.java`、`mixin/EntityPhysicsCollideMixin.java`（collide RETURN 注入）、
+  `mixin/EntityPhysicsProbeMixin.java`（travel HEAD 载速接线）。
+- **改造**：`ClientPhysics.java`（删 drive/ensurePlayerBody/afterPlayerTick 玩家刚体链路，保留 syncShips/stepShipSync/updateTerrain）、
+  `PhysicsClientHooks.java`（删 movementDriver/tryDrive）、`PhysicsBodyRenderer.java`、`ClientPhysicsDriver.java`、
+  `ClientPhysicsWorld.java`（镜像桥挂钩）、`SpaceBodyTiltMixin.java`、`PhysicsWorldManager.java`（删 4 行已删类的引用，最小改动）、
+  `poly_mech.mixins.json`（摘 EntityPhysicsDriveMixin、注册 EntityPhysicsCollideMixin + EntityPhysicsProbeMixin 进 client 列表）。
+- **离线探针**：`native/jni-smoketest/PhysicalEntityCollisionProbe.java`（A1 高速防隧穿 + A2 已穿入可推出）、
+  `native/jni-smoketest/PhysicalEntityProbeTest.java`（A3 载速）。
+
+### 32.4 测试缝（照抄方法 + 抽离测试缝，不是另一套实现）
+
+- `PhysicalEntityCollision.setBlockCollision`：可注入「方块 state id → 是否有碰撞形状」谓词，核心离线可单测。
+- `PhysicalEntityCollider.create(double,double)` 与 `PhysicalEntityProbe.sync(Vector3d,boolean)`：绕过 Entity 的离线重载。
+
+### 32.5 验收状态
+
+- A1/A2/A3 离线探针全 PASS；`./gradlew compileJava` BUILD SUCCESSFUL；死代码复查（`new PlayerPhysicsBody`/`tryDrive`/`PhysicsAabbSolver`）零命中。
+- 端到端实机取证（SPEC C 节，辅助·不阻塞）：玩家重启游戏后确认「走/冲/被弹向船不穿模」「持续顶船 3 秒松开可脱离」。
+- 服务端三件套：`PhysicsBodyTracker`/`ProjectionManager` 零改动；`PhysicsWorldManager` 仅删 4 行已删类引用（必要编译修复）。
+- 载速「完整传递」（探针接触移动平台量到载速）依赖 KINEMATIC 平台 + 接触，属游戏内验证范围（离线无 Entity）。
+
 
 
 

@@ -1,0 +1,42 @@
+{
+  "runId": "然后你现在可以按照space0-102010",
+  "roles": [
+    "pm",
+    "backend",
+    "qa"
+  ],
+  "members": {},
+  "createdAt": "2026-10-09T10:20:10.318Z",
+  "tier": "quick",
+  "agents": {
+    "pm": {
+      "name": "Jason",
+      "color": "#3aa6b9",
+      "initial": "J"
+    },
+    "backend": {
+      "name": "Owen",
+      "color": "#22b07d",
+      "initial": "O"
+    },
+    "qa": {
+      "name": "Tina",
+      "color": "#5b8def",
+      "initial": "T"
+    }
+  },
+  "models": {
+    "pm": {
+      "tier": "heavy",
+      "model": "deepseek-flash"
+    },
+    "backend": {
+      "tier": "light",
+      "model": "deepseek-flash"
+    },
+    "qa": {
+      "tier": "light",
+      "model": "deepseek-flash"
+    }
+  }
+}
