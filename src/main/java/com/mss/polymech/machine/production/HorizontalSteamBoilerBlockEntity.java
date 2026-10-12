@@ -93,27 +93,7 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
     @Override protected int getOutputSlotIndex() { return OUTPUT_STEAM_SLOT; }
     @Override protected int getPowerCostPerTick() { return 5; }
 
-    @Override
-    protected ContainerData createPropertyDelegate() {
-        return new ContainerData() {
-            @Override public int get(int index) {
-                return switch (index) {
-                    case 0 -> HorizontalSteamBoilerBlockEntity.this.progress;
-                    case 1 -> HorizontalSteamBoilerBlockEntity.this.maxProgress;
-                    case 2 -> HorizontalSteamBoilerBlockEntity.this.enable ? 1 : 0;
-                    default -> 0;
-                };
-            }
-            @Override public void set(int index, int value) {
-                switch (index) {
-                    case 0 -> HorizontalSteamBoilerBlockEntity.this.progress = value;
-                    case 1 -> HorizontalSteamBoilerBlockEntity.this.maxProgress = value;
-                    case 2 -> HorizontalSteamBoilerBlockEntity.this.enable = value == 1;
-                }
-            }
-            @Override public int getCount() { return 3; }
-        };
-    }
+    // 属性委托沿用 BaseIOBlockEntity 的默认 3 字段实现（progress / maxProgress / enable）
 
     @Override
     protected IItemHandler getInput() { return new InputHandler(itemStackHandler); }

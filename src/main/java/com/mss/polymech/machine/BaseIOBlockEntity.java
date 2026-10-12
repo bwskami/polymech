@@ -97,7 +97,45 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     }
 
     protected abstract int getInvSize();
-    protected abstract ContainerData createPropertyDelegate();
+
+    /**
+     * 创建属性委托，供 GUI 同步使用。
+     * <p>
+     * 默认提供 3 字段实现（progress / maxProgress / enable），
+     * 子类若有额外字段应覆盖此方法并在自己的 ContainerData 中调用
+     * {@link #getBaseContainerData(int)} / {@link #setBaseContainerData(int, int)}。
+     * </p>
+     */
+    protected ContainerData createPropertyDelegate() {
+        return new ContainerData() {
+            @Override public int get(int index) {
+                return getBaseContainerData(index);
+            }
+            @Override public void set(int index, int value) {
+                setBaseContainerData(index, value);
+            }
+            @Override public int getCount() { return 3; }
+        };
+    }
+
+    /** 3 字段默认 getter（progress=0, maxProgress=1, enable=2），供子类覆盖的 ContainerData 复用 */
+    protected int getBaseContainerData(int index) {
+        return switch (index) {
+            case 0 -> progress;
+            case 1 -> maxProgress;
+            case 2 -> enable ? 1 : 0;
+            default -> 0;
+        };
+    }
+
+    /** 3 字段默认 setter，供子类覆盖的 ContainerData 复用 */
+    protected void setBaseContainerData(int index, int value) {
+        switch (index) {
+            case 0 -> progress = value;
+            case 1 -> maxProgress = value;
+            case 2 -> enable = value == 1;
+        }
+    }
     protected abstract int getPowerCostPerTick();
     protected abstract Optional<RecipeHolder<?>> getMatchRecipe(Level world);
     protected abstract void craftItem(Level world);

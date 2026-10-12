@@ -4,15 +4,10 @@ import com.lowdragmc.lowdraglib2.gui.factory.BlockUIMenuType;
 import com.lowdragmc.lowdraglib2.gui.ui.ModularUI;
 import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.client.gui.battery.BatteryUI;
-import com.mss.polymech.powergrid.GridNode;
-import com.mss.polymech.powergrid.GridNodeBlock;
-import com.mss.polymech.powergrid.WorldPowerGrid;
+import com.mss.polymech.machine.BaseMachineBlock;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.InteractionResult;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
@@ -20,22 +15,20 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Map;
 
 /**
  * 蓄电池方块（单方块机器）。
+ * <p>
+ * 继承 {@link BaseMachineBlock} 复用通用机器行为（FACING 状态、电网节点注册与清理、
+ * 放置同步），仅覆盖 LDLib2 UI 与方块实体创建。
+ * </p>
  * <p>
  * 提供电网节点（位于方块中心），支持线轴拉线连接。
  * 右键打开 LDLib2 蓄电池 UI，显示储能/充放电状态。
  * </p>
  */
-public class BatteryBlock extends BaseEntityBlock implements GridNodeBlock, BlockUIMenuType.BlockUI {
+public class BatteryBlock extends BaseMachineBlock implements BlockUIMenuType.BlockUI {
 
     public static final MapCodec<BatteryBlock> CODEC = simpleCodec(BatteryBlock::new);
 
@@ -48,8 +41,6 @@ public class BatteryBlock extends BaseEntityBlock implements GridNodeBlock, Bloc
     protected BatteryBlock(Properties properties, boolean creative) {
         super(properties);
         this.creative = creative;
-        this.registerDefaultState(this.stateDefinition.any()
-                .setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.NORTH));
     }
 
     public boolean isCreative() {
@@ -61,10 +52,15 @@ public class BatteryBlock extends BaseEntityBlock implements GridNodeBlock, Bloc
         return CODEC;
     }
 
+    // ========== 基类抽象方法实现 ==========
+
+    @Nullable
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
-        builder.add(BlockStateProperties.HORIZONTAL_FACING);
+    public BlockEntityType<?> getMachineBlockEntityType() {
+        return creative ? ModBlockEntities.CREATIVE_BATTERY.get() : ModBlockEntities.BATTERY.get();
     }
+
+    // ========== 方块实体 ==========
 
     @Nullable
     @Override
@@ -86,52 +82,22 @@ public class BatteryBlock extends BaseEntityBlock implements GridNodeBlock, Bloc
                 (level1, pos1, state1, be1) -> be1.tick(level1));
     }
 
+    // ========== 渲染 ==========
+
     @Override
-    protected RenderShape getRenderShape(BlockState state) {
+    public RenderShape getRenderShape(BlockState state) {
         return RenderShape.MODEL;
     }
 
-    @Override
-    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable net.minecraft.world.entity.LivingEntity placer, net.minecraft.world.item.ItemStack stack) {
-        super.setPlacedBy(level, pos, state, placer, stack);
-        if (!level.isClientSide()) {
-            level.sendBlockUpdated(pos, state, state, 3);
-        }
-    }
-
-    @Override
-    protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!state.is(newState.getBlock()) && !level.isClientSide()) {
-            WorldPowerGrid.get((ServerLevel) level).removeNode(pos);
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
-        if (player.isShiftKeyDown()) {
-            if (level.isClientSide()) {
-                if (level.getBlockEntity(pos) instanceof BatteryBlockEntity battery) {
-                    com.mss.polymech.ClientHooks.sideConfigOpener.accept(pos.immutable(), battery);
-                }
-            }
-            return InteractionResult.SUCCESS;
-        }
-        if (!level.isClientSide()) {
-            BlockUIMenuType.openUI((net.minecraft.server.level.ServerPlayer) player, pos);
-        }
-        return InteractionResult.SUCCESS;
-    }
+    // ========== LDLib2 UI ==========
 
     @Override
     public ModularUI createUI(BlockUIMenuType.BlockUIHolder holder) {
         return BatteryUI.create(holder);
     }
 
-    // ========== GridNodeBlock ==========
-
     @Override
-    public Map<Integer, Vec3> getNodePositions(BlockState state) {
-        return Map.of(0, new Vec3(0.5, 0.5, 0.5));
+    public void openMachineUI(ServerPlayer player, BlockPos pos) {
+        BlockUIMenuType.openUI(player, pos);
     }
 }

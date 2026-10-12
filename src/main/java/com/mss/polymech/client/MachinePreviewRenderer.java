@@ -211,6 +211,7 @@ public class MachinePreviewRenderer {
     private static void renderGhostModel(PoseStack poseStack, net.minecraft.client.Camera camera,
                                           BaseMachineBlock machineBlock, BlockState state, BlockPos pos) {
         BlockEntityType<?> beType = machineBlock.getMachineBlockEntityType();
+        if (beType == null) return;
 
         BlockEntity tempBe = tempBeCache.computeIfAbsent(beType, type -> {
             BlockEntity be = type.create(BlockPos.ZERO, machineBlock.defaultBlockState());

@@ -28,3 +28,12 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+
+      # 离线回归探针：验证关键类仍在编译产物里（SMOKE/PHYSICS/SPACE/CLONE/KELVIN）
+      # 不启动游戏、秒级 PASS/FAIL。
+      #
+      # 注意：**不要**改成 `./gradlew runGameTestServer` —— 本模组在该环境下
+      # 模组维度进不了注册表，而 mps.ProjectionManager.init 在维度缺失时直接抛异常，
+      # 服务器启动即崩。证据与复现见 docs/testing-strategy.md。
+      - name: Run offline class probes
+        run: ./gradlew verifyClasses

@@ -156,7 +156,11 @@ public final class ProjectionManager {
     public static void init(MinecraftServer minecraftServer) {
         projectionLevel = minecraftServer.getLevel(ResourceKey.create(Registries.DIMENSION, PROJECTION_WORLD));
         if (projectionLevel == null) {
-            throw new IllegalStateException("Missing dimension " + PROJECTION_WORLD);
+            // 把"当前到底注册了哪些维度"一并抛出：否则只会看到一句 Missing dimension，
+            // 无从判断是数据包没加载、还是只有这一个维度丢了。
+            throw new IllegalStateException("Missing dimension " + PROJECTION_WORLD
+                    + "; registered dimensions = " + minecraftServer.registryAccess()
+                            .registryOrThrow(Registries.LEVEL_STEM).keySet());
         }
         nextSlot = ProjectionSlotData.get(projectionLevel).getNextSlot();
     }

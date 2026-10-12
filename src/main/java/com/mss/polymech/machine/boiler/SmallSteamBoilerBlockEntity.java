@@ -7,7 +7,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.RecipeHolder;
@@ -44,28 +43,6 @@ public class SmallSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEntity 
     @Override protected int getInvSize() { return 3; }
     @Override protected int getOutputSlotIndex() { return OUTPUT_STEAM_SLOT; }
     @Override protected int getPowerCostPerTick() { return 5; }
-
-    @Override
-    protected ContainerData createPropertyDelegate() {
-        return new ContainerData() {
-            @Override public int get(int index) {
-                return switch (index) {
-                    case 0 -> SmallSteamBoilerBlockEntity.this.progress;
-                    case 1 -> SmallSteamBoilerBlockEntity.this.maxProgress;
-                    case 2 -> SmallSteamBoilerBlockEntity.this.enable ? 1 : 0;
-                    default -> 0;
-                };
-            }
-            @Override public void set(int index, int value) {
-                switch (index) {
-                    case 0 -> SmallSteamBoilerBlockEntity.this.progress = value;
-                    case 1 -> SmallSteamBoilerBlockEntity.this.maxProgress = value;
-                    case 2 -> SmallSteamBoilerBlockEntity.this.enable = value == 1;
-                }
-            }
-            @Override public int getCount() { return 3; }
-        };
-    }
 
     @Override
     protected IItemHandler getInput() { return new InputHandler(itemStackHandler); }

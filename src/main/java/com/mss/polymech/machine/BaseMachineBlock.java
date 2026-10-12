@@ -1,6 +1,7 @@
 package com.mss.polymech.machine;
 
 import com.mojang.serialization.MapCodec;
+import com.mss.polymech.machine.common.MachineGeometry;
 import com.mss.polymech.machine.common.MachineRegistry;
 import com.mss.polymech.powergrid.GridNodeBlock;
 import com.mss.polymech.powergrid.WorldPowerGrid;
@@ -9,15 +10,21 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.MenuProvider;
+import net.minecraft.world.Containers;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -25,6 +32,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,16 +44,22 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
 
     /**
      * 获取主方块对应的侧面方块引用。
+     * <p>单方块机器返回 null。</p>
      */
-    public abstract DeferredBlock<?> getSideBlock();
+    @Nullable
+    public DeferredBlock<?> getSideBlock() {
+        return null;
+    }
 
     /**
      * 获取主方块实体类型。
      */
+    @Nullable
     public abstract BlockEntityType<?> getMachineBlockEntityType();
 
     /**
      * 获取侧面方块实体类型，用于统一的能力注册等场景。
+     * <p>单方块机器返回 null。</p>
      */
     @Nullable
     public BlockEntityType<?> getSideBlockEntityType() {
@@ -54,8 +68,11 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
 
     /**
      * 获取侧面方块相对于主方块的本地坐标偏移数组。
+     * <p>单方块机器返回空数组。</p>
      */
-    public abstract Vec3i[] getSideOffsets();
+    public Vec3i[] getSideOffsets() {
+        return new Vec3i[0];
+    }
 
     /**
      * 获取填充区域，返回二维数组，每个元素为{min, max}的Vec3i对。
@@ -128,11 +145,7 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
      * 将本地坐标的方向（facing=NORTH 声明）旋转为实际世界方向。
      */
     public static Direction rotateDirection(Direction local, Direction facing) {
-        if (local.getAxis() == Direction.Axis.Y || facing.getAxis() == Direction.Axis.Y) {
-            return local; // 竖直面与水平旋转无关
-        }
-        Vec3i step = rotateVec3i(local.getNormal(), facing);
-        return Direction.getNearest(step.getX(), step.getY(), step.getZ());
+        return MachineGeometry.rotateDirection(local, facing);
     }
 
     /**
@@ -162,22 +175,7 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
      * 供 BE 遍历代理配置使用。
      */
     public List<Vec3i> enumerateLocalOffsets() {
-        List<Vec3i> list = new ArrayList<>(java.util.Arrays.asList(getSideOffsets()));
-        Vec3i[][] regions = getFillRegions();
-        if (regions != null) {
-            for (Vec3i[] region : regions) {
-                Vec3i min = region[0];
-                Vec3i max = region[1];
-                for (int x = Math.min(min.getX(), max.getX()); x <= Math.max(min.getX(), max.getX()); x++) {
-                    for (int y = Math.min(min.getY(), max.getY()); y <= Math.max(min.getY(), max.getY()); y++) {
-                        for (int z = Math.min(min.getZ(), max.getZ()); z <= Math.max(min.getZ(), max.getZ()); z++) {
-                            list.add(new Vec3i(x, y, z));
-                        }
-                    }
-                }
-            }
-        }
-        return list;
+        return MachineGeometry.enumerateLocalOffsets(getSideOffsets(), getFillRegions());
     }
 
     /**
@@ -185,44 +183,14 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
      * 供 BE 主动输出时跳过结构内部相邻方块。
      */
     public boolean isLocalPartOfStructure(Vec3i local) {
-        if (local.equals(Vec3i.ZERO)) return true;
-        Vec3i[][] regions = getFillRegions();
-        if (regions != null) {
-            for (Vec3i[] region : regions) {
-                Vec3i min = region[0];
-                Vec3i max = region[1];
-                int minX = Math.min(min.getX(), max.getX());
-                int maxX = Math.max(min.getX(), max.getX());
-                int minY = Math.min(min.getY(), max.getY());
-                int maxY = Math.max(min.getY(), max.getY());
-                int minZ = Math.min(min.getZ(), max.getZ());
-                int maxZ = Math.max(min.getZ(), max.getZ());
-                if (local.getX() >= minX && local.getX() <= maxX
-                        && local.getY() >= minY && local.getY() <= maxY
-                        && local.getZ() >= minZ && local.getZ() <= maxZ) {
-                    return true;
-                }
-            }
-        }
-        for (Vec3i offset : getSideOffsets()) {
-            if (offset.equals(local)) return true;
-        }
-        return false;
+        return MachineGeometry.containsLocal(local, getSideOffsets(), getFillRegions());
     }
 
     /**
      * {@link #rotateVec3i} 的逆运算：将世界坐标偏移转回本地坐标（未旋转）。
      */
     public static Vec3i unrotateVec3i(Vec3i offset, Direction facing) {
-        int x = offset.getX();
-        int z = offset.getZ();
-        return switch (facing) {
-            case NORTH -> new Vec3i(x, offset.getY(), z);
-            case SOUTH -> new Vec3i(-x, offset.getY(), -z);
-            case EAST -> new Vec3i(z, offset.getY(), -x);
-            case WEST -> new Vec3i(-z, offset.getY(), x);
-            default -> offset;
-        };
+        return MachineGeometry.unrotate(offset, facing);
     }
 
     // ========== MachineRegistry 委托 ==========
@@ -255,11 +223,40 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
     }
 
     /**
-     * 机器被破坏/替换时，从电网移除该格节点的全部电线连接。
+     * 手持流体容器（桶/通用流体单元）右键方块：
+     * 通过方块流体能力直接与机器储罐交互（支持部分转移，不吞流体）。
+     * 未发生流体交互时放行，继续走默认交互（打开 GUI）。
+     * <p>大型机器和单方块机器共用。</p>
+     */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
+        if (!level.isClientSide()) {
+            if (FluidUtil.interactWithFluidHandler(player, hand, level, pos, hitResult.getDirection())) {
+                return ItemInteractionResult.SUCCESS;
+            }
+        }
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+    }
+
+    /**
+     * 机器被破坏时掉落物品并清理侧面方块（若有）。
      */
     @Override
     protected void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
         if (!state.is(newState.getBlock()) && !level.isClientSide()) {
+            BlockEntity be = level.getBlockEntity(pos);
+            if (be instanceof BaseIOBlockEntity machineBE) {
+                Containers.dropContents(level, pos, machineBE.getItems());
+            }
+            DeferredBlock<?> sideBlock = getSideBlock();
+            if (sideBlock != null) {
+                BlockPos[] sidePositions = getSidePositions(state, pos);
+                for (BlockPos sidePos : sidePositions) {
+                    if (level.getBlockState(sidePos).is(sideBlock.get())) {
+                        level.destroyBlock(sidePos, false);
+                    }
+                }
+            }
             WorldPowerGrid.get((ServerLevel) level).removeNode(pos);
         }
         super.onRemove(state, level, pos, newState, movedByPiston);
@@ -283,6 +280,21 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
         return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
     }
 
+    /**
+     * 放置后向客户端同步一次方块实体数据。
+     * <p>
+     * 单方块机器依赖此同步让刚放置的机器 GUI 立刻拿到数据；
+     * 大型机器覆写了 {@code setPlacedBy} 以放置侧面方块，其内部已自带同步。
+     * </p>
+     */
+    @Override
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
+        super.setPlacedBy(level, pos, state, placer, stack);
+        if (!level.isClientSide()) {
+            level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
+        }
+    }
+
     @Override
     public BlockState rotate(BlockState state, Rotation rot) {
         return state.setValue(FACING, rot.rotate(state.getValue(FACING)));
@@ -293,35 +305,11 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
         return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
+    /**
+     * 计算全部侧方块的世界坐标（按朝向旋转、去重、排除主方块自身）。
+     */
     public BlockPos[] getSidePositions(BlockState state, BlockPos pos) {
-        Set<BlockPos> positions = new HashSet<>();
-        
-        Vec3i[][] regions = getFillRegions();
-        if (regions != null) {
-            for (Vec3i[] region : regions) {
-                Vec3i min = region[0];
-                Vec3i max = region[1];
-                for (int x = Math.min(min.getX(), max.getX()); x <= Math.max(min.getX(), max.getX()); x++) {
-                    for (int y = Math.min(min.getY(), max.getY()); y <= Math.max(min.getY(), max.getY()); y++) {
-                        for (int z = Math.min(min.getZ(), max.getZ()); z <= Math.max(min.getZ(), max.getZ()); z++) {
-                            Vec3i rotated = rotateVec3i(new Vec3i(x, y, z), state.getValue(FACING));
-                            positions.add(pos.offset(rotated));
-                        }
-                    }
-                }
-            }
-        }
-        
-        Vec3i[] offsets = getSideOffsets();
-        if (offsets != null) {
-            for (Vec3i offset : offsets) {
-                Vec3i rotated = rotateVec3i(offset, state.getValue(FACING));
-                positions.add(pos.offset(rotated));
-            }
-        }
-        
-        positions.remove(pos);
-        return positions.toArray(new BlockPos[0]);
+        return MachineGeometry.sidePositions(pos, state.getValue(FACING), getSideOffsets(), getFillRegions());
     }
 
     /**
@@ -353,15 +341,11 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
         return InteractionResult.SUCCESS;
     }
 
+    /**
+     * 把本地偏移（facing=NORTH 声明）旋转到实际朝向。
+     * <p>实现集中在 {@link MachineGeometry}，此处保留静态入口供既有调用点使用。</p>
+     */
     public static Vec3i rotateVec3i(Vec3i offset, Direction facing) {
-        int x = offset.getX();
-        int z = offset.getZ();
-        return switch (facing) {
-            case NORTH -> new Vec3i(x, offset.getY(), z);
-            case SOUTH -> new Vec3i(-x, offset.getY(), -z);
-            case EAST -> new Vec3i(-z, offset.getY(), x);
-            case WEST -> new Vec3i(z, offset.getY(), -x);
-            default -> offset;
-        };
+        return MachineGeometry.rotate(offset, facing);
     }
 }

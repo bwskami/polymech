@@ -7,10 +7,7 @@ import com.mss.polymech.machine.BaseMachineBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.world.Containers;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -23,12 +20,8 @@ import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
-import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * 大型机器主方块（配置驱动），不再需要子类。
@@ -108,20 +101,8 @@ public class LargeMachineBlock extends BaseMachineBlock {
 
     // ========== 通用大型机器行为 ==========
 
-    /**
-     * 手持流体容器（桶/通用流体单元）右键主方块：
-     * 通过方块流体能力直接与机器储罐交互（支持部分转移，不吞流体）。
-     * 未发生流体交互时放行，继续走默认交互（打开 GUI）。
-     */
-    @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hitResult) {
-        if (!level.isClientSide()) {
-            if (FluidUtil.interactWithFluidHandler(player, hand, level, pos, hitResult.getDirection())) {
-                return ItemInteractionResult.SUCCESS;
-            }
-        }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-    }
+    // useItemOn（流体容器交互）/ onRemove（掉落物品 + 清理侧面方块 + 电网清理）
+    // 均已上提至 BaseMachineBlock，大型机器与单方块机器共用同一份实现。
 
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
@@ -139,39 +120,9 @@ public class LargeMachineBlock extends BaseMachineBlock {
     public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack stack) {
         if (!level.isClientSide()) {
             Direction facing = state.getValue(FACING);
-            
-            // 收集所有需要放置的侧面位置
-            Set<BlockPos> sidePositions = new HashSet<>();
-            
-            // 1. 处理离散偏移
-            Vec3i[] rawOffsets = getSideOffsets();
-            if (rawOffsets != null) {
-                for (Vec3i rawOffset : rawOffsets) {
-                    Vec3i rotated = BaseMachineBlock.rotateVec3i(rawOffset, facing);
-                    sidePositions.add(pos.offset(rotated));
-                }
-            }
-            
-            // 2. 处理填充区域（角点填充）
-            Vec3i[][] fillRegions = getFillRegions();
-            if (fillRegions != null) {
-                for (Vec3i[] region : fillRegions) {
-                    Vec3i min = region[0];
-                    Vec3i max = region[1];
-                    for (int x = Math.min(min.getX(), max.getX()); x <= Math.max(min.getX(), max.getX()); x++) {
-                        for (int y = Math.min(min.getY(), max.getY()); y <= Math.max(min.getY(), max.getY()); y++) {
-                            for (int z = Math.min(min.getZ(), max.getZ()); z <= Math.max(min.getZ(), max.getZ()); z++) {
-                                Vec3i rotated = BaseMachineBlock.rotateVec3i(new Vec3i(x, y, z), facing);
-                                sidePositions.add(pos.offset(rotated));
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // 放置所有侧面方块（排除主方块自身位置）
-            sidePositions.remove(pos);
-            for (BlockPos sidePos : sidePositions) {
+
+            // 放置所有侧面方块（结构枚举与旋转统一走 MachineGeometry，排除主方块自身位置）
+            for (BlockPos sidePos : MachineGeometry.sidePositions(pos, facing, getSideOffsets(), getFillRegions())) {
                 BlockState sideState = getSideBlock().get().defaultBlockState()
                         .setValue(FACING, facing);
                 level.setBlock(sidePos, sideState, Block.UPDATE_ALL);
@@ -182,7 +133,7 @@ public class LargeMachineBlock extends BaseMachineBlock {
                 }
                 level.sendBlockUpdated(sidePos, sideState, sideState, Block.UPDATE_ALL);
             }
-            
+
             // 同步主方块
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_ALL);
             BlockEntity mainBE = level.getBlockEntity(pos);
@@ -190,23 +141,6 @@ public class LargeMachineBlock extends BaseMachineBlock {
                 mainBE.setChanged();
             }
         }
-    }
-
-    @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean movedByPiston) {
-        if (!level.isClientSide() && !state.is(newState.getBlock())) {
-            BlockEntity be = level.getBlockEntity(pos);
-            if (be instanceof BaseIOBlockEntity machineBE) {
-                Containers.dropContents(level, pos, machineBE.getItems());
-            }
-            BlockPos[] sidePositions = getSidePositions(state, pos);
-            for (BlockPos sidePos : sidePositions) {
-                if (level.getBlockState(sidePos).is(getSideBlock().get())) {
-                    level.destroyBlock(sidePos, false);
-                }
-            }
-        }
-        super.onRemove(state, level, pos, newState, movedByPiston);
     }
 
     @Override

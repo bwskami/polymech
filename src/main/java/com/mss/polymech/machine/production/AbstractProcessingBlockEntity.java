@@ -6,7 +6,6 @@ import com.mss.polymech.recipe.MachineRecipe;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -228,27 +227,6 @@ public abstract class AbstractProcessingBlockEntity extends BaseIOBlockEntity {
         }
     }
 
-    // ==================== 属性委托（子类按需覆盖） ====================
-
-    @Override
-    protected ContainerData createPropertyDelegate() {
-        return new ContainerData() {
-            @Override public int get(int index) {
-                return switch (index) {
-                    case 0 -> AbstractProcessingBlockEntity.this.progress;
-                    case 1 -> AbstractProcessingBlockEntity.this.maxProgress;
-                    case 2 -> AbstractProcessingBlockEntity.this.enable ? 1 : 0;
-                    default -> 0;
-                };
-            }
-            @Override public void set(int index, int value) {
-                switch (index) {
-                    case 0 -> AbstractProcessingBlockEntity.this.progress = value;
-                    case 1 -> AbstractProcessingBlockEntity.this.maxProgress = value;
-                    case 2 -> AbstractProcessingBlockEntity.this.enable = value == 1;
-                }
-            }
-            @Override public int getCount() { return 3; }
-        };
-    }
+    // ==================== 属性委托 ====================
+    // 继承 BaseIOBlockEntity 的默认 3 字段实现（progress / maxProgress / enable）
 }
