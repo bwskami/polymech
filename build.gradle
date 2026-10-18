@@ -344,6 +344,32 @@ tasks.register('verifyMachineRenderBox', JavaExec) {
     dependsOn tasks.named('classes')
 }
 
+// 机器结构编辑器数据模型验证：断言「快照坐标往返还原且渲染坐标非负」「格子集合与放置几何一致」
+// 「代理语义(槽位/储罐/开口面)透传不丢」「导出代码每个坐标字面量都能解析回真实格子、不含原点」。
+// 用途：编辑器的承诺是"画出来/导出来的坐标 = 运行时真正用的坐标"，一旦换算或格式出错，
+// 3D 里点的格子和导回源码的数字对不上就是静默错位——这套纯坐标数学可离线判死。
+tasks.register('verifyMachineEditorModel', JavaExec) {
+    group = 'polymech'
+    description = '验证机器编辑器数据模型（坐标往返/覆盖一致/语义透传/导出格式/区间抠洞）'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mss.polymech.machine.verify.MachineEditorModelVerify'
+    workingDir = rootProject.projectDir
+    dependsOn tasks.named('classes')
+}
+
+// 机器定义 JSON 标准校验：形状/代理从 Java 搬进 JSON 是纯搬运，必须逐项证明"搬完行为不变"。
+// 覆盖：每台注册机器都有 JSON（且无孤儿）、代理位置落在结构格子上、枚举与独立展开一致、
+// 锅炉 4 个代理与开口面逐项比对旧 Java 写死的期望值、其余机器 = crossOffsets、
+// 以及架构不回退（Java 里不得再出现形状/代理重写、编辑器不再生成 Java）。
+tasks.register('verifyMachineDefinitions', JavaExec) {
+    group = 'polymech'
+    description = '验证机器定义 JSON（覆盖完整/结构自洽/锅炉语义不变/架构不回退）'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.mss.polymech.machine.verify.MachineDefinitionVerify'
+    workingDir = rootProject.projectDir
+    dependsOn tasks.named('classes')
+}
+
 // 离线类探针：验证关键类仍在编译产物里（SMOKE/PHYSICS/SPACE/CLONE/KELVIN 五组）。
 // 只做 Class.forName(..., false) 存在性检查、不初始化静态块 —— 不需要启动游戏、
 // 不加载原生库，秒级 PASS/FAIL。这是当前唯一可在 CI 稳定运行的回归手段
@@ -355,4 +381,31 @@ tasks.register('verifyClasses', JavaExec) {
     mainClass = 'com.mss.polymech.verify.ClassProbe'
     workingDir = rootProject.projectDir
     dependsOn tasks.named('classes')
+}
+
+// ---------------------------------------------------------------
+// LDLib2 UI 自动化测试（UIScenario）
+//
+// 框架读的是系统属性（ldlib2.uitest.*），而 `-PldTest=xxx` 只是 LDLib2 自己仓库里的
+// gradle 约定 —— 我们作为使用方必须自己把两者接上。
+// 只有真的带了 -PldTest 才注入，平时构建完全不受影响。
+// 用法：gradlew runClient -PldTest=polymech_machine_editor
+// 报告：run/ldlib2-uitest/report.json + screenshots/（注意是 run/，不是 build/）
+// ---------------------------------------------------------------
+tasks.matching { it.name == 'runClient' }.configureEach {
+    if (project.hasProperty('ldTest')) {
+        systemProperty 'ldlib2.uitest.run', project.property('ldTest').toString()
+        if (project.hasProperty('ldTestKeepOpen')) {
+            systemProperty 'ldlib2.uitest.keepOpen', 'true'
+        }
+        if (project.hasProperty('ldTestGuiScale')) {
+            systemProperty 'ldlib2.uitest.guiScale', project.property('ldTestGuiScale').toString()
+        }
+        if (project.hasProperty('ldTestInputMode')) {
+            systemProperty 'ldlib2.uitest.inputMode', project.property('ldTestInputMode').toString()
+        }
+        if (project.hasProperty('ldTestOut')) {
+            systemProperty 'ldlib2.uitest.out', project.property('ldTestOut').toString()
+        }
+    }
 }

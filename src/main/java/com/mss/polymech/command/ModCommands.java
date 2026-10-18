@@ -194,6 +194,98 @@ public class ModCommands {
         return 1;
     }
 
+    /**
+     * {@code /polymech machineeditor [机器id]} —— 打开机器结构 3D 编辑器（仅客户端）。
+     * <p>
+     * 编辑器读写的就是机器定义 JSON（{@code data/poly_mech/machine/<id>.json} 内置 +
+     * {@code config/polymech/machines/<id>.json} 覆盖），保存后即时生效，不再生成 Java 代码。
+     * 3D 视口用的是 LDLib2 自带的 {@code Scene}（真实方块渲染 + 内置拾取/旋转/缩放）。
+     * </p>
+     */
+    private static ArgumentBuilder<CommandSourceStack, ?> machineEditor() {
+        return Commands.literal("machineeditor")
+                .executes(ctx -> {
+                    var src = ctx.getSource();
+                    // 不给 id = 开主菜单（照 Blockbench：没指定项目时看到的是欢迎页）
+                    if (net.neoforged.fml.loading.FMLEnvironment.dist
+                            == net.neoforged.api.distmarker.Dist.CLIENT) {
+                        com.mss.polymech.client.gui.machine.editor.EditorScreenOpener.openPicker();
+                        src.sendSuccess(() -> Component.literal("已打开编辑器主菜单"), false);
+                        return 1;
+                    }
+                    src.sendSuccess(() -> Component.literal("用法: /polymech machineeditor <机器id>，可用机器："), false);
+                    for (String id : com.mss.polymech.machine.BaseMachineBlock.getMachineIds()) {
+                        src.sendSuccess(() -> Component.literal("  " + id), false);
+                    }
+                    return 1;
+                })
+                .then(Commands.argument("machine", StringArgumentType.word())
+                        .suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+                                com.mss.polymech.machine.BaseMachineBlock.getMachineIds(), builder))
+                        .executes(ctx -> openMachineEditor(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "machine"))));
+    }
+
+    /**
+     * 客户端判端后打开编辑器；服务端直接拒绝。
+     * <p>
+     * {@code EditorScreenOpener} 及其下游（{@code Minecraft}/{@code MachineEditorScreen}）
+     * 都是客户端类，但只在客户端分支执行到那条 invoke 指令才会被解析加载——
+     * 专用服务端走到 {@code dist != CLIENT} 就 return，永不触碰，不会崩服。
+     * 这与 tooltip 系列类用 {@code FMLEnvironment.dist} 判端是同一手法。
+     * </p>
+     */
+    private static int openMachineEditor(CommandSourceStack src, String machineId) {
+        if (net.neoforged.fml.loading.FMLEnvironment.dist
+                != net.neoforged.api.distmarker.Dist.CLIENT) {
+            src.sendFailure(Component.literal("结构编辑器只能在客户端打开"));
+            return 0;
+        }
+        // MachineRegistry 版返回 BaseMachineBlock（BaseMachineBlock.getMachineBlock 返回擦宽的 Block，不够用）
+        var block = com.mss.polymech.machine.common.MachineRegistry.getMachineBlock(machineId);
+        if (block == null) {
+            src.sendFailure(Component.literal("未知机器: " + machineId));
+            return 0;
+        }
+        com.mss.polymech.client.gui.machine.editor.EditorScreenOpener.open(machineId, block);
+        src.sendSuccess(() -> Component.literal("已打开结构编辑器: " + machineId), false);
+        return 1;
+    }
+
+    /**
+     * {@code /polymech machinereload} —— 重新读取全部机器定义 JSON。
+     * <p>
+     * 内置默认在 classpath（{@code data/poly_mech/machine/<id>.json}），
+     * config 覆盖在 {@code config/polymech/machines/<id>.json}。
+     * 手改 config 后跑这个即可生效，不必重启游戏；有定义报错会一并列出来。
+     * </p>
+     */
+    private static ArgumentBuilder<CommandSourceStack, ?> machineReload() {
+        return Commands.literal("machinereload").executes(ctx -> {
+            var src = ctx.getSource();
+            com.mss.polymech.machine.definition.MachineDefinitionManager.reload();
+
+            var sources = com.mss.polymech.machine.definition.MachineDefinitionManager.sources();
+            int builtin = 0, config = 0, missing = 0;
+            for (var e : sources.entrySet()) {
+                switch (e.getValue()) {
+                    case BUILTIN -> builtin++;
+                    case CONFIG -> config++;
+                    case MISSING -> missing++;
+                }
+            }
+            final int b = builtin, c = config, m = missing;
+            src.sendSuccess(() -> Component.literal("机器定义已重载：" + sources.size()
+                    + " 台（内置 " + b + " / config " + c + " / 缺失 " + m + "）"), true);
+
+            var errors = com.mss.polymech.machine.definition.MachineDefinitionManager.errors();
+            for (String err : errors) {
+                src.sendFailure(Component.literal("  " + err));
+            }
+            return errors.isEmpty() ? 1 : 0;
+        });
+    }
+
     /** 注册命令树（挂NeoForge游戏总线的RegisterCommandsEvent） */
     public static void register(RegisterCommandsEvent event) {
         var dispatcher = event.getDispatcher();
@@ -221,6 +313,8 @@ public class ModCommands {
                                 .executes(ctx -> expose(ctx.getSource(),
                                         IntegerArgumentType.getInteger(ctx, "radius")))))
                 .then(physics())
+                .then(machineEditor())
+                .then(machineReload())
                 .then(Commands.literal("kelvin")
                         .executes(ctx -> kelvinStatus(ctx.getSource()))
                         .then(Commands.literal("authority")
@@ -539,6 +633,24 @@ public class ModCommands {
                                  + "「物理步进被阻塞」与「重建碰撞体耗时」两条来判断是谁卡的）"
                                : "（正常）")), false);
         }
+        // ★ [移动门] 太空移动接管的自检（用户 2026-10-12："主世界的移动改成原版一致，
+        //   那些改动仅仅在太空生效"）。判据与每 10 秒那条日志共用同一个方法，口径不会分叉：
+        //   本维度没有物理体时，载速探针 / 碰撞扫掠必须一次都没生效过。
+        net.minecraft.server.level.ServerLevel gateLevel = source.getLevel();
+        com.mss.polymech.mps.physical.physical_world.ServerPhysicalWorld gateWorld =
+                com.mss.polymech.mps.physical.physical_world.ServerPhysicalWorld.getPhysicalWorld(gateLevel);
+        boolean gateBodies = gateWorld != null && gateWorld.hasPhysicalBodies();
+        long[] gateActive = com.mss.polymech.space.SpaceMovementGate.activeCounts(gateLevel);
+        boolean gateVanilla = com.mss.polymech.dimension.PlanetDimensions.isVanillaDimension(gateLevel);
+        boolean gateSpaceSystem = com.mss.polymech.dimension.PlanetDimensions.isSpaceSystem(gateLevel);
+        source.sendSuccess(() -> Component.literal(String.format(
+                "  [移动门] 维度=%s 原版=%s 太空系统=%s 物理体=%s ⇒ 载速探针门=%s 碰撞扫掠门=%s | 本维度累计生效 探针=%d 扫掠=%d | 判据=%s",
+                gateLevel.dimension().location(), gateVanilla ? "是" : "否", gateSpaceSystem ? "是" : "否",
+                gateBodies ? "有" : "无",
+                com.mss.polymech.space.SpaceMovementGate.probeOpen(gateLevel, gateBodies) ? "开" : "关",
+                com.mss.polymech.space.SpaceMovementGate.sweepOpen(gateLevel, gateBodies) ? "开" : "关",
+                gateActive[0], gateActive[1],
+                com.mss.polymech.space.SpaceMovementGate.verdict(gateLevel, gateBodies, gateActive[0], gateActive[1]))), false);
         return ok ? 1 : 0;
     }
 

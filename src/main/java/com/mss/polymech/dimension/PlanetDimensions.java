@@ -103,6 +103,59 @@ public final class PlanetDimensions {
         return Map.copyOf(map);
     }
 
+    /**
+     * <b>原版三维度（主世界/下界/末地）</b>：本模组"太空那套"的移动改动一律不参与。
+     *
+     * <p>用户 2026-10-12 指令："把主世界的移动相关改成原版一致，那些改动仅仅在太空生效。"
+     * 判据放在这里，是因为拆墙/落点/姿态/载速这些钩子分布在服务端与客户端两侧，
+     * 必须有**唯一一处**说得清"哪些维度算原版"。</p>
+     */
+    public static boolean isVanillaDimension(ResourceKey<Level> dim) {
+        return Level.OVERWORLD.equals(dim) || Level.NETHER.equals(dim) || Level.END.equals(dim);
+    }
+
+    public static boolean isVanillaDimension(Level level) {
+        return level != null && isVanillaDimension(level.dimension());
+    }
+
+    public static boolean isVanillaDimension(ResourceLocation id) {
+        return id != null && (id.equals(Level.OVERWORLD.location())
+                || id.equals(Level.NETHER.location())
+                || id.equals(Level.END.location()));
+    }
+
+    /**
+     * 本模组的"太空系统"维度 = 太空 + 行星地表（<b>不含地球 = 主世界</b>）。
+     *
+     * <p>只有这些维度才允许太空的"拆墙 / 落点平滑 / 6DOF 姿态"类改动生效；
+     * 原版维度与其它模组的维度一律走原版。</p>
+     */
+    public static boolean isSpaceSystem(ResourceKey<Level> dim) {
+        if (dim == null || isVanillaDimension(dim)) {
+            return false;
+        }
+        return dim.equals(SPACE) || PLANET_DIMENSIONS.containsValue(dim);
+    }
+
+    public static boolean isSpaceSystem(Level level) {
+        return level != null && isSpaceSystem(level.dimension());
+    }
+
+    public static boolean isSpaceSystem(ResourceLocation id) {
+        if (id == null || isVanillaDimension(id)) {
+            return false;
+        }
+        if (id.equals(SPACE.location())) {
+            return true;
+        }
+        for (ResourceKey<Level> dim : PLANET_DIMENSIONS.values()) {
+            if (dim.location().equals(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean isTeleportable(int planetIndex) {
         return PLANET_DIMENSIONS.containsKey(planetIndex);
     }

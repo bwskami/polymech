@@ -95,10 +95,38 @@ public class PhysicalChunkManager {
         if (this.level == null) {
             this.init();
         } else if (!isSpaceDimension(this.Rlevel)) {
+            // ★ 本维度一个物理体都没有 ⇒ 这一整套没有任何东西在用：地形碰撞体是给
+            //   "物理体站在地上 / 玩家撞物理体"用的，没有物理体就没有这两件事。
+            //   代价却是实打实的：每个关注点（含每个玩家）±8 区块 = 每人 256 个区块的整列
+            //   体素化 + 原生体素体，20Hz 在后台线程上跑（单人游戏里和主线程抢 CPU/区块锁）。
+            //   与客户端 ClientPhysicalWorld.terrainNeeded() 同一判据（用户 2026-10-12：
+            //   那套只在它真的该管的地方跑；主世界没有物理体时逐位原版）。
+            if (!this.physicalWorld.hasPhysicalBodies()) {
+                if (!this.up_physicalChunks.isEmpty()) {
+                    this.releaseAllChunks();
+                }
+                this.interestPoints.clear();
+                return;
+            }
             this.updateInterestPoints();
             this.updatePhysicalChunks();
             this.unlockBodiesWhenChunksReady();
         }
+    }
+
+    /**
+     * 本维度最后一个物理体消失：摘掉全部地形碰撞体。
+     *
+     * <p>不摘的话它们会一直留在原生世界里 —— 100Hz 的步进每一步都得扛着，
+     * 而那套地形已经没人用了（纯成本）。</p>
+     */
+    private void releaseAllChunks() {
+        for (PhysicalChunk chunk : this.up_physicalChunks.values()) {
+            this.deactivateChunk(chunk);
+        }
+        this.up_physicalChunks.clear();
+        this.orderedChunks.clear();
+        this.dirtyChunks.clear();
     }
 
     /** 太空维度不建地形碰撞体（那里是虚空）。MPS 用 kelvin 的 {@code ServerSpaceWorld}。 */

@@ -67,14 +67,10 @@ public class LargeMachineBlock extends BaseMachineBlock {
         return entry != null && entry.sideBlockEntity() != null ? entry.sideBlockEntity().get() : null;
     }
 
+    /** 机器定义 id：形状与代理语义都在 {@code data/poly_mech/machine/<id>.json} 里。 */
     @Override
-    public Vec3i[] getSideOffsets() {
-        return config.sideOffsets();
-    }
-
-    @Override
-    public Vec3i[][] getFillRegions() {
-        return config.fillRegions();
+    public String getMachineId() {
+        return config.id();
     }
 
     // ========== 方块实体 ==========

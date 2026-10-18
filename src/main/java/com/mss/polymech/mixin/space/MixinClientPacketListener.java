@@ -2,6 +2,7 @@ package com.mss.polymech.mixin.space;
 
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.sugar.Local;
+import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.network.SmoothTeleportPosPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
@@ -39,7 +40,12 @@ public class MixinClientPacketListener {
                     ordinal = 0)
     )
     private boolean polymech$keepCameraEntity(Minecraft instance, Entity value) {
-        return !SmoothTeleportPosPacket.hasPos();
+        // ★ 只在太空系统维度才让原版"不接管相机"（主世界/下界/末地保持原版；用户 2026-10-12 指令）。
+        //   原来这里只看"有没有收到过落点包"，而那个标志是粘性的 —— 去过一次太空之后，
+        //   以后每次在主世界重生都会把相机留在旧玩家身上。
+        return !(SmoothTeleportPosPacket.hasPos()
+                && value != null
+                && PlanetDimensions.isSpaceSystem(value.level()));
     }
 
     @Inject(
@@ -51,7 +57,9 @@ public class MixinClientPacketListener {
     private void polymech$applyNewPos(ClientboundRespawnPacket packet, CallbackInfo ci,
                                       @Local(ordinal = 0) LocalPlayer oldPlayer,
                                       @Local(ordinal = 1) LocalPlayer newPlayer) {
-        if (!SmoothTeleportPosPacket.hasPos()) {
+        if (!SmoothTeleportPosPacket.hasPos() || !PlanetDimensions.isSpaceSystem(newPlayer.level())) {
+            // 原版维度：落点包完全不参与，并且清掉标志（防止它泄漏到下一次重生）。
+            SmoothTeleportPosPacket.clear();
             return;
         }
         double[] p = SmoothTeleportPosPacket.pos();
@@ -88,5 +96,8 @@ public class MixinClientPacketListener {
         Abilities oldAbilities = oldPlayer.getAbilities();
         Abilities newAbilities = newPlayer.getAbilities();
         newAbilities.flying = oldAbilities.flying;
+
+        // 一次性语义：用过就清（否则它会一直为真，污染以后每一次重生）。
+        SmoothTeleportPosPacket.clear();
     }
 }

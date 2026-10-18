@@ -71,6 +71,11 @@ public abstract class MixinEntity {
     @Inject(method = "absMoveTo(DDD)V", at = @At("HEAD"), cancellable = true)
     private void polymech$absMoveTo(double x, double y, double z, CallbackInfo ci) {
         Entity self = (Entity) (Object) this;
+        // ★ 原版维度（主世界/下界/末地）：拆墙钩子不参与，走原版（含 ±3e7 夹持）。
+        //   这是"主世界移动与原版一致"里唯一一处会改写实体落位的钩子（用户 2026-10-12 指令）。
+        if (!PlanetDimensions.isSpaceSystem(self.level())) {
+            return;
+        }
         self.xo = x;
         self.yo = y;
         self.zo = z;

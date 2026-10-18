@@ -3,6 +3,8 @@ package com.mss.polymech.machine;
 import com.mojang.serialization.MapCodec;
 import com.mss.polymech.machine.common.MachineGeometry;
 import com.mss.polymech.machine.common.MachineRegistry;
+import com.mss.polymech.machine.definition.MachineDefinition;
+import com.mss.polymech.machine.definition.MachineDefinitionManager;
 import com.mss.polymech.powergrid.GridNodeBlock;
 import com.mss.polymech.powergrid.WorldPowerGrid;
 import net.minecraft.core.BlockPos;
@@ -67,19 +69,38 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
     }
 
     /**
+     * 本机器的定义 id，对应 {@code data/poly_mech/machine/<id>.json}。
+     * <p>单方块机器（电池、小型蒸汽锅炉等）没有结构定义，返回 null。</p>
+     */
+    @Nullable
+    public String getMachineId() {
+        return null;
+    }
+
+    /** 本机器的结构定义；没有定义（单方块机器）时返回 null。 */
+    @Nullable
+    public MachineDefinition definition() {
+        String id = getMachineId();
+        return id == null ? null : MachineDefinitionManager.get(id);
+    }
+
+    /**
      * 获取侧面方块相对于主方块的本地坐标偏移数组。
-     * <p>单方块机器返回空数组。</p>
+     * <p>来自 JSON 定义（{@code side_offsets}）；单方块机器返回空数组。</p>
      */
     public Vec3i[] getSideOffsets() {
-        return new Vec3i[0];
+        MachineDefinition def = definition();
+        return def == null ? new Vec3i[0] : def.sideOffsets();
     }
 
     /**
      * 获取填充区域，返回二维数组，每个元素为{min, max}的Vec3i对。
-     * 默认返回null表示无填充区域。
+     * <p>来自 JSON 定义（{@code fill_regions}）；无填充区域时返回 null。</p>
      */
+    @Nullable
     public Vec3i[][] getFillRegions() {
-        return null;
+        MachineDefinition def = definition();
+        return def == null ? null : def.fillRegions();
     }
 
     // ========== 侧面方块代理配置 ==========
@@ -94,17 +115,29 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
     }
 
     /**
-     * 物品代理声明：暴露的内部槽位索引 + IO 方向 + 有效面。
+     * 物品代理声明：暴露的内部槽位索引 + IO 方向 + 有效面 + <b>按面的槽位</b>。
      * 槽位索引直接指向主方块 BE 的 itemStackHandler，
      * 能力层会将其包装为过滤视图，外部设备只能看到/操作这些槽位。
      * <p>
      * {@code faces}（本地坐标，facing=NORTH）声明代理仅生效的面：
      * null 或空数组表示六面全通；否则只有声明的面才暴露能力/参与主动推送，
      * 管道自动铺设也会吸附到首个声明面所对的格子。
+     * </p>
+     * <h4>槽位归属是「面」而不是「方块」</h4>
+     * 同一个舱室方块的不同面可以代理<strong>不同的槽位</strong>
+     * （例：北面只暴露燃料槽 2、上面只暴露灰烬槽 5）。
+     * {@code faceSlots} 的键是<strong>本地方向</strong>（与 {@code faces} 同一套坐标），
+     * 值是那一面暴露的槽位下标；<strong>没列出的面回退到 {@code slots}</strong>。
+     * 只想按面配置时把 {@code slots} 留空、只写 {@code faceSlots} 即可。
      */
-    public record ItemProxy(int[] slots, ProxyIO io, @Nullable Direction[] faces) {
+    public record ItemProxy(int[] slots, ProxyIO io, @Nullable Direction[] faces,
+                            @Nullable Map<Direction, int[]> faceSlots) {
         public ItemProxy(int[] slots, ProxyIO io) {
-            this(slots, io, null);
+            this(slots, io, null, null);
+        }
+
+        public ItemProxy(int[] slots, ProxyIO io, @Nullable Direction[] faces) {
+            this(slots, io, faces, null);
         }
 
         /** 世界方向 side 是否允许访问该代理（未声明面时六面全通；null 查询面视为通过） */
@@ -112,22 +145,52 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
             if (faces == null || faces.length == 0) return true;
             if (worldSide == null) return true;
             for (Direction f : faces) {
-                if (rotateDirection(f, facing) == worldSide) return true;
+                if (MachineGeometry.rotateDirection(f, facing) == worldSide) return true;
             }
             return false;
+        }
+
+        /**
+         * 世界方向 side 实际暴露的槽位：优先取 {@code faceSlots} 里该面的配置，
+         * 没配就回退到 {@code slots}。
+         * <p>这里调 {@link MachineGeometry#rotateDirection} 而不是外层类的同名静态方法：
+         * 后者会触发 {@code BaseMachineBlock.<clinit>}（注册表依赖），离线校验会炸。</p>
+         */
+        public int[] slotsFor(@Nullable Direction worldSide, Direction facing) {
+            int[] per = faceSlotsFor(worldSide, facing);
+            return per != null ? per : slots;
+        }
+
+        /** 该面在 {@code faceSlots} 里的配置；没配返回 null（与「配了空数组」区分）。 */
+        @Nullable
+        public int[] faceSlotsFor(@Nullable Direction worldSide, Direction facing) {
+            if (worldSide == null || faceSlots == null || faceSlots.isEmpty()) return null;
+            for (Map.Entry<Direction, int[]> e : faceSlots.entrySet()) {
+                if (MachineGeometry.rotateDirection(e.getKey(), facing) == worldSide) {
+                    return e.getValue() == null ? new int[0] : e.getValue();
+                }
+            }
+            return null;
         }
     }
 
     /**
-     * 流体代理声明：暴露的逻辑储罐索引 + IO 方向 + 有效面。
+     * 流体代理声明：暴露的逻辑储罐索引 + IO 方向 + 有效面 + <b>按面的储罐</b>。
      * 储罐索引指向 BE 的逻辑储罐列表（{@code BaseIOBlockEntity#getFluidTank(int)}），
      * 支持多进多出的任意储罐数量；单个位置可暴露多个储罐（能力层拼接为组合 handler）。
      * <p>
      * {@code faces} 语义同 {@link ItemProxy}：null/空=六面全通，否则仅声明面生效。
+     * {@code faceTanks} 语义同 {@link ItemProxy#faceSlots()}：按面覆盖，未列出回退 {@code tanks}。
+     * </p>
      */
-    public record FluidProxy(int[] tanks, ProxyIO io, @Nullable Direction[] faces) {
+    public record FluidProxy(int[] tanks, ProxyIO io, @Nullable Direction[] faces,
+                             @Nullable Map<Direction, int[]> faceTanks) {
         public FluidProxy(int[] tanks, ProxyIO io) {
-            this(tanks, io, null);
+            this(tanks, io, null, null);
+        }
+
+        public FluidProxy(int[] tanks, ProxyIO io, @Nullable Direction[] faces) {
+            this(tanks, io, faces, null);
         }
 
         /** 世界方向 side 是否允许访问该代理（未声明面时六面全通；null 查询面视为通过） */
@@ -135,9 +198,27 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
             if (faces == null || faces.length == 0) return true;
             if (worldSide == null) return true;
             for (Direction f : faces) {
-                if (rotateDirection(f, facing) == worldSide) return true;
+                if (MachineGeometry.rotateDirection(f, facing) == worldSide) return true;
             }
             return false;
+        }
+
+        /** 世界方向 side 实际暴露的储罐：优先按面配置，没配回退 {@code tanks}。 */
+        public int[] tanksFor(@Nullable Direction worldSide, Direction facing) {
+            int[] per = faceTanksFor(worldSide, facing);
+            return per != null ? per : tanks;
+        }
+
+        /** 该面在 {@code faceTanks} 里的配置；没配返回 null（与「配了空数组」区分）。 */
+        @Nullable
+        public int[] faceTanksFor(@Nullable Direction worldSide, Direction facing) {
+            if (worldSide == null || faceTanks == null || faceTanks.isEmpty()) return null;
+            for (Map.Entry<Direction, int[]> e : faceTanks.entrySet()) {
+                if (MachineGeometry.rotateDirection(e.getKey(), facing) == worldSide) {
+                    return e.getValue() == null ? new int[0] : e.getValue();
+                }
+            }
+            return null;
         }
     }
 
@@ -149,25 +230,27 @@ public abstract class BaseMachineBlock extends BaseEntityBlock implements GridNo
     }
 
     /**
-     * 获取指定本地偏移位置的物品代理声明（槽位 + IO 方向）。
-     * 返回 null 表示该位置不代理物品能力（纯占位）。
+     * 获取指定本地偏移位置的物品代理声明（槽位 + IO 方向 + 有效面）。
+     * <p>来自 JSON 定义的 {@code item_proxies}；返回 null 表示该位置不代理物品能力（纯占位）。</p>
      *
      * @param relativeOffset 侧面方块相对于主方块的本地偏移（未旋转）
      */
     @Nullable
     public ItemProxy getItemProxy(Vec3i relativeOffset) {
-        return null;
+        MachineDefinition def = definition();
+        return def == null ? null : def.itemProxy(relativeOffset);
     }
 
     /**
-     * 获取指定本地偏移位置的流体代理声明（储罐 + IO 方向）。
-     * 返回 null 表示该位置不代理流体能力（纯占位）。
+     * 获取指定本地偏移位置的流体代理声明（储罐 + IO 方向 + 有效面）。
+     * <p>来自 JSON 定义的 {@code fluid_proxies}；返回 null 表示该位置不代理流体能力（纯占位）。</p>
      *
      * @param relativeOffset 侧面方块相对于主方块的本地偏移（未旋转）
      */
     @Nullable
     public FluidProxy getFluidProxy(Vec3i relativeOffset) {
-        return null;
+        MachineDefinition def = definition();
+        return def == null ? null : def.fluidProxy(relativeOffset);
     }
 
     /**

@@ -4,6 +4,7 @@ import com.mss.polymech.block.entity.ModBlockEntities;
 import com.mss.polymech.fluid.ModFluids;
 import com.mss.polymech.item.FluidCellHelper;
 import com.mss.polymech.item.FluidCellItem;
+import com.mss.polymech.machine.BuildAnimationSuppressible;
 import com.mss.polymech.machine.boiler.AbstractSteamBoilerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -75,8 +76,6 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
     private boolean buildingAnimPlayed = false;
     /** 服务端放置后经过的 tick 数，用于在服务端标记动画已播完 */
     private int placeTicks = 0;
-    /** 蓝图预览虚影标记：为 true 时跳过建造动画，直接显示 working 状态 */
-    public boolean isGhostPreview = false;
 
     // ==================== 构造函数 ====================
 
@@ -286,16 +285,18 @@ public class HorizontalSteamBoilerBlockEntity extends AbstractSteamBoilerBlockEn
     }
 
     private PlayState animationController(final AnimationState<HorizontalSteamBoilerBlockEntity> state) {
-        if (isGhostPreview) {
+        // 该不该播建造动画只由这一条纯函数决定（离线可校验，见 verifyMachineEditorModel M7）：
+        // 预览虚影 / 结构编辑器里 isBuildAnimationSuppressed() 为 true → 直接显示正常状态；
+        // 已播过（NBT 持久化，区块重载不重播）也不再播。
+        if (!BuildAnimationSuppressible.shouldPlayBuildingAnimation(isBuildAnimationSuppressed(), buildingAnimPlayed)) {
             return state.setAndContinue(WORKING_ANIM);
         }
-        if (!buildingAnimPlayed) {
-            if (state.isCurrentAnimationStage("working")) {
-                buildingAnimPlayed = true;
-                setChanged();
-            } else {
-                return state.setAndContinue(BUILDING_ANIM);
-            }
+        // 还没播过：先播建造动画，等它播到 working 阶段就标记为已播
+        if (state.isCurrentAnimationStage("working")) {
+            buildingAnimPlayed = true;
+            setChanged();
+        } else {
+            return state.setAndContinue(BUILDING_ANIM);
         }
         return state.setAndContinue(WORKING_ANIM);
     }

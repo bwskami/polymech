@@ -4,6 +4,7 @@ import com.mss.polymech.mps.physical.helper.DoubleAABB;
 import com.mss.polymech.mps.physical.physical_body.PhysicalBody;
 import com.mss.polymech.mps.physical.physical_world.ClientPhysicalWorld;
 import com.mss.polymech.mps.physical.physical_world.PhysicalWorld;
+import com.mss.polymech.space.SpaceMovementGate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,13 @@ public final class PhysicalEntityCollision {
          } else {
             PhysicalEntityCollider collider = access.space$getPhysicalEntityCollider();
             if (collider != null && collider.fits(entity)) {
+               // ★ 门：本维度一个物理体都没有 ⇒ 连快照都不必建（原来会建一个空 ArrayList 再早退）。
+               //   这条门保证"主世界没有物理体时，碰撞与位移=原版"（用户 2026-10-12 指令）。
+               if (!physicalWorld.hasPhysicalBodies()) {
+                  SpaceMovementGate.noteSweepBlocked(entity.level());
+                  return requestedMovement;
+               }
+               SpaceMovementGate.noteSweepActive(entity.level());
                List<BodySnapshot> bodies = snapshotBodies(physicalWorld);
                if (bodies.isEmpty()) {
                   return requestedMovement;

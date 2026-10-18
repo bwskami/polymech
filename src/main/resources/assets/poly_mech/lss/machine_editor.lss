@@ -1,0 +1,186 @@
+// ============================================================
+// polymech 机器结构编辑器 —— 暗色扁平主题（照 Blockbench）
+// ============================================================
+//
+// 【约定】界面代码只负责给元素挂语义 class（见 EditorTheme 里的 class 常量），
+// 不写具体颜色、不写贴图。改配色只改这个文件。
+//
+// 语法要点：
+//   .xxx { ... }          class 选择器
+//   button:host { ... }   类型选择器（:host = 元素自身），对所有 Button 生效
+//   rect(#aarrggbb)       纯色
+//   text-color / text-shadow
+//
+// 参考：LDLib2 自带的 assets/ldlib2/lss/mc.lss（本文件就是照它的写法来的）
+
+// ---------- 面板 ----------
+
+.me-bg {
+  background: rect(#ff1a1d23);
+}
+
+.me-panel {
+  background: rect(#ff23272e);
+}
+
+.me-panel-alt {
+  background: rect(#ff2b3038);
+}
+
+.me-sunken {
+  background: rect(#ff1b1e23);
+}
+
+.me-divider {
+  background: rect(#ff14171c);
+  height: 1;
+}
+
+// ---------- 文字 ----------
+
+.me-title {
+  text-color: #d7dce5;
+  text-shadow: false;
+}
+
+.me-dim {
+  text-color: #8c94a3;
+  text-shadow: false;
+}
+
+.me-accent {
+  text-color: #3b82f6;
+  text-shadow: false;
+}
+
+.me-good {
+  text-color: #4fae63;
+  text-shadow: false;
+}
+
+.me-bad {
+  text-color: #d96a6a;
+  text-shadow: false;
+}
+
+// 长文本：放不下就折行，不许画出框
+.me-wrap {
+  text-wrap: wrap;
+  adaptive-width: false;
+  adaptive-height: true;
+}
+
+// ---------- 大纲树（TreeList）----------
+// 选中行用主题的深灰蓝（= EditorTheme.ROW_SELECTED 的 lss 写法）。
+// LDLib2 默认的 hover 贴图是纯蓝 ColorPattern.BLUE，在暗色主题里太跳；
+// 未选中的行不需要底色（node-background 默认就是空）。
+tree-list {
+  node-hover-background: rect(#ff37404e);
+}
+
+// ---------- 全局控件（编辑器家族内一律扁平）----------
+
+button:host {
+  base-background: rect(#ff31363f);
+  hover-background: rect(#ff3d444f);
+  pressed-background: rect(#ff272b32);
+  padding-all: 2;
+}
+
+button:host .__button_text__ {
+  text-color: #d7dce5;
+  text-shadow: false;
+}
+
+text-field:host {
+  background: rect(#ff1b1e23);
+  // 透明：这一层画在文字上面，不透明会把刚输入的字盖住
+  focus-overlay: rect(#00000000);
+  padding-all: 2;
+}
+
+text-field:host .__text-field_text__ {
+  text-color: #d7dce5;
+  text-shadow: false;
+}
+
+// ---------- 页签 ----------
+// Tab 的贴图走 base/hover/pressed 三个槽位；pressed 就是"选中"那一档
+tab:host {
+  base-background: rect(#ff31363f);
+  hover-background: rect(#ff3d444f);
+  pressed-background: rect(#ff272b32);
+}
+
+// 页签内容区（默认是 BORDER_THICK_RT1 原版厚边框）
+.__tab-view_tab_content_container__ {
+  background: rect(#ff23272e);
+}
+
+// ---------- 勾选框 ----------
+// Toggle 的贴图挂在内部按钮上（LDLib2 自己的 mc.lss 也是这么写的）
+.__toggle_button__ {
+  base-background: rect(#ff31363f);
+  hover-background: rect(#ff3d444f);
+  pressed-background: rect(#ff272b32);
+}
+
+toggle:host {
+  mark-background: rect(#ff3b82f6);
+  unmark-background: rect(#ff31363f);
+}
+
+// ---------- 选中态（状态 → class，不在 Java 里 inline 判 active）----------
+// 当前工具：蓝底黑字
+.me-tool-active {
+  base-background: rect(#ff3b82f6);
+  hover-background: rect(#ff3b82f6);
+  pressed-background: rect(#ff2765c9);
+}
+
+.me-tool-active .__button_text__ {
+  text-color: #10141a;
+  text-shadow: false;
+}
+
+// 当前项目标签：蓝底黑字（和工具选中态同一套观感）
+.me-tab-active {
+  base-background: rect(#ff3b82f6);
+  hover-background: rect(#ff3b82f6);
+  pressed-background: rect(#ff2765c9);
+}
+
+.me-tab-active .__button_text__ {
+  text-color: #10141a;
+  text-shadow: false;
+}
+
+// 危险操作（删除之类的按钮）：文字红色
+.me-btn-danger .__button_text__ {
+  text-color: #d96a6a;
+  text-shadow: false;
+}
+
+// 强调按钮（"已打开"的项目、选中的 cube）：文字蓝色
+.me-btn-accent .__button_text__ {
+  text-color: #3b82f6;
+  text-shadow: false;
+}
+
+// ---------- 坐标轴标签（X 红 / Y 绿 / Z 蓝）----------
+
+.me-axis-x {
+  text-color: #d96a6a;
+  text-shadow: false;
+}
+
+.me-axis-y {
+  text-color: #5fbf6a;
+  text-shadow: false;
+}
+
+.me-axis-z {
+  text-color: #5a8fd9;
+  text-shadow: false;
+}
+

@@ -479,13 +479,16 @@ public class Polymech {
                             if (proxy == null) return null;
                             // 声明了有效面时，仅允许从指定面访问（context==null 查询不过滤）
                             if (!proxy.allowsWorldFace(context, facing)) return null;
+                            // 槽位归属是「面」：该面可能只暴露它自己那几个槽位（face_slots 覆盖）
+                            int[] exposed = proxy.slotsFor(context, facing);
+                            if (exposed.length == 0) return null;
                             // 面配置检查：父方块的 ITEM 面配置必须允许该方向
                             var parent = sideEntity.getParentBlock();
                             if (parent instanceof BaseIOBlockEntity be) {
                                 if (context != null && !be.isSideConfigAllowed(context, com.mss.polymech.machine.SideConfig.CapabilityType.ITEM)) {
                                     return null;
                                 }
-                                return new SlotFilteredItemHandler(be.getItemStackHandler(), proxy.slots());
+                                return new SlotFilteredItemHandler(be.getItemStackHandler(), exposed);
                             }
                         }
                     }
@@ -514,7 +517,7 @@ public class Polymech {
                                 if (context != null && !be.isSideConfigAllowed(context, com.mss.polymech.machine.SideConfig.CapabilityType.FLUID)) {
                                     return null;
                                 }
-                                int[] tanks = proxy.tanks();
+                                int[] tanks = proxy.tanksFor(context, facing);
                                 if (tanks.length == 0) return null;
                                 IFluidHandler[] handlers = new IFluidHandler[tanks.length];
                                 for (int i = 0; i < tanks.length; i++) {

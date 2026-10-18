@@ -230,6 +230,19 @@ public class PhysicalWorld extends RapierWorld {
         return new ArrayList<>(this.physicalBodies);
     }
 
+    /**
+     * 本世界是否已登记物理体（<b>不新建列表</b>，供热路径判空）。
+     *
+     * <p>上层三处"要不要跑太空那套"都用它当门的必要条件：地形体素化
+     * （{@code ClientPhysicalWorld.terrainNeeded()} / {@code PhysicalChunkManager.tick()}）、
+     * 载速探针（{@code EntityPhysicsProbeMixin}）、碰撞扫掠（{@code PhysicalEntityCollision.resolve}）。
+     * 没有任何物理体 = 没有东西站在地形上、也没有东西可以载你 —— 那套一律不跑，
+     * 主世界的移动因此与原版逐位一致（用户 2026-10-12 指令）。</p>
+     */
+    public boolean hasPhysicalBodies() {
+        return !this.physicalBodies.isEmpty();
+    }
+
     public PhysicalBody getNearPhysicalBody(Vector3d pos) {
         double near = Double.MAX_VALUE;
         PhysicalBody nearest = null;

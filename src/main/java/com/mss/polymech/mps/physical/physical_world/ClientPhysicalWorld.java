@@ -108,7 +108,8 @@ public class ClientPhysicalWorld extends PhysicalWorld {
      * 所以"有船/有物理体"才是真的需要地形。</p>
      */
     private boolean terrainNeeded() {
-        return !this.getAllPhysicalBody().isEmpty();
+        // 判据用 hasPhysicalBodies()（不新建列表）：它每收到一个区块都要问一次。
+        return this.hasPhysicalBodies();
     }
 
     /** 跳过的提示（节流 5 秒一次，避免自己变成刷屏源）。 */

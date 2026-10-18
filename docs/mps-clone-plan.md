@@ -4461,6 +4461,47 @@ mps `PhysicalWorld.getAllPhysicalBody()`，读 `PhysicalBody.getBlockStateInt`/`
 - 服务端三件套：`PhysicsBodyTracker`/`ProjectionManager` 零改动；`PhysicsWorldManager` 仅删 4 行已删类引用（必要编译修复）。
 - 载速「完整传递」（探针接触移动平台量到载速）依赖 KINEMATIC 平台 + 接触，属游戏内验证范围（离线无 Entity）。
 
+## 三十三、太空移动接管的门：主世界逐位原版（2026-10-12，用户指令）
+
+> 用户原话："把主世界的移动相关改成原版一致，那些改动仅仅在太空生效。"
+
+### 33.1 症状与根因（**不是** 6DOF 本身）
+
+主世界走路"偶尔顿一下"。6DOF 那一族 mixin（`SpaceTurnMixin` / `SpaceInputRotationMixin` / `SpaceFlightMixin` / `SpaceCameraMixin` / `SpaceTravelMixin`）**都判了维度**，没有漏；漏进主世界的是 §32 那条新碰撞链：
+
+| 钩子 | 位置 | 原来的门 | 主世界后果 |
+|---|---|---|---|
+| 载速探针 | `EntityPhysicsProbeMixin`（`Player.travel` HEAD，`@ModifyVariable`） | 只判"客户端物理世界的 level == 玩家维度" | 服务端给**每个维度**（含主世界）都建物理世界并在 `EntityJoinLevelEvent` 下发（日志 `[MPS] 物理世界已创建：minecraft:overworld`），于是主世界 `ClientPhysicalWorld` 非空、维度匹配 ⇒ 探针照建照跑，测得速度回灌进 `travel` |
+| 碰撞扫掠 | `EntityPhysicsCollideMixin`（`Entity.collide` RETURN） | 同上 | 主世界每 tick 都进扫掠入口（无物理体时只是白建一个空列表 + 早退） |
+| 服务端地形 | `PhysicalChunkManager.tick()`（20Hz 后台线程） | 只排除太空维度 | 关注点含**每个玩家** ⇒ 每人 ±8 区块 = **256 个区块**的整列体素化 + 原生体素体，主世界照跑（客户端早有 `terrainNeeded()` 门，服务端没有） |
+
+**探针为什么在主世界变成"一次整段自由落体"**：`PhysicalEntityProbe.onPhysicsStep` 只在"**没着地**"时才用 `current − g·elapsed` 扣掉自由落体分量；玩家站在地上时（`lastGrounded = entity.onGround()`）直接用原始 `linvel`。而客户端地形碰撞体是"**有物理体才建**"（`ClientPhysicalWorld.terrainNeeded()`，2026-09 为省半个核加的门）—— 主世界没有物理体 ⇒ 探针脚下是空的 ⇒ 每 5 个子步（50ms）白落 5 步、攒出 `-9.807×0.05 = -0.49 m/s`，÷20 ≈ **-0.0245 格/tick** 被当成"载速"加进移动输入。它是 50ms 更新一次的锯齿、与 20Hz tick 不同相 ⇒ 表现正是"有时候顿一下"。
+
+**为什么照抄上游却坏了**：space 0.5.0 的客户端地形是**每个区块都建**，探针踩在地形上 `linvel ≈ 0`；我们用 `terrainNeeded()` 把地形抽掉，等于抽掉了探针的立足点 —— 上游那条"落地不扣重力"的分支才第一次变成 bug。所以正解**不是**改探针的公式，而是把门补成一致。
+
+### 33.2 门（唯一判据）
+
+`com.mss.polymech.space.SpaceMovementGate`（新增）+ `PlanetDimensions.isVanillaDimension / isSpaceSystem`（新增）+ `PhysicalWorld.hasPhysicalBodies()`（新增）：
+
+1. **原版三维度（主世界 / 下界 / 末地）：载速探针一律不跑**（`probeOpen` 恒 false）—— 这是纯太空功能。
+2. **任何维度：本维度没有物理体 ⇒ 载速探针与碰撞扫掠都不跑**。这条才是"顿一下"的根因修复：没有物理体就没有地形，也没有东西可以载你。
+3. **碰撞扫掠**在"有物理体"时任何维度都跑 —— 否则你会穿过自己抠出来的建筑 / 飞船（那是 mod 功能，不是太空移动 hack）。
+4. 服务端 `PhysicalChunkManager.tick()` 与客户端同一判据；**最后一个物理体消失时** `releaseAllChunks()` 把地形碰撞体摘掉（否则它们会白留在原生世界里、被 100Hz 步进一直扛着）。
+5. 顺带修掉同类的一处：`SmoothTeleportPosPacket` 的 `hasPos` 是**粘性**的 —— 服务端原来无条件在 `teleportTo` 后发落点，客户端 `handleRespawn` 只看"有没有收到过"。于是**去过一次太空之后，主世界每次重生**都会把相机留在旧玩家身上、把位置摆到太空那次的旧落点。现在：只在太空系统维度发（`MixinServerPlayer`）、只在太空系统维度用（`MixinClientPacketListener`）、用完即 `clear()`。
+6. `mixin/space/MixinEntity.polymech$absMoveTo`（拆 ±3e7 夹持的钩子）同样只保留在太空系统维度：原版维度走原版。
+
+### 33.3 验证（傻瓜式 PASS/FAIL，两处口径共用同一方法 `SpaceMovementGate.verdict`）
+
+- **每 10 秒一行**（客户端 tick）：`[移动门] 维度=… 原版=是 太空系统=否 物理体=无 ⇒ 探针门=关 扫掠门=开 | 生效 探针=0 扫掠=0 | 被拦 … | 判据=PASS(…)`
+- **游戏内**：`/polymech physics status` 多一行 `[移动门] … 判据=…`（服务端视角，含本维度累计生效次数）。
+- 判据只有一条：**本维度没有物理体时，"生效"次数必须为 0**（否则 `★FAIL`）；有物理体时门必须为开。
+
+### 33.4 已知取舍（要改只需一行）
+
+- 主世界**有**物理体时，碰撞扫掠仍会跑（否则穿模）；但**载速探针在主世界永远不跑** —— 即"被牵引枪拖着的平台带着你走"这条手感在主世界没有（它在太空/行星照旧）。
+- 若要连碰撞也归零（严格"只在太空生效"）：把 `SpaceMovementGate.sweepOpen` 改成与 `probeOpen` 同一判据。代价：主世界会穿过抠出来的建筑，服务端那些体也会失去地面（掉到 minBuildHeight 的无限地面/虚空）。
+
+
 
 
 

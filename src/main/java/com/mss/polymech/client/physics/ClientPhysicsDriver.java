@@ -1,6 +1,7 @@
 package com.mss.polymech.client.physics;
 
 import com.mss.polymech.Polymech;
+import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -40,5 +41,18 @@ public final class ClientPhysicsDriver {
         // 天体位置日志（周期性 + 换维度/传送立刻打一次）：人在游戏里、日志在外，
         // 存档往返与传送落点只能靠它取证（见 KelvinDiagnostics 类注释）。
         com.mss.polymech.mps.kelvin.KelvinDiagnostics.tick();
+
+        // ★ [移动门] 自检（用户 2026-10-12："主世界的移动改成原版一致"）：每 10 秒一行 PASS/FAIL。
+        //   判据：本维度没有物理体时，"探针/扫掠生效次数"必须为 0 —— 否则说明太空那套还在改主世界。
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null) {
+            com.mss.polymech.mps.physical.physical_world.ClientPhysicalWorld world =
+                    com.mss.polymech.mps.physical.physical_world.ClientPhysicalWorld.getPhysicalWorld();
+            boolean bodies = world != null
+                    && world.getLevel() != null
+                    && world.getLevel().equals(mc.level.dimension().location())
+                    && world.hasPhysicalBodies();
+            com.mss.polymech.space.SpaceMovementGate.reportIfDue(mc.level, bodies);
+        }
     }
 }

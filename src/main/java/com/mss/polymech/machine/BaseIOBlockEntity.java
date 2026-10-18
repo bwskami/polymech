@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
-public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvider {
+public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvider, BuildAnimationSuppressible {
 
     protected int tickNum = 0;
     protected boolean isPowered = false;
@@ -46,6 +46,23 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     protected int progress = 0;
     protected int maxProgress;
     protected boolean needsInit = true;
+
+    /**
+     * 是否抑制建造动画。预览虚影与结构编辑器里的模型设为 true，
+     * 直接显示机器正常状态（{@link BuildAnimationSuppressible}）。
+     * <p>不持久化：它只对"当前这次显示"有意义，区块重载后由真实放置流程接管。</p>
+     */
+    private boolean buildAnimationSuppressed = false;
+
+    @Override
+    public void setBuildAnimationSuppressed(boolean suppressed) {
+        this.buildAnimationSuppressed = suppressed;
+    }
+
+    @Override
+    public boolean isBuildAnimationSuppressed() {
+        return buildAnimationSuppressed;
+    }
 
     // ==================== 面配置（Mekanism 风格） ====================
 
@@ -487,13 +504,15 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     private void exportItemAtProxy(Level world, BaseMachineBlock mb, Direction facing, Vec3i local) {
         BaseMachineBlock.ItemProxy proxy = mb.getItemProxy(local);
         if (proxy == null || proxy.io() != BaseMachineBlock.ProxyIO.OUTPUT) return;
-        int[] slots = proxy.slots();
         BlockPos sidePos = worldPosition.offset(BaseMachineBlock.rotateVec3i(local, facing));
         for (Direction dir : Direction.values()) {
             BlockPos targetPos = sidePos.relative(dir);
             Vec3i targetLocal = BaseMachineBlock.unrotateVec3i(targetPos.subtract(worldPosition), facing);
             if (mb.isLocalPartOfStructure(targetLocal)) continue;
             if (!proxy.allowsWorldFace(dir, facing)) continue; // 仅从声明的有效面推送
+            // 槽位归属是「面」：这一面可能只推送它自己那几个槽位
+            int[] slots = proxy.slotsFor(dir, facing);
+            if (slots.length == 0) continue;
             IItemHandler target = world.getCapability(Capabilities.ItemHandler.BLOCK, targetPos, dir.getOpposite());
             if (target == null) continue;
             for (int internalSlot : slots) {
@@ -516,13 +535,14 @@ public abstract class BaseIOBlockEntity extends BlockEntity implements MenuProvi
     private void exportFluidAtProxy(Level world, BaseMachineBlock mb, Direction facing, Vec3i local) {
         BaseMachineBlock.FluidProxy proxy = mb.getFluidProxy(local);
         if (proxy == null || proxy.io() != BaseMachineBlock.ProxyIO.OUTPUT) return;
-        int[] tanks = proxy.tanks();
         BlockPos sidePos = worldPosition.offset(BaseMachineBlock.rotateVec3i(local, facing));
         for (Direction dir : Direction.values()) {
             BlockPos targetPos = sidePos.relative(dir);
             Vec3i targetLocal = BaseMachineBlock.unrotateVec3i(targetPos.subtract(worldPosition), facing);
             if (mb.isLocalPartOfStructure(targetLocal)) continue;
             if (!proxy.allowsWorldFace(dir, facing)) continue; // 仅从声明的有效面推送
+            int[] tanks = proxy.tanksFor(dir, facing);
+            if (tanks.length == 0) continue;
             IFluidHandler target = world.getCapability(Capabilities.FluidHandler.BLOCK, targetPos, dir.getOpposite());
             if (target == null) continue;
             for (int tankIndex : tanks) {

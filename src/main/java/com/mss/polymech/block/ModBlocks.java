@@ -171,118 +171,128 @@ public class ModBlocks {
                 .dynamicShape();
     }
 
+    // ========== 大型机器：数据驱动批量注册 ==========
+    //
+    // 一台机器一行。加一台机器 = ① 这里加一行 machine(...) ② 加一份
+    // data/poly_mech/machine/<id>.json。
+    //
+    // 结构与舱室语义**不在**这里，全在那份 JSON 里（用 /polymech machineeditor <id> 改）。
+    // 清单与 JSON 必须一一对应：verifyMachineDefinitions 会读本文件的 machine("...") 调用
+    // 与 machine/*.json 逐一核对，少一份/多一份都 FAIL。
+    //
+    // 顺序有讲究：MACHINE_TABLE 与 static 块必须排在那 10 个公开字段**之前**，
+    // 因为 Java 按书写顺序执行静态初始化 —— 字段要从已填好的表里取。
+
+    /** 机器查找表：id → 注册结果（static 块填充）。 */
+    public static final Map<String, MachineRegistrar.MachineRegistration> MACHINE_TABLE = new LinkedHashMap<>();
+
+    static {
+        machine("filling_unit",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                FillingUnitBlockEntity::new,
+                (block, props) -> new MachineBlockItem(block, props,
+                        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/block/filling_unit.geo.json"),
+                        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/filling_unit.png"),
+                        ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/filling_unit.animation.json")));
+
+        machine("horizontal_steam_boiler", HorizontalSteamBoilerBlock::new,
+                HorizontalSteamBoilerBlockEntity::new, MachineBlockItem::new, 5);
+
+        machine("beehive_coke_oven",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                BeehiveCokeOvenBlockEntity::new, MachineBlockItem::new);
+
+        machine("primitive_blast_furnace",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                PrimitiveBlastFurnaceBlockEntity::new, MachineBlockItem::new);
+
+        machine("steam_roller_crusher",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                SteamRollerCrusherBlockEntity::new, MachineBlockItem::new);
+
+        machine("steam_turbine_generator",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                SteamTurbineGeneratorBlockEntity::new, MachineBlockItem::new);
+
+        machine("flame_reverberatory_furnace",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                FlameReverberatoryFurnaceBlockEntity::new, MachineBlockItem::new);
+
+        machine("gas_turbine_generator",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                GasTurbineGeneratorBlockEntity::new, MachineBlockItem::new);
+
+        machine("steam_duplex_mineral_jig",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                SteamDuplexMineralJigBlockEntity::new, MachineBlockItem::new);
+
+        machine("steam_hammer",
+                com.mss.polymech.machine.common.WorkableMachineBlock::new,
+                SteamHammerBlockEntity::new, MachineBlockItem::new);
+    }
+
+    /** 注册一台机器（默认槽位数 3）。 */
+    private static void machine(String id,
+            java.util.function.Function<MachineConfig, ? extends com.mss.polymech.machine.common.LargeMachineBlock> blockFactory,
+            net.minecraft.world.level.block.entity.BlockEntityType.BlockEntitySupplier<? extends net.minecraft.world.level.block.entity.BlockEntity> beFactory,
+            java.util.function.BiFunction<net.minecraft.world.level.block.Block, net.minecraft.world.item.Item.Properties, ? extends net.minecraft.world.item.BlockItem> itemFactory) {
+        machine(id, blockFactory, beFactory, itemFactory, 3);
+    }
+
+    /** 注册一台机器（清单用）。加机器只改这里的一行。 */
+    private static void machine(String id,
+            java.util.function.Function<MachineConfig, ? extends com.mss.polymech.machine.common.LargeMachineBlock> blockFactory,
+            net.minecraft.world.level.block.entity.BlockEntityType.BlockEntitySupplier<? extends net.minecraft.world.level.block.entity.BlockEntity> beFactory,
+            java.util.function.BiFunction<net.minecraft.world.level.block.Block, net.minecraft.world.item.Item.Properties, ? extends net.minecraft.world.item.BlockItem> itemFactory,
+            int slotCount) {
+        MACHINE_TABLE.put(id, MachineRegistrar.registerBlock(
+                MachineConfig.builder(id)
+                        .blockProperties(machineProps())
+                        .blockEntityFactory(beFactory)
+                        .blockFactory(blockFactory)
+                        .slotCount(slotCount)
+                        .build(),
+                itemFactory));
+    }
+
+    /** 从清单取一台机器的注册结果；取不到就是清单漏了这一行（快速失败，别等到 NPE）。 */
+    private static MachineRegistrar.MachineRegistration reg(String id) {
+        MachineRegistrar.MachineRegistration r = MACHINE_TABLE.get(id);
+        if (r == null) {
+            throw new IllegalStateException("机器清单里没有 \"" + id + "\"：请在 ModBlocks 的 static 块里补一行 machine(...)");
+        }
+        return r;
+    }
+
     /* 填充装置 */
-    public static final MachineRegistrar.MachineRegistration FILLING_UNIT =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("filling_unit")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(FillingUnitBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    (block, props) -> new MachineBlockItem(block, props,
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "geo/filling_unit.geo.json"),
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "textures/block/filling_unit.png"),
-                            ResourceLocation.fromNamespaceAndPath(Polymech.MOD_ID, "animations/filling_unit.animation.json")));
+    public static final MachineRegistrar.MachineRegistration FILLING_UNIT = reg("filling_unit");
 
     /* 水平蒸汽锅炉 */
-    public static final MachineRegistrar.MachineRegistration HORIZONTAL_STEAM_BOILER =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("horizontal_steam_boiler")
-                            .blockFactory(HorizontalSteamBoilerBlock::new)
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(HorizontalSteamBoilerBlockEntity::new)
-                            .slotCount(5)   // 输入水桶、输出空桶、燃料、输出蒸汽桶、灰烬
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration HORIZONTAL_STEAM_BOILER = reg("horizontal_steam_boiler");
 
     /* 蜂巢焦炉 */
-    public static final MachineRegistrar.MachineRegistration BEEHIVE_COKE_OVEN =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("beehive_coke_oven")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(BeehiveCokeOvenBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration BEEHIVE_COKE_OVEN = reg("beehive_coke_oven");
 
     /* 原始高炉 */
-    public static final MachineRegistrar.MachineRegistration PRIMITIVE_BLAST_FURNACE =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("primitive_blast_furnace")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(PrimitiveBlastFurnaceBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration PRIMITIVE_BLAST_FURNACE = reg("primitive_blast_furnace");
 
     /* 蒸汽辊式破碎机 */
-    public static final MachineRegistrar.MachineRegistration STEAM_ROLLER_CRUSHER =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("steam_roller_crusher")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(SteamRollerCrusherBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration STEAM_ROLLER_CRUSHER = reg("steam_roller_crusher");
 
     /* 蒸汽涡轮发电机 */
-    public static final MachineRegistrar.MachineRegistration STEAM_TURBINE_GENERATOR =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("steam_turbine_generator")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(SteamTurbineGeneratorBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration STEAM_TURBINE_GENERATOR = reg("steam_turbine_generator");
 
     /* 火焰反射炉 */
-    public static final MachineRegistrar.MachineRegistration FLAME_REVERBERATORY_FURNACE =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("flame_reverberatory_furnace")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(FlameReverberatoryFurnaceBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration FLAME_REVERBERATORY_FURNACE = reg("flame_reverberatory_furnace");
 
     /* 燃气涡轮发电机 */
-    public static final MachineRegistrar.MachineRegistration GAS_TURBINE_GENERATOR =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("gas_turbine_generator")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(GasTurbineGeneratorBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration GAS_TURBINE_GENERATOR = reg("gas_turbine_generator");
 
     /* 蒸汽双联矿物跳汰机 */
-    public static final MachineRegistrar.MachineRegistration STEAM_DUPLEX_MINERAL_JIG =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("steam_duplex_mineral_jig")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(SteamDuplexMineralJigBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration STEAM_DUPLEX_MINERAL_JIG = reg("steam_duplex_mineral_jig");
 
     /* 蒸汽锤 */
-    public static final MachineRegistrar.MachineRegistration STEAM_HAMMER =
-            MachineRegistrar.registerBlock(
-                    MachineConfig.builder("steam_hammer")
-                            .sideOffsets(MachineConfig.crossOffsets())
-                            .blockProperties(machineProps())
-                            .blockEntityFactory(SteamHammerBlockEntity::new)
-                            .blockFactory(com.mss.polymech.machine.common.WorkableMachineBlock::new)
-                            .build(),
-                    MachineBlockItem::new);
+    public static final MachineRegistrar.MachineRegistration STEAM_HAMMER = reg("steam_hammer");
 
     // ========== 管道方块：数据驱动批量注册 ==========
     

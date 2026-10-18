@@ -46,6 +46,17 @@ public record SmoothTeleportPosPacket(double x, double y, double z) implements C
         return hasLastPos;
     }
 
+    /**
+     * 用完即清。
+     *
+     * <p>这个标志是"<b>一次性</b>落点"，不是"我曾经被传送过"。不清的话它会一直为真，
+     * 于是从太空回到主世界之后，<b>每一次</b>重生都会走进换维度对齐分支
+     * （把相机留在旧玩家身上、把位置摆到太空那次的旧落点）。</p>
+     */
+    public static void clear() {
+        hasLastPos = false;
+    }
+
     public static double[] pos() {
         return lastPos;
     }

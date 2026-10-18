@@ -24,12 +24,13 @@ import java.util.function.Supplier;
  * public static final MachineRegistrar.MachineRegistration BEEHIVE_COKE_OVEN =
  *     MachineRegistrar.registerBlock(
  *         MachineConfig.builder("beehive_coke_oven")
- *             .sideOffsets(MachineConfig.crossOffsets())
  *             .blockProperties(machineProps())
  *             .blockEntityFactory(BeehiveCokeOvenBlockEntity::new)
  *             .build(),
  *         BeehiveCokeOvenItem::new);
  * }</pre>
+ * 形状与侧面方块代理不在这里，而是同名的
+ * {@code data/poly_mech/machine/beehive_coke_oven.json}（可用游戏内编辑器改）。
  *
  * <h3>Phase 2（BE 注册 + 连线，在 ModBlockEntities 中）</h3>
  * <pre>{@code

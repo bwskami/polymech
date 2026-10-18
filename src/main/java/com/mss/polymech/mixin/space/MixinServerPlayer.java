@@ -1,5 +1,6 @@
 package com.mss.polymech.mixin.space;
 
+import com.mss.polymech.dimension.PlanetDimensions;
 import com.mss.polymech.network.SmoothTeleportPosPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,6 +29,12 @@ public abstract class MixinServerPlayer {
     private void polymech$sendNewPos(ServerLevel level, double x, double y, double z,
                                      float yRot, float xRot, CallbackInfo ci) {
         ServerPlayer self = (ServerPlayer) (Object) this;
+        // ★ 只在太空系统维度发：主世界/下界/末地的传送与重生保持原版（用户 2026-10-12 指令）。
+        //   原来无条件发送，而客户端那个 hasPos 标志是**粘性**的 ⇒ 从太空回主世界后，
+        //   任何一次重生都会被旧落点改写位置与插值字段（"太空代码影响主世界"的实例之一）。
+        if (!PlanetDimensions.isSpaceSystem(level)) {
+            return;
+        }
         PacketDistributor.sendToPlayer(self, new SmoothTeleportPosPacket(x, y, z));
     }
 }
